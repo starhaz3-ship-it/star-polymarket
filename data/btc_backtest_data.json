@@ -1,0 +1,312 @@
+{
+  "collected_at": "2026-01-27T00:28:44.930982",
+  "description": "Polymarket BTC/crypto price markets for backtesting",
+  "crypto_markets": [],
+  "whale_positions": [
+    {
+      "market": "Will the price of Bitcoin be above $90,000 on January 20?",
+      "slug": "bitcoin-above-90k-on-january-20",
+      "outcome": "No",
+      "size": 43877.3249,
+      "avg_price": 0.0658,
+      "current_price": 0.0,
+      "pnl": -2890.5065,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Will the price of Bitcoin be above $90,000 on January 11?",
+      "slug": "bitcoin-above-90k-on-january-11",
+      "outcome": "No",
+      "size": 37324.0124,
+      "avg_price": 0.0989,
+      "current_price": 0.0,
+      "pnl": -3693.6962,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Will the price of Bitcoin be above $90,000 on January 27?",
+      "slug": "bitcoin-above-90k-on-january-27",
+      "outcome": "No",
+      "size": 29077.1052,
+      "avg_price": 0.8247,
+      "current_price": 0.92,
+      "pnl": 2769.2162,
+      "pnl_pct": 11.5471
+    },
+    {
+      "market": "Ethereum Up or Down on January 4?",
+      "slug": "ethereum-up-or-down-on-january-4",
+      "outcome": "Down",
+      "size": 26828.5469,
+      "avg_price": 0.152,
+      "current_price": 0.0,
+      "pnl": -4078.9586,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Will the price of Bitcoin be above $90,000 on January 23?",
+      "slug": "bitcoin-above-90k-on-january-23",
+      "outcome": "No",
+      "size": 22011.6715,
+      "avg_price": 0.8562,
+      "current_price": 0.0,
+      "pnl": -18848.022,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Will the price of Ethereum be above $3,100 on January 11?",
+      "slug": "ethereum-above-3100-on-january-11",
+      "outcome": "No",
+      "size": 18430.6242,
+      "avg_price": 0.4143,
+      "current_price": 0.0,
+      "pnl": -7636.9134,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Bitcoin Up or Down on January 25?",
+      "slug": "bitcoin-up-or-down-on-january-25",
+      "outcome": "Up",
+      "size": 17899.297,
+      "avg_price": 0.1912,
+      "current_price": 0.0,
+      "pnl": -3423.1331,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Will the price of Bitcoin be above $90,000 on January 8?",
+      "slug": "bitcoin-above-90k-on-january-8",
+      "outcome": "No",
+      "size": 16161.7064,
+      "avg_price": 0.2637,
+      "current_price": 0.0,
+      "pnl": -4263.345,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Bitcoin Up or Down on January 11?",
+      "slug": "bitcoin-up-or-down-on-january-11",
+      "outcome": "Down",
+      "size": 15890.5248,
+      "avg_price": 0.4694,
+      "current_price": 0.0,
+      "pnl": -7459.2348,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Will the price of Bitcoin be above $86,000 on January 9?",
+      "slug": "bitcoin-above-86k-on-january-9",
+      "outcome": "No",
+      "size": 15115.8829,
+      "avg_price": 0.0319,
+      "current_price": 0.0,
+      "pnl": -482.9978,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Will the price of Bitcoin be above $86,000 on January 20?",
+      "slug": "bitcoin-above-86k-on-january-20",
+      "outcome": "No",
+      "size": 13014.9121,
+      "avg_price": 0.0113,
+      "current_price": 0.0,
+      "pnl": -147.3418,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Bitcoin Up or Down on January 20?",
+      "slug": "bitcoin-up-or-down-on-january-20",
+      "outcome": "Up",
+      "size": 12525.0109,
+      "avg_price": 0.2775,
+      "current_price": 0.0,
+      "pnl": -3476.8052,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Ethereum Up or Down on January 5?",
+      "slug": "ethereum-up-or-down-on-january-5",
+      "outcome": "Down",
+      "size": 11989.5841,
+      "avg_price": 0.2742,
+      "current_price": 0.0,
+      "pnl": -3287.9636,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Will the price of Bitcoin be above $86,000 on January 30?",
+      "slug": "bitcoin-above-86k-on-january-30",
+      "outcome": "Yes",
+      "size": 11176.8559,
+      "avg_price": 0.7098,
+      "current_price": 0.805,
+      "pnl": 1063.1312,
+      "pnl_pct": 13.3992
+    },
+    {
+      "market": "Will the price of Bitcoin be above $86,000 on January 2?",
+      "slug": "bitcoin-above-86k-on-january-2",
+      "outcome": "No",
+      "size": 10582.1884,
+      "avg_price": 0.0247,
+      "current_price": 0.0,
+      "pnl": -262.3536,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Will the price of Solana be above $130 on December 28?",
+      "slug": "solana-above-130-on-december-28",
+      "outcome": "Yes",
+      "size": 10528.5015,
+      "avg_price": 0.104,
+      "current_price": 0.0,
+      "pnl": -1095.5011,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Will the price of Bitcoin be above $90,000 on January 27?",
+      "slug": "bitcoin-above-90k-on-january-27",
+      "outcome": "Yes",
+      "size": 10397.1327,
+      "avg_price": 0.121,
+      "current_price": 0.08,
+      "pnl": -426.4176,
+      "pnl_pct": -33.8913
+    },
+    {
+      "market": "Will the price of Ethereum be above $2,700 on January 30?",
+      "slug": "ethereum-above-2700-on-january-30",
+      "outcome": "Yes",
+      "size": 9865.8179,
+      "avg_price": 0.7404,
+      "current_price": 0.94,
+      "pnl": 1968.5956,
+      "pnl_pct": 26.9475
+    },
+    {
+      "market": "Will the price of Bitcoin be above $86,000 on January 27?",
+      "slug": "bitcoin-above-86k-on-january-27",
+      "outcome": "No",
+      "size": 9707.4805,
+      "avg_price": 0.0348,
+      "current_price": 0.026,
+      "pnl": -85.5132,
+      "pnl_pct": -25.3066
+    },
+    {
+      "market": "Will the price of Bitcoin be above $86,000 on January 12?",
+      "slug": "bitcoin-above-86k-on-january-12",
+      "outcome": "No",
+      "size": 9235.0451,
+      "avg_price": 0.0586,
+      "current_price": 0.0,
+      "pnl": -541.5799,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Will the price of Bitcoin be above $86,000 on January 18?",
+      "slug": "bitcoin-above-86k-on-january-18",
+      "outcome": "No",
+      "size": 9207.9015,
+      "avg_price": 0.0649,
+      "current_price": 0.0,
+      "pnl": -598.2005,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Will the price of Bitcoin be above $86,000 on January 31?",
+      "slug": "bitcoin-above-86k-on-january-31",
+      "outcome": "Yes",
+      "size": 9001.5538,
+      "avg_price": 0.6015,
+      "current_price": 0.795,
+      "pnl": 1741.2875,
+      "pnl_pct": 32.157
+    },
+    {
+      "market": "Will the price of Bitcoin be above $86,000 on January 13?",
+      "slug": "bitcoin-above-86k-on-january-13",
+      "outcome": "No",
+      "size": 8395.2708,
+      "avg_price": 0.0276,
+      "current_price": 0.0,
+      "pnl": -231.8102,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Will the price of Bitcoin be above $86,000 on January 28?",
+      "slug": "bitcoin-above-86k-on-january-28",
+      "outcome": "Yes",
+      "size": 8357.8949,
+      "avg_price": 0.7564,
+      "current_price": 0.905,
+      "pnl": 1241.6404,
+      "pnl_pct": 19.6392
+    },
+    {
+      "market": "Will the price of Bitcoin be above $80,000 on December 29?",
+      "slug": "bitcoin-above-80k-on-december-29",
+      "outcome": "No",
+      "size": 8266.1495,
+      "avg_price": 0.0293,
+      "current_price": 0.0,
+      "pnl": -242.2147,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Will the price of Ethereum be above $2,700 on January 26?",
+      "slug": "ethereum-above-2700-on-january-26",
+      "outcome": "No",
+      "size": 8077.1734,
+      "avg_price": 0.026,
+      "current_price": 0.0,
+      "pnl": -210.0468,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Will the price of Bitcoin be above $80,000 on December 27?",
+      "slug": "bitcoin-above-80k-on-december-27",
+      "outcome": "No",
+      "size": 7827.922,
+      "avg_price": 0.0228,
+      "current_price": 0.0,
+      "pnl": -178.8993,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Will the price of Bitcoin be above $80,000 on December 28?",
+      "slug": "bitcoin-above-80k-on-december-28",
+      "outcome": "No",
+      "size": 7640.4231,
+      "avg_price": 0.0261,
+      "current_price": 0.0,
+      "pnl": -200.095,
+      "pnl_pct": -99.9999
+    },
+    {
+      "market": "Will the price of Bitcoin be above $86,000 on February 1?",
+      "slug": "bitcoin-above-86k-on-february-1",
+      "outcome": "Yes",
+      "size": 7478.7548,
+      "avg_price": 0.5947,
+      "current_price": 0.775,
+      "pnl": 1348.3521,
+      "pnl_pct": 30.3158
+    },
+    {
+      "market": "Will the price of XRP be between $1.80 and $1.90 on December 30?",
+      "slug": "will-the-price-of-xrp-be-between-1pt80-1pt90-on-december-30",
+      "outcome": "No",
+      "size": 7304.0645,
+      "avg_price": 0.2105,
+      "current_price": 0.0,
+      "pnl": -1537.5494,
+      "pnl_pct": -99.9999
+    }
+  ],
+  "summary": {
+    "total_markets": 0,
+    "whale_position_count": 30,
+    "avg_whale_pnl": -1838.8958766666667
+  }
+}
