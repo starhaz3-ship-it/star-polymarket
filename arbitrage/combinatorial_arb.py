@@ -262,7 +262,8 @@ async def main():
         print(f"  Total Probability: {data['total_probability']*100:.1f}%")
         print(f"  Deviation: {data['deviation_from_100']*100:.1f}%")
         if data['top_3']:
-            print(f"  Top 3: {', '.join(f\"{t['entity']}: {t['prob']*100:.0f}%\" for t in data['top_3'])}")
+            top_str = ', '.join(f"{t['entity']}: {t['prob']*100:.0f}%" for t in data['top_3'])
+            print(f"  Top 3: {top_str}")
         print()
 
     # Scan for arbitrage
