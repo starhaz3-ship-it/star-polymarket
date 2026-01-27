@@ -1,0 +1,30 @@
+# Environment and secrets
+.env
+.env.local
+*.env
+
+# Python
+*.pyc
+__pycache__/
+.venv/
+venv/
+*.py[cod]
+
+# Bot state and ML data (contains trading history)
+bot_state.json
+ml_data/
+
+# Logs
+*.log
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+nul
+
+# Downloaded repos (large)
+polymarket-repos/
