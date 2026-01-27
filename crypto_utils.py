@@ -36,6 +36,10 @@ def encrypt_key(private_key: str, password: str) -> tuple[str, str]:
 
 def decrypt_key(encrypted_key: str, salt: str, password: str) -> str:
     """Decrypt a private key with a password."""
+    # Strip ENC: prefix if present
+    if encrypted_key.startswith("ENC:"):
+        encrypted_key = encrypted_key[4:]
+
     salt_bytes = base64.urlsafe_b64decode(salt.encode())
     key = derive_key(password, salt_bytes)
     f = Fernet(key)
