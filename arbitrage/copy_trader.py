@@ -1,0 +1,346 @@
+"""
+Copy trading module - mirrors trades from successful traders.
+"""
+
+import asyncio
+import json
+import time
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Dict, List, Optional, Set
+import httpx
+
+from .config import config
+
+
+@dataclass
+class TrackedPosition:
+    """A position being tracked from target wallet."""
+    condition_id: str
+    token_id: str
+    market_slug: str
+    outcome: str  # YES or NO
+    size: float
+    avg_price: float
+    current_value: float
+    first_seen: float
+    last_updated: float
+
+
+@dataclass
+class CopySignal:
+    """Signal to copy a trade."""
+    condition_id: str
+    token_id: str
+    market_slug: str
+    outcome: str
+    target_size: float
+    target_price: float
+    our_size: float  # Scaled to our budget
+    signal_type: str  # "ENTER" or "EXIT"
+    timestamp: float
+
+
+class CopyTrader:
+    """
+    Monitors a target wallet and generates copy trading signals.
+    """
+
+    # kingofcoinflips wallet
+    DEFAULT_TARGET = "0xe9c6312464b52aa3eff13d822b003282075995c9"
+
+    def __init__(
+        self,
+        target_wallet: str = None,
+        scale_factor: float = 0.01,  # Copy at 1% of their size by default
+        min_position_usd: float = 100.0,  # Only copy positions > $100
+        state_file: str = "copy_trader_state.json",
+    ):
+        self.target_wallet = target_wallet or self.DEFAULT_TARGET
+        self.scale_factor = scale_factor
+        self.min_position_usd = min_position_usd
+        self.state_file = state_file
+
+        # Track positions
+        self.known_positions: Dict[str, TrackedPosition] = {}
+        self.pending_signals: List[CopySignal] = []
+        self.executed_copies: Set[str] = set()  # condition_ids we've copied
+
+        self._load_state()
+
+    def _load_state(self):
+        """Load previous state."""
+        try:
+            with open(self.state_file, "r") as f:
+                data = json.load(f)
+                self.executed_copies = set(data.get("executed_copies", []))
+
+                for pos_data in data.get("known_positions", []):
+                    pos = TrackedPosition(**pos_data)
+                    self.known_positions[pos.condition_id] = pos
+
+                print(f"[CopyTrader] Loaded {len(self.known_positions)} tracked positions")
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            print(f"[CopyTrader] Error loading state: {e}")
+
+    def _save_state(self):
+        """Save current state."""
+        try:
+            data = {
+                "executed_copies": list(self.executed_copies),
+                "known_positions": [
+                    {
+                        "condition_id": p.condition_id,
+                        "token_id": p.token_id,
+                        "market_slug": p.market_slug,
+                        "outcome": p.outcome,
+                        "size": p.size,
+                        "avg_price": p.avg_price,
+                        "current_value": p.current_value,
+                        "first_seen": p.first_seen,
+                        "last_updated": p.last_updated,
+                    }
+                    for p in self.known_positions.values()
+                ],
+            }
+            with open(self.state_file, "w") as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            print(f"[CopyTrader] Error saving state: {e}")
+
+    async def fetch_target_positions(self) -> List[dict]:
+        """Fetch current positions from target wallet."""
+        async with httpx.AsyncClient(timeout=30) as client:
+            try:
+                r = await client.get(
+                    "https://data-api.polymarket.com/positions",
+                    params={
+                        "user": self.target_wallet,
+                        "sizeThreshold": 0,
+                    }
+                )
+                r.raise_for_status()
+                return r.json()
+            except Exception as e:
+                print(f"[CopyTrader] Error fetching positions: {e}")
+                return []
+
+    async def scan_for_signals(self) -> List[CopySignal]:
+        """
+        Scan target wallet for new/changed positions.
+        Returns list of copy signals.
+        """
+        positions = await self.fetch_target_positions()
+        if not positions:
+            return []
+
+        signals = []
+        current_ids = set()
+        now = time.time()
+
+        for pos in positions:
+            condition_id = pos.get("conditionId", "")
+            current_ids.add(condition_id)
+
+            # Parse position data
+            size = float(pos.get("size", 0))
+            avg_price = float(pos.get("avgPrice", 0))
+            current_value = float(pos.get("currentValue", 0))
+            token_id = pos.get("asset", "")
+            market_slug = pos.get("slug", pos.get("title", "unknown")[:50])
+            outcome = pos.get("outcome", "")
+
+            # Skip small positions
+            if current_value < self.min_position_usd:
+                continue
+
+            # Check if this is a new position
+            if condition_id not in self.known_positions:
+                # New position detected!
+                # Get title for display
+                title = pos.get("title", market_slug)[:50]
+
+                tracked = TrackedPosition(
+                    condition_id=condition_id,
+                    token_id=token_id,
+                    market_slug=title,
+                    outcome=outcome,
+                    size=size,
+                    avg_price=avg_price,
+                    current_value=current_value,
+                    first_seen=now,
+                    last_updated=now,
+                )
+                self.known_positions[condition_id] = tracked
+
+                # Generate copy signal if not already copied
+                if condition_id not in self.executed_copies:
+                    our_size = current_value * self.scale_factor
+                    if our_size >= config.MIN_POSITION_SIZE:
+                        signal = CopySignal(
+                            condition_id=condition_id,
+                            token_id=token_id,
+                            market_slug=market_slug,
+                            outcome=outcome,
+                            target_size=size,
+                            target_price=avg_price,
+                            our_size=min(our_size, config.MAX_POSITION_SIZE),
+                            signal_type="ENTER",
+                            timestamp=now,
+                        )
+                        signals.append(signal)
+                        print(f"[CopyTrader] NEW POSITION: {market_slug} {outcome}")
+                        print(f"  Target: {size:.0f} shares @ ${avg_price:.2f} = ${current_value:.2f}")
+                        print(f"  Copy size: ${signal.our_size:.2f}")
+            else:
+                # Update existing position
+                tracked = self.known_positions[condition_id]
+
+                # Check for significant size increase (adding to position)
+                size_increase = size - tracked.size
+                if size_increase > tracked.size * 0.1:  # >10% increase
+                    print(f"[CopyTrader] POSITION INCREASED: {market_slug}")
+                    print(f"  From {tracked.size:.0f} to {size:.0f} shares (+{size_increase:.0f})")
+
+                tracked.size = size
+                tracked.avg_price = avg_price
+                tracked.current_value = current_value
+                tracked.last_updated = now
+
+        # Check for closed positions (exits)
+        for condition_id in list(self.known_positions.keys()):
+            if condition_id not in current_ids:
+                tracked = self.known_positions[condition_id]
+                print(f"[CopyTrader] POSITION CLOSED: {tracked.market_slug}")
+
+                # Generate exit signal if we copied this
+                if condition_id in self.executed_copies:
+                    signal = CopySignal(
+                        condition_id=condition_id,
+                        token_id=tracked.token_id,
+                        market_slug=tracked.market_slug,
+                        outcome=tracked.outcome,
+                        target_size=0,
+                        target_price=0,
+                        our_size=0,
+                        signal_type="EXIT",
+                        timestamp=now,
+                    )
+                    signals.append(signal)
+
+                del self.known_positions[condition_id]
+
+        self._save_state()
+        return signals
+
+    def mark_executed(self, condition_id: str):
+        """Mark a copy trade as executed."""
+        self.executed_copies.add(condition_id)
+        self._save_state()
+
+    def get_status(self) -> dict:
+        """Get current copy trading status."""
+        total_target_value = sum(p.current_value for p in self.known_positions.values())
+
+        return {
+            "target_wallet": self.target_wallet[:10] + "...",
+            "tracked_positions": len(self.known_positions),
+            "total_target_value": total_target_value,
+            "executed_copies": len(self.executed_copies),
+            "scale_factor": self.scale_factor,
+            "min_position": self.min_position_usd,
+        }
+
+    def print_status(self):
+        """Print current status."""
+        status = self.get_status()
+        print("\n" + "=" * 50)
+        print("COPY TRADER STATUS")
+        print("=" * 50)
+        print(f"Target: {status['target_wallet']}")
+        print(f"Tracking: {status['tracked_positions']} positions")
+        print(f"Target Value: ${status['total_target_value']:,.2f}")
+        print(f"Copied: {status['executed_copies']} trades")
+        print(f"Scale: {status['scale_factor']*100:.1f}%")
+        print("=" * 50)
+
+        # Show top positions
+        if self.known_positions:
+            print("\nTop Positions Being Tracked:")
+            sorted_pos = sorted(
+                self.known_positions.values(),
+                key=lambda p: p.current_value,
+                reverse=True
+            )[:5]
+            for p in sorted_pos:
+                print(f"  {p.outcome}: ${p.current_value:,.0f} - {p.market_slug}")
+        print()
+
+
+async def run_copy_monitor(
+    dry_run: bool = True,
+    poll_interval: int = 60,
+    executor=None,
+):
+    """
+    Run the copy trading monitor.
+
+    Args:
+        dry_run: If True, only log signals without executing
+        poll_interval: Seconds between position checks
+        executor: ArbitrageExecutor instance for placing orders
+    """
+    trader = CopyTrader()
+    trader.print_status()
+
+    print(f"\n[CopyTrader] Starting monitor (dry_run={dry_run})")
+    print(f"[CopyTrader] Polling every {poll_interval}s")
+
+    while True:
+        try:
+            signals = await trader.scan_for_signals()
+
+            for signal in signals:
+                if signal.signal_type == "ENTER":
+                    print(f"\n{'='*50}")
+                    print(f"COPY SIGNAL: BUY {signal.outcome}")
+                    print(f"Market: {signal.market_slug}")
+                    print(f"Target bought: {signal.target_size:.0f} @ ${signal.target_price:.2f}")
+                    print(f"Our size: ${signal.our_size:.2f}")
+                    print(f"{'='*50}")
+
+                    if not dry_run and executor:
+                        # Execute the copy trade
+                        # This would integrate with the executor
+                        pass
+                    else:
+                        print("[DRY RUN] Would execute copy trade")
+
+                    trader.mark_executed(signal.condition_id)
+
+                elif signal.signal_type == "EXIT":
+                    print(f"\n{'='*50}")
+                    print(f"EXIT SIGNAL: SELL {signal.outcome}")
+                    print(f"Market: {signal.market_slug}")
+                    print(f"{'='*50}")
+
+                    if not dry_run and executor:
+                        # Execute exit
+                        pass
+                    else:
+                        print("[DRY RUN] Would exit position")
+
+            # Print status periodically
+            if int(time.time()) % 300 < poll_interval:  # Every ~5 min
+                trader.print_status()
+
+        except Exception as e:
+            print(f"[CopyTrader] Error in monitor loop: {e}")
+
+        await asyncio.sleep(poll_interval)
+
+
+if __name__ == "__main__":
+    asyncio.run(run_copy_monitor(dry_run=True, poll_interval=30))
