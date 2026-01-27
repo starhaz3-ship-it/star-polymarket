@@ -28,9 +28,9 @@ class Config:
     BINANCE_WS_URL: str = "wss://stream.binance.com:9443/ws/btcusdt@trade"
     BINANCE_REST_URL: str = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
 
-    # Trading parameters
-    MIN_EDGE_PERCENT: float = 3.5  # Minimum edge after fees (%)
-    MIN_NEGRISK_EDGE: float = 2.0  # Lower threshold for NegRisk (more reliable)
+    # Trading parameters (lowered for more opportunities)
+    MIN_EDGE_PERCENT: float = 1.5  # Minimum edge after fees (%) - was 3.5
+    MIN_NEGRISK_EDGE: float = 1.0  # Lower threshold for NegRisk - was 2.0
     MAX_POSITION_SIZE: float = 100.0  # Max USD per trade
     MIN_POSITION_SIZE: float = 5.0  # Min USD per trade (Polymarket min ~$1)
     MAX_DAILY_LOSS: float = 50.0  # Stop trading if daily loss exceeds this
@@ -39,8 +39,8 @@ class Config:
     # NegRisk settings
     NEGRISK_MIN_OUTCOMES: int = 3  # Min outcomes for multi-outcome arb
     NEGRISK_MAX_OUTCOMES: int = 20  # Max outcomes to consider
-    ENDGAME_PROB_THRESHOLD: float = 0.95  # Min probability for endgame strategy
-    ENDGAME_TIME_HOURS: int = 48  # Max hours to resolution for endgame
+    ENDGAME_PROB_THRESHOLD: float = 0.85  # Min probability for endgame - was 0.95
+    ENDGAME_TIME_HOURS: int = 72  # Max hours to resolution - was 48
 
     # Timing
     POLL_INTERVAL_MS: int = 500  # How often to check for opportunities

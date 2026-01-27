@@ -46,16 +46,46 @@ class BinanceSpotFeed:
             print(f"[SpotFeed] REST error: {e}")
         return None
 
+    async def _fetch_rest_price(self):
+        """Fallback to REST API when WebSocket fails."""
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                r = await client.get(config.BINANCE_REST_URL)
+                if r.status_code == 200:
+                    data = r.json()
+                    self.current_price = float(data["price"])
+                    self.last_update = time.time()
+                    return self.current_price
+        except Exception:
+            pass
+        return None
+
     async def start(self):
-        """Start the WebSocket price feed."""
+        """Start the WebSocket price feed with improved reconnection."""
         self._running = True
         print("[SpotFeed] Starting Binance BTC/USDT feed...")
 
+        # Get initial price via REST
+        await self._fetch_rest_price()
+        if self.current_price:
+            print(f"[SpotFeed] Initial price (REST): ${self.current_price:,.2f}")
+
+        consecutive_failures = 0
+        max_failures = 3
+
         while self._running:
             try:
-                async with websockets.connect(config.BINANCE_WS_URL) as ws:
+                # Use shorter timeouts and ping interval for better connection
+                async with websockets.connect(
+                    config.BINANCE_WS_URL,
+                    ping_interval=20,
+                    ping_timeout=10,
+                    close_timeout=5,
+                    open_timeout=10,
+                ) as ws:
                     self._ws = ws
                     print("[SpotFeed] Connected to Binance WebSocket")
+                    consecutive_failures = 0
 
                     async for message in ws:
                         if not self._running:
@@ -75,14 +105,20 @@ class BinanceSpotFeed:
                                 self.on_price(update)
 
                         except (KeyError, ValueError) as e:
-                            print(f"[SpotFeed] Parse error: {e}")
+                            pass  # Silently ignore parse errors
 
             except websockets.exceptions.ConnectionClosed:
-                print("[SpotFeed] Connection closed, reconnecting...")
+                consecutive_failures += 1
+                print(f"[SpotFeed] Connection closed, reconnecting... ({consecutive_failures})")
                 await asyncio.sleep(1)
             except Exception as e:
-                print(f"[SpotFeed] Error: {e}, reconnecting...")
-                await asyncio.sleep(5)
+                consecutive_failures += 1
+                # Fall back to REST if WebSocket keeps failing
+                if consecutive_failures >= max_failures:
+                    print(f"[SpotFeed] WebSocket unstable, using REST fallback")
+                    await self._fetch_rest_price()
+                    consecutive_failures = 0
+                await asyncio.sleep(2)
 
     def stop(self):
         """Stop the price feed."""

@@ -147,8 +147,8 @@ class RiskManager:
         if signal.edge_percent < config.MIN_EDGE_PERCENT:
             return False, f"Edge too low: {signal.edge_percent:.2f}%"
 
-        # Check confidence threshold
-        if signal.confidence < 0.3:
+        # Check confidence threshold (lowered for more signals)
+        if signal.confidence < 0.2:
             return False, f"Confidence too low: {signal.confidence:.2f}"
 
         # Check market time remaining
