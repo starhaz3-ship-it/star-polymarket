@@ -46,8 +46,14 @@ class CopyTrader:
     Monitors a target wallet and generates copy trading signals.
     """
 
-    # kingofcoinflips wallet
-    DEFAULT_TARGET = "0xe9c6312464b52aa3eff13d822b003282075995c9"
+    # Known whale wallets
+    WHALES = {
+        "kingofcoinflips": "0xe9c6312464b52aa3eff13d822b003282075995c9",  # $692K PnL, crypto-focused
+        "swisstony": "0x204f72f35326db932158cba6adff0b9a1da95e14",  # $3.6M PnL, sports-focused
+        "RN1": "0x2005d16a84ceefa912d4e380cd32e7ff827875ea",  # $4.2M PnL, sports-focused
+    }
+
+    DEFAULT_TARGET = WHALES["kingofcoinflips"]
 
     def __init__(
         self,
