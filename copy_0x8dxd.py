@@ -201,15 +201,20 @@ async def monitor_loop(live: bool = False):
 
 def main():
     live = "--live" in sys.argv
+    auto_confirm = "--confirm" in sys.argv or "-y" in sys.argv
 
     if live:
         print("\n" + "!" * 60)
         print("WARNING: LIVE MODE - REAL MONEY WILL BE USED")
         print("!" * 60)
-        confirm = input("Type 'yes' to confirm: ")
-        if confirm.lower() != "yes":
-            print("Aborted.")
-            return
+
+        if not auto_confirm:
+            confirm = input("Type 'yes' to confirm: ")
+            if confirm.lower() != "yes":
+                print("Aborted.")
+                return
+        else:
+            print("Auto-confirmed via --confirm flag")
 
     try:
         asyncio.run(monitor_loop(live=live))
