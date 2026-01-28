@@ -40,15 +40,33 @@ def main():
     # Define trades with correct token IDs
     trades = [
         {
-            'name': 'Cardi B at Super Bowl halftime - YES',
-            'token': '40188011078723717028570277979743079995042968731892406119337197516891041207608',
-            'price': 0.61,
+            'name': 'U.S. collect less than $100b tariff revenue - YES',
+            'token': '82901799715930045311809212542225092826839455972178920747166234033810084508110',
+            'price': 0.81,
             'size': 5.0,
         },
         {
-            'name': 'Patriots NOT winning Super Bowl - NO',
-            'token': '49985214708919646661175099546558878672426321417556753698510266808095631910814',
-            'price': 0.68,
+            'name': 'Mike Macdonald NOT Coach of Year - NO',
+            'token': '67350414083727211945411231100180290735844987924878251568184718625316367914299',
+            'price': 0.89,
+            'size': 5.0,
+        },
+        {
+            'name': 'Christian McCaffrey NFL Comeback Player - YES',
+            'token': '16513425936935674566064818305833370405719525196845829540434701769192330360572',
+            'price': 0.91,
+            'size': 5.0,
+        },
+        {
+            'name': 'Rojas NOT guilty Texas abortion case - NO',
+            'token': '78453865954536643710017153843673830010373935401063241006664722462398084283536',
+            'price': 0.91,
+            'size': 5.0,
+        },
+        {
+            'name': 'Tetairoa McMillan Offensive ROY - YES',
+            'token': '16499278407319018512543777003620667276489655188752313883635278740367996463711',
+            'price': 0.94,
             'size': 5.0,
         },
     ]

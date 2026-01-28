@@ -1,0 +1,110 @@
+{
+  "bankroll": 81.450625,
+  "trades": [
+    {
+      "id": "ARB_0xe459d1_1769528892",
+      "timestamp": "2026-01-27T08:48:12.441759",
+      "source": "arbitrage",
+      "market": "Will MegaETH perform an airdro > Will MegaETH perform an airdro",
+      "condition_id": "0xe459d1b598da754c9fd5fc155b6efe3a144aa80abbc7d041fce7d35d903d3c8e",
+      "token_id": "",
+      "side": "Sell Will MegaETH perform, Buy Will MegaETH perform",
+      "entry_price": 0,
+      "shares": 0,
+      "cost": 5.0,
+      "status": "OPEN",
+      "ml_win_prob": 0.7,
+      "ml_confidence": 0.7,
+      "kelly_fraction": 0.05,
+      "edge": 0.9485,
+      "features_snapshot": {
+        "child_price": 0.9485,
+        "parent_price": 0.0,
+        "edge": 0.9485
+      },
+      "current_price": 0,
+      "unrealized_pnl": 0.0,
+      "realized_pnl": null,
+      "closed_at": null
+    },
+    {
+      "id": "ARB_0xe7ea46_1769528991",
+      "timestamp": "2026-01-27T08:49:51.614715",
+      "source": "arbitrage",
+      "market": "Will MegaETH perform an airdro > Will MegaETH perform an airdro",
+      "condition_id": "0xe7ea46ccb3ad14ee6c67cbcfde86b97347387c18a638c428db427a3178060348",
+      "token_id": "",
+      "side": "Sell Will MegaETH perform, Buy Will MegaETH perform",
+      "entry_price": 0,
+      "shares": 0,
+      "cost": 4.75,
+      "status": "OPEN",
+      "ml_win_prob": 0.7,
+      "ml_confidence": 0.7,
+      "kelly_fraction": 0.05,
+      "edge": 0.949,
+      "features_snapshot": {
+        "child_price": 0.0,
+        "parent_price": 0.949,
+        "edge": 0.949
+      },
+      "current_price": 0,
+      "unrealized_pnl": 0.0,
+      "realized_pnl": null,
+      "closed_at": null
+    },
+    {
+      "id": "ARB_0x27e48f_1769529091",
+      "timestamp": "2026-01-27T08:51:31.750730",
+      "source": "arbitrage",
+      "market": "Will MegaETH perform an airdro > Will MegaETH perform an airdro",
+      "condition_id": "0x27e48fdbd8a3f94e034f541400e3fd74a0acf3cae8d2f78204827f338e2daff4",
+      "token_id": "",
+      "side": "Sell Will MegaETH perform, Buy Will MegaETH perform",
+      "entry_price": 0,
+      "shares": 0,
+      "cost": 4.5125,
+      "status": "OPEN",
+      "ml_win_prob": 0.7,
+      "ml_confidence": 0.7,
+      "kelly_fraction": 0.05,
+      "edge": 0.855,
+      "features_snapshot": {
+        "child_price": 0.855,
+        "parent_price": 0.0,
+        "edge": 0.855
+      },
+      "current_price": 0,
+      "unrealized_pnl": 0.0,
+      "realized_pnl": null,
+      "closed_at": null
+    },
+    {
+      "id": "ARB_0x30ee7a_1769529192",
+      "timestamp": "2026-01-27T08:53:12.142194",
+      "source": "arbitrage",
+      "market": "Will MegaETH perform an airdro > Will MegaETH perform an airdro",
+      "condition_id": "0x30ee7a0fbc3bbe78a41b457022f5f123d0f16b8b5e676b737ff3d8f672aa4fac",
+      "token_id": "",
+      "side": "Sell Will MegaETH perform, Buy Will MegaETH perform",
+      "entry_price": 0,
+      "shares": 0,
+      "cost": 4.286875,
+      "status": "OPEN",
+      "ml_win_prob": 0.7,
+      "ml_confidence": 0.7,
+      "kelly_fraction": 0.05,
+      "edge": 0.77,
+      "features_snapshot": {
+        "child_price": 0.77,
+        "parent_price": 0.0,
+        "edge": 0.77
+      },
+      "current_price": 0,
+      "unrealized_pnl": 0.0,
+      "realized_pnl": null,
+      "closed_at": null
+    }
+  ],
+  "last_updated": "2026-01-27T17:21:02.705484"
+}
