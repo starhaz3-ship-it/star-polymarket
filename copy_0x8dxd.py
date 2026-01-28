@@ -9,6 +9,7 @@ Usage:
 """
 
 import asyncio
+import os
 import sys
 import time
 from datetime import datetime
@@ -19,7 +20,7 @@ import httpx
 TARGET_WALLET = "0x63ce342161250d705dc0b16df89036c8e5f9ba9a"
 
 # Copy settings
-MAX_COPY_AMOUNT = 100.0  # Max $100 per trade
+MAX_COPY_AMOUNT = 200.0  # Max $200 per trade
 SCALE_FACTOR = 0.10  # Copy at 10% of their size (they bet $1-3K)
 POLL_INTERVAL = 10  # Check every 10 seconds (fast for hourly markets)
 
@@ -79,9 +80,11 @@ async def copy_trade(trade: dict, live: bool = False):
     condition_id = trade.get("conditionId", "")
     token_id = trade.get("asset", "")
 
-    # Calculate our copy size
+    # Calculate our copy size - use minimal size up to MAX
     their_cost = price * size
     our_cost = min(their_cost * SCALE_FACTOR, MAX_COPY_AMOUNT)
+    # Ensure minimum $5 trade
+    our_cost = max(our_cost, 5.0) if our_cost > 0 else 0
     our_size = our_cost / price if price > 0 else 0
 
     log("=" * 60)
@@ -94,11 +97,33 @@ async def copy_trade(trade: dict, live: bool = False):
     log("=" * 60)
 
     if live:
-        # Execute the trade
         log("EXECUTING LIVE TRADE...")
-        # TODO: Integrate with executor
-        # For now, just log
-        log("[NOT IMPLEMENTED] Would execute trade here")
+        try:
+            # Import and use executor
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            from arbitrage.executor import Executor
+
+            executor = Executor()
+            if executor.client:
+                from py_clob_client.order_builder.constants import BUY
+
+                # Build and place order
+                order = executor.client.create_order(
+                    token_id=token_id,
+                    price=price,
+                    size=our_size,
+                    side=BUY,
+                )
+                result = executor.client.post_order(order)
+
+                log(f"ORDER PLACED: {result}")
+                return True
+            else:
+                log("ERROR: Executor not initialized (check wallet password)")
+                return False
+        except Exception as e:
+            log(f"TRADE ERROR: {e}")
+            return False
     else:
         log("[DRY RUN] Would execute trade")
 
