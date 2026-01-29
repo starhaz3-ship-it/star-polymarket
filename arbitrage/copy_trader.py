@@ -56,6 +56,9 @@ class CopyTrader:
         "Gametheory": "0x8b3234f9027f4e994e949df4b48b90ab79015950",  # $244K PnL, diversified
         "Account88888": "0x7f69983eb28245bba0d5083502a78744a8f66162",  # $645K PnL, $118M volume
         "k9Q2mX4L8A7ZP3R": "0xd0d6053c3c37e727402d84c14069780d360993aa",  # $422K PnL, $52M volume
+        "B8a2eF07B847626688": "0x3c27b6ef2d914abbc3c96948a942e295b2d11b56",  # $83K PnL, $1M portfolio, 60 trades
+        "Maskache": "0xc981e9d3b977dfc69188889f979f5cd36555a75d",  # $8.5K PnL, 1,517 trades, $3M volume
+        "bobe2": "0xed107a85a4585a381e48c7f7ca4144909e7dd2e5",  # $1.36M PnL, 1,091 trades, $113M volume
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]
