@@ -61,6 +61,7 @@ class CopyTrader:
         "bobe2": "0xed107a85a4585a381e48c7f7ca4144909e7dd2e5",  # $1.36M PnL, 1,091 trades, $113M volume
         "kch123": "0x6a72f61820b26b1fe4d956e17b6dc2a1ea3033ee",  # $8.79M PnL, 1,769 trades, $222M volume - TOP WHALE
         "WickRick": "0x1c12abb42d0427e70e144ae67c92951b232f79d9",  # $21K PnL, 1 trade, $75K portfolio
+        "BoshBashBish": "0x29bc82f761749e67fa00d62896bc6855097b683c",  # $147K PnL, 9,621 trades, $29M volume, 7 weeks old
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]
