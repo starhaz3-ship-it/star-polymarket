@@ -55,6 +55,7 @@ class CopyTrader:
         "0x8dxd": "0x63ce342161250d705dc0b16df89036c8e5f9ba9a",  # $885K PnL, crypto hourly up/down
         "Gametheory": "0x8b3234f9027f4e994e949df4b48b90ab79015950",  # $244K PnL, diversified
         "Account88888": "0x7f69983eb28245bba0d5083502a78744a8f66162",  # $645K PnL, $118M volume
+        "k9Q2mX4L8A7ZP3R": "0xd0d6053c3c37e727402d84c14069780d360993aa",  # $422K PnL, $52M volume
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]
