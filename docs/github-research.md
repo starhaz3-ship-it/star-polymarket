@@ -1,7 +1,21 @@
 # Polymarket GitHub Research
 
 **Last Updated:** 2026-01-28
-**Source:** GitHub repository analysis
+**Source:** GitHub repository analysis (comprehensive 10-minute search)
+
+---
+
+## Table of Contents
+1. [Official Polymarket Repositories](#official-polymarket-repositories)
+2. [Community Trading Bots](#community-trading-bots)
+3. [Copy Trading & Whale Tracking](#copy-trading--whale-tracking)
+4. [ML & AI Trading Systems](#ml--ai-trading-systems)
+5. [Market Making Bots](#market-making-bots)
+6. [WebSocket & Real-Time Tools](#websocket--real-time-tools)
+7. [Arbitrage Strategies](#arbitrage-strategies)
+8. [External Tools & Platforms](#external-tools--platforms)
+9. [Research Findings](#research-findings)
+10. [Key Takeaways](#key-takeaways)
 
 ---
 
@@ -196,9 +210,360 @@ Targets BTC 15-minute up/down markets.
 
 ---
 
+---
+
+## Copy Trading & Whale Tracking
+
+### [Trust412/polymarket-copy-trading-bot-version-3](https://github.com/Trust412/polymarket-copy-trading-bot-version-3)
+**Most sophisticated copy trading implementation**
+
+**Features:**
+- Scans target wallet every 4 seconds (configurable)
+- Proportional position mirroring with constraints
+- Max 20% portfolio per position (configurable)
+- Automatic position redemption every 2 hours
+- RPC rotation for uptime
+- Blacklist support for excluded assets
+
+**Tech Stack:** Node.js, TypeScript, MongoDB, Polygon RPC
+
+---
+
+### [aarora4/Awesome-Prediction-Market-Tools](https://github.com/aarora4/Awesome-Prediction-Market-Tools)
+**Curated list of all prediction market tools**
+
+#### Whale Tracking Platforms:
+| Tool | URL | Features |
+|------|-----|----------|
+| Stand | stand.trade | Copy trade whales, lightning alerts |
+| Polymarket Bros | brosonpm.trade | Tracks trades >$4,000 |
+| Polycool | polycool.live | Top 0.5% wallet identification |
+| Whale Tracker Livid | whale-tracker-livid.vercel.app | Tiered alerts ($29/mo pro) |
+| PolyTracker | t.me/polytracker0_bot | Telegram wallet monitoring |
+| Polylerts | t.me/Polylerts_bot | Track 15 wallets with alerts |
+
+#### Arbitrage Tools:
+| Tool | URL | Function |
+|------|-----|----------|
+| ArbBets | getarbitragebets.com | AI-driven +EV detection |
+| Eventarb | eventarb.com | Free cross-platform arb |
+| Polytrage | t.me/polytrage | 15-min automated signals |
+| PolyScalping | polyscalping.org | 60-second market scanning |
+
+---
+
+## ML & AI Trading Systems
+
+### [NavnoorBawa/polymarket-prediction-system](https://github.com/NavnoorBawa/polymarket-prediction-system)
+**ML Ensemble for Outcome Prediction**
+
+**Models Used:**
+- XGBoost
+- LightGBM
+- Stacking ensembles
+
+**Features/Indicators:**
+- RSI (Relative Strength Index)
+- Volatility measurements
+- Order book imbalance
+- Expected value calculations
+
+**Output:** STRONG BUY, BUY, HOLD signals with confidence scores
+
+**Position Sizing:** Kelly criterion with terminal risk adjustments
+
+---
+
+### [polymarket-trading-ai-agent](https://github.com/polymarket-trading-ai-agent/polymarket-trading-ai-agent)
+**Multi-LLM Autonomous Trader**
+
+**Supported LLMs:**
+- ChatGPT
+- DeepSeek
+- Claude
+- Gemini
+- Grok
+
+**Example Decision:**
+> Market: 38% | AI Estimate: 47.5% | Edge: +9.5% EV
+> Kelly Allocation: 2.8% of capital
+
+---
+
+### [llSourcell/Poly-Trader](https://github.com/llSourcell/Poly-Trader)
+**Siraj Raval's Autonomous Agent**
+
+- ChatGPT for event analysis
+- Edge detection (AI vs market consensus)
+- Kelly Criterion bankroll management
+- Automated execution
+
+---
+
+## Market Making Bots
+
+### [lorine93s/polymarket-market-maker-bot](https://github.com/lorine93s/polymarket-market-maker-bot)
+**Production-Ready Market Maker**
+
+**Spread Capture:**
+- Min spread: 10 basis points
+- Stepping: 5 bps increments
+- Cancel/replace: 500-1000ms cycles
+- Exploits Polymarket's 500ms taker delay
+
+**Inventory Management:**
+- Separate YES/NO tracking
+- 30% skew threshold triggers size reduction
+- Configurable net exposure limits
+
+**Risk Controls:**
+- Max position/order size caps
+- Pre-trade validation
+- Stop-loss percentages
+- Auto-halt on breach
+
+**Optimizations:**
+- Gas batching (30-50% cost reduction)
+- Sub-50ms WebSocket latency
+- Batch cancellations
+
+---
+
+### [elielieli909/polymarket-marketmaking](https://github.com/elielieli909/polymarket-marketmaking)
+**Band-Based Market Making**
+
+Uses `buyBands` and `sellBands` around market price:
+- Maintains minAmount to maxAmount within margins
+- Reads market price every second
+- Creates new bands when price moves
+
+---
+
+## WebSocket & Real-Time Tools
+
+### [Polymarket/real-time-data-client](https://github.com/Polymarket/real-time-data-client)
+**Official WebSocket Client**
+
+Subscribe to:
+- `trades` messages from `activity` topic
+- All comments messages
+
+---
+
+### [nevuamarkets/poly-websockets](https://github.com/nevuamarkets/poly-websockets)
+**TypeScript WebSocket Library**
+
+Events:
+- `book` - Order book updates
+- `price_change` - Price movements
+- `tick_size_change` - Tick changes
+- `last_trade_price` - Trade prices
+
+Features: Auto-reconnect, easy subscription management
+
+---
+
+### WebSocket Endpoints
+
+| Endpoint | Purpose |
+|----------|---------|
+| `wss://ws-subscriptions-clob.polymarket.com/ws/` | Orders, trades, market data |
+| `wss://ws-live-data.polymarket.com` | Real-time price streaming |
+
+---
+
+## Arbitrage Strategies
+
+### [runesatsdev/polymarket-arbitrage-bot](https://github.com/runesatsdev/polymarket-arbitrage-bot)
+**Research-Based Arbitrage ($39.59M documented)**
+
+#### Strategy 1: Single-Condition
+- YES + NO ≠ $1.00
+- $10.58M extracted (7,051 conditions)
+- Avg profit: $1,500/opportunity
+
+#### Strategy 2: NegRisk Rebalancing (MOST PROFITABLE)
+- Multi-outcome markets where sum ≠ 100%
+- $28.99M extracted (662 markets)
+- **29× capital efficiency**
+- Example: 5-outcome at 98% total = $0.02 profit per $1
+
+#### Strategy 3: Whale Tracking
+- Follow >$5K positions
+- 61-68% prediction accuracy
+- Top performer: $2.01M in 12 months
+
+**Recommended Allocation:**
+| Strategy | Allocation |
+|----------|------------|
+| NegRisk Rebalancing | 40% |
+| Single-Condition | 30% |
+| Event-Driven | 20% |
+| Whale Following | 10% |
+
+---
+
+### [djienne/Polymarket-bot](https://github.com/djienne/Polymarket-bot)
+**APEX PREDATOR v7.2 - Dual Strategy**
+
+#### Gabagool (Arbitrage):
+- YES + NO < $0.975
+- Markets under 4 hours
+- Guaranteed settlement profit
+
+#### Smart Ape (Momentum):
+- BTC 15-min Up/Down markets
+- Analyzes first 2-minute window
+- Triggers on >15% downward movement
+- Targets 1.5x+ asymmetric payouts
+
+**Kelly Implementation:**
+```
+f* = (p × b - q) / b
+```
+Options: 1/8, 1/4, 1/2, Full Kelly
+
+**Performance:** 200-500ms execution, 85% opportunity capture
+
+---
+
+### [discountry/polymarket-trading-bot](https://github.com/discountry/polymarket-trading-bot)
+**Flash Crash Strategy**
+
+**Entry Conditions:**
+- 0.30 probability drop
+- Within 10-second window
+- Buy crashed side
+
+**Exit:**
+- Take profit: +$0.10
+- Stop loss: -$0.05
+
+**Markets:** BTC, ETH, SOL, XRP 15-minute Up/Down
+
+---
+
+### [ent0n29/polybot](https://github.com/ent0n29/polybot)
+**Strategy Reverse Engineering**
+
+Analyzes any user's trading history to identify:
+- Entry/exit signals
+- Sizing rules
+- Timing patterns
+
+**Architecture:**
+- Executor Service (8080) - Order execution
+- Strategy Service (8081) - Signal generation
+- Ingestor Service (8082) - Data collection
+- Analytics Service (8083) - ClickHouse analytics
+
+**Stack:** Java 21+, Kafka, ClickHouse, Grafana
+
+---
+
+## NegRisk (Multi-Outcome) Markets
+
+### [Polymarket/neg-risk-ctf-adapter](https://github.com/Polymarket/neg-risk-ctf-adapter)
+**Official NegRisk Smart Contracts**
+
+Unifies mutually exclusive binary markets into single multi-outcome structure.
+
+**Use Case:** Election markets where only one candidate can win.
+
+**Mechanism:** Convert NO token collections into YES tokens + collateral.
+
+**Known Issues (py-clob-client):**
+- Issue #79: Invalid signature on NegRisk orders
+- Issue #138: Different exchange in signature
+- Issue #188: No built-in conversion function
+
+---
+
+## External Tools & Platforms
+
+### Analytics
+| Tool | URL | Features |
+|------|-----|----------|
+| Polymarket Analytics | polymarketanalytics.com | Trader data, positions |
+| Polysights | app.polysights.xyz | 30+ metrics, AI insights |
+| Hashdive | hashdive.com | Smart Score |
+| TREMOR | tremor.live | SQL terminal, 140K+ markets |
+
+### Trading Terminals
+| Tool | URL | Features |
+|------|-----|----------|
+| okbet | tryokbet.com | Telegram, copy trading |
+| Polymtrade | polym.trade | Mobile, AI insights |
+| Polyterm | github.com/NYTEMODEONLY/polyterm | Terminal-based monitoring |
+
+### Data Infrastructure
+| Tool | URL | Purpose |
+|------|-----|---------|
+| Goldsky | goldsky.com | Blockchain data |
+| Dome | domeapi.io | Unified APIs |
+| PolyRouter | polyrouter.io | Normalized cross-platform |
+
+---
+
+## Research Findings
+
+### IMDEA Networks Study (April 2024 - April 2025)
+**$39.59M total arbitrage extracted from Polymarket**
+
+| Metric | Value |
+|--------|-------|
+| Total arbitrage profit | $39.59M |
+| Top arbitrageur profit | $2,009,631 |
+| Top trader transactions | 4,049 |
+| Average profit per trade | $496 |
+| Daily trade frequency | 11+ trades |
+
+**NegRisk Markets Dominance:**
+- Generated 73% of total arbitrage ($28.99M)
+- 29× capital efficiency advantage
+- Markets with N≥4 conditions most profitable
+
+---
+
+## Key Takeaways
+
+### Strategy Profitability Ranking
+1. **NegRisk Multi-Outcome** - 73% of all profit, 29× efficiency
+2. **Cross-Platform (Polymarket vs Kalshi)** - Risk-free when total < $1
+3. **Same-Market (YES + NO < $1)** - $10.58M extracted, high competition
+4. **Flash Crash/Spike** - Requires <50ms latency
+5. **Whale Copying** - 61-68% accuracy, passive income
+6. **Market Making** - Difficult due to competition
+
+### Technical Requirements
+| Requirement | Specification |
+|-------------|---------------|
+| Detection Latency | <50ms competitive edge |
+| Execution Latency | 200-500ms acceptable |
+| WebSocket | Required for real-time |
+| Languages | Python, TypeScript, Java |
+| Infrastructure | Docker, Kafka, ClickHouse |
+
+### Position Sizing Best Practices
+- Kelly Criterion standard
+- Use fractional Kelly (1/4 to 1/2)
+- Max 20% per position
+- 30% inventory skew triggers reduction
+
+### Warnings
+- Market making "not profitable" in current conditions
+- Spreads compressing with institutional entry
+- NegRisk signature issues with py-clob-client
+- Many repos are sales pitches without code
+
+---
+
 ## Useful Links
 
 - [Polymarket/agents](https://github.com/Polymarket/agents) - Official AI framework
 - [Polymarket/poly-market-maker](https://github.com/Polymarket/poly-market-maker) - Official MM
+- [Polymarket/neg-risk-ctf-adapter](https://github.com/Polymarket/neg-risk-ctf-adapter) - NegRisk contracts
+- [Polymarket/real-time-data-client](https://github.com/Polymarket/real-time-data-client) - WebSocket client
 - [polymarket-arbitrage topic](https://github.com/topics/polymarket-arbitrage) - Community bots
 - [py-clob-client](https://github.com/Polymarket/py-clob-client) - Python SDK
+- [Awesome-Prediction-Market-Tools](https://github.com/aarora4/Awesome-Prediction-Market-Tools) - Curated list
