@@ -72,14 +72,17 @@ async def main():
                             log("EXECUTING...")
                             
                             try:
+                                from py_clob_client.clob_types import OrderArgs, OrderType
                                 from py_clob_client.order_builder.constants import BUY as BUY_SIDE
-                                order = executor.client.create_order(
-                                    token_id=token,
+
+                                order_args = OrderArgs(
                                     price=price,
                                     size=our_size,
                                     side=BUY_SIDE,
+                                    token_id=token,
                                 )
-                                result = executor.client.post_order(order)
+                                signed_order = executor.client.create_order(order_args)
+                                result = executor.client.post_order(signed_order, OrderType.GTC)
                                 log(f"ORDER PLACED: {result}")
                             except Exception as e:
                                 log(f"ORDER ERROR: {e}")
