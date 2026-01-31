@@ -556,6 +556,7 @@ async def fetch_crypto_markets() -> List[dict]:
             whale_wallets = [
                 "0x63ce342161250d705dc0b16df89036c8e5f9ba9a",  # 0x8dxd
                 "0xd0d6053c3c37e727402d84c14069780d360993aa",  # k9Q2mX4L8A7ZP3R
+                "0xdb27bf2ac5d428a9c63dbc914611036855a6c56e",  # DrPufferfish
             ]
 
             for wallet in whale_wallets:
