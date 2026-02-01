@@ -79,6 +79,11 @@ class WhaleTracker:
             "name": "ImJustKen",
             "reputation": 0.75,
         },
+        {
+            "address": "0xd830027529b0baca2a52fd8a4dee43d366a9a592",
+            "name": "LDSIADAS",
+            "reputation": 0.75,
+        },
     ]
 
     def __init__(self, state_file: str = "whale_tracker_state.json"):
