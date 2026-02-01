@@ -99,6 +99,26 @@ class WhaleTracker:
             "name": "Candid-Closure",
             "reputation": 0.75,
         },
+        {
+            "address": "0xcb3143ee858e14d0b3fe40ffeaea78416e646b02",
+            "name": "0xCB3143ee858E14d0B3FE40fFeaEa78416e646B0",
+            "reputation": 0.75,
+        },
+        {
+            "address": "0xa58d4f278d7953cd38eeb929f7e242bfc7c0b9b8",
+            "name": "AiBird",
+            "reputation": 0.75,
+        },
+        {
+            "address": "0xcb2952fd655813ad0f9ee893122c54298e1a975e",
+            "name": "willi",
+            "reputation": 0.75,
+        },
+        {
+            "address": "0x79bf43cbd005a51e25bafa4abe3f51a3c8ba96a8",
+            "name": "I-do-stupid-bets",
+            "reputation": 0.75,
+        },
     ]
 
     def __init__(self, state_file: str = "whale_tracker_state.json"):
