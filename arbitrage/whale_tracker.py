@@ -84,6 +84,21 @@ class WhaleTracker:
             "name": "LDSIADAS",
             "reputation": 0.75,
         },
+        {
+            "address": "0xd0d6053c3c37e727402d84c14069780d360993aa",
+            "name": "k9Q2mX4L8A7ZP3R",
+            "reputation": 0.8,
+        },
+        {
+            "address": "0xdc876e6873772d38716fda7f2452a78d426d7ab6",
+            "name": "432614799197",
+            "reputation": 0.75,
+        },
+        {
+            "address": "0x93c22116e4402c9332ee6db578050e688934c072",
+            "name": "Candid-Closure",
+            "reputation": 0.75,
+        },
     ]
 
     def __init__(self, state_file: str = "whale_tracker_state.json"):

@@ -560,6 +560,8 @@ async def fetch_crypto_markets() -> List[dict]:
                 "0x44c1dfe43260c94ed4f1d00de2e1f80fb113ebc1",  # aenews2
                 "0x9d84ce0306f8551e02efef1680475fc0f1dc1344",  # ImJustKen
                 "0xd830027529b0baca2a52fd8a4dee43d366a9a592",  # LDSIADAS
+                "0xdc876e6873772d38716fda7f2452a78d426d7ab6",  # 432614799197
+                "0x93c22116e4402c9332ee6db578050e688934c072",  # Candid-Closure
             ]
 
             for wallet in whale_wallets:
