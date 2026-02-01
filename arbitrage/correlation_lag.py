@@ -566,6 +566,8 @@ async def fetch_crypto_markets() -> List[dict]:
                 "0xa58d4f278d7953cd38eeb929f7e242bfc7c0b9b8",  # AiBird
                 "0xcb2952fd655813ad0f9ee893122c54298e1a975e",  # willi
                 "0x79bf43cbd005a51e25bafa4abe3f51a3c8ba96a8",  # I-do-stupid-bets
+                "0xd8f8c13644ea84d62e1ec88c5d1215e436eb0f11",  # automatedAItradingbot
+                "0x1c12abb42d0427e70e144ae67c92951b232f79d9",  # WickRick
             ]
 
             for wallet in whale_wallets:

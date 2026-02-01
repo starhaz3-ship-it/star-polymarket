@@ -119,6 +119,16 @@ class WhaleTracker:
             "name": "I-do-stupid-bets",
             "reputation": 0.75,
         },
+        {
+            "address": "0xd8f8c13644ea84d62e1ec88c5d1215e436eb0f11",
+            "name": "automatedAItradingbot",
+            "reputation": 0.75,
+        },
+        {
+            "address": "0x1c12abb42d0427e70e144ae67c92951b232f79d9",
+            "name": "WickRick",
+            "reputation": 0.75,
+        },
     ]
 
     def __init__(self, state_file: str = "whale_tracker_state.json"):
