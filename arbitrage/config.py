@@ -50,6 +50,16 @@ class Config:
     TAKER_FEE_MAX: float = 0.03  # 3% max near 50%
     TAKER_FEE_MIN: float = 0.0  # 0% near 0% or 100%
 
+    # Cross-Market Dependency Detection (from AFT 2025 paper)
+    CROSS_MARKET_MIN_PROFIT: float = 0.05  # 5% minimum profit threshold
+    CROSS_MARKET_VWAP_WINDOW: int = 3600   # 1-hour VWAP window (950 blocks)
+    CROSS_MARKET_USE_LLM: bool = True      # Use Claude Haiku for novel relationships
+    CROSS_MARKET_LLM_MODEL: str = "claude-3-haiku-20240307"
+    CROSS_MARKET_MAX_LLM_CALLS: int = 10   # Max LLM calls per scan
+    CROSS_MARKET_CACHE_TTL_HOURS: int = 168  # 1 week relationship cache
+    CROSS_MARKET_MIN_CONFIDENCE: float = 0.7  # Min relationship confidence
+    CROSS_MARKET_MAX_RISK: float = 0.3     # Max execution risk score
+
     def __post_init__(self):
         """Load secrets from environment."""
         self.PRIVATE_KEY = os.getenv("POLYMARKET_PRIVATE_KEY", "")

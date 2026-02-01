@@ -18,6 +18,7 @@ class SignalType(Enum):
     BUY_BOTH = "buy_both"  # Same-market arbitrage (buy both sides)
     NEGRISK = "negrisk"  # Multi-outcome arbitrage (buy all outcomes)
     ENDGAME = "endgame"  # High-probability near resolution
+    CROSS_MARKET = "cross_market"  # Cross-market dependency arbitrage (AFT 2025)
 
 
 @dataclass

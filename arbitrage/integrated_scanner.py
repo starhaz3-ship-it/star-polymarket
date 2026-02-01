@@ -11,6 +11,7 @@ from .combinatorial_arb import CombinatorialArbDetector, CombinatorialOpportunit
 from .brier_tracker import BrierTracker
 from .news_analyzer import NewsAnalyzer, MarketNewsAnalysis
 from .whale_tracker_v2 import EnhancedWhaleTracker, ConsensusSignal
+from .cross_market import CrossMarketScanner, CrossMarketOpportunity
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ class IntegratedScanner:
         self.brier = BrierTracker()
         self.news = NewsAnalyzer(news_api_key, anthropic_key)
         self.whales = EnhancedWhaleTracker(polygonscan_key)
+        self.cross_market = CrossMarketScanner(anthropic_api_key=anthropic_key)
         self.bankroll = bankroll
         self.signals: list[IntegratedSignal] = []
 
@@ -146,8 +148,44 @@ class IntegratedScanner:
             logger.warning(f"Whale scan error: {e}")
             print(f"   Error: {e}")
 
-        # 4. Combine signals and generate recommendations
-        print("\n4. Combining signals...")
+        # 4. Cross-Market Dependency Arbitrage (AFT 2025 paper)
+        print("4. Scanning cross-market dependencies...")
+        try:
+            cross_market_opps = await self.cross_market.scan()
+            for opp in cross_market_opps:
+                # Add signals for both markets in the relationship
+                for market_id, side, price in [
+                    (opp.relationship.market_a_id, "YES" if opp.recommended_trades and opp.recommended_trades[0].side == "YES" else "NO", opp.market_a_price),
+                    (opp.relationship.market_b_id, "YES" if len(opp.recommended_trades) > 1 and opp.recommended_trades[1].side == "YES" else "NO", opp.market_b_price),
+                ]:
+                    if market_id and market_id not in market_signals:
+                        market_signals[market_id] = {
+                            "question": opp.relationship.market_a_question if market_id == opp.relationship.market_a_id else opp.relationship.market_b_question,
+                            "signals": [],
+                        }
+                    if market_id and opp.recommended_trades:
+                        trade = next((t for t in opp.recommended_trades if t.market_id == market_id), None)
+                        if trade:
+                            market_signals[market_id]["signals"].append({
+                                "source": "cross_market",
+                                "side": trade.side,
+                                "edge": opp.expected_profit_pct / 100,
+                                "confidence": opp.relationship.confidence * (1 - opp.execution_risk_score),
+                                "details": {
+                                    "dependency_type": opp.relationship.dependency_type.value,
+                                    "constraint": opp.relationship.constraint,
+                                    "violation_amount": opp.violation_amount,
+                                    "execution_risk": opp.execution_risk_score,
+                                    "rationale": trade.rationale,
+                                },
+                            })
+            print(f"   Found {len(cross_market_opps)} cross-market opportunities")
+        except Exception as e:
+            logger.warning(f"Cross-market scan error: {e}")
+            print(f"   Error: {e}")
+
+        # 5. Combine signals and generate recommendations
+        print("\n5. Combining signals...")
 
         for market_id, data in market_signals.items():
             if not data["signals"]:
