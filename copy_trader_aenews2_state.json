@@ -1,0 +1,126 @@
+{
+  "executed_copies": [
+    "0x61b66d02793b4a68ab0cc25be60d65f517fe18c7d654041281bb130341244fcc",
+    "0x5abe3287197d0a924707ce99130643c92751c209fc0e376c6700d6673b43ada5",
+    "0x35155be9ad199e97505970a5dfb2b4bca7a9d1bb7b731389a590091997998a78",
+    "0x46d40e851b24d9b0af4bc1942ccd86439cae82a9011767da14950df0ad997adf",
+    "0xc00b7abbf9fea8e9858efd0bfe901bfb915e95aecffaed8361cd14460d599a35",
+    "0x082353628683ed95b8ee66faf6da7d9ed3b645274a8121b9214aca8d3aeee095",
+    "0xd595eb9b81885ff018738300c79047e3ec89e87294424f57a29a7fa9162bf116",
+    "0x43ec78527bd98a0588dd9455685b2cc82f5743140cb3a154603dc03c02b57de5",
+    "0xbcb33ad98c8141b10f2350ef687eddf0660484ecc15be42ecdae64339e64dce1",
+    "0x86bfb53af7250a40928975c551d12c185b762fa4ce0b40c6a64a50c946d72587"
+  ],
+  "known_positions": [
+    {
+      "condition_id": "0x46d40e851b24d9b0af4bc1942ccd86439cae82a9011767da14950df0ad997adf",
+      "token_id": "20939351535690701474621316837957321939118947084394902825750156021315806001424",
+      "market_slug": "Will Trump nominate Judy Shelton as the next Fed c",
+      "outcome": "No",
+      "size": 577285.1044,
+      "avg_price": 0.9844,
+      "current_value": 571512.2534,
+      "first_seen": 1769968457.004928,
+      "last_updated": 1769968651.0694547
+    },
+    {
+      "condition_id": "0xd595eb9b81885ff018738300c79047e3ec89e87294424f57a29a7fa9162bf116",
+      "token_id": "57216272564529548464686463691236811991956032201293786790337952253964682584376",
+      "market_slug": "Will Trump acquire Greenland before 2027?",
+      "outcome": "No",
+      "size": 126617.9727,
+      "avg_price": 0.7944,
+      "current_value": 112056.9058,
+      "first_seen": 1769968457.004928,
+      "last_updated": 1769968651.0694547
+    },
+    {
+      "condition_id": "0x43ec78527bd98a0588dd9455685b2cc82f5743140cb3a154603dc03c02b57de5",
+      "token_id": "52607315900507156846622820770453728082833251091510131025984187712529448877245",
+      "market_slug": "US government shutdown Saturday?",
+      "outcome": "Yes",
+      "size": 122506.0416,
+      "avg_price": 0.7212,
+      "current_value": 122322.2826,
+      "first_seen": 1769968457.004928,
+      "last_updated": 1769968651.0694547
+    },
+    {
+      "condition_id": "0x61b66d02793b4a68ab0cc25be60d65f517fe18c7d654041281bb130341244fcc",
+      "token_id": "51338236787729560681434534660841415073585974762690814047670810862722808070955",
+      "market_slug": "Will Trump nominate Kevin Warsh as the next Fed ch",
+      "outcome": "Yes",
+      "size": 85296.667,
+      "avg_price": 0.9899,
+      "current_value": 84145.162,
+      "first_seen": 1769968457.004928,
+      "last_updated": 1769968651.0694547
+    },
+    {
+      "condition_id": "0xbcb33ad98c8141b10f2350ef687eddf0660484ecc15be42ecdae64339e64dce1",
+      "token_id": "105108334823274411453837752322302146951506166827237470954759784982159162094956",
+      "market_slug": "Will Andr\u00e9 Ventura win the 2026 Portugal president",
+      "outcome": "No",
+      "size": 80820.486,
+      "avg_price": 0.9469,
+      "current_value": 80214.3324,
+      "first_seen": 1769968457.004928,
+      "last_updated": 1769968651.0694547
+    },
+    {
+      "condition_id": "0x082353628683ed95b8ee66faf6da7d9ed3b645274a8121b9214aca8d3aeee095",
+      "token_id": "44887169701994335927823089621118076056870238093278517619124422906156550392335",
+      "market_slug": "Will the total domestic gross for Avatar: Fire and",
+      "outcome": "Yes",
+      "size": 55869.9637,
+      "avg_price": 0.9374,
+      "current_value": 55786.1588,
+      "first_seen": 1769968457.004928,
+      "last_updated": 1769968651.0694547
+    },
+    {
+      "condition_id": "0x5abe3287197d0a924707ce99130643c92751c209fc0e376c6700d6673b43ada5",
+      "token_id": "15631821676887099899145118278843400257602269360221049118391374890586669885976",
+      "market_slug": "Will Trump talk to Vladimir Putin in January?",
+      "outcome": "Yes",
+      "size": 10361.02,
+      "avg_price": 0.1507,
+      "current_value": 1238.1418,
+      "first_seen": 1769968457.004928,
+      "last_updated": 1769968651.0694547
+    },
+    {
+      "condition_id": "0xc00b7abbf9fea8e9858efd0bfe901bfb915e95aecffaed8361cd14460d599a35",
+      "token_id": "33992668284353953796376288867405475531394971842348464508465555630574672651304",
+      "market_slug": "Will the total domestic gross for Avatar: Fire and",
+      "outcome": "No",
+      "size": 4285.913,
+      "avg_price": 0.9609,
+      "current_value": 4281.6271,
+      "first_seen": 1769968457.004928,
+      "last_updated": 1769968651.0694547
+    },
+    {
+      "condition_id": "0x86bfb53af7250a40928975c551d12c185b762fa4ce0b40c6a64a50c946d72587",
+      "token_id": "108587038225191871355030577171066853142535232042155117887981453750193713427381",
+      "market_slug": "Will the Republican Party control the Senate after",
+      "outcome": "No",
+      "size": 2657.6311,
+      "avg_price": 0.3542,
+      "current_value": 943.459,
+      "first_seen": 1769968457.004928,
+      "last_updated": 1769968651.0694547
+    },
+    {
+      "condition_id": "0x35155be9ad199e97505970a5dfb2b4bca7a9d1bb7b731389a590091997998a78",
+      "token_id": "107281002012721876026695277673649500471455902224367011098589595335909329157141",
+      "market_slug": "Tesla launches unsupervised full self driving (FSD",
+      "outcome": "Yes",
+      "size": 956.78,
+      "avg_price": 0.8542,
+      "current_value": 956.3016,
+      "first_seen": 1769968457.004928,
+      "last_updated": 1769968651.0694547
+    }
+  ]
+}
