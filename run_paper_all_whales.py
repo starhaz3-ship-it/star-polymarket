@@ -64,6 +64,7 @@ def load_whales_from_tracker() -> Dict[str, str]:
             "automatedAItradingbot": "0xd8f8c13644ea84d62e1ec88c5d1215e436eb0f11",
             "WickRick": "0x1c12abb42d0427e70e144ae67c92951b232f79d9",
             "0x8dxd": "0x63ce342161250d705dc0b16df89036c8e5f9ba9a",
+            "distinct-baguette": "0xe00740bce98a594e26861838885ab310ec3b548c",
         }
 
     # Also add whales from copy_trader.py
