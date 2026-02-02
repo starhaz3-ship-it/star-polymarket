@@ -24,8 +24,23 @@ try:
 
     # Get GPU info
     device = cuda.Device(0)
-    GPU_NAME = device.name.decode() if hasattr(device.name, 'decode') else str(device.name)
-    GPU_MEMORY = device.mem_info[1] / (1024**3)  # Total memory in GB
+    try:
+        # Try different methods to get GPU name
+        if hasattr(device, 'name'):
+            name = device.name
+            GPU_NAME = name.decode() if hasattr(name, 'decode') else str(name)
+        else:
+            # Use nvidia-smi output or default
+            GPU_NAME = cp.cuda.runtime.getDeviceProperties(0).get('name', 'NVIDIA GPU')
+            if hasattr(GPU_NAME, 'decode'):
+                GPU_NAME = GPU_NAME.decode()
+    except:
+        GPU_NAME = "NVIDIA GPU"
+
+    try:
+        GPU_MEMORY = device.mem_info[1] / (1024**3)  # Total memory in GB
+    except:
+        GPU_MEMORY = 0
 
     print(f"[GPU] CuPy initialized: {GPU_NAME} ({GPU_MEMORY:.1f} GB)")
 except ImportError:
