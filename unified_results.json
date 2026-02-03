@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-03T18:42:40.163401+00:00",
-  "last_updated": "2026-02-03T18:47:12.010190+00:00",
+  "last_updated": "2026-02-03T18:51:32.728577+00:00",
   "dry_run": true,
   "trades": {
     "0xfdb3f10e428db12d6954fd77df02bef974633b17cbed2f30b81e7035a20ad7c0_DOWN": {
@@ -43,9 +43,9 @@
   "total_pnl": 0.0,
   "wins": 0,
   "losses": 0,
-  "signals_count": 3,
+  "signals_count": 5,
   "signal_counts": {
-    "ta": 3,
+    "ta": 5,
     "kalshi_arb": 0,
     "spike": 0,
     "flash_crash": 0,

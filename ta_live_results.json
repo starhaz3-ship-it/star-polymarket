@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-03T18:10:23.371799+00:00",
-  "last_updated": "2026-02-03T18:47:07.280799+00:00",
+  "last_updated": "2026-02-03T18:51:51.956349+00:00",
   "dry_run": false,
   "trades": {
     "0x1ef155c1389a4e9c647cdc058b47536bee52bca7f9635f12cfa3882eead09f4f_DOWN": {
@@ -511,7 +511,7 @@
   "total_pnl": 6.868686868686867,
   "wins": 1,
   "losses": 1,
-  "signals_count": 17,
+  "signals_count": 20,
   "ml_rejections": 0,
   "ml_win_features": [
     {

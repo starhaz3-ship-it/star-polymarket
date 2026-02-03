@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-03T16:49:17.402308+00:00",
-  "last_updated": "2026-02-03T18:46:19.623851+00:00",
+  "last_updated": "2026-02-03T18:52:28.533385+00:00",
   "trades": {
     "0xecc346f701e758b8e2d8730241ec0c144a79aab84d013f55cbf7c1f4816da99c_DOWN": {
       "trade_id": "0xecc346f701e758b8e2d8730241ec0c144a79aab84d013f55cbf7c1f4816da99c_DOWN",
@@ -278,5 +278,5 @@
   "total_pnl": 110.82108210821082,
   "wins": 2,
   "losses": 2,
-  "signals_count": 77
+  "signals_count": 80
 }
