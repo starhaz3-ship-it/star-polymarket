@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-03T21:30:00+00:00",
-  "last_updated": "2026-02-03T22:12:27.352348+00:00",
+  "last_updated": "2026-02-03T22:40:58.610148+00:00",
   "dry_run": false,
   "trades": {
     "0xafbb27dcd3e5916ed6f55d0406d6a280f95f6059bd54bf25721ac7fc55f0e508_DOWN": {
@@ -79,8 +79,8 @@
   "total_pnl": 0.0,
   "wins": 0,
   "losses": 0,
-  "signals_count": 23,
-  "ml_rejections": 0,
+  "signals_count": 45,
+  "ml_rejections": 1,
   "consecutive_wins": 0,
   "consecutive_losses": 0,
   "bankroll": 500.0,

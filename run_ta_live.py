@@ -318,28 +318,58 @@ class TALiveTrader:
         with open(self.OUTPUT_FILE, 'w') as f:
             json.dump(data, f, indent=2)
 
+    # Multi-asset configuration
+    ASSETS = {
+        "BTC": {
+            "symbol": "BTCUSDT",
+            "keywords": ["bitcoin", "btc"],
+        },
+        "ETH": {
+            "symbol": "ETHUSDT",
+            "keywords": ["ethereum", "eth"],
+        },
+        "XRP": {
+            "symbol": "XRPUSDT",
+            "keywords": ["xrp"],
+        },
+        "SOL": {
+            "symbol": "SOLUSDT",
+            "keywords": ["solana", "sol"],
+        },
+    }
+
     async def fetch_data(self):
-        """Fetch BTC candles and markets."""
+        """Fetch candles and markets for all assets."""
+        asset_data = {}  # {asset: (candles, price, markets)}
+
         async with httpx.AsyncClient(timeout=15) as client:
-            # Candles from Binance
-            r = await client.get(
-                "https://api.binance.com/api/v3/klines",
-                params={"symbol": "BTCUSDT", "interval": "1m", "limit": 240}
-            )
-            klines = r.json()
+            # Fetch candles + prices for all assets from Binance
+            for asset, cfg in self.ASSETS.items():
+                try:
+                    r = await client.get(
+                        "https://api.binance.com/api/v3/klines",
+                        params={"symbol": cfg["symbol"], "interval": "1m", "limit": 240}
+                    )
+                    klines = r.json()
 
-            # Current price
-            pr = await client.get(
-                "https://api.binance.com/api/v3/ticker/price",
-                params={"symbol": "BTCUSDT"}
-            )
-            btc_price = float(pr.json()["price"])
+                    pr = await client.get(
+                        "https://api.binance.com/api/v3/ticker/price",
+                        params={"symbol": cfg["symbol"]}
+                    )
+                    price = float(pr.json()["price"])
 
-            # Rate limit
-            await asyncio.sleep(1.5)
+                    candles = [
+                        Candle(k[0]/1000, float(k[1]), float(k[2]), float(k[3]), float(k[4]), float(k[5]))
+                        for k in klines
+                    ]
 
-            # BTC 15m markets
-            markets = []
+                    asset_data[asset] = {"candles": candles, "price": price, "markets": []}
+                    await asyncio.sleep(0.3)  # Binance rate limit
+                except Exception as e:
+                    print(f"[API] Error fetching {asset}: {e}")
+
+            # Fetch all 15m markets from Polymarket
+            await asyncio.sleep(1.0)
             try:
                 mr = await client.get(
                     "https://gamma-api.polymarket.com/events",
@@ -350,27 +380,28 @@ class TALiveTrader:
                     events = mr.json()
                     for event in events:
                         title = event.get("title", "").lower()
-                        if "bitcoin" not in title and "btc" not in title:
+                        # Match event to asset
+                        matched_asset = None
+                        for asset, cfg in self.ASSETS.items():
+                            if any(kw in title for kw in cfg["keywords"]):
+                                matched_asset = asset
+                                break
+                        if not matched_asset or matched_asset not in asset_data:
                             continue
                         for m in event.get("markets", []):
                             if not m.get("closed", True):
                                 if not m.get("question"):
                                     m["question"] = event.get("title", "")
-                                markets.append(m)
-                    if markets:
-                        self._market_cache = markets
+                                m["_asset"] = matched_asset  # Tag with asset name
+                                asset_data[matched_asset]["markets"].append(m)
+                    self._market_cache_all = asset_data
                 else:
-                    markets = getattr(self, '_market_cache', [])
+                    asset_data = getattr(self, '_market_cache_all', asset_data)
             except Exception as e:
-                print(f"[API] Error: {e}")
-                markets = getattr(self, '_market_cache', [])
+                print(f"[API] Error fetching markets: {e}")
+                asset_data = getattr(self, '_market_cache_all', asset_data)
 
-        candles = [
-            Candle(k[0]/1000, float(k[1]), float(k[2]), float(k[3]), float(k[4]), float(k[5]))
-            for k in klines
-        ]
-
-        return candles, btc_price, markets
+        return asset_data
 
     def get_market_prices(self, market: Dict) -> Tuple[Optional[float], Optional[float]]:
         """Extract UP/DOWN prices."""
@@ -572,7 +603,7 @@ class TALiveTrader:
     MAX_DAILY_LOSS = 50.0        # Stop trading after $50 daily loss
     MAX_TOTAL_EXPOSURE = 100.0   # Max $100 total open positions
     MAX_SLIPPAGE = 0.05          # Max 5% slippage from mid price to ask
-    MAX_CONCURRENT_POSITIONS = 3 # Max 3 open positions at once
+    MAX_CONCURRENT_POSITIONS = 6 # Max 6 open positions (across 4 assets)
 
     # Entry window (tighter = more accurate signals, less uncertainty)
     MIN_TIME_REMAINING = 3.0     # Don't enter with < 3 min (too late, bad fills)
@@ -624,153 +655,153 @@ class TALiveTrader:
         return round(size, 2)
 
     async def run_cycle(self):
-        """Run one trading cycle."""
-        candles, btc_price, markets = await self.fetch_data()
+        """Run one trading cycle across all assets."""
+        asset_data = await self.fetch_data()
 
-        if not candles:
+        if not asset_data:
             return None
 
-        # IMPORTANT: Only use the most recent 15 minutes of price action
-        # Not 4 hours - we're trading 15-minute binary options
-        recent_candles = candles[-self.CANDLE_LOOKBACK:]
-
-        # Generate main signal from recent price action only
-        main_signal = self.generator.generate_signal(
-            market_id="btc_main",
-            candles=recent_candles,
-            current_price=btc_price,
-            market_yes_price=0.5,
-            market_no_price=0.5,
-            time_remaining_min=10.0
-        )
+        # Summary of markets found
+        total_markets = sum(len(d["markets"]) for d in asset_data.values())
+        asset_counts = {a: len(d["markets"]) for a, d in asset_data.items() if d["markets"]}
+        if asset_counts:
+            counts_str = " | ".join(f"{a}:{c}" for a, c in asset_counts.items())
+            print(f"[Markets] {total_markets} total ({counts_str})")
 
         self.signals_count += 1
+        main_signal = None
 
-        if markets:
-            print(f"[Markets] Found {len(markets)} BTC 15m market(s)")
+        # Process each asset
+        for asset, data in asset_data.items():
+            candles = data["candles"]
+            price = data["price"]
+            markets = data["markets"]
 
-        # Sort markets by time remaining - only trade the NEAREST expiring one
-        eligible_markets = []
-        for market in markets:
-            up_price, down_price = self.get_market_prices(market)
-            time_left = self.get_time_remaining(market)
-            if up_price is None or down_price is None:
+            if not candles or not markets:
                 continue
-            if time_left > self.MAX_TIME_REMAINING or time_left < self.MIN_TIME_REMAINING:
+
+            recent_candles = candles[-self.CANDLE_LOOKBACK:]
+
+            # Generate main signal for display (use BTC as primary)
+            if asset == "BTC":
+                main_signal = self.generator.generate_signal(
+                    market_id="btc_main",
+                    candles=recent_candles,
+                    current_price=price,
+                    market_yes_price=0.5,
+                    market_no_price=0.5,
+                    time_remaining_min=10.0
+                )
+
+            # Find nearest eligible market for this asset
+            eligible_markets = []
+            for market in markets:
+                up_price, down_price = self.get_market_prices(market)
+                time_left = self.get_time_remaining(market)
+                if up_price is None or down_price is None:
+                    continue
+                if time_left > self.MAX_TIME_REMAINING or time_left < self.MIN_TIME_REMAINING:
+                    continue
+                eligible_markets.append((time_left, market, up_price, down_price))
+
+            eligible_markets.sort(key=lambda x: x[0])
+
+            if not eligible_markets:
                 continue
-            eligible_markets.append((time_left, market, up_price, down_price))
 
-        # Sort by time remaining (ascending) - nearest expiring first
-        eligible_markets.sort(key=lambda x: x[0])
+            print(f"[{asset}] ${price:,.2f} | nearest market: {eligible_markets[0][0]:.1f}min left")
 
-        if eligible_markets:
-            print(f"[Filter] {len(eligible_markets)} markets in window, trading nearest ({eligible_markets[0][0]:.1f}min left)")
+            # Trade the nearest expiring market for this asset
+            for time_left, market, up_price, down_price in eligible_markets[:1]:
+                market_id = market.get("conditionId", "")
+                question = market.get("question", "")
 
-        # Only trade the nearest expiring market for high turnover
-        for time_left, market, up_price, down_price in eligible_markets[:1]:
-            market_id = market.get("conditionId", "")
-            question = market.get("question", "")
+                signal = self.generator.generate_signal(
+                    market_id=market_id,
+                    candles=recent_candles,
+                    current_price=price,
+                    market_yes_price=up_price,
+                    market_no_price=down_price,
+                    time_remaining_min=time_left
+                )
 
-            # Generate signal from recent 15-min price action only
-            signal = self.generator.generate_signal(
-                market_id=market_id,
-                candles=recent_candles,
-                current_price=btc_price,
-                market_yes_price=up_price,
-                market_no_price=down_price,
-                time_remaining_min=time_left
-            )
+                trade_key = f"{market_id}_{signal.side}" if signal.side else None
 
-            trade_key = f"{market_id}_{signal.side}" if signal.side else None
+                # === CONVICTION FILTERS ===
+                if signal.side == "UP" and signal.model_up < self.MIN_MODEL_CONFIDENCE:
+                    continue
+                if signal.side == "DOWN" and signal.model_down < self.MIN_MODEL_CONFIDENCE:
+                    continue
 
-            # === CONVICTION FILTERS ===
-            # 1. Model must be confident enough (not flip-flopping near 50%)
-            if signal.side == "UP" and signal.model_up < self.MIN_MODEL_CONFIDENCE:
-                continue  # Not confident enough for UP
-            if signal.side == "DOWN" and signal.model_down < self.MIN_MODEL_CONFIDENCE:
-                continue  # Not confident enough for DOWN
+                best_edge = signal.edge_up if signal.side == "UP" else signal.edge_down
+                if best_edge is not None and best_edge < self.MIN_EDGE:
+                    continue
 
-            # 2. Minimum edge requirement - don't trade without real edge
-            best_edge = signal.edge_up if signal.side == "UP" else signal.edge_down
-            if best_edge is not None and best_edge < self.MIN_EDGE:
-                continue  # Edge too small
+                entry_price_check = up_price if signal.side == "UP" else down_price
+                if entry_price_check is not None and entry_price_check > self.MAX_ENTRY_PRICE:
+                    continue
 
-            # 3. Don't buy at prices near 50¢ (no edge zone)
-            entry_price_check = up_price if signal.side == "UP" else down_price
-            if entry_price_check is not None and entry_price_check > self.MAX_ENTRY_PRICE:
-                continue  # Entry price too high, no real edge
+                if signal.action == "ENTER" and signal.side and trade_key:
+                    if trade_key not in self.trades:
+                        # === RISK CHECKS ===
+                        if self.total_pnl <= -self.MAX_DAILY_LOSS:
+                            print(f"[RISK] Daily loss limit hit: ${self.total_pnl:.2f} - stopping")
+                            continue
 
-            # Enter trade if signal passes all filters
-            if signal.action == "ENTER" and signal.side and trade_key:
-                if trade_key not in self.trades:
-                    # === RISK CHECKS ===
-                    # 4. Daily loss limit
-                    if self.total_pnl <= -self.MAX_DAILY_LOSS:
-                        print(f"[RISK] Daily loss limit hit: ${self.total_pnl:.2f} - stopping")
-                        continue
+                        open_exposure = sum(t.size_usd for t in self.trades.values() if t.status == "open")
+                        if open_exposure >= self.MAX_TOTAL_EXPOSURE:
+                            print(f"[RISK] Exposure limit: ${open_exposure:.2f} >= ${self.MAX_TOTAL_EXPOSURE}")
+                            continue
 
-                    # 5. Total exposure cap
-                    open_exposure = sum(t.size_usd for t in self.trades.values() if t.status == "open")
-                    if open_exposure >= self.MAX_TOTAL_EXPOSURE:
-                        print(f"[RISK] Exposure limit: ${open_exposure:.2f} >= ${self.MAX_TOTAL_EXPOSURE}")
-                        continue
+                        open_count = sum(1 for t in self.trades.values() if t.status == "open")
+                        if open_count >= self.MAX_CONCURRENT_POSITIONS:
+                            continue
 
-                    # 6. Max concurrent positions
-                    open_count = sum(1 for t in self.trades.values() if t.status == "open")
-                    if open_count >= self.MAX_CONCURRENT_POSITIONS:
-                        continue
+                        entry_price = up_price if signal.side == "UP" else down_price
+                        edge = signal.edge_up if signal.side == "UP" else signal.edge_down
 
-                    entry_price = up_price if signal.side == "UP" else down_price
-                    edge = signal.edge_up if signal.side == "UP" else signal.edge_down
+                        bregman_signal = self.bregman.calculate_optimal_trade(
+                            model_prob=signal.model_up,
+                            market_yes_price=up_price,
+                            market_no_price=down_price
+                        )
 
-                    # Bregman optimization
-                    bregman_signal = self.bregman.calculate_optimal_trade(
-                        model_prob=signal.model_up,
-                        market_yes_price=up_price,
-                        market_no_price=down_price
-                    )
+                        features = self.ml.extract_features(signal, bregman_signal, candles)
 
-                    # Extract ML features (use full candles for feature extraction)
-                    features = self.ml.extract_features(signal, bregman_signal, candles)
+                        ml_score = self.ml.score_trade(features, signal.side)
+                        min_score = self.ml.get_min_score_threshold()
 
-                    # ML scoring
-                    ml_score = self.ml.score_trade(features, signal.side)
-                    min_score = self.ml.get_min_score_threshold()
+                        if ml_score < min_score:
+                            self.ml_rejections += 1
+                            print(f"[ML] {asset} Rejected: {signal.side} score={ml_score:.2f} < {min_score:.2f}")
+                            continue
 
-                    if ml_score < min_score:
-                        self.ml_rejections += 1
-                        print(f"[ML] Rejected: {signal.side} score={ml_score:.2f} < {min_score:.2f}")
-                        continue
+                        position_size = self.calculate_position_size(
+                            edge=edge if edge else 0.10,
+                            kelly_fraction=bregman_signal.kelly_fraction,
+                            btc_1h_change=features.btc_1h_change,
+                            volatility=features.btc_volatility,
+                        )
+                        print(f"[SIZE] {asset} ${position_size:.2f} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, Streak={self.consecutive_wins}W/{self.consecutive_losses}L)")
 
-                    # Dynamic position sizing based on edge, Kelly, momentum, volatility
-                    position_size = self.calculate_position_size(
-                        edge=edge if edge else 0.10,
-                        kelly_fraction=bregman_signal.kelly_fraction,
-                        btc_1h_change=features.btc_1h_change,
-                        volatility=features.btc_volatility,
-                    )
-                    print(f"[SIZE] ${position_size:.2f} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, Streak={self.consecutive_wins}W/{self.consecutive_losses}L)")
+                        success, order_result = await self.execute_trade(
+                            market, signal.side, position_size, entry_price
+                        )
 
-                    # Execute trade
-                    success, order_result = await self.execute_trade(
-                        market, signal.side, position_size, entry_price
-                    )
+                        if not success:
+                            print(f"[LIVE] {asset} {signal.side} @ ${entry_price:.4f} FAILED: {order_result} - NOT recorded")
+                            continue
 
-                    if not success:
-                        print(f"[LIVE] {signal.side} @ ${entry_price:.4f} FAILED: {order_result} - NOT recorded")
-                        continue
-
-                    # Only record trade if fill is verified
-                    trade = LiveTrade(
-                        trade_id=trade_key,
-                        market_id=market_id,
-                        market_title=question[:80],
-                        side=signal.side,
-                        entry_price=entry_price,
-                        entry_time=datetime.now(timezone.utc).isoformat(),
-                        size_usd=position_size,
-                        signal_strength=signal.strength.value,
-                        edge_at_entry=edge if edge else 0,
+                        trade = LiveTrade(
+                            trade_id=trade_key,
+                            market_id=market_id,
+                            market_title=f"[{asset}] {question[:75]}",
+                            side=signal.side,
+                            entry_price=entry_price,
+                            entry_time=datetime.now(timezone.utc).isoformat(),
+                            size_usd=position_size,
+                            signal_strength=signal.strength.value,
+                            edge_at_entry=edge if edge else 0,
                         kl_divergence=bregman_signal.kl_divergence,
                         kelly_fraction=bregman_signal.kelly_fraction,
                         features=asdict(features),
@@ -865,10 +896,11 @@ class TALiveTrader:
         """Main loop."""
         print("=" * 70)
         mode = "LIVE" if not self.dry_run else "DRY RUN"
-        print(f"TA + BREGMAN + ML {mode} TRADER - BTC 15-Minute Markets")
+        print(f"TA + BREGMAN + ML {mode} TRADER - Multi-Asset 15-Minute Markets")
         print("=" * 70)
         print(f"Position Size: ${self.BASE_POSITION_SIZE} base (${self.MIN_POSITION_SIZE}-${self.MAX_POSITION_SIZE} Kelly-scaled)")
         print(f"ML Optimization: ENABLED")
+        print(f"Assets: {', '.join(self.ASSETS.keys())}")
         print(f"Entry Window: {self.MIN_TIME_REMAINING}-{self.MAX_TIME_REMAINING} min")
         print(f"Scan interval: 60 seconds")
         print("=" * 70)
