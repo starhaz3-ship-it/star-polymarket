@@ -21,6 +21,8 @@ WHALES = [
     ('ImJustKen', '0x9d84ce0306f8551e02efef1680475fc0f1dc1344'),
     ('willi', '0xcb2952fd655813ad0f9ee893122c54298e1a975e'),
     ('NeverYES', '0xe55108581aec68af7686bd4cbc4f53ef93680a67'),
+    ('Harmless-Critic', '0x1461cC6e1A05e20710c416307Db62C28f1D122d8'),
+    ('distinct-baguette', '0xe00740bce98a594e26861838885ab310ec3b548c'),
 ]
 
 async def fetch_whale_data():

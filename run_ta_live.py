@@ -227,13 +227,16 @@ class TALiveTrader:
     """Live trades based on TA + Bregman signals with ML optimization."""
 
     OUTPUT_FILE = Path(__file__).parent / "ta_live_results.json"
-    POSITION_SIZE = 10.0  # $10 per trade as requested
+    BASE_POSITION_SIZE = 10.0  # Base $10 per trade
+    MIN_POSITION_SIZE = 5.0    # Minimum position
+    MAX_POSITION_SIZE = 25.0   # Maximum position (Kelly cap)
 
     def __init__(self, dry_run: bool = False, bankroll: float = 500.0):
         self.dry_run = dry_run
         self.generator = TASignalGenerator()
         self.bregman = BregmanOptimizer(bankroll=bankroll)
         self.ml = MLOptimizer()
+        self.initial_bankroll = bankroll
         self.bankroll = bankroll
 
         self.trades: Dict[str, LiveTrade] = {}
@@ -242,6 +245,8 @@ class TALiveTrader:
         self.losses = 0
         self.signals_count = 0
         self.ml_rejections = 0
+        self.consecutive_wins = 0
+        self.consecutive_losses = 0
         self.start_time = datetime.now(timezone.utc).isoformat()
 
         # Executor for live trading
@@ -279,6 +284,9 @@ class TALiveTrader:
                 self.losses = data.get("losses", 0)
                 self.signals_count = data.get("signals_count", 0)
                 self.start_time = data.get("start_time", self.start_time)
+                self.consecutive_wins = data.get("consecutive_wins", 0)
+                self.consecutive_losses = data.get("consecutive_losses", 0)
+                self.bankroll = data.get("bankroll", self.bankroll)
 
                 # Load ML state
                 self.ml.win_features = data.get("ml_win_features", [])
@@ -300,6 +308,9 @@ class TALiveTrader:
             "losses": self.losses,
             "signals_count": self.signals_count,
             "ml_rejections": self.ml_rejections,
+            "consecutive_wins": self.consecutive_wins,
+            "consecutive_losses": self.consecutive_losses,
+            "bankroll": self.bankroll,
             "ml_win_features": self.ml.win_features[-100:],  # Keep last 100
             "ml_loss_features": self.ml.loss_features[-100:],
             "ml_weights": self.ml.feature_weights,
@@ -441,6 +452,10 @@ class TALiveTrader:
                         best_ask = float(asks[0].get("price", price))
                         ask_size = float(asks[0].get("size", 0))
                         print(f"[BOOK] Best ask: ${best_ask} ({ask_size} shares available)")
+                        # Slippage check - don't overpay vs mid price
+                        slippage = (best_ask - price) / price if price > 0 else 0
+                        if slippage > self.MAX_SLIPPAGE:
+                            return False, f"slippage_too_high_{slippage:.1%}"
                         # Use the ask price to ensure fill
                         price = best_ask
                     else:
@@ -553,6 +568,61 @@ class TALiveTrader:
     MAX_ENTRY_PRICE = 0.55       # Don't buy at prices above 55¢ (no edge zone)
     CANDLE_LOOKBACK = 15         # Only use last 15 minutes of price action
 
+    # Risk management (inspired by crypmancer/polymarket-arbitrage-copy-bot)
+    MAX_DAILY_LOSS = 50.0        # Stop trading after $50 daily loss
+    MAX_TOTAL_EXPOSURE = 100.0   # Max $100 total open positions
+    MAX_SLIPPAGE = 0.05          # Max 5% slippage from mid price to ask
+    MAX_CONCURRENT_POSITIONS = 3 # Max 3 open positions at once
+
+    # Entry window (tighter = more accurate signals, less uncertainty)
+    MIN_TIME_REMAINING = 3.0     # Don't enter with < 3 min (too late, bad fills)
+    MAX_TIME_REMAINING = 10.0    # Don't enter with > 10 min (signal too noisy)
+
+    # Kelly position sizing
+    KELLY_FRACTION = 0.5         # Half-Kelly for safety (full Kelly is too aggressive)
+    MOMENTUM_BOOST = 1.3         # 30% size boost for strong momentum
+
+    def calculate_position_size(self, edge: float, kelly_fraction: float,
+                                  btc_1h_change: float, volatility: float) -> float:
+        """
+        Dynamic position sizing based on:
+        - Kelly criterion (edge-proportional)
+        - Profit compounding (bankroll growth)
+        - Momentum scaling (bigger in strong trends)
+        - Volatility adjustment (smaller in high vol)
+        - Streak management
+        """
+        # Base: scale with bankroll (compounding)
+        bankroll_ratio = max(0.5, self.bankroll / self.initial_bankroll)
+        base = self.BASE_POSITION_SIZE * bankroll_ratio
+
+        # Kelly scaling: half-Kelly based on actual edge
+        kelly_mult = min(2.0, max(0.5, kelly_fraction * self.KELLY_FRACTION * 4))
+        size = base * kelly_mult
+
+        # Momentum boost: if BTC moved > 0.5% in last hour, boost size
+        if abs(btc_1h_change) > 0.5:
+            size *= self.MOMENTUM_BOOST
+
+        # Volatility damping: reduce size when vol is high (> 0.15%)
+        if volatility > 0.15:
+            vol_damper = max(0.5, 1.0 - (volatility - 0.15) * 3)
+            size *= vol_damper
+
+        # Streak management
+        if self.consecutive_wins >= 3:
+            size *= 1.2  # Scale up on hot streak
+        elif self.consecutive_losses >= 2:
+            size *= 0.7  # Scale down on cold streak
+
+        # Edge-proportional: bigger edge = bigger position
+        edge_mult = min(1.5, max(0.5, edge / 0.20))  # Normalize around 20% edge
+        size *= edge_mult
+
+        # Clamp to min/max
+        size = max(self.MIN_POSITION_SIZE, min(self.MAX_POSITION_SIZE, size))
+        return round(size, 2)
+
     async def run_cycle(self):
         """Run one trading cycle."""
         candles, btc_price, markets = await self.fetch_data()
@@ -586,7 +656,7 @@ class TALiveTrader:
             time_left = self.get_time_remaining(market)
             if up_price is None or down_price is None:
                 continue
-            if time_left > 15 or time_left < 2:
+            if time_left > self.MAX_TIME_REMAINING or time_left < self.MIN_TIME_REMAINING:
                 continue
             eligible_markets.append((time_left, market, up_price, down_price))
 
@@ -633,6 +703,23 @@ class TALiveTrader:
             # Enter trade if signal passes all filters
             if signal.action == "ENTER" and signal.side and trade_key:
                 if trade_key not in self.trades:
+                    # === RISK CHECKS ===
+                    # 4. Daily loss limit
+                    if self.total_pnl <= -self.MAX_DAILY_LOSS:
+                        print(f"[RISK] Daily loss limit hit: ${self.total_pnl:.2f} - stopping")
+                        continue
+
+                    # 5. Total exposure cap
+                    open_exposure = sum(t.size_usd for t in self.trades.values() if t.status == "open")
+                    if open_exposure >= self.MAX_TOTAL_EXPOSURE:
+                        print(f"[RISK] Exposure limit: ${open_exposure:.2f} >= ${self.MAX_TOTAL_EXPOSURE}")
+                        continue
+
+                    # 6. Max concurrent positions
+                    open_count = sum(1 for t in self.trades.values() if t.status == "open")
+                    if open_count >= self.MAX_CONCURRENT_POSITIONS:
+                        continue
+
                     entry_price = up_price if signal.side == "UP" else down_price
                     edge = signal.edge_up if signal.side == "UP" else signal.edge_down
 
@@ -655,9 +742,18 @@ class TALiveTrader:
                         print(f"[ML] Rejected: {signal.side} score={ml_score:.2f} < {min_score:.2f}")
                         continue
 
+                    # Dynamic position sizing based on edge, Kelly, momentum, volatility
+                    position_size = self.calculate_position_size(
+                        edge=edge if edge else 0.10,
+                        kelly_fraction=bregman_signal.kelly_fraction,
+                        btc_1h_change=features.btc_1h_change,
+                        volatility=features.btc_volatility,
+                    )
+                    print(f"[SIZE] ${position_size:.2f} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, Streak={self.consecutive_wins}W/{self.consecutive_losses}L)")
+
                     # Execute trade
                     success, order_result = await self.execute_trade(
-                        market, signal.side, self.POSITION_SIZE, entry_price
+                        market, signal.side, position_size, entry_price
                     )
 
                     if not success:
@@ -672,7 +768,7 @@ class TALiveTrader:
                         side=signal.side,
                         entry_price=entry_price,
                         entry_time=datetime.now(timezone.utc).isoformat(),
-                        size_usd=self.POSITION_SIZE,
+                        size_usd=position_size,
                         signal_strength=signal.strength.value,
                         edge_at_entry=edge if edge else 0,
                         kl_divergence=bregman_signal.kl_divergence,
@@ -683,7 +779,7 @@ class TALiveTrader:
                         status="open",
                     )
                     self.trades[trade_key] = trade
-                    print(f"[LIVE] {signal.side} @ ${entry_price:.4f} | Edge: {edge:.1%} | Model: {signal.model_up:.0%} UP | ML: {ml_score:.2f} | FILLED")
+                    print(f"[LIVE] {signal.side} @ ${entry_price:.4f} | Size: ${position_size:.2f} | Edge: {edge:.1%} | Model: {signal.model_up:.0%} UP | ML: {ml_score:.2f} | FILLED")
 
             # Check for resolved markets
             if time_left < 0.5:
@@ -691,31 +787,38 @@ class TALiveTrader:
                     if trade.status == "open" and market_id in tid:
                         price = up_price if trade.side == "UP" else down_price
 
-                        # Determine outcome
+                        # Determine outcome using actual position size
                         if price >= 0.95:
-                            exit_val = self.POSITION_SIZE / trade.entry_price
+                            exit_val = trade.size_usd / trade.entry_price
                         elif price <= 0.05:
                             exit_val = 0
                         else:
-                            exit_val = (self.POSITION_SIZE / trade.entry_price) * price
+                            exit_val = (trade.size_usd / trade.entry_price) * price
 
                         trade.exit_price = price
                         trade.exit_time = datetime.now(timezone.utc).isoformat()
-                        trade.pnl = exit_val - self.POSITION_SIZE
+                        trade.pnl = exit_val - trade.size_usd
                         trade.status = "closed"
 
                         self.total_pnl += trade.pnl
                         won = trade.pnl > 0
                         if won:
                             self.wins += 1
+                            self.consecutive_wins += 1
+                            self.consecutive_losses = 0
                         else:
                             self.losses += 1
+                            self.consecutive_losses += 1
+                            self.consecutive_wins = 0
+
+                        # Compound: update bankroll with PnL
+                        self.bankroll = max(self.initial_bankroll * 0.5, self.bankroll + trade.pnl)
 
                         # Update ML
                         self.ml.update_weights(trade.features, won)
 
                         result = "WIN" if won else "LOSS"
-                        print(f"[{result}] {trade.side} PnL: ${trade.pnl:+.2f} | {trade.market_title[:40]}...")
+                        print(f"[{result}] {trade.side} PnL: ${trade.pnl:+.2f} | Size: ${trade.size_usd:.2f} | Bankroll: ${self.bankroll:.2f} | {trade.market_title[:40]}...")
 
         self._save()
         return main_signal
@@ -738,12 +841,14 @@ class TALiveTrader:
             print(f"  Model: {signal.model_up:.1%} UP / {signal.model_down:.1%} DOWN")
 
         print(f"\nTRADING STATS:")
-        print(f"  Position Size: ${self.POSITION_SIZE}")
+        print(f"  Base Size: ${self.BASE_POSITION_SIZE} (Kelly-scaled ${self.MIN_POSITION_SIZE}-${self.MAX_POSITION_SIZE})")
+        print(f"  Bankroll: ${self.bankroll:.2f} ({(self.bankroll/self.initial_bankroll - 1)*100:+.1f}%)")
         print(f"  Total trades: {len(closed_trades)}")
         print(f"  Win/Loss: {self.wins}/{self.losses}")
         win_rate = (self.wins / max(1, self.wins + self.losses)) * 100
         print(f"  Win rate: {win_rate:.1f}%")
         print(f"  Total PnL: ${self.total_pnl:+.2f}")
+        print(f"  Streak: {self.consecutive_wins}W / {self.consecutive_losses}L")
 
         print(f"\nML OPTIMIZATION:")
         print(f"  ML Rejections: {self.ml_rejections}")
@@ -762,9 +867,10 @@ class TALiveTrader:
         mode = "LIVE" if not self.dry_run else "DRY RUN"
         print(f"TA + BREGMAN + ML {mode} TRADER - BTC 15-Minute Markets")
         print("=" * 70)
-        print(f"Position Size: ${self.POSITION_SIZE}")
+        print(f"Position Size: ${self.BASE_POSITION_SIZE} base (${self.MIN_POSITION_SIZE}-${self.MAX_POSITION_SIZE} Kelly-scaled)")
         print(f"ML Optimization: ENABLED")
-        print(f"Scan interval: 2 minutes")
+        print(f"Entry Window: {self.MIN_TIME_REMAINING}-{self.MAX_TIME_REMAINING} min")
+        print(f"Scan interval: 60 seconds")
         print("=" * 70)
 
         last_update = 0
@@ -785,7 +891,7 @@ class TALiveTrader:
                     self.print_update(signal)
                     last_update = now
 
-                await asyncio.sleep(120)  # 2 minutes
+                await asyncio.sleep(60)  # 1 minute - faster scanning for optimal entries
 
             except KeyboardInterrupt:
                 print("\nStopping...")

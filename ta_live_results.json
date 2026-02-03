@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-03T21:30:00+00:00",
-  "last_updated": "2026-02-03T21:49:00.239220+00:00",
+  "last_updated": "2026-02-03T22:12:27.352348+00:00",
   "dry_run": false,
   "trades": {
     "0xafbb27dcd3e5916ed6f55d0406d6a280f95f6059bd54bf25721ac7fc55f0e508_DOWN": {
@@ -38,13 +38,52 @@
       "status": "open",
       "order_id": "0xb9229bb2092e2ddd81792b697be30424ca824880f8e4dc1d97caa1c7fb279c0c",
       "execution_error": null
+    },
+    "0xffd2f1a677a0865323b345ccd6d79613c52fd8b67b004666523eb0501b53903e_DOWN": {
+      "trade_id": "0xffd2f1a677a0865323b345ccd6d79613c52fd8b67b004666523eb0501b53903e_DOWN",
+      "market_id": "0xffd2f1a677a0865323b345ccd6d79613c52fd8b67b004666523eb0501b53903e",
+      "market_title": "Bitcoin Up or Down - February 3, 5:00PM-5:15PM ET",
+      "side": "DOWN",
+      "entry_price": 0.495,
+      "entry_time": "2026-02-03T22:01:26.167613+00:00",
+      "size_usd": 10.0,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.360274750617284,
+      "kl_divergence": 0.2868535977823482,
+      "kelly_fraction": 0.25,
+      "features": {
+        "rsi": 38.78447573606438,
+        "rsi_slope": 0.0,
+        "vwap_distance": -0.03513774106379146,
+        "vwap_slope": -3.38846723164089,
+        "heiken_count": 1,
+        "heiken_bullish": false,
+        "macd_histogram": 0.0,
+        "macd_expanding": false,
+        "time_remaining": 13.703454666666666,
+        "model_confidence": 0.7105495012345678,
+        "kl_divergence": 0.2868535977823482,
+        "kelly_fraction": 0.25,
+        "market_edge": -36.027475061728396,
+        "btc_1h_change": -0.823719134766377,
+        "btc_volatility": 0.08328067622145402
+      },
+      "exit_price": null,
+      "exit_time": null,
+      "pnl": 0.0,
+      "status": "open",
+      "order_id": "0xcba67f8326f27355267f443cdbb0482c53ce264b354ef43ed64e260a5930e283",
+      "execution_error": null
     }
   },
   "total_pnl": 0.0,
   "wins": 0,
   "losses": 0,
-  "signals_count": 10,
+  "signals_count": 23,
   "ml_rejections": 0,
+  "consecutive_wins": 0,
+  "consecutive_losses": 0,
+  "bankroll": 500.0,
   "ml_win_features": [],
   "ml_loss_features": [],
   "ml_weights": {

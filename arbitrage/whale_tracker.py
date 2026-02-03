@@ -169,6 +169,11 @@ class WhaleTracker:
             "name": "NeverYES",
             "reputation": 0.75,  # 17 trades, $107K portfolio
         },
+        {
+            "address": "0x1461cC6e1A05e20710c416307Db62C28f1D122d8",
+            "name": "Harmless-Critic",
+            "reputation": 0.85,  # $737K portfolio, $4.5M volume, 192 markets
+        },
     ]
 
     def __init__(self, state_file: str = "whale_tracker_state.json"):

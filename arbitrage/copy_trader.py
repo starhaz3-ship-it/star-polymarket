@@ -63,6 +63,8 @@ class CopyTrader:
         "WickRick": "0x1c12abb42d0427e70e144ae67c92951b232f79d9",  # $21K PnL, 1 trade, $75K portfolio
         "BoshBashBish": "0x29bc82f761749e67fa00d62896bc6855097b683c",  # $147K PnL, 9,621 trades, $29M volume, 7 weeks old
         "NeverYES": "0xe55108581aec68af7686bd4cbc4f53ef93680a67",  # $107K portfolio, 17 trades
+        "Harmless-Critic": "0x1461cC6e1A05e20710c416307Db62C28f1D122d8",  # $737K portfolio, $4.5M volume, 192 markets
+        "distinct-baguette": "0xe00740bce98a594e26861838885ab310ec3b548c",
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]
