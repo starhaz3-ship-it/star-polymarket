@@ -482,6 +482,14 @@ class TALiveTrader:
             if up_price is None or down_price is None:
                 continue
 
+            # IMPORTANT: Only trade markets expiring within 30 minutes
+            # This ensures we're trading the nearest markets, not hours away
+            if time_left > 30:
+                continue  # Skip markets too far in the future
+
+            if time_left < 2:
+                continue  # Skip markets about to expire (not enough time)
+
             # Generate signal
             signal = self.generator.generate_signal(
                 market_id=market_id,

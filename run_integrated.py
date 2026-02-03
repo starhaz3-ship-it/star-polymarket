@@ -202,6 +202,18 @@ class UnifiedTrader:
 
         return up_price, down_price
 
+    def get_time_remaining(self, market: Dict) -> float:
+        """Get minutes remaining until market expires."""
+        end = market.get("endDate")
+        if not end:
+            return 15.0
+        try:
+            end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
+            now = datetime.now(timezone.utc)
+            return max(0, (end_dt - now).total_seconds() / 60)
+        except:
+            return 15.0
+
     async def run_cycle(self):
         """Run one trading cycle with all strategies."""
         candles, btc_price, markets = await self.fetch_data()
@@ -234,9 +246,16 @@ class UnifiedTrader:
             market_id = market.get("conditionId", "")
             question = market.get("question", "")
             up_price, down_price = self.get_market_prices(market)
+            time_left = self.get_time_remaining(market)
 
             if up_price is None or down_price is None:
                 continue
+
+            # Only trade markets expiring within 30 minutes (nearest markets)
+            if time_left > 30:
+                continue  # Skip markets too far in the future
+            if time_left < 2:
+                continue  # Skip markets about to expire
 
             # TA Signal for this market
             signal = self.ta_generator.generate_signal(
@@ -245,7 +264,7 @@ class UnifiedTrader:
                 current_price=btc_price,
                 market_yes_price=up_price,
                 market_no_price=down_price,
-                time_remaining_min=10.0
+                time_remaining_min=time_left
             )
 
             # Bregman optimization

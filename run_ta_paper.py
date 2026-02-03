@@ -219,6 +219,12 @@ class TAPaperTrader:
             if up_price is None or down_price is None:
                 continue  # Skip markets without Up/Down outcomes
 
+            # Only trade markets expiring within 30 minutes (nearest markets)
+            if time_left > 30:
+                continue  # Skip markets too far in the future
+            if time_left < 2:
+                continue  # Skip markets about to expire
+
             # Generate signal for this market
             signal = self.generator.generate_signal(
                 market_id=market_id,
