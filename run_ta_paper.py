@@ -108,46 +108,52 @@ class TAPaperTrader:
             )
             btc_price = float(pr.json()["price"])
 
-            # Rate limit: small delay before Polymarket call
-            await asyncio.sleep(0.5)
+            # Rate limit: delay before Polymarket call
+            await asyncio.sleep(1.5)
 
-            # BTC 15m markets - search for active Bitcoin up/down markets
+            # BTC 15m markets - use EVENTS endpoint with tag_slug=15M
+            # This returns all crypto 15m up/down markets, then filter for BTC
+            markets = []
             try:
                 mr = await client.get(
-                    "https://gamma-api.polymarket.com/markets",
-                    params={"active": "true", "closed": "false", "limit": 50}  # Reduced limit
+                    "https://gamma-api.polymarket.com/events",
+                    params={"tag_slug": "15M", "active": "true", "closed": "false", "limit": 50},
+                    headers={"User-Agent": "Mozilla/5.0"}
                 )
-                all_markets = mr.json() if mr.status_code == 200 else []
-            except Exception as e:
-                print(f"[API] Polymarket rate limited, using cache: {e}")
-                all_markets = getattr(self, '_market_cache', [])
-
-            # Cache markets for rate limit fallback
-            if all_markets:
-                self._market_cache = all_markets
-
-            # Filter for BTC up or down 15m markets
-            markets = []
-            for m in all_markets:
-                q = m.get("question", "").lower()
-                outcomes_str = m.get("outcomes", "")
-                if isinstance(outcomes_str, str):
-                    outcomes_str = outcomes_str.lower()
+                if mr.status_code == 200:
+                    events = mr.json()
+                    for event in events:
+                        title = event.get("title", "").lower()
+                        # Filter for Bitcoin markets only
+                        if "bitcoin" not in title and "btc" not in title:
+                            continue
+                        for m in event.get("markets", []):
+                            if not m.get("closed", True):
+                                # Copy event title to market question if missing
+                                if not m.get("question"):
+                                    m["question"] = event.get("title", "")
+                                markets.append(m)
+                    # Cache for rate limit fallback
+                    if markets:
+                        self._market_cache = markets
                 else:
-                    outcomes_str = str(outcomes_str).lower()
-                # Must have both: bitcoin mention AND up/down outcomes
-                if ("bitcoin" in q or "btc" in q) and ("up" in outcomes_str and "down" in outcomes_str):
-                    markets.append(m)
+                    print(f"[API] Status {mr.status_code}, using cache")
+                    markets = getattr(self, '_market_cache', [])
+            except Exception as e:
+                print(f"[API] Error: {e}, using cache")
+                markets = getattr(self, '_market_cache', [])
 
         candles = [
             Candle(k[0]/1000, float(k[1]), float(k[2]), float(k[3]), float(k[4]), float(k[5]))
             for k in klines
         ]
 
-        btc_markets = markets  # Already filtered above
+        btc_markets = markets  # Already filtered by series slug
 
         if btc_markets:
-            print(f"[Markets] Found {len(btc_markets)} BTC Up/Down market(s)")
+            print(f"[Markets] Found {len(btc_markets)} BTC 15m Up/Down market(s)")
+        else:
+            print("[Markets] No active BTC 15m markets found")
 
         return candles, btc_price, btc_markets
 
@@ -204,9 +210,6 @@ class TAPaperTrader:
         self.signals_count += 1
 
         # Process each market
-        if not markets:
-            print("[Debug] No markets in array")
-
         for market in markets:
             market_id = market.get("conditionId", "")
             question = market.get("question", "")
@@ -214,8 +217,7 @@ class TAPaperTrader:
             time_left = self.get_time_remaining(market)
 
             if up_price is None or down_price is None:
-                print(f"[Debug] No prices for: {question[:40]}... prices={market.get('outcomePrices')}")
-                continue
+                continue  # Skip markets without Up/Down outcomes
 
             # Generate signal for this market
             signal = self.generator.generate_signal(
