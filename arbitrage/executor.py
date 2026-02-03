@@ -66,8 +66,14 @@ class Executor:
                 password = os.getenv("POLYMARKET_PASSWORD", "")
 
                 if not password:
-                    import getpass
-                    password = getpass.getpass("Enter wallet password: ")
+                    # Check if running interactively
+                    import sys
+                    if sys.stdin.isatty():
+                        import getpass
+                        password = getpass.getpass("Enter wallet password: ")
+                    else:
+                        print("[Executor] No password and not interactive - skipping")
+                        return None
 
                 return decrypt_key(key[4:], salt, password)
             except Exception as e:
