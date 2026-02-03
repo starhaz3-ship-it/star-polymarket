@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-03T16:49:17.402308+00:00",
-  "last_updated": "2026-02-03T18:42:12.971004+00:00",
+  "last_updated": "2026-02-03T18:46:19.623851+00:00",
   "trades": {
     "0xecc346f701e758b8e2d8730241ec0c144a79aab84d013f55cbf7c1f4816da99c_DOWN": {
       "trade_id": "0xecc346f701e758b8e2d8730241ec0c144a79aab84d013f55cbf7c1f4816da99c_DOWN",
@@ -65,10 +65,10 @@
       "kl_divergence": 0.41469481113173046,
       "kelly_fraction": 0.25,
       "guaranteed_profit": 0.41469481113173046,
-      "exit_price": null,
-      "exit_time": null,
-      "pnl": 0.0,
-      "status": "open"
+      "exit_price": 0.345,
+      "exit_time": "2026-02-03T18:46:19.538361+00:00",
+      "pnl": -30.30303030303031,
+      "status": "closed"
     },
     "0x9c994b206d582c8e3454c86ee8ac69523f335a20941dd48ea2e6531cd67c38f5_DOWN": {
       "trade_id": "0x9c994b206d582c8e3454c86ee8ac69523f335a20941dd48ea2e6531cd67c38f5_DOWN",
@@ -275,8 +275,8 @@
       "status": "open"
     }
   },
-  "total_pnl": 141.12411241124113,
+  "total_pnl": 110.82108210821082,
   "wins": 2,
-  "losses": 1,
-  "signals_count": 75
+  "losses": 2,
+  "signals_count": 77
 }

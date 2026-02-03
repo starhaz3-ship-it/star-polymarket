@@ -1,0 +1,54 @@
+{
+  "start_time": "2026-02-03T18:42:40.163401+00:00",
+  "last_updated": "2026-02-03T18:47:12.010190+00:00",
+  "dry_run": true,
+  "trades": {
+    "0xfdb3f10e428db12d6954fd77df02bef974633b17cbed2f30b81e7035a20ad7c0_DOWN": {
+      "trade_id": "0xfdb3f10e428db12d6954fd77df02bef974633b17cbed2f30b81e7035a20ad7c0_DOWN",
+      "market_title": "Bitcoin Up or Down - February 3, 1:30PM-1:45PM ET",
+      "side": "DOWN",
+      "entry_price": 0.415,
+      "entry_time": "2026-02-03T18:42:43.632514+00:00",
+      "size_usd": 6.25,
+      "ta_signal": "ENTER",
+      "ta_strength": "strong",
+      "bregman_kl": 0.2560928677809342,
+      "bregman_kelly": 0.25,
+      "integrated_signals": [],
+      "consensus_score": 0.25,
+      "exit_price": null,
+      "exit_time": null,
+      "pnl": 0.0,
+      "status": "open"
+    },
+    "0x9c994b206d582c8e3454c86ee8ac69523f335a20941dd48ea2e6531cd67c38f5_DOWN": {
+      "trade_id": "0x9c994b206d582c8e3454c86ee8ac69523f335a20941dd48ea2e6531cd67c38f5_DOWN",
+      "market_title": "Bitcoin Up or Down - February 3, 1:45PM-2:00PM ET",
+      "side": "DOWN",
+      "entry_price": 0.465,
+      "entry_time": "2026-02-03T18:47:06.287369+00:00",
+      "size_usd": 6.25,
+      "ta_signal": "ENTER",
+      "ta_strength": "strong",
+      "bregman_kl": 0.20484959849075957,
+      "bregman_kelly": 0.25,
+      "integrated_signals": [],
+      "consensus_score": 0.25,
+      "exit_price": null,
+      "exit_time": null,
+      "pnl": 0.0,
+      "status": "open"
+    }
+  },
+  "total_pnl": 0.0,
+  "wins": 0,
+  "losses": 0,
+  "signals_count": 3,
+  "signal_counts": {
+    "ta": 3,
+    "kalshi_arb": 0,
+    "spike": 0,
+    "flash_crash": 0,
+    "momentum": 0
+  }
+}
