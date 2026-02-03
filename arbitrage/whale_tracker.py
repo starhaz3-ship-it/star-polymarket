@@ -144,6 +144,26 @@ class WhaleTracker:
             "name": "distinct-baguette",
             "reputation": 0.75,
         },
+        {
+            "address": "0xe594336603f4fb5d3ba4125a67021ab3b4347052",
+            "name": "1769022918519",
+            "reputation": 0.75,  # New whale, $56K in positions
+        },
+        {
+            "address": "0x3442762a8a9e9ba51556eaa07eafaf1ac69d61c2",
+            "name": "bigsibas",
+            "reputation": 0.75,
+        },
+        {
+            "address": "0xde79cc7660d5c05b4cd2f4e72cae30cde2583d9a",
+            "name": "Supphieros",
+            "reputation": 0.75,  # 132 trades, $254 profit
+        },
+        {
+            "address": "0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d",
+            "name": "gabagool22",
+            "reputation": 0.95,  # $739K profit, 23K predictions - uses Bregman divergence optimization
+        },
     ]
 
     def __init__(self, state_file: str = "whale_tracker_state.json"):
