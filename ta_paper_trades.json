@@ -1,0 +1,18 @@
+{
+  "start_time": "2026-02-03T16:45:40.960885+00:00",
+  "last_updated": "2026-02-03T16:47:47.551683+00:00",
+  "trades": {},
+  "stats": {
+    "total_trades": 0,
+    "winning_trades": 0,
+    "losing_trades": 0,
+    "total_pnl": 0.0,
+    "best_trade_pnl": 0.0,
+    "worst_trade_pnl": 0.0,
+    "avg_entry_edge": 0.0,
+    "strong_signals": 0,
+    "good_signals": 0,
+    "optional_signals": 0
+  },
+  "signals_generated": 0
+}
