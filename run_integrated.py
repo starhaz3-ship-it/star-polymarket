@@ -214,6 +214,12 @@ class UnifiedTrader:
         except:
             return 15.0
 
+    # Conviction thresholds
+    MIN_MODEL_CONFIDENCE = 0.65
+    MIN_EDGE = 0.10
+    MAX_ENTRY_PRICE = 0.55
+    CANDLE_LOOKBACK = 15
+
     async def run_cycle(self):
         """Run one trading cycle with all strategies."""
         candles, btc_price, markets = await self.fetch_data()
@@ -221,16 +227,19 @@ class UnifiedTrader:
         if not candles:
             return None
 
+        # IMPORTANT: Only use the most recent 15 minutes of price action
+        recent_candles = candles[-self.CANDLE_LOOKBACK:]
+
         # Feed price to integrated strategies
         self.integrated.add_price_data(
             btc_price=btc_price,
-            volume=candles[-1].volume if candles else 0
+            volume=recent_candles[-1].volume if recent_candles else 0
         )
 
-        # Generate main TA signal
+        # Generate main TA signal from recent price action only
         main_signal = self.ta_generator.generate_signal(
             market_id="btc_main",
-            candles=candles,
+            candles=recent_candles,
             current_price=btc_price,
             market_yes_price=0.5,
             market_no_price=0.5,
@@ -257,10 +266,10 @@ class UnifiedTrader:
             if time_left < 2:
                 continue  # Skip markets about to expire
 
-            # TA Signal for this market
+            # TA Signal from recent 15-min price action only
             signal = self.ta_generator.generate_signal(
                 market_id=market_id,
-                candles=candles,
+                candles=recent_candles,
                 current_price=btc_price,
                 market_yes_price=up_price,
                 market_no_price=down_price,
@@ -295,7 +304,7 @@ class UnifiedTrader:
             trade_side = None
             confidence = 0
 
-            # Priority 1: Kalshi arbitrage (risk-free)
+            # Priority 1: Kalshi arbitrage (risk-free) - no conviction filter needed
             kalshi_arb = [s for s in integrated_signals if s.signal_type == SignalType.KALSHI_ARB]
             if kalshi_arb:
                 should_trade = True
@@ -303,20 +312,37 @@ class UnifiedTrader:
                 confidence = 1.0
                 print(f"[ARB] Kalshi arbitrage found: {trade_side} | Profit: {kalshi_arb[0].edge:.2%}")
 
-            # Priority 2: Strong TA + Bregman agreement
+            # Priority 2: Strong TA + Bregman agreement (with conviction filters)
             elif signal.action == "ENTER" and bregman_signal.kl_divergence > 0.2:
-                should_trade = True
-                trade_side = signal.side
-                confidence = bregman_signal.kelly_fraction
+                # Check model conviction
+                if signal.side == "UP" and signal.model_up >= self.MIN_MODEL_CONFIDENCE:
+                    should_trade = True
+                    trade_side = signal.side
+                    confidence = bregman_signal.kelly_fraction
+                elif signal.side == "DOWN" and signal.model_down >= self.MIN_MODEL_CONFIDENCE:
+                    should_trade = True
+                    trade_side = signal.side
+                    confidence = bregman_signal.kelly_fraction
 
-            # Priority 3: Consensus from integrated strategies
+            # Priority 3: Consensus from integrated strategies (with conviction filters)
             elif consensus and consensus[1] > 0.3:
-                should_trade = True
-                trade_side = consensus[0]
-                confidence = min(consensus[1], 1.0)
+                if consensus[0] == "UP" and signal.model_up >= self.MIN_MODEL_CONFIDENCE:
+                    should_trade = True
+                    trade_side = consensus[0]
+                    confidence = min(consensus[1], 1.0)
+                elif consensus[0] == "DOWN" and signal.model_down >= self.MIN_MODEL_CONFIDENCE:
+                    should_trade = True
+                    trade_side = consensus[0]
+                    confidence = min(consensus[1], 1.0)
 
             # Execute trade
             trade_key = f"{market_id}_{trade_side}" if trade_side else None
+
+            # Apply entry price filter (no edge zone)
+            if should_trade and trade_side and trade_key:
+                entry_price_check = up_price if trade_side == "UP" else down_price
+                if entry_price_check is not None and entry_price_check > self.MAX_ENTRY_PRICE:
+                    should_trade = False  # Too expensive, no real edge
 
             if should_trade and trade_side and trade_key:
                 if trade_key not in self.trades:

@@ -11,8 +11,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from dataclasses import dataclass, asdict
 from typing import Dict, List, Optional
+from functools import partial
 
 import httpx
+
+# Force unbuffered output
+print = partial(print, flush=True)
 
 # Import from arbitrage package
 import sys
@@ -190,6 +194,12 @@ class TAPaperTrader:
         except:
             return 15.0
 
+    # Conviction thresholds - prevent flip-flopping
+    MIN_MODEL_CONFIDENCE = 0.65  # Model must be at least 65% confident in direction
+    MIN_EDGE = 0.10              # At least 10% edge vs market price
+    MAX_ENTRY_PRICE = 0.55       # Don't buy at prices above 55¢ (no edge zone)
+    CANDLE_LOOKBACK = 15         # Only use last 15 minutes of price action
+
     async def run_cycle(self):
         """Run one trading cycle."""
         candles, btc_price, markets = await self.fetch_data()
@@ -197,10 +207,13 @@ class TAPaperTrader:
         if not candles:
             return None
 
-        # Generate main signal (without market prices for general direction)
+        # IMPORTANT: Only use the most recent 15 minutes of price action
+        recent_candles = candles[-self.CANDLE_LOOKBACK:]
+
+        # Generate main signal from recent price action only
         main_signal = self.generator.generate_signal(
             market_id="btc_main",
-            candles=candles,
+            candles=recent_candles,
             current_price=btc_price,
             market_yes_price=0.5,
             market_no_price=0.5,
@@ -225,10 +238,10 @@ class TAPaperTrader:
             if time_left < 2:
                 continue  # Skip markets about to expire
 
-            # Generate signal for this market
+            # Generate signal from recent 15-min price action only
             signal = self.generator.generate_signal(
                 market_id=market_id,
-                candles=candles,
+                candles=recent_candles,
                 current_price=btc_price,
                 market_yes_price=up_price,
                 market_no_price=down_price,
@@ -236,6 +249,23 @@ class TAPaperTrader:
             )
 
             trade_key = f"{market_id}_{signal.side}" if signal.side else None
+
+            # === CONVICTION FILTERS ===
+            # 1. Model must be confident enough (not flip-flopping near 50%)
+            if signal.side == "UP" and signal.model_up < self.MIN_MODEL_CONFIDENCE:
+                continue
+            if signal.side == "DOWN" and signal.model_down < self.MIN_MODEL_CONFIDENCE:
+                continue
+
+            # 2. Minimum edge requirement
+            best_edge = signal.edge_up if signal.side == "UP" else signal.edge_down
+            if best_edge is not None and best_edge < self.MIN_EDGE:
+                continue
+
+            # 3. Don't buy at prices near 50¢ (no edge zone)
+            entry_price_check = up_price if signal.side == "UP" else down_price
+            if entry_price_check is not None and entry_price_check > self.MAX_ENTRY_PRICE:
+                continue
 
             # Debug: show why no trade
             if signal.action != "ENTER":

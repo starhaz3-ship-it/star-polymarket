@@ -450,6 +450,12 @@ class TALiveTrader:
         except Exception as e:
             return False, str(e)
 
+    # Conviction thresholds - prevent flip-flopping
+    MIN_MODEL_CONFIDENCE = 0.65  # Model must be at least 65% confident in direction
+    MIN_EDGE = 0.10              # At least 10% edge vs market price
+    MAX_ENTRY_PRICE = 0.55       # Don't buy at prices above 55¢ (no edge zone)
+    CANDLE_LOOKBACK = 15         # Only use last 15 minutes of price action
+
     async def run_cycle(self):
         """Run one trading cycle."""
         candles, btc_price, markets = await self.fetch_data()
@@ -457,10 +463,14 @@ class TALiveTrader:
         if not candles:
             return None
 
-        # Generate main signal
+        # IMPORTANT: Only use the most recent 15 minutes of price action
+        # Not 4 hours - we're trading 15-minute binary options
+        recent_candles = candles[-self.CANDLE_LOOKBACK:]
+
+        # Generate main signal from recent price action only
         main_signal = self.generator.generate_signal(
             market_id="btc_main",
-            candles=candles,
+            candles=recent_candles,
             current_price=btc_price,
             market_yes_price=0.5,
             market_no_price=0.5,
@@ -490,10 +500,10 @@ class TALiveTrader:
             if time_left < 2:
                 continue  # Skip markets about to expire (not enough time)
 
-            # Generate signal
+            # Generate signal from recent 15-min price action only
             signal = self.generator.generate_signal(
                 market_id=market_id,
-                candles=candles,
+                candles=recent_candles,
                 current_price=btc_price,
                 market_yes_price=up_price,
                 market_no_price=down_price,
@@ -502,7 +512,24 @@ class TALiveTrader:
 
             trade_key = f"{market_id}_{signal.side}" if signal.side else None
 
-            # Enter trade if signal
+            # === CONVICTION FILTERS ===
+            # 1. Model must be confident enough (not flip-flopping near 50%)
+            if signal.side == "UP" and signal.model_up < self.MIN_MODEL_CONFIDENCE:
+                continue  # Not confident enough for UP
+            if signal.side == "DOWN" and signal.model_down < self.MIN_MODEL_CONFIDENCE:
+                continue  # Not confident enough for DOWN
+
+            # 2. Minimum edge requirement - don't trade without real edge
+            best_edge = signal.edge_up if signal.side == "UP" else signal.edge_down
+            if best_edge is not None and best_edge < self.MIN_EDGE:
+                continue  # Edge too small
+
+            # 3. Don't buy at prices near 50¢ (no edge zone)
+            entry_price_check = up_price if signal.side == "UP" else down_price
+            if entry_price_check is not None and entry_price_check > self.MAX_ENTRY_PRICE:
+                continue  # Entry price too high, no real edge
+
+            # Enter trade if signal passes all filters
             if signal.action == "ENTER" and signal.side and trade_key:
                 if trade_key not in self.trades:
                     entry_price = up_price if signal.side == "UP" else down_price
@@ -515,7 +542,7 @@ class TALiveTrader:
                         market_no_price=down_price
                     )
 
-                    # Extract ML features
+                    # Extract ML features (use full candles for feature extraction)
                     features = self.ml.extract_features(signal, bregman_signal, candles)
 
                     # ML scoring
@@ -553,7 +580,7 @@ class TALiveTrader:
 
                     mode = "LIVE" if not self.dry_run else "DRY"
                     status = "OK" if success else f"FAILED: {order_result}"
-                    print(f"[{mode}] {signal.side} @ ${entry_price:.4f} | Edge: {edge:.1%} | ML: {ml_score:.2f} | {status}")
+                    print(f"[{mode}] {signal.side} @ ${entry_price:.4f} | Edge: {edge:.1%} | Model: {signal.model_up:.0%} UP | ML: {ml_score:.2f} | {status}")
 
             # Check for resolved markets
             if time_left < 0.5:

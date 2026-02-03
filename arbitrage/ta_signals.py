@@ -564,7 +564,7 @@ class TASignalGenerator:
         signal.price_to_beat = price_to_beat
         signal.time_remaining_min = time_remaining_min
 
-        if not candles or len(candles) < 30:
+        if not candles or len(candles) < 5:
             signal.reason = "insufficient_data"
             return signal
 
