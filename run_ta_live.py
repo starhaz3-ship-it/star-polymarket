@@ -4,7 +4,7 @@ TA Live Trading with ML Optimization
 Live trades BTC 15m markets using TA+Bregman signals.
 Includes ML feature tracking to optimize win rate.
 """
-
+import sys
 import asyncio
 import json
 import time
@@ -15,12 +15,15 @@ from pathlib import Path
 from dataclasses import dataclass, asdict, field
 from typing import Dict, List, Optional, Tuple
 from collections import defaultdict
+from functools import partial
 
 import httpx
 from dotenv import load_dotenv
 
+# Force unbuffered output
+print = partial(print, flush=True)
+
 # Import from arbitrage package
-import sys
 sys.path.insert(0, str(Path(__file__).parent))
 
 from arbitrage.ta_signals import TASignalGenerator, Candle, SignalStrength, TASignal

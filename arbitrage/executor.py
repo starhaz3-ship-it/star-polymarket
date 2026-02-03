@@ -66,13 +66,20 @@ class Executor:
                 password = os.getenv("POLYMARKET_PASSWORD", "")
 
                 if not password:
-                    # Check if running interactively
-                    import sys
-                    if sys.stdin.isatty():
-                        import getpass
-                        password = getpass.getpass("Enter wallet password: ")
-                    else:
-                        print("[Executor] No password and not interactive - skipping")
+                    # Check if running interactively - need both isatty and fileno
+                    try:
+                        import sys as _sys
+                        import os as _os
+                        is_interactive = _sys.stdin.isatty() and _sys.stdin.fileno() >= 0
+                        # Also check if we're in a proper terminal
+                        if is_interactive and _os.isatty(_sys.stdin.fileno()):
+                            import getpass
+                            password = getpass.getpass("Enter wallet password: ")
+                        else:
+                            print("[Executor] No password and not interactive - skipping", flush=True)
+                            return None
+                    except (OSError, ValueError):
+                        print("[Executor] No stdin available - skipping", flush=True)
                         return None
 
                 return decrypt_key(key[4:], salt, password)
