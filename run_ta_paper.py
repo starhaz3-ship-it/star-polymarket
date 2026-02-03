@@ -92,9 +92,9 @@ class TAPaperTrader:
             json.dump(data, f, indent=2)
 
     async def fetch_data(self):
-        """Fetch BTC candles and price."""
+        """Fetch BTC candles and price with rate limiting."""
         async with httpx.AsyncClient(timeout=15) as client:
-            # Candles
+            # Candles from Binance
             r = await client.get(
                 "https://api.binance.com/api/v3/klines",
                 params={"symbol": "BTCUSDT", "interval": "1m", "limit": 240}
@@ -108,12 +108,24 @@ class TAPaperTrader:
             )
             btc_price = float(pr.json()["price"])
 
+            # Rate limit: small delay before Polymarket call
+            await asyncio.sleep(0.5)
+
             # BTC 15m markets - search for active Bitcoin up/down markets
-            mr = await client.get(
-                "https://gamma-api.polymarket.com/markets",
-                params={"active": "true", "closed": "false", "limit": 100}
-            )
-            all_markets = mr.json()
+            try:
+                mr = await client.get(
+                    "https://gamma-api.polymarket.com/markets",
+                    params={"active": "true", "closed": "false", "limit": 50}  # Reduced limit
+                )
+                all_markets = mr.json() if mr.status_code == 200 else []
+            except Exception as e:
+                print(f"[API] Polymarket rate limited, using cache: {e}")
+                all_markets = getattr(self, '_market_cache', [])
+
+            # Cache markets for rate limit fallback
+            if all_markets:
+                self._market_cache = all_markets
+
             # Filter for BTC up or down 15m markets
             markets = []
             for m in all_markets:
@@ -350,7 +362,7 @@ class TAPaperTrader:
         print("Strategy: PolymarketBTC15mAssistant + Bregman Divergence")
         print("Optimization: Kelly criterion with KL divergence edge")
         print(f"Bankroll: ${self.bankroll} | Max Position: ${self.POSITION_SIZE}")
-        print("Update interval: 10 minutes")
+        print("Scan interval: 2 minutes | Update interval: 10 minutes")
         print("=" * 70)
         print()
 
@@ -372,14 +384,14 @@ class TAPaperTrader:
                     self.print_update(signal)
                     last_update = now
 
-                await asyncio.sleep(60)
+                await asyncio.sleep(120)  # 2 minutes between scans to avoid rate limiting
 
             except KeyboardInterrupt:
                 print("\nStopping...")
                 break
             except Exception as e:
                 print(f"Error: {e}")
-                await asyncio.sleep(30)
+                await asyncio.sleep(60)  # Wait longer on error
 
         self.print_update(None)
         print(f"Results saved to: {self.OUTPUT_FILE}")
