@@ -222,21 +222,27 @@ class TAPaperTrader:
 
         self.signals_count += 1
 
-        # Process each market
+        # Sort markets by time remaining - only trade the NEAREST expiring one
+        eligible_markets = []
         for market in markets:
-            market_id = market.get("conditionId", "")
-            question = market.get("question", "")
             up_price, down_price = self.get_market_prices(market)
             time_left = self.get_time_remaining(market)
-
             if up_price is None or down_price is None:
-                continue  # Skip markets without Up/Down outcomes
+                continue
+            if time_left > 15 or time_left < 2:
+                continue
+            eligible_markets.append((time_left, market, up_price, down_price))
 
-            # Only trade markets expiring within 15 minutes (high turnover)
-            if time_left > 15:
-                continue  # Skip markets too far in the future
-            if time_left < 2:
-                continue  # Skip markets about to expire
+        # Sort by time remaining (ascending) - nearest expiring first
+        eligible_markets.sort(key=lambda x: x[0])
+
+        if eligible_markets:
+            print(f"[Filter] {len(eligible_markets)} markets in window, trading nearest ({eligible_markets[0][0]:.1f}min left)")
+
+        # Only trade the nearest expiring market for high turnover
+        for time_left, market, up_price, down_price in eligible_markets[:1]:
+            market_id = market.get("conditionId", "")
+            question = market.get("question", "")
 
             # Generate signal from recent 15-min price action only
             signal = self.generator.generate_signal(

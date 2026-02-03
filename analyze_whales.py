@@ -20,6 +20,7 @@ WHALES = [
     ('aenews2', '0x44c1dfe43260c94ed4f1d00de2e1f80fb113ebc1'),
     ('ImJustKen', '0x9d84ce0306f8551e02efef1680475fc0f1dc1344'),
     ('willi', '0xcb2952fd655813ad0f9ee893122c54298e1a975e'),
+    ('NeverYES', '0xe55108581aec68af7686bd4cbc4f53ef93680a67'),
 ]
 
 async def fetch_whale_data():

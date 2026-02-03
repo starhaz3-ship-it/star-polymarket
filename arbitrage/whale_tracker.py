@@ -164,6 +164,11 @@ class WhaleTracker:
             "name": "gabagool22",
             "reputation": 0.95,  # $739K profit, 23K predictions - uses Bregman divergence optimization
         },
+        {
+            "address": "0xe55108581aec68af7686bd4cbc4f53ef93680a67",
+            "name": "NeverYES",
+            "reputation": 0.75,  # 17 trades, $107K portfolio
+        },
     ]
 
     def __init__(self, state_file: str = "whale_tracker_state.json"):
