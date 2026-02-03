@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-03T21:10:00+00:00",
-  "last_updated": "2026-02-03T21:19:59.099333+00:00",
+  "last_updated": "2026-02-03T21:50:26.113575+00:00",
   "trades": {
     "0x69bb2e9c6be2c850591d8878ea799011631b9d4bdfeafc1ad502c47b363ef726_UP": {
       "trade_id": "0x69bb2e9c6be2c850591d8878ea799011631b9d4bdfeafc1ad502c47b363ef726_UP",
@@ -35,10 +35,61 @@
       "exit_time": null,
       "pnl": 0.0,
       "status": "open"
+    },
+    "0x0afffe80865b0b5cd481439852e44f2001af29e4facd5272c52cf3f72fe8f4b6_DOWN": {
+      "trade_id": "0x0afffe80865b0b5cd481439852e44f2001af29e4facd5272c52cf3f72fe8f4b6_DOWN",
+      "market_title": "Bitcoin Up or Down - February 3, 4:30PM-4:45PM ET",
+      "side": "DOWN",
+      "entry_price": 0.485,
+      "entry_time": "2026-02-03T21:30:13.513099+00:00",
+      "size_usd": 100.0,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.3667805162698413,
+      "kl_divergence": 0.29510242029143485,
+      "kelly_fraction": 0.25,
+      "guaranteed_profit": 0.29510242029143485,
+      "exit_price": null,
+      "exit_time": null,
+      "pnl": 0.0,
+      "status": "open"
+    },
+    "0x0afffe80865b0b5cd481439852e44f2001af29e4facd5272c52cf3f72fe8f4b6_UP": {
+      "trade_id": "0x0afffe80865b0b5cd481439852e44f2001af29e4facd5272c52cf3f72fe8f4b6_UP",
+      "market_title": "Bitcoin Up or Down - February 3, 4:30PM-4:45PM ET",
+      "side": "UP",
+      "entry_price": 0.515,
+      "entry_time": "2026-02-03T21:32:16.256730+00:00",
+      "size_usd": 100.0,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.2880727261904762,
+      "kl_divergence": 0.17929446022895787,
+      "kelly_fraction": 0.25,
+      "guaranteed_profit": 0.17929446022895787,
+      "exit_price": null,
+      "exit_time": null,
+      "pnl": 0.0,
+      "status": "open"
+    },
+    "0xafbb27dcd3e5916ed6f55d0406d6a280f95f6059bd54bf25721ac7fc55f0e508_DOWN": {
+      "trade_id": "0xafbb27dcd3e5916ed6f55d0406d6a280f95f6059bd54bf25721ac7fc55f0e508_DOWN",
+      "market_title": "Bitcoin Up or Down - February 3, 4:45PM-5:00PM ET",
+      "side": "DOWN",
+      "entry_price": 0.495,
+      "entry_time": "2026-02-03T21:50:26.113575+00:00",
+      "size_usd": 100.0,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.23273270833333337,
+      "kl_divergence": 0.11225106718623215,
+      "kelly_fraction": 0.25,
+      "guaranteed_profit": 0.11225106718623215,
+      "exit_price": null,
+      "exit_time": null,
+      "pnl": 0.0,
+      "status": "open"
     }
   },
   "total_pnl": 0.0,
   "wins": 0,
   "losses": 0,
-  "signals_count": 8
+  "signals_count": 16
 }

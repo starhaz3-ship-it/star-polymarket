@@ -9,6 +9,7 @@ import asyncio
 import json
 import time
 import os
+import math
 import numpy as np
 from datetime import datetime, timezone
 from pathlib import Path
@@ -424,17 +425,45 @@ class TALiveTrader:
             if not token_id:
                 return False, "token_not_found"
 
-            # Calculate shares
-            shares = size / price
+            # Fetch order book to get the real ask price for immediate fill
+            import httpx
+            try:
+                book_resp = httpx.get(
+                    "https://clob.polymarket.com/book",
+                    params={"token_id": token_id},
+                    headers={"User-Agent": "Mozilla/5.0"},
+                    timeout=5
+                )
+                if book_resp.status_code == 200:
+                    book = book_resp.json()
+                    asks = book.get("asks", [])
+                    if asks:
+                        best_ask = float(asks[0].get("price", price))
+                        ask_size = float(asks[0].get("size", 0))
+                        print(f"[BOOK] Best ask: ${best_ask} ({ask_size} shares available)")
+                        # Use the ask price to ensure fill
+                        price = best_ask
+                    else:
+                        print(f"[BOOK] No asks available, using mid price ${price}")
+                else:
+                    print(f"[BOOK] API returned {book_resp.status_code}, using mid price")
+            except Exception as e:
+                print(f"[BOOK] Error fetching order book: {e}")
+
+            # Calculate shares - use whole number to avoid CLOB decimal precision errors
+            shares = math.floor(size / price)
+            if shares < 1:
+                return False, "shares_too_small"
 
             order_args = OrderArgs(
                 price=price,
-                size=shares,
+                size=float(shares),
                 side=BUY,
                 token_id=token_id,
             )
 
-            print(f"[LIVE] Placing {side} order: {shares:.2f} shares @ ${price:.4f}")
+            actual_cost = shares * price
+            print(f"[LIVE] Placing {side} order: {shares} shares @ ${price} = ${actual_cost:.2f}")
 
             signed_order = self.executor.client.create_order(order_args)
             response = self.executor.client.post_order(signed_order, OrderType.GTC)
@@ -442,13 +471,81 @@ class TALiveTrader:
             success = response.get("success", False)
             order_id = response.get("orderID", "")
 
-            if success:
+            if not success:
+                return False, response.get("errorMsg", "unknown_error")
+
+            # Wait then verify the order actually filled
+            time.sleep(3)
+            filled = await self.verify_fill(token_id, shares)
+            if filled:
+                print(f"[LIVE] Fill VERIFIED for {side}")
                 return True, order_id
             else:
-                return False, response.get("errorMsg", "unknown_error")
+                # Cancel unfilled GTC order to free up capital
+                try:
+                    self.executor.client.cancel(order_id)
+                    print(f"[LIVE] Cancelled unfilled order {order_id[:16]}...")
+                except Exception:
+                    pass
+                print(f"[LIVE] Fill NOT CONFIRMED for {side} - order cancelled")
+                return False, "fill_not_verified"
 
         except Exception as e:
             return False, str(e)
+
+    async def verify_fill(self, token_id: str, expected_shares: float) -> bool:
+        """Verify a position exists on Polymarket after placing an order."""
+        try:
+            import httpx
+            proxy = os.getenv("POLYMARKET_PROXY_ADDRESS", "")
+            if not proxy:
+                return False
+
+            r = httpx.get(
+                "https://data-api.polymarket.com/positions",
+                params={"user": proxy, "sizeThreshold": "0.1"},
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=10
+            )
+            if r.status_code != 200:
+                print(f"[VERIFY] API returned {r.status_code}")
+                return False
+
+            positions = r.json()
+            for p in positions:
+                p_tokens = p.get("clobTokenIds", [])
+                if isinstance(p_tokens, str):
+                    p_tokens = json.loads(p_tokens)
+                p_size = float(p.get("size", 0))
+                # Check if this position matches our token
+                if token_id in str(p.get("asset", "")) or token_id in str(p_tokens):
+                    if p_size > 0:
+                        print(f"[VERIFY] Found position: {p_size} shares")
+                        return True
+
+            # Also check recent activity as fallback
+            r2 = httpx.get(
+                "https://data-api.polymarket.com/activity",
+                params={"user": proxy, "limit": "5"},
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=10
+            )
+            if r2.status_code == 200:
+                acts = r2.json()
+                for a in acts:
+                    if a.get("type") == "TRADE" and a.get("side") == "BUY":
+                        # Check if this trade happened in the last 30 seconds
+                        ts = a.get("timestamp", "")
+                        usd = float(a.get("usdcSize", 0))
+                        if usd > 0 and abs(usd - (expected_shares * 0.55)) < 5:
+                            print(f"[VERIFY] Found matching recent trade: ${usd:.2f}")
+                            return True
+
+            print("[VERIFY] No matching position or recent trade found")
+            return False
+        except Exception as e:
+            print(f"[VERIFY] Error checking fill: {e}")
+            return False
 
     # Conviction thresholds - prevent flip-flopping
     MIN_MODEL_CONFIDENCE = 0.65  # Model must be at least 65% confident in direction
@@ -563,6 +660,11 @@ class TALiveTrader:
                         market, signal.side, self.POSITION_SIZE, entry_price
                     )
 
+                    if not success:
+                        print(f"[LIVE] {signal.side} @ ${entry_price:.4f} FAILED: {order_result} - NOT recorded")
+                        continue
+
+                    # Only record trade if fill is verified
                     trade = LiveTrade(
                         trade_id=trade_key,
                         market_id=market_id,
@@ -576,15 +678,12 @@ class TALiveTrader:
                         kl_divergence=bregman_signal.kl_divergence,
                         kelly_fraction=bregman_signal.kelly_fraction,
                         features=asdict(features),
-                        order_id=order_result if success else None,
-                        execution_error=None if success else order_result,
-                        status="open" if success else "failed",
+                        order_id=order_result,
+                        execution_error=None,
+                        status="open",
                     )
                     self.trades[trade_key] = trade
-
-                    mode = "LIVE" if not self.dry_run else "DRY"
-                    status = "OK" if success else f"FAILED: {order_result}"
-                    print(f"[{mode}] {signal.side} @ ${entry_price:.4f} | Edge: {edge:.1%} | Model: {signal.model_up:.0%} UP | ML: {ml_score:.2f} | {status}")
+                    print(f"[LIVE] {signal.side} @ ${entry_price:.4f} | Edge: {edge:.1%} | Model: {signal.model_up:.0%} UP | ML: {ml_score:.2f} | FILLED")
 
             # Check for resolved markets
             if time_left < 0.5:
