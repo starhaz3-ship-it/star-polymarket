@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-03T16:49:17.402308+00:00",
-  "last_updated": "2026-02-03T18:05:19.840131+00:00",
+  "last_updated": "2026-02-03T18:29:55.670307+00:00",
   "trades": {
     "0xecc346f701e758b8e2d8730241ec0c144a79aab84d013f55cbf7c1f4816da99c_DOWN": {
       "trade_id": "0xecc346f701e758b8e2d8730241ec0c144a79aab84d013f55cbf7c1f4816da99c_DOWN",
@@ -31,10 +31,10 @@
       "kl_divergence": 0.3980275888761726,
       "kelly_fraction": 0.25,
       "guaranteed_profit": 0.3980275888761726,
-      "exit_price": null,
-      "exit_time": null,
-      "pnl": 0.0,
-      "status": "open"
+      "exit_price": 0.42,
+      "exit_time": "2026-02-03T18:15:34.494208+00:00",
+      "pnl": -16.83168316831683,
+      "status": "closed"
     },
     "0x1ef155c1389a4e9c647cdc058b47536bee52bca7f9635f12cfa3882eead09f4f_DOWN": {
       "trade_id": "0x1ef155c1389a4e9c647cdc058b47536bee52bca7f9635f12cfa3882eead09f4f_DOWN",
@@ -48,10 +48,10 @@
       "kl_divergence": 0.3980275888761726,
       "kelly_fraction": 0.25,
       "guaranteed_profit": 0.3980275888761726,
-      "exit_price": null,
-      "exit_time": null,
-      "pnl": 0.0,
-      "status": "open"
+      "exit_price": 0.915,
+      "exit_time": "2026-02-03T18:29:55.618022+00:00",
+      "pnl": 81.1881188118812,
+      "status": "closed"
     },
     "0xfdb3f10e428db12d6954fd77df02bef974633b17cbed2f30b81e7035a20ad7c0_DOWN": {
       "trade_id": "0xfdb3f10e428db12d6954fd77df02bef974633b17cbed2f30b81e7035a20ad7c0_DOWN",
@@ -222,10 +222,27 @@
       "exit_time": null,
       "pnl": 0.0,
       "status": "open"
+    },
+    "0x69bb2e9c6be2c850591d8878ea799011631b9d4bdfeafc1ad502c47b363ef726_DOWN": {
+      "trade_id": "0x69bb2e9c6be2c850591d8878ea799011631b9d4bdfeafc1ad502c47b363ef726_DOWN",
+      "market_title": "Bitcoin Up or Down - February 3, 4:00PM-4:15PM ET",
+      "side": "DOWN",
+      "entry_price": 0.495,
+      "entry_time": "2026-02-03T18:21:44.072806+00:00",
+      "size_usd": 100.0,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.41409090909090907,
+      "kl_divergence": 0.3967431766363295,
+      "kelly_fraction": 0.25,
+      "guaranteed_profit": 0.3967431766363295,
+      "exit_price": null,
+      "exit_time": null,
+      "pnl": 0.0,
+      "status": "open"
     }
   },
-  "total_pnl": 76.76767676767676,
-  "wins": 1,
-  "losses": 0,
-  "signals_count": 57
+  "total_pnl": 141.12411241124113,
+  "wins": 2,
+  "losses": 1,
+  "signals_count": 69
 }
