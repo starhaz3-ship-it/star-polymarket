@@ -212,15 +212,15 @@ class MLOptimizer:
         """Get minimum score threshold for trading."""
         total_trades = len(self.win_features) + len(self.loss_features)
         if total_trades < self.min_trades_for_ml:
-            return 1.0  # Default threshold
+            return 0.5  # Default threshold (lowered from 1.0)
 
         # Adjust threshold based on win rate
         win_rate = len(self.win_features) / total_trades
         if win_rate > 0.6:
-            return 0.8  # Lower threshold if winning
+            return 0.3  # Lower threshold if winning
         elif win_rate < 0.4:
-            return 1.5  # Higher threshold if losing
-        return 1.0
+            return 1.0  # Higher threshold if losing
+        return 0.5
 
 
 class TALiveTrader:

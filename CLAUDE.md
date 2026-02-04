@@ -22,10 +22,14 @@ cat ta_paper_results.json | python -m json.tool
 - **TA Paper** (`run_ta_paper.py`) - Paper trading, $100 positions, Bregman optimization
 - **TA Live** (`run_ta_live.py`) - Live trading, $10 positions, ML optimization
 
-### Current Status (Last Updated: 2026-02-03)
-- Paper Trader: Running, 1W/1L, +$59.94 PnL
+### Current Status (Last Updated: 2026-02-04)
+- Live Trader: Running, multi-asset (BTC/ETH/XRP/SOL), 4W/5L, ~break-even
 - Strategy: TA signals (RSI, VWAP, Heiken Ashi, MACD) + Bregman divergence + Kelly sizing
-- Markets: BTC 15-minute Up/Down via Polymarket API (`tag_slug=15M`)
+- Markets: BTC/ETH/XRP/SOL 15-minute Up/Down via Polymarket API (`tag_slug=15M`)
+- ML threshold lowered to 0.50 (from 1.00) on 2026-02-04
+
+### Reminders
+- **2026-02-07**: Review ML threshold — if profitable, lower ML threshold again (currently 0.50 default, 0.30 when winning >60%, 1.0 when losing <40%). Check `get_min_score_threshold()` in `run_ta_live.py`.
 
 ### Key Files
 - `run_ta_paper.py` - Paper trading runner
