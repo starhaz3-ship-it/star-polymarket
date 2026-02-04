@@ -41,6 +41,8 @@ class TAPaperTrade:
     kl_divergence: float = 0.0
     kelly_fraction: float = 0.0
     guaranteed_profit: float = 0.0
+    # Market numeric ID for Gamma API resolution
+    market_numeric_id: Optional[int] = None
     # Exit
     exit_price: Optional[float] = None
     exit_time: Optional[str] = None
@@ -242,6 +244,7 @@ class TAPaperTrader:
         # Only trade the nearest expiring market for high turnover
         for time_left, market, up_price, down_price in eligible_markets[:1]:
             market_id = market.get("conditionId", "")
+            market_numeric_id = market.get("id")
             question = market.get("question", "")
 
             # Generate signal from recent 15-min price action only
@@ -308,6 +311,7 @@ class TAPaperTrader:
                         kl_divergence=bregman_signal.kl_divergence,
                         kelly_fraction=bregman_signal.kelly_fraction,
                         guaranteed_profit=bregman_signal.guaranteed_profit,
+                        market_numeric_id=market_numeric_id,
                     )
                     self.trades[trade_key] = trade
                     print(f"[NEW] {signal.side} @ ${entry_price:.4f} | Edge: {edge:.1%} | KL: {bregman_signal.kl_divergence:.4f} | Kelly: {bregman_signal.kelly_fraction:.1%}")
@@ -321,15 +325,15 @@ class TAPaperTrader:
 
                         # Determine outcome
                         if price >= 0.95:
-                            exit_val = self.POSITION_SIZE / trade.entry_price
+                            exit_val = trade.size_usd / trade.entry_price
                         elif price <= 0.05:
                             exit_val = 0
                         else:
-                            exit_val = (self.POSITION_SIZE / trade.entry_price) * price
+                            exit_val = (trade.size_usd / trade.entry_price) * price
 
                         trade.exit_price = price
                         trade.exit_time = datetime.now(timezone.utc).isoformat()
-                        trade.pnl = exit_val - self.POSITION_SIZE
+                        trade.pnl = exit_val - trade.size_usd
                         trade.status = "closed"
 
                         self.total_pnl += trade.pnl
@@ -340,6 +344,90 @@ class TAPaperTrader:
 
                         result = "WIN" if trade.pnl > 0 else "LOSS"
                         print(f"[{result}] {trade.side} PnL: ${trade.pnl:+.2f} | {trade.market_title[:40]}...")
+
+        # === ACTIVE MARKET RESOLUTION ===
+        # Check ALL markets (not just eligible ones) for near-expiry resolution.
+        # This catches markets with time_left < 2 that were filtered out above.
+        for mkt in markets:
+            mkt_time = self.get_time_remaining(mkt)
+            if mkt_time < 0.5:
+                mkt_id = mkt.get("conditionId", "")
+                up_p, down_p = self.get_market_prices(mkt)
+                if up_p is None or down_p is None:
+                    continue
+                for tid, trade in list(self.trades.items()):
+                    if trade.status == "open" and mkt_id in tid:
+                        price = up_p if trade.side == "UP" else down_p
+                        if price >= 0.95:
+                            exit_val = trade.size_usd / trade.entry_price
+                        elif price <= 0.05:
+                            exit_val = 0
+                        else:
+                            exit_val = (trade.size_usd / trade.entry_price) * price
+                        trade.exit_price = price
+                        trade.exit_time = datetime.now(timezone.utc).isoformat()
+                        trade.pnl = exit_val - trade.size_usd
+                        trade.status = "closed"
+                        self.total_pnl += trade.pnl
+                        if trade.pnl > 0:
+                            self.wins += 1
+                        else:
+                            self.losses += 1
+                        result = "WIN" if trade.pnl > 0 else "LOSS"
+                        print(f"[{result}] {trade.side} PnL: ${trade.pnl:+.2f} | {trade.market_title[:40]}...")
+
+        # === EXPIRY RESOLUTION ===
+        # Markets disappear from active=true&closed=false after they close.
+        # Check all open trades older than 16 minutes and resolve them via Gamma API.
+        now = datetime.now(timezone.utc)
+        for tid, open_trade in list(self.trades.items()):
+            if open_trade.status != "open":
+                continue
+            try:
+                entry_dt = datetime.fromisoformat(open_trade.entry_time)
+            except Exception:
+                continue
+            age_minutes = (now - entry_dt).total_seconds() / 60
+            if age_minutes > 16:
+                if not open_trade.market_numeric_id:
+                    # Old trades without numeric ID — can't resolve via API, mark as stale
+                    open_trade.status = "closed"
+                    open_trade.exit_price = 0.5
+                    open_trade.exit_time = now.isoformat()
+                    open_trade.pnl = 0.0  # Unknown outcome
+                    print(f"[STALE] {open_trade.side} | No numeric ID, marking closed | {open_trade.market_title[:40]}...")
+                    continue
+                try:
+                    async with httpx.AsyncClient(timeout=10) as client:
+                        r = await client.get(
+                            f"https://gamma-api.polymarket.com/markets/{open_trade.market_numeric_id}",
+                            headers={"User-Agent": "Mozilla/5.0"}
+                        )
+                        if r.status_code == 200:
+                            rm = r.json()
+                            up_p, down_p = self.get_market_prices(rm)
+                            if up_p is not None and down_p is not None:
+                                price = up_p if open_trade.side == "UP" else down_p
+                                if price >= 0.95:
+                                    exit_val = open_trade.size_usd / open_trade.entry_price
+                                elif price <= 0.05:
+                                    exit_val = 0
+                                else:
+                                    exit_val = (open_trade.size_usd / open_trade.entry_price) * price
+                                open_trade.exit_price = price
+                                open_trade.exit_time = now.isoformat()
+                                open_trade.pnl = exit_val - open_trade.size_usd
+                                open_trade.status = "closed"
+                                self.total_pnl += open_trade.pnl
+                                if open_trade.pnl > 0:
+                                    self.wins += 1
+                                else:
+                                    self.losses += 1
+                                result = "WIN" if open_trade.pnl > 0 else "LOSS"
+                                print(f"[{result}] (expired) {open_trade.side} PnL: ${open_trade.pnl:+.2f} | {open_trade.market_title[:40]}...")
+                    await asyncio.sleep(0.5)  # Rate limit between resolved market lookups
+                except Exception as e:
+                    print(f"[Expiry] Error resolving {tid[:20]}: {e}")
 
         self._save()
         return main_signal
