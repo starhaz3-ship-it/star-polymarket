@@ -718,6 +718,10 @@ class TALiveTrader:
 
                 if signal.action == "ENTER" and signal.side and trade_key:
                     if trade_key not in self.trades:
+                        # Don't place opposite-side trade on same market (self-hedging)
+                        opposite_key = f"{market_id}_{'DOWN' if signal.side == 'UP' else 'UP'}"
+                        if opposite_key in self.trades and self.trades[opposite_key].status == "open":
+                            continue
                         # === RISK CHECKS ===
                         if self.total_pnl <= -self.MAX_DAILY_LOSS:
                             print(f"[RISK] Daily loss limit hit: ${self.total_pnl:.2f} - stopping")
@@ -832,6 +836,85 @@ class TALiveTrader:
 
                             result = "WIN" if won else "LOSS"
                             print(f"[{result}] {open_trade.side} PnL: ${open_trade.pnl:+.2f} | Size: ${open_trade.size_usd:.2f} | Bankroll: ${self.bankroll:.2f} | {open_trade.market_title[:40]}...")
+
+        # Check for expired trades (markets disappear from active query after close)
+        now = datetime.now(timezone.utc)
+        for tid, open_trade in list(self.trades.items()):
+            if open_trade.status != "open":
+                continue
+            entry_dt = datetime.fromisoformat(open_trade.entry_time)
+            age_minutes = (now - entry_dt).total_seconds() / 60
+            if age_minutes > 16:  # 15-min market + 1 min buffer
+                # Fetch resolved market data
+                try:
+                    import httpx
+                    r = httpx.get(
+                        "https://gamma-api.polymarket.com/markets",
+                        params={"condition_id": open_trade.market_id, "limit": "1"},
+                        headers={"User-Agent": "Mozilla/5.0"},
+                        timeout=10
+                    )
+                    if r.status_code == 200 and r.json():
+                        mkt = r.json()[0]
+                        outcomes = mkt.get("outcomes", [])
+                        prices = mkt.get("outcomePrices", [])
+                        if isinstance(outcomes, str):
+                            outcomes = json.loads(outcomes)
+                        if isinstance(prices, str):
+                            prices = json.loads(prices)
+
+                        # Find resolved price for our side
+                        res_price = None
+                        for i, outcome in enumerate(outcomes):
+                            if str(outcome).lower() == open_trade.side.lower() and i < len(prices):
+                                res_price = float(prices[i])
+                                break
+
+                        if res_price is not None:
+                            if res_price >= 0.95:
+                                exit_val = open_trade.size_usd / open_trade.entry_price
+                            elif res_price <= 0.05:
+                                exit_val = 0
+                            else:
+                                exit_val = (open_trade.size_usd / open_trade.entry_price) * res_price
+
+                            open_trade.exit_price = res_price
+                            open_trade.exit_time = now.isoformat()
+                            open_trade.pnl = exit_val - open_trade.size_usd
+                            open_trade.status = "closed"
+
+                            self.total_pnl += open_trade.pnl
+                            won = open_trade.pnl > 0
+                            if won:
+                                self.wins += 1
+                                self.consecutive_wins += 1
+                                self.consecutive_losses = 0
+                            else:
+                                self.losses += 1
+                                self.consecutive_losses += 1
+                                self.consecutive_wins = 0
+
+                            self.bankroll = max(self.initial_bankroll * 0.5, self.bankroll + open_trade.pnl)
+                            self.ml.update_weights(open_trade.features, won)
+
+                            result = "WIN" if won else "LOSS"
+                            print(f"[{result}] {open_trade.side} PnL: ${open_trade.pnl:+.2f} | Size: ${open_trade.size_usd:.2f} | Bankroll: ${self.bankroll:.2f} | {open_trade.market_title[:40]}...")
+                        else:
+                            # Can't determine resolution, close at entry (break even)
+                            open_trade.status = "closed"
+                            open_trade.pnl = 0.0
+                            open_trade.exit_price = open_trade.entry_price
+                            open_trade.exit_time = now.isoformat()
+                            print(f"[EXPIRED] {open_trade.side} | No resolved price | {open_trade.market_title[:40]}...")
+                    else:
+                        # Market not found, close at break even
+                        open_trade.status = "closed"
+                        open_trade.pnl = 0.0
+                        open_trade.exit_price = open_trade.entry_price
+                        open_trade.exit_time = now.isoformat()
+                        print(f"[EXPIRED] {open_trade.side} | Market not found | {open_trade.market_title[:40]}...")
+                except Exception as e:
+                    print(f"[EXPIRE CHECK] Error for {tid[:20]}: {e}")
 
         self._save()
         return main_signal
