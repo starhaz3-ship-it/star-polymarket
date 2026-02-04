@@ -223,13 +223,127 @@ class MLOptimizer:
         return 0.5
 
 
+def auto_redeem_winnings():
+    """Auto-redeem any resolved winning positions to USDC. Runs silently."""
+    try:
+        from web3 import Web3
+        from dotenv import load_dotenv
+        load_dotenv()
+
+        proxy_address = os.getenv("POLYMARKET_PROXY_ADDRESS", "")
+        if not proxy_address:
+            return
+
+        import httpx
+        r = httpx.get(
+            "https://data-api.polymarket.com/positions",
+            params={"user": proxy_address, "sizeThreshold": "0"},
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=15,
+        )
+        redeemable = [p for p in r.json() if p.get("redeemable", False)]
+        if not redeemable:
+            return
+
+        total_val = sum(float(p.get("currentValue", 0) or 0) for p in redeemable)
+        if total_val <= 0:
+            return  # Nothing worth claiming
+
+        rpcs = ["https://polygon-rpc.com", "https://rpc.ankr.com/polygon", "https://polygon.llamarpc.com"]
+        w3 = None
+        for rpc in rpcs:
+            try:
+                w3 = Web3(Web3.HTTPProvider(rpc, request_kwargs={"timeout": 30}))
+                if w3.is_connected():
+                    break
+            except Exception:
+                continue
+        if not w3 or not w3.is_connected():
+            return
+
+        key = os.getenv("POLYMARKET_PRIVATE_KEY", "")
+        if key.startswith("ENC:"):
+            sys.path.insert(0, str(Path(__file__).parent))
+            from crypto_utils import decrypt_key
+            salt = os.getenv("POLYMARKET_KEY_SALT", "")
+            password = os.getenv("POLYMARKET_PASSWORD", "")
+            if not password:
+                return
+            key = decrypt_key(key[4:], salt, password)
+        if not key:
+            return
+        if not key.startswith("0x"):
+            key = "0x" + key
+
+        account = w3.eth.account.from_key(key)
+        CTF = "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045"
+        USDC = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"
+        FACTORY = "0xaB45c5A4B0c941a2F231C04C3f49182e1A254052"
+
+        ctf_abi = [{"inputs":[{"name":"collateralToken","type":"address"},{"name":"parentCollectionId","type":"bytes32"},{"name":"conditionId","type":"bytes32"},{"name":"indexSets","type":"uint256[]"}],"name":"redeemPositions","outputs":[],"stateMutability":"nonpayable","type":"function"}]
+        factory_abi = [{"inputs":[{"components":[{"name":"to","type":"address"},{"name":"typeCode","type":"uint256"},{"name":"data","type":"bytes"},{"name":"value","type":"uint256"}],"name":"_txns","type":"tuple[]"}],"name":"proxy","outputs":[],"stateMutability":"nonpayable","type":"function"}]
+
+        ctf = w3.eth.contract(address=Web3.to_checksum_address(CTF), abi=ctf_abi)
+        factory = w3.eth.contract(address=Web3.to_checksum_address(FACTORY), abi=factory_abi)
+
+        claimed = 0
+        done = set()
+        for p in redeemable:
+            cid = p.get("conditionId", "")
+            val = float(p.get("currentValue", 0) or 0)
+            if not cid or cid in done or val <= 0:
+                continue
+            done.add(cid)
+            try:
+                redeem_data = ctf.encode_abi("redeemPositions", args=[
+                    Web3.to_checksum_address(USDC), bytes(32),
+                    Web3.to_bytes(hexstr=cid), [1, 2],
+                ])
+                proxy_txn = (Web3.to_checksum_address(CTF), 1, Web3.to_bytes(hexstr=redeem_data), 0)
+                nonce = w3.eth.get_transaction_count(account.address)
+                gas_price = w3.eth.gas_price
+                txn = factory.functions.proxy([proxy_txn]).build_transaction({
+                    "from": account.address, "nonce": nonce,
+                    "gasPrice": min(gas_price * 2, w3.to_wei(100, "gwei")), "gas": 300000,
+                })
+                signed = w3.eth.account.sign_transaction(txn, key)
+                tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+                receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=60)
+                if receipt["status"] == 1:
+                    claimed += 1
+                    print(f"[REDEEM] Claimed ${val:.2f} | {p.get('title','')[:40]}")
+                time.sleep(15)  # Rate limit
+            except Exception:
+                time.sleep(15)
+                continue
+
+        if claimed:
+            print(f"[REDEEM] Auto-claimed {claimed} winning positions")
+
+        # Check remaining POL balance for gas
+        try:
+            signer = account.address
+            bal_wei = w3.eth.get_balance(signer)
+            bal_pol = float(w3.from_wei(bal_wei, "ether"))
+            gas_price_gwei = float(w3.from_wei(w3.eth.gas_price, "gwei"))
+            cost_per = 300000 * gas_price_gwei / 1e9
+            remaining = int(bal_pol / cost_per) if cost_per > 0 else 0
+            if remaining <= 100:
+                print(f"[WARNING] LOW POL BALANCE: {bal_pol:.2f} POL - only ~{remaining} redemptions left!")
+                print(f"[WARNING] Top up signer wallet: {signer}")
+        except Exception:
+            pass
+    except Exception as e:
+        pass  # Silently fail - don't disrupt trading
+
+
 class TALiveTrader:
     """Live trades based on TA + Bregman signals with ML optimization."""
 
     OUTPUT_FILE = Path(__file__).parent / "ta_live_results.json"
-    BASE_POSITION_SIZE = 10.0  # Base $10 per trade
+    BASE_POSITION_SIZE = 5.0   # Base $5 per trade - conservative
     MIN_POSITION_SIZE = 5.0    # Minimum position
-    MAX_POSITION_SIZE = 25.0   # Maximum position (Kelly cap)
+    MAX_POSITION_SIZE = 10.0   # Hard cap $10 - never risk more
 
     def __init__(self, dry_run: bool = False, bankroll: float = 500.0):
         self.dry_run = dry_run
@@ -573,48 +687,32 @@ class TALiveTrader:
     MIN_TIME_REMAINING = 3.0     # Don't enter with < 3 min (market already priced in)
     MAX_TIME_REMAINING = 14.0    # Enter up to 14 min out (catch fresh markets at ~50/50)
 
-    # Kelly position sizing
-    KELLY_FRACTION = 0.5         # Half-Kelly for safety (full Kelly is too aggressive)
-    MOMENTUM_BOOST = 1.3         # 30% size boost for strong momentum
+    # Kelly position sizing - CONSERVATIVE: slow churn, protect capital
+    KELLY_FRACTION = 0.25        # Quarter-Kelly for safety
 
     def calculate_position_size(self, edge: float, kelly_fraction: float,
                                   btc_1h_change: float, volatility: float) -> float:
         """
-        Dynamic position sizing based on:
-        - Kelly criterion (edge-proportional)
-        - Profit compounding (bankroll growth)
-        - Momentum scaling (bigger in strong trends)
-        - Volatility adjustment (smaller in high vol)
-        - Streak management
+        Conservative position sizing: $5 base, scale to $10 max only with
+        high ML conviction. Protect capital, churn profits slowly.
         """
-        # Base: scale with bankroll (compounding)
-        bankroll_ratio = max(0.5, self.bankroll / self.initial_bankroll)
-        base = self.BASE_POSITION_SIZE * bankroll_ratio
+        # Start at base ($5)
+        size = self.BASE_POSITION_SIZE
 
-        # Kelly scaling: half-Kelly based on actual edge
-        kelly_mult = min(2.0, max(0.5, kelly_fraction * self.KELLY_FRACTION * 4))
-        size = base * kelly_mult
+        # ML conviction scaling: only increase toward $10 with strong edge+kelly
+        conviction = min(1.0, kelly_fraction * edge / 0.10)  # 0-1 score
+        size += conviction * (self.MAX_POSITION_SIZE - self.BASE_POSITION_SIZE)
 
-        # Momentum boost: if BTC moved > 0.5% in last hour, boost size
-        if abs(btc_1h_change) > 0.5:
-            size *= self.MOMENTUM_BOOST
-
-        # Volatility damping: reduce size when vol is high (> 0.15%)
+        # Volatility damping: reduce in high vol
         if volatility > 0.15:
-            vol_damper = max(0.5, 1.0 - (volatility - 0.15) * 3)
+            vol_damper = max(0.7, 1.0 - (volatility - 0.15) * 2)
             size *= vol_damper
 
-        # Streak management
-        if self.consecutive_wins >= 3:
-            size *= 1.2  # Scale up on hot streak
-        elif self.consecutive_losses >= 2:
-            size *= 0.7  # Scale down on cold streak
+        # Losing streak protection: drop to minimum
+        if self.consecutive_losses >= 2:
+            size = self.MIN_POSITION_SIZE
 
-        # Edge-proportional: bigger edge = bigger position
-        edge_mult = min(1.5, max(0.5, edge / 0.20))  # Normalize around 20% edge
-        size *= edge_mult
-
-        # Clamp to min/max
+        # Hard clamp $5-$10 always
         size = max(self.MIN_POSITION_SIZE, min(self.MAX_POSITION_SIZE, size))
         return round(size, 2)
 
@@ -837,6 +935,13 @@ class TALiveTrader:
                             result = "WIN" if won else "LOSS"
                             print(f"[{result}] {open_trade.side} PnL: ${open_trade.pnl:+.2f} | Size: ${open_trade.size_usd:.2f} | Bankroll: ${self.bankroll:.2f} | {open_trade.market_title[:40]}...")
 
+                            # Auto-redeem winnings after each win
+                            if won and not self.dry_run:
+                                try:
+                                    auto_redeem_winnings()
+                                except Exception:
+                                    pass
+
         # Check for expired trades (markets disappear from active query after close)
         now = datetime.now(timezone.utc)
         for tid, open_trade in list(self.trades.items()):
@@ -899,6 +1004,13 @@ class TALiveTrader:
 
                             result = "WIN" if won else "LOSS"
                             print(f"[{result}] {open_trade.side} PnL: ${open_trade.pnl:+.2f} | Size: ${open_trade.size_usd:.2f} | Bankroll: ${self.bankroll:.2f} | {open_trade.market_title[:40]}...")
+
+                            # Auto-redeem winnings after each win
+                            if won and not self.dry_run:
+                                try:
+                                    auto_redeem_winnings()
+                                except Exception:
+                                    pass
                         else:
                             # Can't determine resolution, close at entry (break even)
                             open_trade.status = "closed"

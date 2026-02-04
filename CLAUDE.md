@@ -4,6 +4,10 @@
 **Owner:** Star
 **Resume Command:** "Access Star-Polymarket"
 
+## CRITICAL RULES
+- **NEVER** launch copy traders (`run_copy_live.py`, `run_copy_k9Q2.py`) without Star's explicit consent
+- Only auto-launch: `run_ta_live.py`, `run_ta_paper.py`, `run_whale_watcher.py`
+
 ## TA Trading Suite (Primary)
 
 ### Quick Start Commands
@@ -30,6 +34,7 @@ cat ta_paper_results.json | python -m json.tool
 
 ### Reminders
 - **2026-02-07**: Review ML threshold — if profitable, lower ML threshold again (currently 0.50 default, 0.30 when winning >60%, 1.0 when losing <40%). Check `get_min_score_threshold()` in `run_ta_live.py`.
+- **POL gas balance**: Alert Star when signer wallet POL drops below 100 redemptions (~22 POL). Signer: `0xD375494Fd97366F543DAB3CB88684EFE738DCd40`. Auto-warning built into `auto_redeem_winnings()` in `run_ta_live.py`.
 
 ### Key Files
 - `run_ta_paper.py` - Paper trading runner
@@ -72,10 +77,16 @@ ClobClient(
 - `POLYMARKET_PASSWORD` - Password for key decryption (required for live trading)
 - `POLYMARKET_PROXY_ADDRESS` - Proxy wallet address
 
+## Whale Watcher (Paper Only)
+- `run_whale_watcher.py` - Monitors 18 whale wallets, paper trades, logs to SQLite
+- `whale_watcher.db` - SQLite database for ML analysis (trades, snapshots, stats)
+- No real money, no execution - observation and logging only
+
 ## File Structure
 - `arbitrage/` - Core trading modules
 - `run_ta_paper.py` - TA paper trader
 - `run_ta_live.py` - TA live trader with ML
+- `run_whale_watcher.py` - Whale paper trader + SQLite logger
 - `.env` - Encrypted credentials
 
 ## GitHub

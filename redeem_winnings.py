@@ -7,6 +7,7 @@ to redeem winning shares for USDC.
 import os
 import sys
 import json
+import time
 import httpx
 from pathlib import Path
 from dotenv import load_dotenv
@@ -112,12 +113,23 @@ def main():
 
     print(f"\nTotal redeemable value: ${total_value:.2f}")
 
-    # Connect to Polygon
-    w3 = Web3(Web3.HTTPProvider("https://polygon-rpc.com"))
-    if not w3.is_connected():
-        # Fallback RPC
-        w3 = Web3(Web3.HTTPProvider("https://rpc.ankr.com/polygon"))
-    if not w3.is_connected():
+    # Connect to Polygon - try multiple RPCs
+    rpcs = [
+        "https://polygon-rpc.com",
+        "https://rpc.ankr.com/polygon",
+        "https://polygon.llamarpc.com",
+        "https://rpc-mainnet.matic.quiknode.pro",
+    ]
+    w3 = None
+    for rpc in rpcs:
+        try:
+            w3 = Web3(Web3.HTTPProvider(rpc, request_kwargs={"timeout": 30}))
+            if w3.is_connected():
+                print(f"Connected via: {rpc}")
+                break
+        except Exception:
+            continue
+    if not w3 or not w3.is_connected():
         print("ERROR: Could not connect to Polygon RPC")
         return
 
@@ -220,6 +232,9 @@ def main():
         except Exception as e:
             print(f"  ERROR: {e}")
             failed += 1
+
+        # Rate limit protection: wait between transactions
+        time.sleep(15)
 
     print(f"\n{'='*50}")
     print(f"REDEMPTION COMPLETE")
