@@ -442,15 +442,42 @@ class TALiveTrader:
             "symbol": "ETHUSDT",
             "keywords": ["ethereum", "eth"],
         },
-        "XRP": {
-            "symbol": "XRPUSDT",
-            "keywords": ["xrp"],
-        },
+        # XRP removed: 46.9% WR, -$4.69 PnL - worst performing asset
         "SOL": {
             "symbol": "SOLUSDT",
             "keywords": ["solana", "sol"],
         },
     }
+
+    # Directional bias based on 200 EMA trend
+    # Below 200 EMA = bearish: 70% capital on DOWN, 30% on UP
+    # Above 200 EMA = bullish: 70% capital on UP, 30% on DOWN
+    # TODO: ML should tune these ratios over time
+    TREND_BIAS_STRONG = 0.70   # Capital % for with-trend trades
+    TREND_BIAS_WEAK = 0.30     # Capital % for counter-trend trades (30% less)
+
+    # Trading hours filter (UTC) - skip low-WR hours
+    # 06:00-08:00 UTC = 40-44% WR, -$27 PnL - avoid
+    SKIP_HOURS_UTC = {6, 7, 8}
+
+    def _ema(self, candles, period: int) -> float:
+        """Calculate EMA from candle close prices."""
+        closes = [c.close for c in candles]
+        if len(closes) < period:
+            return closes[-1] if closes else 0
+        mult = 2 / (period + 1)
+        ema = sum(closes[:period]) / period
+        for price in closes[period:]:
+            ema = (price - ema) * mult + ema
+        return ema
+
+    def _get_trend_bias(self, candles, price: float) -> str:
+        """Determine trend direction using 200 EMA on 1-min candles (=200 min lookback)."""
+        ema200 = self._ema(candles, 200)
+        if price < ema200:
+            return "BEARISH"  # Below 200 EMA -> favor DOWN
+        else:
+            return "BULLISH"  # Above 200 EMA -> favor UP
 
     async def fetch_data(self):
         """Fetch candles and markets for all assets."""
@@ -718,6 +745,12 @@ class TALiveTrader:
 
     async def run_cycle(self):
         """Run one trading cycle across all assets."""
+        # Skip low win-rate hours (06:00-08:00 UTC = 42% WR, -$27 PnL)
+        current_hour = datetime.now(timezone.utc).hour
+        if current_hour in self.SKIP_HOURS_UTC:
+            print(f"[SKIP] Hour {current_hour:02d} UTC is in skip list - resting")
+            return None
+
         asset_data = await self.fetch_data()
 
         if not asset_data:
@@ -859,7 +892,26 @@ class TALiveTrader:
                             btc_1h_change=features.btc_1h_change,
                             volatility=features.btc_volatility,
                         )
-                        print(f"[SIZE] {asset} ${position_size:.2f} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, Streak={self.consecutive_wins}W/{self.consecutive_losses}L)")
+
+                        # Directional bias: 200 EMA trend filter
+                        # With-trend = full size, counter-trend = 30% less capital
+                        trend = self._get_trend_bias(candles, price)
+                        with_trend = (trend == "BEARISH" and signal.side == "DOWN") or \
+                                     (trend == "BULLISH" and signal.side == "UP")
+                        if not with_trend:
+                            position_size = round(position_size * self.TREND_BIAS_WEAK / self.TREND_BIAS_STRONG, 2)
+                            position_size = max(self.MIN_POSITION_SIZE, position_size)
+                            trend_tag = f"COUNTER-TREND({trend})"
+                        else:
+                            trend_tag = f"WITH-TREND({trend})"
+
+                        # "Strong" signals (edge>20%) underperform "good" (10-20%) in backtest
+                        # Reduce overconfident strong signals slightly
+                        if signal.strength.value == "strong" and edge and edge > 0.25:
+                            position_size = round(position_size * 0.8, 2)
+                            position_size = max(self.MIN_POSITION_SIZE, position_size)
+
+                        print(f"[SIZE] {asset} ${position_size:.2f} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, {trend_tag}, Streak={self.consecutive_wins}W/{self.consecutive_losses}L)")
 
                         success, order_result = await self.execute_trade(
                             market, signal.side, position_size, entry_price
@@ -1077,7 +1129,10 @@ class TALiveTrader:
         print("=" * 70)
         print(f"Position Size: ${self.BASE_POSITION_SIZE} base (${self.MIN_POSITION_SIZE}-${self.MAX_POSITION_SIZE} Kelly-scaled)")
         print(f"ML Optimization: ENABLED")
-        print(f"Assets: {', '.join(self.ASSETS.keys())}")
+        print(f"Assets: {', '.join(self.ASSETS.keys())} (XRP dropped - underperforming)")
+        print(f"Trend Bias: 200 EMA | With-trend {self.TREND_BIAS_STRONG:.0%} / Counter-trend {self.TREND_BIAS_WEAK:.0%}")
+        print(f"Skip Hours (UTC): {sorted(self.SKIP_HOURS_UTC)}")
+        print(f"Strong signal dampening: -20% size when edge > 25%")
         print(f"Entry Window: {self.MIN_TIME_REMAINING}-{self.MAX_TIME_REMAINING} min")
         print(f"Scan interval: 60 seconds")
         print("=" * 70)

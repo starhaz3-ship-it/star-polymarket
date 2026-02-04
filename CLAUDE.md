@@ -27,12 +27,23 @@ cat ta_paper_results.json | python -m json.tool
 - **TA Live** (`run_ta_live.py`) - Live trading, $10 positions, ML optimization
 
 ### Current Status (Last Updated: 2026-02-04)
-- Live Trader: Running, multi-asset (BTC/ETH/XRP/SOL), 4W/5L, ~break-even
-- Strategy: TA signals (RSI, VWAP, Heiken Ashi, MACD) + Bregman divergence + Kelly sizing
-- Markets: BTC/ETH/XRP/SOL 15-minute Up/Down via Polymarket API (`tag_slug=15M`)
-- ML threshold lowered to 0.50 (from 1.00) on 2026-02-04
+- Live Trader: Running, multi-asset (BTC/ETH/SOL - XRP dropped for low WR)
+- Strategy: TA signals + Bregman + Kelly + 200 EMA trend bias + auto-redeem
+- Markets: BTC/ETH/SOL 15-minute Up/Down via Polymarket API (`tag_slug=15M`)
+- Position sizing: $5-$10, conservative quarter-Kelly
+- Trend bias: 200 EMA → with-trend 70% capital, counter-trend 30%
+- Skip hours: 06:00-08:00 UTC (low win rate hours)
+- Strong signal dampening: -20% size when edge > 25% (overconfidence filter)
+- Auto-redeem: Claims winnings on-chain after every win
+- ML threshold: 0.50 (adaptive: 0.30 when winning >60%, 1.0 when losing <40%)
+
+### Standing Orders
+- **AUTO-TUNE**: Continuously analyze trade data and auto-adjust settings for max profit, then win rate. Don't ask - just optimize. Log changes made.
+- ML should tune trend bias ratios (70/30) over time based on actual results
+- Review and adjust SKIP_HOURS_UTC, asset list, edge thresholds as data accumulates
 
 ### Reminders
+- **2026-02-04 ~6PM MST (12h report)**: Generate full performance report with charts. Compare pre-optimization (before 5AM MST) vs post-optimization metrics. Include: PnL by asset, side, hour, trend bias effectiveness, strong-signal dampening results. Auto-tweak any underperforming settings. Run this analysis script: `python analyze_performance.py` (create if needed).
 - **2026-02-07**: Review ML threshold — if profitable, lower ML threshold again (currently 0.50 default, 0.30 when winning >60%, 1.0 when losing <40%). Check `get_min_score_threshold()` in `run_ta_live.py`.
 - **POL gas balance**: Alert Star when signer wallet POL drops below 100 redemptions (~22 POL). Signer: `0xD375494Fd97366F543DAB3CB88684EFE738DCd40`. Auto-warning built into `auto_redeem_winnings()` in `run_ta_live.py`.
 

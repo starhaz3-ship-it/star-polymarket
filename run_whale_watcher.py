@@ -31,7 +31,8 @@ WHALES = CopyTrader.WHALES  # {name: address, ...}
 
 
 def log(msg: str):
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
+    safe = msg.encode("ascii", errors="replace").decode("ascii")
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] {safe}", flush=True)
 
 
 # ---------------------------------------------------------------------------
