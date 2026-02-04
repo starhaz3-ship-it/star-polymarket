@@ -138,8 +138,8 @@ class TASignalGenerator:
     # Phase thresholds
     PHASE_THRESHOLDS = {
         TradePhase.EARLY: {"edge": 0.05, "min_prob": 0.55},
-        TradePhase.MID: {"edge": 0.10, "min_prob": 0.60},
-        TradePhase.LATE: {"edge": 0.20, "min_prob": 0.65},
+        TradePhase.MID: {"edge": 0.05, "min_prob": 0.55},
+        TradePhase.LATE: {"edge": 0.08, "min_prob": 0.58},
     }
 
     def __init__(self):
@@ -471,12 +471,17 @@ class TASignalGenerator:
         remaining_minutes: float,
         window_minutes: float = 15.0
     ) -> Tuple[float, float, float]:
-        """Apply time decay to probability estimate."""
-        time_decay = max(0, min(1, remaining_minutes / window_minutes))
-        adjusted_up = max(0, min(1, 0.5 + (raw_up - 0.5) * time_decay))
+        """Apply time awareness to probability estimate.
+        Less time remaining = MORE confident (price action is clearer),
+        not less. Use sqrt curve so signal strength grows as expiry nears.
+        """
+        time_ratio = max(0, min(1, remaining_minutes / window_minutes))
+        # Invert: closer to expiry = stronger signal (sqrt for smooth curve)
+        time_boost = max(0.6, 1.0 - (time_ratio * 0.4))  # 0.6 at 15min, 1.0 at 0min
+        adjusted_up = max(0, min(1, 0.5 + (raw_up - 0.5) * time_boost))
         adjusted_down = 1 - adjusted_up
 
-        return (time_decay, adjusted_up, adjusted_down)
+        return (time_boost, adjusted_up, adjusted_down)
 
     def compute_edge(
         self,

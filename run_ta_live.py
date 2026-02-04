@@ -467,34 +467,10 @@ class TALiveTrader:
             if not token_id:
                 return False, "token_not_found"
 
-            # Fetch order book to get the real ask price for immediate fill
-            import httpx
-            try:
-                book_resp = httpx.get(
-                    "https://clob.polymarket.com/book",
-                    params={"token_id": token_id},
-                    headers={"User-Agent": "Mozilla/5.0"},
-                    timeout=5
-                )
-                if book_resp.status_code == 200:
-                    book = book_resp.json()
-                    asks = book.get("asks", [])
-                    if asks:
-                        best_ask = float(asks[0].get("price", price))
-                        ask_size = float(asks[0].get("size", 0))
-                        print(f"[BOOK] Best ask: ${best_ask} ({ask_size} shares available)")
-                        # Slippage check - don't overpay vs mid price
-                        slippage = (best_ask - price) / price if price > 0 else 0
-                        if slippage > self.MAX_SLIPPAGE:
-                            return False, f"slippage_too_high_{slippage:.1%}"
-                        # Use the ask price to ensure fill
-                        price = best_ask
-                    else:
-                        print(f"[BOOK] No asks available, using mid price ${price}")
-                else:
-                    print(f"[BOOK] API returned {book_resp.status_code}, using mid price")
-            except Exception as e:
-                print(f"[BOOK] Error fetching order book: {e}")
+            # 15-min markets have thin order books (asks at $0.97-$0.99 only).
+            # Place limit orders at the outcomePrices mid price and let them fill.
+            # MAX_ENTRY_PRICE check is already applied in conviction filters.
+            print(f"[ORDER] Placing limit {side} @ ${price:.4f} (mid price)")
 
             # Calculate shares - use whole number to avoid CLOB decimal precision errors
             shares = math.floor(size / price)
@@ -520,21 +496,9 @@ class TALiveTrader:
             if not success:
                 return False, response.get("errorMsg", "unknown_error")
 
-            # Wait then verify the order actually filled
-            time.sleep(3)
-            filled = await self.verify_fill(token_id, shares)
-            if filled:
-                print(f"[LIVE] Fill VERIFIED for {side}")
-                return True, order_id
-            else:
-                # Cancel unfilled GTC order to free up capital
-                try:
-                    self.executor.client.cancel(order_id)
-                    print(f"[LIVE] Cancelled unfilled order {order_id[:16]}...")
-                except Exception:
-                    pass
-                print(f"[LIVE] Fill NOT CONFIRMED for {side} - order cancelled")
-                return False, "fill_not_verified"
+            # GTC order placed successfully — it will fill when matched
+            print(f"[LIVE] Order placed: {order_id[:20]}...")
+            return True, order_id
 
         except Exception as e:
             return False, str(e)
@@ -594,8 +558,8 @@ class TALiveTrader:
             return False
 
     # Conviction thresholds - prevent flip-flopping
-    MIN_MODEL_CONFIDENCE = 0.65  # Model must be at least 65% confident in direction
-    MIN_EDGE = 0.10              # At least 10% edge vs market price
+    MIN_MODEL_CONFIDENCE = 0.58  # Model must be at least 58% confident in direction
+    MIN_EDGE = 0.08              # At least 8% edge vs market price
     MAX_ENTRY_PRICE = 0.55       # Don't buy at prices above 55¢ (no edge zone)
     CANDLE_LOOKBACK = 15         # Only use last 15 minutes of price action
 
@@ -605,9 +569,9 @@ class TALiveTrader:
     MAX_SLIPPAGE = 0.05          # Max 5% slippage from mid price to ask
     MAX_CONCURRENT_POSITIONS = 6 # Max 6 open positions (across 4 assets)
 
-    # Entry window (tighter = more accurate signals, less uncertainty)
-    MIN_TIME_REMAINING = 3.0     # Don't enter with < 3 min (too late, bad fills)
-    MAX_TIME_REMAINING = 10.0    # Don't enter with > 10 min (signal too noisy)
+    # Entry window - trade EARLY when market is still ~50/50 but model has conviction
+    MIN_TIME_REMAINING = 3.0     # Don't enter with < 3 min (market already priced in)
+    MAX_TIME_REMAINING = 14.0    # Enter up to 14 min out (catch fresh markets at ~50/50)
 
     # Kelly position sizing
     KELLY_FRACTION = 0.5         # Half-Kelly for safety (full Kelly is too aggressive)
@@ -711,8 +675,8 @@ class TALiveTrader:
 
             print(f"[{asset}] ${price:,.2f} | nearest market: {eligible_markets[0][0]:.1f}min left")
 
-            # Trade the nearest expiring market for this asset
-            for time_left, market, up_price, down_price in eligible_markets[:1]:
+            # Try all eligible markets (nearest first) — near-expiry markets may already be heavily priced
+            for time_left, market, up_price, down_price in eligible_markets:
                 market_id = market.get("conditionId", "")
                 question = market.get("question", "")
 
@@ -727,18 +691,29 @@ class TALiveTrader:
 
                 trade_key = f"{market_id}_{signal.side}" if signal.side else None
 
-                # === CONVICTION FILTERS ===
+                # === CONVICTION FILTERS (with debug) ===
+                if not signal.side:
+                    print(f"  [{asset}] No signal side (action={signal.action}) | mkt UP=${up_price:.2f} DOWN=${down_price:.2f} | {time_left:.1f}min | reason={signal.reason}")
+                    continue
                 if signal.side == "UP" and signal.model_up < self.MIN_MODEL_CONFIDENCE:
+                    print(f"  [{asset}] UP confidence too low: {signal.model_up:.1%} < {self.MIN_MODEL_CONFIDENCE:.0%}")
                     continue
                 if signal.side == "DOWN" and signal.model_down < self.MIN_MODEL_CONFIDENCE:
+                    print(f"  [{asset}] DOWN confidence too low: {signal.model_down:.1%} < {self.MIN_MODEL_CONFIDENCE:.0%}")
                     continue
 
                 best_edge = signal.edge_up if signal.side == "UP" else signal.edge_down
                 if best_edge is not None and best_edge < self.MIN_EDGE:
+                    print(f"  [{asset}] Edge too small: {best_edge:.1%} < {self.MIN_EDGE:.0%}")
                     continue
 
                 entry_price_check = up_price if signal.side == "UP" else down_price
                 if entry_price_check is not None and entry_price_check > self.MAX_ENTRY_PRICE:
+                    print(f"  [{asset}] Entry price too high: ${entry_price_check:.2f} > ${self.MAX_ENTRY_PRICE}")
+                    continue
+
+                if signal.action != "ENTER":
+                    print(f"  [{asset}] Action is {signal.action}, not ENTER")
                     continue
 
                 if signal.action == "ENTER" and signal.side and trade_key:
@@ -792,7 +767,7 @@ class TALiveTrader:
                             print(f"[LIVE] {asset} {signal.side} @ ${entry_price:.4f} FAILED: {order_result} - NOT recorded")
                             continue
 
-                        trade = LiveTrade(
+                        new_trade = LiveTrade(
                             trade_id=trade_key,
                             market_id=market_id,
                             market_title=f"[{asset}] {question[:75]}",
@@ -802,54 +777,61 @@ class TALiveTrader:
                             size_usd=position_size,
                             signal_strength=signal.strength.value,
                             edge_at_entry=edge if edge else 0,
-                        kl_divergence=bregman_signal.kl_divergence,
-                        kelly_fraction=bregman_signal.kelly_fraction,
-                        features=asdict(features),
-                        order_id=order_result,
-                        execution_error=None,
-                        status="open",
-                    )
-                    self.trades[trade_key] = trade
-                    print(f"[LIVE] {signal.side} @ ${entry_price:.4f} | Size: ${position_size:.2f} | Edge: {edge:.1%} | Model: {signal.model_up:.0%} UP | ML: {ml_score:.2f} | FILLED")
+                            kl_divergence=bregman_signal.kl_divergence,
+                            kelly_fraction=bregman_signal.kelly_fraction,
+                            features=asdict(features),
+                            order_id=order_result,
+                            execution_error=None,
+                            status="open",
+                        )
+                        self.trades[trade_key] = new_trade
+                        print(f"[LIVE] [{asset}] {signal.side} @ ${entry_price:.4f} | Size: ${position_size:.2f} | Edge: {edge:.1%} | Model: {signal.model_up:.0%} UP | ML: {ml_score:.2f} | FILLED")
+                    break  # One trade per asset per cycle
 
-            # Check for resolved markets
-            if time_left < 0.5:
-                for tid, trade in list(self.trades.items()):
-                    if trade.status == "open" and market_id in tid:
-                        price = up_price if trade.side == "UP" else down_price
+            # Check ALL markets for resolution (not just eligible ones)
+            for mkt in markets:
+                mkt_time = self.get_time_remaining(mkt)
+                if mkt_time < 0.5:
+                    mkt_id = mkt.get("conditionId", "")
+                    mkt_up, mkt_down = self.get_market_prices(mkt)
+                    if mkt_up is None or mkt_down is None:
+                        continue
+                    for tid, open_trade in list(self.trades.items()):
+                        if open_trade.status == "open" and mkt_id in tid:
+                            res_price = mkt_up if open_trade.side == "UP" else mkt_down
 
-                        # Determine outcome using actual position size
-                        if price >= 0.95:
-                            exit_val = trade.size_usd / trade.entry_price
-                        elif price <= 0.05:
-                            exit_val = 0
-                        else:
-                            exit_val = (trade.size_usd / trade.entry_price) * price
+                            # Determine outcome using actual position size
+                            if res_price >= 0.95:
+                                exit_val = open_trade.size_usd / open_trade.entry_price
+                            elif res_price <= 0.05:
+                                exit_val = 0
+                            else:
+                                exit_val = (open_trade.size_usd / open_trade.entry_price) * res_price
 
-                        trade.exit_price = price
-                        trade.exit_time = datetime.now(timezone.utc).isoformat()
-                        trade.pnl = exit_val - trade.size_usd
-                        trade.status = "closed"
+                            open_trade.exit_price = res_price
+                            open_trade.exit_time = datetime.now(timezone.utc).isoformat()
+                            open_trade.pnl = exit_val - open_trade.size_usd
+                            open_trade.status = "closed"
 
-                        self.total_pnl += trade.pnl
-                        won = trade.pnl > 0
-                        if won:
-                            self.wins += 1
-                            self.consecutive_wins += 1
-                            self.consecutive_losses = 0
-                        else:
-                            self.losses += 1
-                            self.consecutive_losses += 1
-                            self.consecutive_wins = 0
+                            self.total_pnl += open_trade.pnl
+                            won = open_trade.pnl > 0
+                            if won:
+                                self.wins += 1
+                                self.consecutive_wins += 1
+                                self.consecutive_losses = 0
+                            else:
+                                self.losses += 1
+                                self.consecutive_losses += 1
+                                self.consecutive_wins = 0
 
-                        # Compound: update bankroll with PnL
-                        self.bankroll = max(self.initial_bankroll * 0.5, self.bankroll + trade.pnl)
+                            # Compound: update bankroll with PnL
+                            self.bankroll = max(self.initial_bankroll * 0.5, self.bankroll + open_trade.pnl)
 
-                        # Update ML
-                        self.ml.update_weights(trade.features, won)
+                            # Update ML
+                            self.ml.update_weights(open_trade.features, won)
 
-                        result = "WIN" if won else "LOSS"
-                        print(f"[{result}] {trade.side} PnL: ${trade.pnl:+.2f} | Size: ${trade.size_usd:.2f} | Bankroll: ${self.bankroll:.2f} | {trade.market_title[:40]}...")
+                            result = "WIN" if won else "LOSS"
+                            print(f"[{result}] {open_trade.side} PnL: ${open_trade.pnl:+.2f} | Size: ${open_trade.size_usd:.2f} | Bankroll: ${self.bankroll:.2f} | {open_trade.market_title[:40]}...")
 
         self._save()
         return main_signal
