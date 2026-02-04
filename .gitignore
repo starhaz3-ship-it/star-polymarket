@@ -14,6 +14,11 @@ venv/
 bot_state.json
 ml_data/
 
+# SQLite databases (too large for GitHub)
+*.db
+*.db-shm
+*.db-wal
+
 # Logs
 *.log
 
