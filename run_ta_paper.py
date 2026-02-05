@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from arbitrage.ta_signals import TASignalGenerator, Candle, SignalStrength
 from arbitrage.bregman_optimizer import BregmanOptimizer, enhance_ta_signal_with_bregman
+from arbitrage.ml_engine_v3 import get_ml_engine, MLFeatures, AdvancedMLEngine
 
 
 @dataclass
@@ -277,7 +278,7 @@ class MLAutoTuner:
             new = recommendations["down_min_confidence"]
             if abs(new - old) >= 0.01:
                 self.state.down_min_confidence = new
-                changes.append(f"DOWN conf: {old:.0%} → {new:.0%}")
+                changes.append(f"DOWN conf: {old:.0%} -> {new:.0%}")
 
         # Apply DOWN price change
         if "down_max_price" in recommendations:
@@ -285,7 +286,7 @@ class MLAutoTuner:
             new = recommendations["down_max_price"]
             if abs(new - old) >= 0.01:
                 self.state.down_max_price = new
-                changes.append(f"DOWN max price: ${old:.2f} → ${new:.2f}")
+                changes.append(f"DOWN max price: ${old:.2f} -> ${new:.2f}")
 
         # Apply UP confidence change
         if "up_min_confidence" in recommendations:
@@ -293,7 +294,7 @@ class MLAutoTuner:
             new = recommendations["up_min_confidence"]
             if abs(new - old) >= 0.01:
                 self.state.up_min_confidence = new
-                changes.append(f"UP conf: {old:.0%} → {new:.0%}")
+                changes.append(f"UP conf: {old:.0%} -> {new:.0%}")
 
         # Apply UP price change
         if "up_max_price" in recommendations:
@@ -301,7 +302,7 @@ class MLAutoTuner:
             new = recommendations["up_max_price"]
             if abs(new - old) >= 0.01:
                 self.state.up_max_price = new
-                changes.append(f"UP max price: ${old:.2f} → ${new:.2f}")
+                changes.append(f"UP max price: ${old:.2f} -> ${new:.2f}")
 
         # Apply edge change
         if "min_edge" in recommendations:
@@ -309,7 +310,7 @@ class MLAutoTuner:
             new = recommendations["min_edge"]
             if abs(new - old) >= 0.01:
                 self.state.min_edge = new
-                changes.append(f"Min edge: {old:.0%} → {new:.0%}")
+                changes.append(f"Min edge: {old:.0%} -> {new:.0%}")
 
         if changes:
             self.state.tune_count += 1
@@ -441,6 +442,10 @@ class TAPaperTrader:
         self.ml_tuner = MLAutoTuner()
         self.last_tune_time = 0  # Unix timestamp of last tune
         self.TUNE_INTERVAL = 1800  # Tune every 30 minutes
+
+        # ML V3 Engine (LightGBM + XGBoost ensemble)
+        self.ml_engine = get_ml_engine()
+        self.use_ml_v3 = True  # Enable advanced ML predictions
 
         self._load()
         self._apply_tuned_params()  # Apply ML-tuned parameters on startup
@@ -735,6 +740,46 @@ class TAPaperTrader:
                     )
                     self.bregman_signals += 1
 
+                    # === ML V3 PREDICTION ===
+                    ml_approved = True
+                    ml_str = ""
+                    if self.use_ml_v3:
+                        ml_features = self.ml_engine.extract_features(
+                            candles=recent_candles,
+                            current_price=btc_price,
+                            up_price=up_price,
+                            down_price=down_price,
+                            signal_data={
+                                'rsi': signal.rsi or 50,
+                                'price_vs_vwap': (btc_price - (signal.vwap or btc_price)) / btc_price if signal.vwap else 0,
+                                'kl_divergence': bregman_signal.kl_divergence,
+                                'heiken_streak': signal.heiken_count,
+                                'trend_strength': momentum
+                            }
+                        )
+                        ml_prediction = self.ml_engine.predict(ml_features)
+
+                        # Store features for training later
+                        self._pending_ml_features = ml_features
+
+                        # Check if ML agrees with TA signal
+                        if ml_prediction.recommended_side == "SKIP":
+                            ml_approved = False
+                            ml_str = f"[ML:SKIP conf={ml_prediction.confidence:.0%}]"
+                        elif ml_prediction.recommended_side != signal.side:
+                            # ML disagrees - reduce confidence but don't block
+                            if ml_prediction.confidence > 0.65:
+                                ml_approved = False
+                                ml_str = f"[ML:{ml_prediction.recommended_side} conf={ml_prediction.confidence:.0%} VETO]"
+                            else:
+                                ml_str = f"[ML:{ml_prediction.recommended_side} conf={ml_prediction.confidence:.0%} weak]"
+                        else:
+                            ml_str = f"[ML:AGREE conf={ml_prediction.confidence:.0%}]"
+
+                    if not ml_approved:
+                        print(f"[ML V3] {question[:30]}... | {ml_str} - skipping")
+                        continue
+
                     # Use Kelly fraction for position sizing (capped)
                     optimal_size = min(self.POSITION_SIZE, self.bankroll * bregman_signal.kelly_fraction)
                     optimal_size = max(10.0, optimal_size)  # Minimum $10
@@ -756,8 +801,8 @@ class TAPaperTrader:
                     self.trades[trade_key] = trade
                     self.traded_markets_this_cycle.add(market_id)  # PREVENT DUPLICATES
                     momentum_str = f"Mom:{momentum:+.2%}" if momentum else ""
-                    print(f"[NEW] {signal.side} @ ${entry_price:.4f} | Edge: {edge:.1%} | {momentum_str} | KL: {bregman_signal.kl_divergence:.4f}")
-                    print(f"      Size: ${optimal_size:.2f} | {question[:50]}...")
+                    print(f"[NEW] {signal.side} @ ${entry_price:.4f} | Edge: {edge:.1%} | {momentum_str} | {ml_str}")
+                    print(f"      Size: ${optimal_size:.2f} | KL: {bregman_signal.kl_divergence:.4f} | {question[:45]}...")
 
             # Check for resolved markets
             if time_left < 0.5:
@@ -787,6 +832,18 @@ class TAPaperTrader:
 
                         result = "WIN" if trade.pnl > 0 else "LOSS"
                         print(f"[{result}] {trade.side} PnL: ${trade.pnl:+.2f} | Day: ${self.daily_pnl:+.2f} | {trade.market_title[:35]}...")
+
+                        # === ML V3 ONLINE LEARNING ===
+                        if self.use_ml_v3 and hasattr(self, '_pending_ml_features'):
+                            try:
+                                self.ml_engine.add_training_sample(
+                                    features=self._pending_ml_features,
+                                    outcome=result,
+                                    pnl=trade.pnl,
+                                    side_taken=trade.side
+                                )
+                            except Exception as e:
+                                print(f"[ML V3] Training update error: {e}")
 
         # === ACTIVE MARKET RESOLUTION ===
         # Check ALL markets (not just eligible ones) for near-expiry resolution.
@@ -909,6 +966,15 @@ class TAPaperTrader:
         print(f"  Total PnL: ${self.total_pnl:+.2f}")
         print(f"  Today PnL: ${self.daily_pnl:+.2f}")
 
+        # ML V3 Engine stats
+        ml_status = self.ml_engine.get_status()
+        print(f"\nML V3 ENGINE (LightGBM+XGBoost):")
+        print(f"  Trained: {ml_status['is_trained']} | Samples: {ml_status['training_samples']}")
+        print(f"  Predictions: {ml_status['predictions_made']} | Accuracy: {ml_status['accuracy']:.1%}")
+        print(f"  Adaptive threshold: {ml_status['adaptive_threshold']:.0%}")
+        if ml_status['recent_win_rate'] > 0:
+            print(f"  Recent WR: {ml_status['recent_win_rate']:.1%}")
+
         # ML Tuner stats
         print(f"\nML AUTO-TUNER:")
         print(f"  Tune cycles: #{self.ml_tuner.state.tune_count}")
@@ -962,7 +1028,7 @@ class TAPaperTrader:
         if changes:
             print("\n[ML CHANGES APPLIED]:")
             for change in changes:
-                print(f"  → {change}")
+                print(f"  -> {change}")
             self._apply_tuned_params()
         else:
             print("\n[ML] No parameter changes needed")
@@ -973,9 +1039,12 @@ class TAPaperTrader:
     async def run(self):
         """Main loop with 10-minute updates."""
         print("=" * 70)
-        print("TA + BREGMAN PAPER TRADER V2 - ML AUTO-TUNED")
+        print("TA + BREGMAN PAPER TRADER V3 - LIGHTGBM + XGBOOST ENSEMBLE")
         print("=" * 70)
-        print("Strategy: Momentum-confirmed directional betting")
+        print("Strategy: Momentum-confirmed + ML ensemble prediction")
+        print("ML V3 Engine: LightGBM + XGBoost (online learning enabled)")
+        ml_status = self.ml_engine.get_status()
+        print(f"  Training samples: {ml_status['training_samples']} | Trained: {ml_status['is_trained']}")
         print("ML Auto-Tuner: ENABLED (tunes every 30 min based on performance)")
         print(f"Tune cycle: #{self.ml_tuner.state.tune_count}")
         print()
