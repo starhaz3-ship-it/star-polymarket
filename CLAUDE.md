@@ -26,17 +26,20 @@ cat ta_paper_results.json | python -m json.tool
 - **TA Paper** (`run_ta_paper.py`) - Paper trading, $100 positions, Bregman optimization
 - **TA Live** (`run_ta_live.py`) - Live trading, $10 positions, ML optimization
 
-### Current Status (Last Updated: 2026-02-04 late evening)
-- Live Trader: PAUSED for optimization - backtested 78.7% WR
-- Strategy: TA + Bregman + Kelly + ATR + RSI + strict UP + 200 EMA
+### Current Status (Last Updated: 2026-02-05 early morning)
+- Live Trader: RUNNING with v4 whale+ADX+MACD-V optimized filters
+- Strategy: TA + Bregman + Kelly + ATR + ADX + MACD-V + RSI + 200 EMA
 - Markets: BTC/ETH/SOL 15-minute Up/Down via Polymarket API (`tag_slug=15M`)
-- Position sizing: $1-$10, minimum $1 until WR proven, quarter-Kelly
-- **BACKTESTED OPTIMAL FILTERS (v3)** — tested 5096 combinations:
-  - Edge minimum: 10% (backtested: 0.10 + strict UP = 78.7% WR, 2.8 trades/hr)
+- Position sizing: $3-$10, minimum $3 (CLOB requires 5+ shares), quarter-Kelly
+- **V4 FILTERS** — whale-validated + hedge fund indicators:
+  - Edge minimum: 10%
   - ATR(14) on 1m candles: skip if recent 3 bars > 1.5x ATR
+  - ADX(14): DOWN needs ADX>20 (trend confirm), UP blocked when ADX>40 (exhausted)
+  - MACD-V (Spiroglou 2022): skip when momentum opposes signal (|MACD-V|>50)
+  - ATR Compression: ATR(20)<ATR(30) = +20% position size bonus (breakout setup)
   - RSI confirmation: DOWN requires RSI<55, UP requires RSI>45
   - UP trades restricted: need 65% confidence, 30% edge, RSI>55
-  - Skip hours: {6,7,8,14,15,16,19,20} UTC (8 hours skipped, 16 active)
+  - Skip hours: {0,6,7,8,14,15,19,20,21,23} UTC (10 hours skipped, whale-validated)
   - Max entry price: $0.55
   - No volatility cap needed (RSI + skip hours handle it per backtest)
 - Trend bias: 200 EMA → with-trend 70% capital, counter-trend 30%
@@ -58,10 +61,18 @@ cat ta_paper_results.json | python -m json.tool
 ### Key Files
 - `run_ta_paper.py` - Paper trading runner
 - `run_ta_live.py` - Live trading with ML
+- `run_ta_experiment.py` - 6-strategy experimental lab (paper)
+- `run_daily_king.py` - Daily Up/Down trader (kingofcoinflips strategy, PAPER until $200+ profit)
 - `ta_paper_results.json` - Paper trade history
 - `ta_live_results.json` - Live trade history
+- `daily_king_results.json` - Daily king paper trade history
 - `arbitrage/ta_signals.py` - TA signal generator
 - `arbitrage/bregman_optimizer.py` - Bregman divergence optimizer
+
+### Growth Plan
+- **Phase 1** (current): 15-minute markets, $3 bets, prove 75%+ WR
+- **Phase 2** (when PnL > $200): Add daily Up/Down (kingofcoinflips strategy) live
+- **Phase 3** (when PnL > $500): Scale up bet sizes, add micro-arbitrage
 
 ## Arbitrage Suite (Legacy)
 

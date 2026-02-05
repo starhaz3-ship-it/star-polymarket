@@ -66,6 +66,7 @@ class CopyTrader:
         "Harmless-Critic": "0x1461cC6e1A05e20710c416307Db62C28f1D122d8",  # $737K portfolio, $4.5M volume, 192 markets
         "distinct-baguette": "0xe00740bce98a594e26861838885ab310ec3b548c",
         "DrPufferfish": "0xdb27bf2ac5d428a9c63dbc914611036855a6c56e",
+        "PBot1": "0x88f46b9e5d86b4fb85be55ab0ec4004264b9d4db",  # $107K PnL, 6,098 trades, $7.6M volume
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]

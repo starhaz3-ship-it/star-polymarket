@@ -341,9 +341,9 @@ class TALiveTrader:
     """Live trades based on TA + Bregman signals with ML optimization."""
 
     OUTPUT_FILE = Path(__file__).parent / "ta_live_results.json"
-    BASE_POSITION_SIZE = 1.0   # Base $1 per trade - minimum until 75% WR proven
-    MIN_POSITION_SIZE = 1.0    # Minimum position - lowest possible
-    MAX_POSITION_SIZE = 10.0   # Hard cap $10 for high conviction only
+    BASE_POSITION_SIZE = 3.0   # Base $3 per trade - CLOB min 5 shares (~$2.75 @ $0.55)
+    MIN_POSITION_SIZE = 3.0    # Minimum $3 (ensures 5+ shares at any entry price)
+    MAX_POSITION_SIZE = 10.0   # Scale up only after WR proven
 
     def __init__(self, dry_run: bool = False, bankroll: float = 500.0):
         self.dry_run = dry_run
@@ -456,9 +456,11 @@ class TALiveTrader:
     TREND_BIAS_STRONG = 0.70   # Capital % for with-trend trades
     TREND_BIAS_WEAK = 0.30     # Capital % for counter-trend trades (30% less)
 
-    # Trading hours filter (UTC) - skip low-WR hours (backtested optimal: 8 hours)
-    # 06-08 = 40-44%, 14-16 = 18-42%, 19 = 50% breakeven, 20 = 33%
-    SKIP_HOURS_UTC = {6, 7, 8, 14, 15, 16, 19, 20}
+    # Trading hours filter (UTC) - skip low-WR hours
+    # Whale-validated: 0=12.7%, 21=20.5%, 23=25.2% WR (terrible)
+    # Backtested: 6-8=40-44%, 14-15=30-34%, 19-20=28-34%
+    # Removed 16 (whale WR 39.4% - decent)
+    SKIP_HOURS_UTC = {0, 6, 7, 8, 14, 15, 19, 20, 21, 23}
 
     def _ema(self, candles, period: int) -> float:
         """Calculate EMA from candle close prices."""
@@ -513,6 +515,95 @@ class TALiveTrader:
             recent_ranges.append(c.high - c.low)
         avg_recent = sum(recent_ranges) / len(recent_ranges)
         return avg_recent > multiplier * atr
+
+    def _compute_adx(self, candles, period: int = 14):
+        """Compute Average Directional Index.
+        Returns dict with 'adx', 'plus_di', 'minus_di' or None.
+        ADX > 30 = strong trend, < 20 = ranging/coiled.
+        """
+        if len(candles) < period * 2 + 1:
+            return None
+        plus_dm = []
+        minus_dm = []
+        tr_list = []
+        for i in range(1, len(candles)):
+            high_diff = candles[i].high - candles[i - 1].high
+            low_diff = candles[i - 1].low - candles[i].low
+            pdm = high_diff if high_diff > low_diff and high_diff > 0 else 0
+            mdm = low_diff if low_diff > high_diff and low_diff > 0 else 0
+            plus_dm.append(pdm)
+            minus_dm.append(mdm)
+            tr = max(
+                candles[i].high - candles[i].low,
+                abs(candles[i].high - candles[i - 1].close),
+                abs(candles[i].low - candles[i - 1].close)
+            )
+            tr_list.append(tr)
+        if len(tr_list) < period:
+            return None
+        atr = sum(tr_list[:period]) / period
+        plus_di_smooth = sum(plus_dm[:period]) / period
+        minus_di_smooth = sum(minus_dm[:period]) / period
+        for i in range(period, len(tr_list)):
+            atr = (atr * (period - 1) + tr_list[i]) / period
+            plus_di_smooth = (plus_di_smooth * (period - 1) + plus_dm[i]) / period
+            minus_di_smooth = (minus_di_smooth * (period - 1) + minus_dm[i]) / period
+        if atr == 0:
+            return None
+        plus_di = (plus_di_smooth / atr) * 100
+        minus_di = (minus_di_smooth / atr) * 100
+        di_sum = plus_di + minus_di
+        if di_sum == 0:
+            return None
+        dx_values = []
+        temp_atr = sum(tr_list[:period]) / period
+        temp_pdm = sum(plus_dm[:period]) / period
+        temp_mdm = sum(minus_dm[:period]) / period
+        for i in range(period, len(tr_list)):
+            temp_atr = (temp_atr * (period - 1) + tr_list[i]) / period
+            temp_pdm = (temp_pdm * (period - 1) + plus_dm[i]) / period
+            temp_mdm = (temp_mdm * (period - 1) + minus_dm[i]) / period
+            if temp_atr == 0:
+                continue
+            pdi = (temp_pdm / temp_atr) * 100
+            mdi = (temp_mdm / temp_atr) * 100
+            di_s = pdi + mdi
+            if di_s > 0:
+                dx_values.append(abs(pdi - mdi) / di_s * 100)
+        if len(dx_values) < period:
+            return None
+        adx = sum(dx_values[:period]) / period
+        for dx in dx_values[period:]:
+            adx = (adx * (period - 1) + dx) / period
+        return {'adx': adx, 'plus_di': plus_di, 'minus_di': minus_di}
+
+    def _compute_macd_v(self, candles, fast: int = 12, slow: int = 26) -> Optional[float]:
+        """MACD-V: Volatility Normalized Momentum (Spiroglou 2022).
+        Formula: (EMA_fast - EMA_slow) / ATR(slow) * 100
+        Returns momentum as % of ATR. Neutral zone: -50 to +50.
+        Positive = bullish momentum, Negative = bearish momentum.
+        """
+        if len(candles) < slow + 1:
+            return None
+        ema_fast = self._ema(candles, fast)
+        ema_slow = self._ema(candles, slow)
+        atr = self._compute_atr(candles, slow)
+        if atr <= 0:
+            return None
+        return ((ema_fast - ema_slow) / atr) * 100
+
+    def _is_atr_compressing(self, candles, short: int = 20, long: int = 30) -> bool:
+        """ATR Compression: short-term ATR < long-term ATR = coiled volatility.
+        From BTA breakout model: ATR(20) < ATR(30) means volatility is
+        compressing → breakout imminent → higher confidence entry.
+        """
+        if len(candles) < long + 1:
+            return False
+        atr_short = self._compute_atr(candles, short)
+        atr_long = self._compute_atr(candles, long)
+        if atr_long <= 0:
+            return False
+        return atr_short < atr_long
 
     async def fetch_data(self):
         """Fetch candles and markets for all assets."""
@@ -648,10 +739,10 @@ class TALiveTrader:
             # MAX_ENTRY_PRICE check is already applied in conviction filters.
             print(f"[ORDER] Placing limit {side} @ ${price:.4f} (mid price)")
 
-            # Calculate shares - use whole number to avoid CLOB decimal precision errors
+            # Calculate shares - CLOB requires minimum 5 shares
             shares = math.floor(size / price)
-            if shares < 1:
-                return False, "shares_too_small"
+            if shares < 5:
+                shares = 5  # Force minimum 5 shares (CLOB requirement)
 
             order_args = OrderArgs(
                 price=price,
@@ -903,6 +994,32 @@ class TALiveTrader:
                     print(f"  [{asset}] RSI filter: UP requires RSI>45, got {rsi:.1f}")
                     continue
 
+                # === ADX TREND STRENGTH FILTER ===
+                # Hedge fund insight: DOWN trades confirmed by ADX>30 (strong trend)
+                # UP trades benefit from LOW ADX (coiled volatility = breakout)
+                adx_data = self._compute_adx(candles, period=14)
+                if adx_data:
+                    adx_val = adx_data['adx']
+                    if signal.side == "DOWN" and adx_val < 20:
+                        print(f"  [{asset}] ADX filter: DOWN needs ADX>20 for trend confirm, got {adx_val:.1f}")
+                        continue
+                    if signal.side == "UP" and adx_val > 40:
+                        print(f"  [{asset}] ADX filter: UP exit signal ADX>{40}, got {adx_val:.1f} - trend exhausted")
+                        continue
+
+                # === MACD-V MOMENTUM FILTER (Spiroglou 2022) ===
+                # MACD-V = (EMA12 - EMA26) / ATR(26) * 100
+                # Neutral zone -50 to +50 = low momentum chop → skip
+                # Positive = bullish, Negative = bearish
+                macd_v = self._compute_macd_v(candles, fast=12, slow=26)
+                if macd_v is not None:
+                    if signal.side == "DOWN" and macd_v > 50:
+                        print(f"  [{asset}] MACD-V filter: DOWN signal but momentum bullish ({macd_v:.0f} > 50)")
+                        continue
+                    if signal.side == "UP" and macd_v < -50:
+                        print(f"  [{asset}] MACD-V filter: UP signal but momentum bearish ({macd_v:.0f} < -50)")
+                        continue
+
                 # === UP TRADE EXTRA REQUIREMENTS (41% WR - only take best setups) ===
                 if signal.side == "UP":
                     if signal.model_up < self.UP_MIN_CONFIDENCE:
@@ -977,7 +1094,16 @@ class TALiveTrader:
                             position_size = round(position_size * 0.8, 2)
                             position_size = max(self.MIN_POSITION_SIZE, position_size)
 
-                        print(f"[SIZE] {asset} ${position_size:.2f} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, {trend_tag}, Streak={self.consecutive_wins}W/{self.consecutive_losses}L)")
+                        # ATR Compression bonus: when short-term ATR < long-term ATR,
+                        # volatility is coiling → breakout imminent → increase confidence
+                        atr_compressed = self._is_atr_compressing(candles, short=20, long=30)
+                        if atr_compressed:
+                            position_size = round(position_size * 1.20, 2)  # 20% bonus
+                            position_size = min(self.MAX_POSITION_SIZE, position_size)
+
+                        macd_v_tag = f" MACD-V={macd_v:.0f}" if macd_v is not None else ""
+                        compress_tag = " ATR-COMPRESSED" if atr_compressed else ""
+                        print(f"[SIZE] {asset} ${position_size:.2f} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, {trend_tag}{macd_v_tag}{compress_tag}, Streak={self.consecutive_wins}W/{self.consecutive_losses}L)")
 
                         success, order_result = await self.execute_trade(
                             market, signal.side, position_size, entry_price
@@ -1197,7 +1323,9 @@ class TALiveTrader:
         print(f"ML Optimization: ENABLED")
         print(f"Assets: {', '.join(self.ASSETS.keys())} (XRP dropped - underperforming)")
         print(f"Target: 78.7% WR (backtested) | MIN bet ${self.MIN_POSITION_SIZE} until proven")
-        print(f"Filters: ATR(14)x1.5 | Edge>={self.MIN_EDGE:.0%} | RSI: DOWN<55, UP>45")
+        print(f"Filters: ATR(14)x1.5 | ADX(14) | MACD-V | Edge>={self.MIN_EDGE:.0%} | RSI: DOWN<55, UP>45")
+        print(f"ADX: DOWN needs ADX>20 | UP blocked ADX>40 | MACD-V: skip opposing momentum >50")
+        print(f"ATR Compression: ATR(20)<ATR(30) = +20% size bonus (breakout setup)")
         print(f"UP extra: conf>{self.UP_MIN_CONFIDENCE:.0%} edge>{self.UP_MIN_EDGE:.0%} RSI>{self.UP_RSI_MIN}")
         print(f"Trend Bias: 200 EMA | With-trend {self.TREND_BIAS_STRONG:.0%} / Counter-trend {self.TREND_BIAS_WEAK:.0%}")
         print(f"Skip Hours (UTC): {sorted(self.SKIP_HOURS_UTC)}")
