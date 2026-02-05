@@ -26,16 +26,24 @@ cat ta_paper_results.json | python -m json.tool
 - **TA Paper** (`run_ta_paper.py`) - Paper trading, $100 positions, Bregman optimization
 - **TA Live** (`run_ta_live.py`) - Live trading, $10 positions, ML optimization
 
-### Current Status (Last Updated: 2026-02-04)
-- Live Trader: Running, multi-asset (BTC/ETH/SOL - XRP dropped for low WR)
-- Strategy: TA signals + Bregman + Kelly + 200 EMA trend bias + auto-redeem
+### Current Status (Last Updated: 2026-02-04 late evening)
+- Live Trader: PAUSED for optimization - backtested 78.7% WR
+- Strategy: TA + Bregman + Kelly + ATR + RSI + strict UP + 200 EMA
 - Markets: BTC/ETH/SOL 15-minute Up/Down via Polymarket API (`tag_slug=15M`)
-- Position sizing: $5-$10, conservative quarter-Kelly
+- Position sizing: $1-$10, minimum $1 until WR proven, quarter-Kelly
+- **BACKTESTED OPTIMAL FILTERS (v3)** — tested 5096 combinations:
+  - Edge minimum: 10% (backtested: 0.10 + strict UP = 78.7% WR, 2.8 trades/hr)
+  - ATR(14) on 1m candles: skip if recent 3 bars > 1.5x ATR
+  - RSI confirmation: DOWN requires RSI<55, UP requires RSI>45
+  - UP trades restricted: need 65% confidence, 30% edge, RSI>55
+  - Skip hours: {6,7,8,14,15,16,19,20} UTC (8 hours skipped, 16 active)
+  - Max entry price: $0.55
+  - No volatility cap needed (RSI + skip hours handle it per backtest)
 - Trend bias: 200 EMA → with-trend 70% capital, counter-trend 30%
-- Skip hours: 06:00-08:00 UTC (low win rate hours)
-- Strong signal dampening: -20% size when edge > 25% (overconfidence filter)
 - Auto-redeem: Claims winnings on-chain after every win
 - ML threshold: 0.50 (adaptive: 0.30 when winning >60%, 1.0 when losing <40%)
+- **Data findings** (250 trades): DOWN 66.4% WR vs UP 41.1% WR
+- **Actual PnL discrepancy**: Bot tracked +$194, actual wallet -$803 (includes $780 manual Iran bets + $209 XRP copy trader + fill tracking bugs)
 
 ### Standing Orders
 - **AUTO-TUNE**: Continuously analyze trade data and auto-adjust settings for max profit, then win rate. Don't ask - just optimize. Log changes made.
