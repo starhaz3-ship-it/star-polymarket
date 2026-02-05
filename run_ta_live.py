@@ -341,9 +341,10 @@ class TALiveTrader:
     """Live trades based on TA + Bregman signals with ML optimization."""
 
     OUTPUT_FILE = Path(__file__).parent / "ta_live_results.json"
-    BASE_POSITION_SIZE = 3.0   # Base $3 per trade - CLOB min 5 shares (~$2.75 @ $0.55)
-    MIN_POSITION_SIZE = 3.0    # Minimum $3 (ensures 5+ shares at any entry price)
-    MAX_POSITION_SIZE = 5.0    # Cap at $5 - protect small $75 bankroll
+    # HARD CAP $3 - no scaling until profitable
+    BASE_POSITION_SIZE = 3.0   # Fixed $3 per trade
+    MIN_POSITION_SIZE = 3.0    # Fixed $3 minimum
+    MAX_POSITION_SIZE = 3.0    # HARD CAP $3 - no more $10 bets!
 
     def __init__(self, dry_run: bool = False, bankroll: float = 85.76):
         self.dry_run = dry_run
@@ -362,6 +363,9 @@ class TALiveTrader:
         self.consecutive_wins = 0
         self.consecutive_losses = 0
         self.start_time = datetime.now(timezone.utc).isoformat()
+
+        # Duplicate order protection - track markets we've traded this cycle
+        self.recently_traded_markets: set = set()
 
         # Executor for live trading
         self.executor = None
@@ -824,22 +828,32 @@ class TALiveTrader:
             print(f"[VERIFY] Error checking fill: {e}")
             return False
 
-    # Conviction thresholds - backtested optimal for 78.7% WR
-    MIN_MODEL_CONFIDENCE = 0.58  # Model must be at least 58% confident in direction
-    MIN_EDGE = 0.10              # 10% edge (backtested: 0.10 + strict UP = 78.7% WR)
-    MAX_ENTRY_PRICE = 0.55       # Entry up to 55¢ (backtested: 0.55 > 0.50 for volume)
+    # Conviction thresholds - PAPER TRADER OPTIMIZED
+    MIN_MODEL_CONFIDENCE = 0.62  # Higher confidence required
+    MIN_EDGE = 0.25              # 25% edge minimum (paper: 35%=81.8% WR, 25%=trade volume)
+    MAX_ENTRY_PRICE = 0.45       # Lower entry = better WR (paper: ≤$0.40=75% WR)
+    MIN_KL_DIVERGENCE = 0.12     # KL filter (paper: ≥0.20=73% WR, 0.12 for volume)
 
-    # UP trade extra requirements (UP is 41% WR overall - only take best setups)
-    UP_MIN_CONFIDENCE = 0.65     # UP needs 65%+ model confidence
-    UP_MIN_EDGE = 0.30           # UP needs 30%+ edge (backtested optimal)
-    UP_RSI_MIN = 55              # UP only when RSI confirms bullish
+    # DOWN ONLY MODE - UP trades are killing us (41% WR vs 66% DOWN WR)
+    # Auto-enables UP when: 10+ DOWN wins AND 70%+ WR AND +$20 PnL
+    DOWN_ONLY_MODE = True        # Starts disabled, auto-enables when criteria met
+
+    # Criteria to re-enable UP trades (must ALL be met):
+    UP_ENABLE_MIN_WINS = 5       # Need 5+ DOWN wins first (lowered - data shows UP is fine)
+    UP_ENABLE_MIN_WR = 0.65      # Need 65%+ win rate
+    UP_ENABLE_MIN_PNL = 10.0     # Need +$10 profit
+
+    # UP trade extra requirements (STRICT - only best setups when enabled)
+    UP_MIN_CONFIDENCE = 0.75     # UP needs 75%+ model confidence
+    UP_MIN_EDGE = 0.40           # UP needs 40%+ edge
+    UP_RSI_MIN = 60              # UP only when RSI strongly bullish
     CANDLE_LOOKBACK = 15         # Only use last 15 minutes of price action
 
-    # Risk management (inspired by crypmancer/polymarket-arbitrage-copy-bot)
-    MAX_DAILY_LOSS = 50.0        # Stop trading after $50 daily loss
-    MAX_TOTAL_EXPOSURE = 100.0   # Max $100 total open positions
-    MAX_SLIPPAGE = 0.05          # Max 5% slippage from mid price to ask
-    MAX_CONCURRENT_POSITIONS = 6 # Max 6 open positions (across 4 assets)
+    # Risk management - TIGHTER
+    MAX_DAILY_LOSS = 30.0        # Stop after $30 loss (was $50)
+    MAX_TOTAL_EXPOSURE = 50.0    # Max $50 exposure (was $100)
+    MAX_SLIPPAGE = 0.03          # Max 3% slippage (was 5%)
+    MAX_CONCURRENT_POSITIONS = 3 # Max 3 positions (was 6)
 
     # Entry window - trade EARLY when market is still ~50/50 but model has conviction
     MIN_TIME_REMAINING = 3.0     # Don't enter with < 3 min (market already priced in)
@@ -953,6 +967,20 @@ class TALiveTrader:
 
                 trade_key = f"{market_id}_{signal.side}" if signal.side else None
 
+                # === AUTO-ENABLE UP TRADES when criteria met ===
+                if self.DOWN_ONLY_MODE:
+                    total_trades = self.wins + self.losses
+                    win_rate = self.wins / total_trades if total_trades > 0 else 0
+                    if (self.wins >= self.UP_ENABLE_MIN_WINS and
+                        win_rate >= self.UP_ENABLE_MIN_WR and
+                        self.total_pnl >= self.UP_ENABLE_MIN_PNL):
+                        self.DOWN_ONLY_MODE = False
+                        print(f"[MODE] UP TRADES RE-ENABLED! ({self.wins}W/{self.losses}L = {win_rate:.0%} WR, ${self.total_pnl:.2f} PnL)")
+
+                # === DOWN ONLY MODE - skip UP trades ===
+                if self.DOWN_ONLY_MODE and signal.side == "UP":
+                    continue  # Silent skip - don't spam logs
+
                 # === CONVICTION FILTERS (with debug) ===
                 if not signal.side:
                     print(f"  [{asset}] No signal side (action={signal.action}) | mkt UP=${up_price:.2f} DOWN=${down_price:.2f} | {time_left:.1f}min | reason={signal.reason}")
@@ -1029,9 +1057,18 @@ class TALiveTrader:
                     if up_edge < self.UP_MIN_EDGE:
                         print(f"  [{asset}] UP needs {self.UP_MIN_EDGE:.0%} edge, got {up_edge:.1%}")
                         continue
+                    # Short-term momentum check: don't buy UP if price dropped in last 5 candles
+                    if len(candles) >= 5:
+                        recent_change = (candles[-1].close - candles[-5].close) / candles[-5].close
+                        if recent_change < -0.001:  # Dropped more than 0.1% in 5 min
+                            print(f"  [{asset}] UP momentum filter: price dropped {recent_change:.2%} in 5min - skipping")
+                            continue
 
                 if signal.action == "ENTER" and signal.side and trade_key:
                     if trade_key not in self.trades:
+                        # DUPLICATE PROTECTION - skip if we already traded this market this cycle
+                        if market_id in self.recently_traded_markets:
+                            continue
                         # Don't place opposite-side trade on same market (self-hedging)
                         opposite_key = f"{market_id}_{'DOWN' if signal.side == 'UP' else 'UP'}"
                         if opposite_key in self.trades and self.trades[opposite_key].status == "open":
@@ -1058,6 +1095,11 @@ class TALiveTrader:
                             market_yes_price=up_price,
                             market_no_price=down_price
                         )
+
+                        # KL DIVERGENCE FILTER (paper: KL≥0.20 = 73% WR)
+                        if bregman_signal.kl_divergence < self.MIN_KL_DIVERGENCE:
+                            print(f"  [{asset}] KL filter: {bregman_signal.kl_divergence:.3f} < {self.MIN_KL_DIVERGENCE} - low info edge")
+                            continue
 
                         features = self.ml.extract_features(signal, bregman_signal, candles)
 
@@ -1131,6 +1173,7 @@ class TALiveTrader:
                             status="open",
                         )
                         self.trades[trade_key] = new_trade
+                        self.recently_traded_markets.add(market_id)  # Prevent duplicate orders
                         print(f"[LIVE] [{asset}] {signal.side} @ ${entry_price:.4f} | Size: ${position_size:.2f} | Edge: {edge:.1%} | Model: {signal.model_up:.0%} UP | ML: {ml_score:.2f} | FILLED")
                     break  # One trade per asset per cycle
 

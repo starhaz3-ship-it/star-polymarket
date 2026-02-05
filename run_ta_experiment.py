@@ -1,12 +1,13 @@
 """
 Experimental Paper Trader - Multi-Strategy Testing Lab
 
-Tests 6 strategies simultaneously using new indicators:
+Tests 7 strategies simultaneously using new indicators:
 - Bollinger Bands squeeze/breakout
 - Stochastic RSI momentum
 - ADX trend strength filter
 - Williams %R overbought/oversold
 - OBV (On-Balance Volume) direction
+- MACD-V (Spiroglou 2022) volatility-normalized momentum + ATR compression
 - Combined "Kitchen Sink" strategy
 
 Auto-promotes winning strategies (75%+ WR over 20+ trades) to live trader.
@@ -252,6 +253,58 @@ def compute_atr(candles: List[Candle], period: int = 14):
     return atr
 
 
+def compute_ema(values: List[float], period: int) -> Optional[float]:
+    """Exponential Moving Average."""
+    if len(values) < period:
+        return None
+    multiplier = 2 / (period + 1)
+    ema = sum(values[:period]) / period
+    for v in values[period:]:
+        ema = (v - ema) * multiplier + ema
+    return ema
+
+
+def compute_macd_v(candles: List[Candle], fast: int = 12, slow: int = 26) -> Optional[Dict]:
+    """MACD-V: Volatility Normalized Momentum (Spiroglou 2022).
+    MACD-V = (EMA_fast - EMA_slow) / ATR(slow) * 100
+    Signal = EMA(9) of MACD-V series
+    Returns dict with macd_v, signal, histogram.
+    """
+    if len(candles) < slow + 10:
+        return None
+    closes = [c.close for c in candles]
+    atr = compute_atr(candles, slow)
+    if not atr or atr <= 0:
+        return None
+    ema_fast = compute_ema(closes, fast)
+    ema_slow = compute_ema(closes, slow)
+    if ema_fast is None or ema_slow is None:
+        return None
+    macd_v = ((ema_fast - ema_slow) / atr) * 100
+    # Build MACD-V series for signal line
+    macd_v_series = []
+    for i in range(slow + 5, len(candles)):
+        sub = candles[:i + 1]
+        sub_closes = [c.close for c in sub]
+        ef = compute_ema(sub_closes, fast)
+        es = compute_ema(sub_closes, slow)
+        a = compute_atr(sub, slow)
+        if ef and es and a and a > 0:
+            macd_v_series.append(((ef - es) / a) * 100)
+    signal = compute_ema(macd_v_series, 9) if len(macd_v_series) >= 9 else macd_v
+    histogram = macd_v - signal if signal else 0
+    return {'macd_v': macd_v, 'signal': signal, 'histogram': histogram}
+
+
+def is_atr_compressing(candles: List[Candle], short: int = 20, long: int = 30) -> bool:
+    """ATR Compression: short-term ATR < long-term ATR = coiled volatility."""
+    atr_short = compute_atr(candles, short)
+    atr_long = compute_atr(candles, long)
+    if atr_short is None or atr_long is None:
+        return False
+    return atr_short < atr_long
+
+
 # =============================================================================
 # STRATEGY DEFINITIONS
 # =============================================================================
@@ -374,6 +427,44 @@ def strategy_williams_obv(signal: TASignal, candles, price, **kw) -> StrategySig
     return StrategySignal(reason=f"wr_obv_no wr={wr:.0f} obv={obv_slope:.0f}")
 
 
+def strategy_macd_v(signal: TASignal, candles, price, **kw) -> StrategySignal:
+    """MACD-V (Spiroglou 2022) + ATR Compression breakout strategy.
+    Uses volatility-normalized momentum + coiled volatility detection.
+    """
+    mv = compute_macd_v(candles)
+    if not mv:
+        return StrategySignal(reason="no_macd_v")
+    if not signal.side:
+        return StrategySignal(reason="no_ta_side")
+    edge = signal.edge_up if signal.side == "UP" else signal.edge_down
+    if edge is None or edge < 0.08:
+        return StrategySignal(reason="low_edge")
+    macd_v = mv['macd_v']
+    histogram = mv['histogram']
+    compressed = is_atr_compressing(candles)
+    # DOWN: MACD-V negative (bearish momentum), histogram falling
+    if signal.side == "DOWN":
+        if macd_v > 50:
+            return StrategySignal(reason=f"macdv_oppose_dn mv={macd_v:.0f}")
+        if macd_v < 0 or histogram < 0:
+            conf = min(1.0, abs(macd_v) / 100 + (0.15 if compressed else 0))
+            return StrategySignal(
+                side="DOWN", confidence=max(0.3, conf),
+                reason=f"macdv_dn mv={macd_v:.0f} h={histogram:.0f} comp={compressed}"
+            )
+    # UP: MACD-V positive or crossing up, ATR compression = breakout setup
+    if signal.side == "UP":
+        if macd_v < -50:
+            return StrategySignal(reason=f"macdv_oppose_up mv={macd_v:.0f}")
+        if macd_v > 0 or (compressed and histogram > 0):
+            conf = min(1.0, abs(macd_v) / 100 + (0.20 if compressed else 0))
+            return StrategySignal(
+                side="UP", confidence=max(0.3, conf),
+                reason=f"macdv_up mv={macd_v:.0f} h={histogram:.0f} comp={compressed}"
+            )
+    return StrategySignal(reason=f"macdv_no_confirm mv={macd_v:.0f} h={histogram:.0f}")
+
+
 def strategy_kitchen_sink(signal: TASignal, candles, price, **kw) -> StrategySignal:
     """Triple confirmation: BB + StochRSI + ADX. Highest WR target."""
     closes = [c.close for c in candles]
@@ -421,6 +512,7 @@ STRATEGIES = {
     "stoch_rsi":    strategy_stoch_rsi,
     "adx_trend":    strategy_adx_trend,
     "williams_obv": strategy_williams_obv,
+    "macd_v":       strategy_macd_v,
     "kitchen_sink": strategy_kitchen_sink,
 }
 
