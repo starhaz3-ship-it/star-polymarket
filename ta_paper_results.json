@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-04T02:15:00+00:00",
-  "last_updated": "2026-02-05T06:28:32.911306+00:00",
+  "last_updated": "2026-02-05T06:38:47.757115+00:00",
   "trades": {
     "0x65ee0003e52dbcd649b6d91e0b1e80c51eadc422503bb15d243fab2b7cbe6961_UP": {
       "trade_id": "0x65ee0003e52dbcd649b6d91e0b1e80c51eadc422503bb15d243fab2b7cbe6961_UP",
@@ -2103,10 +2103,10 @@
       "kelly_fraction": 0.25,
       "guaranteed_profit": 0.07981251277161394,
       "market_numeric_id": "1331536",
-      "exit_price": null,
-      "exit_time": null,
-      "pnl": 0.0,
-      "status": "open"
+      "exit_price": 0.185,
+      "exit_time": "2026-02-05T06:30:35.896077+00:00",
+      "pnl": -64.07766990291262,
+      "status": "closed"
     },
     "0x25fa07bf99deca9e0cf4f2fd869cd39749a71cb4834fb7966ea9e5cbb2e17bdd_DOWN": {
       "trade_id": "0x25fa07bf99deca9e0cf4f2fd869cd39749a71cb4834fb7966ea9e5cbb2e17bdd_DOWN",
@@ -2121,14 +2121,32 @@
       "kelly_fraction": 0.25,
       "guaranteed_profit": 0.16668627447758724,
       "market_numeric_id": "1331536",
+      "exit_price": 0.815,
+      "exit_time": "2026-02-05T06:30:35.896077+00:00",
+      "pnl": 61.38613861386139,
+      "status": "closed"
+    },
+    "0x3bbb8b8abb22d62610dad975c154215feadf4735f8d1aa6275e77510c313ea7b_UP": {
+      "trade_id": "0x3bbb8b8abb22d62610dad975c154215feadf4735f8d1aa6275e77510c313ea7b_UP",
+      "market_title": "Bitcoin Up or Down - February 5, 1:30AM-1:45AM ET",
+      "side": "UP",
+      "entry_price": 0.545,
+      "entry_time": "2026-02-05T06:32:38.888775+00:00",
+      "size_usd": 100.0,
+      "signal_strength": "good",
+      "edge_at_entry": 0.1945061547619047,
+      "kl_divergence": 0.08041276513926832,
+      "kelly_fraction": 0.25,
+      "guaranteed_profit": 0.08041276513926832,
+      "market_numeric_id": "1331539",
       "exit_price": null,
       "exit_time": null,
       "pnl": 0.0,
       "status": "open"
     }
   },
-  "total_pnl": 1225.8711065077744,
-  "wins": 62,
-  "losses": 54,
-  "signals_count": 824
+  "total_pnl": 1223.1795752187231,
+  "wins": 63,
+  "losses": 55,
+  "signals_count": 829
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-02-05T06:29:21.146676+00:00",
+  "last_updated": "2026-02-05T06:40:07.515256+00:00",
   "trades": {
     "baseline": [
       {
@@ -839,8 +839,8 @@
         "confidence": 0.6369471912380953,
         "reason": "baseline",
         "exit_price": null,
-        "pnl": 0.0,
-        "status": "open"
+        "pnl": 0,
+        "status": "closed"
       },
       {
         "strategy": "baseline",
@@ -853,8 +853,8 @@
         "confidence": 0.7130308158518519,
         "reason": "baseline",
         "exit_price": null,
-        "pnl": 0.0,
-        "status": "open"
+        "pnl": 0,
+        "status": "closed"
       },
       {
         "strategy": "baseline",
@@ -865,6 +865,48 @@
         "market_id": "0x0ee3e1afa341f705738dd5c1f4fc648956513147b2e2881d6fce92035ef5b7b1",
         "market_title": "[SOL] Solana Up or Down - February 5, 1:15AM-1:30AM ET",
         "confidence": 0.7130328494814815,
+        "reason": "baseline",
+        "exit_price": null,
+        "pnl": 0,
+        "status": "closed"
+      },
+      {
+        "strategy": "baseline",
+        "asset": "ETH",
+        "side": "DOWN",
+        "entry_price": 0.455,
+        "entry_time": "2026-02-05T06:31:28.054186+00:00",
+        "market_id": "0x356224818c2e13aa43e5c3b9b972e5103f37bbc04523c4a559a109d5dd4a6349",
+        "market_title": "[ETH] Ethereum Up or Down - February 5, 1:30AM-1:45AM ET",
+        "confidence": 0.5639135193777778,
+        "reason": "baseline",
+        "exit_price": null,
+        "pnl": 0.0,
+        "status": "open"
+      },
+      {
+        "strategy": "baseline",
+        "asset": "SOL",
+        "side": "DOWN",
+        "entry_price": 0.485,
+        "entry_time": "2026-02-05T06:31:28.068513+00:00",
+        "market_id": "0x1af0cfeceeb4b3bc47c5bec14669d675c7ff36ec574f7072fe8e57c0923c6193",
+        "market_title": "[SOL] Solana Up or Down - February 5, 1:30AM-1:45AM ET",
+        "confidence": 0.6917424684,
+        "reason": "baseline",
+        "exit_price": null,
+        "pnl": 0.0,
+        "status": "open"
+      },
+      {
+        "strategy": "baseline",
+        "asset": "BTC",
+        "side": "UP",
+        "entry_price": 0.545,
+        "entry_time": "2026-02-05T06:32:32.120145+00:00",
+        "market_id": "0x3bbb8b8abb22d62610dad975c154215feadf4735f8d1aa6275e77510c313ea7b",
+        "market_title": "[BTC] Bitcoin Up or Down - February 5, 1:30AM-1:45AM ET",
+        "confidence": 0.738431769047619,
         "reason": "baseline",
         "exit_price": null,
         "pnl": 0.0,
@@ -1681,8 +1723,8 @@
         "confidence": 0.5791939637859272,
         "reason": "bb_up pctb=0.72 sq=False",
         "exit_price": null,
-        "pnl": 0.0,
-        "status": "open"
+        "pnl": 0,
+        "status": "closed"
       },
       {
         "strategy": "bb_squeeze",
@@ -1695,8 +1737,8 @@
         "confidence": 0.6960882919742775,
         "reason": "bb_up pctb=0.87 sq=False",
         "exit_price": null,
-        "pnl": 0.0,
-        "status": "open"
+        "pnl": 0,
+        "status": "closed"
       },
       {
         "strategy": "bb_squeeze",
@@ -1708,6 +1750,34 @@
         "market_title": "[SOL] Solana Up or Down - February 5, 1:15AM-1:30AM ET",
         "confidence": 0.9493976211758972,
         "reason": "bb_up pctb=0.94 sq=True",
+        "exit_price": null,
+        "pnl": 0,
+        "status": "closed"
+      },
+      {
+        "strategy": "bb_squeeze",
+        "asset": "BTC",
+        "side": "UP",
+        "entry_price": 0.545,
+        "entry_time": "2026-02-05T06:32:32.120145+00:00",
+        "market_id": "0x3bbb8b8abb22d62610dad975c154215feadf4735f8d1aa6275e77510c313ea7b",
+        "market_title": "[BTC] Bitcoin Up or Down - February 5, 1:30AM-1:45AM ET",
+        "confidence": 0.8387554912015363,
+        "reason": "bb_up pctb=1.05 sq=False",
+        "exit_price": null,
+        "pnl": 0.0,
+        "status": "open"
+      },
+      {
+        "strategy": "bb_squeeze",
+        "asset": "SOL",
+        "side": "UP",
+        "entry_price": 0.515,
+        "entry_time": "2026-02-05T06:34:49.020204+00:00",
+        "market_id": "0x1af0cfeceeb4b3bc47c5bec14669d675c7ff36ec574f7072fe8e57c0923c6193",
+        "market_title": "[SOL] Solana Up or Down - February 5, 1:30AM-1:45AM ET",
+        "confidence": 1.0,
+        "reason": "bb_up pctb=1.36 sq=False",
         "exit_price": null,
         "pnl": 0.0,
         "status": "open"
@@ -1991,8 +2061,8 @@
         "confidence": 0.35620197047701496,
         "reason": "srsi_up k=36 d=25",
         "exit_price": null,
-        "pnl": 0.0,
-        "status": "open"
+        "pnl": 0,
+        "status": "closed"
       },
       {
         "strategy": "stoch_rsi",
@@ -2004,6 +2074,20 @@
         "market_title": "[ETH] Ethereum Up or Down - February 5, 1:15AM-1:30AM ET",
         "confidence": 0.5174226204641491,
         "reason": "srsi_up k=52 d=39",
+        "exit_price": null,
+        "pnl": 0,
+        "status": "closed"
+      },
+      {
+        "strategy": "stoch_rsi",
+        "asset": "BTC",
+        "side": "UP",
+        "entry_price": 0.545,
+        "entry_time": "2026-02-05T06:32:32.121155+00:00",
+        "market_id": "0x3bbb8b8abb22d62610dad975c154215feadf4735f8d1aa6275e77510c313ea7b",
+        "market_title": "[BTC] Bitcoin Up or Down - February 5, 1:30AM-1:45AM ET",
+        "confidence": 0.5302026663772177,
+        "reason": "srsi_up k=53 d=43",
         "exit_price": null,
         "pnl": 0.0,
         "status": "open"
@@ -2527,6 +2611,20 @@
         "exit_price": null,
         "pnl": 0,
         "status": "closed"
+      },
+      {
+        "strategy": "adx_trend",
+        "asset": "ETH",
+        "side": "DOWN",
+        "entry_price": 0.455,
+        "entry_time": "2026-02-05T06:31:28.056275+00:00",
+        "market_id": "0x356224818c2e13aa43e5c3b9b972e5103f37bbc04523c4a559a109d5dd4a6349",
+        "market_title": "[ETH] Ethereum Up or Down - February 5, 1:30AM-1:45AM ET",
+        "confidence": 0.41325657106935926,
+        "reason": "adx_dn adx=21 -di=24",
+        "exit_price": null,
+        "pnl": 0.0,
+        "status": "open"
       }
     ],
     "williams_obv": [
@@ -3199,8 +3297,8 @@
         "confidence": 0.7,
         "reason": "wr_obv_up wr=-42 obv=136",
         "exit_price": null,
-        "pnl": 0.0,
-        "status": "open"
+        "pnl": 0,
+        "status": "closed"
       },
       {
         "strategy": "williams_obv",
@@ -3212,6 +3310,20 @@
         "market_title": "[SOL] Solana Up or Down - February 5, 1:15AM-1:30AM ET",
         "confidence": 0.7,
         "reason": "wr_obv_up wr=-32 obv=1993",
+        "exit_price": null,
+        "pnl": 0,
+        "status": "closed"
+      },
+      {
+        "strategy": "williams_obv",
+        "asset": "ETH",
+        "side": "DOWN",
+        "entry_price": 0.455,
+        "entry_time": "2026-02-05T06:31:28.056275+00:00",
+        "market_id": "0x356224818c2e13aa43e5c3b9b972e5103f37bbc04523c4a559a109d5dd4a6349",
+        "market_title": "[ETH] Ethereum Up or Down - February 5, 1:30AM-1:45AM ET",
+        "confidence": 0.7,
+        "reason": "wr_obv_dn wr=-61 obv=-465",
         "exit_price": null,
         "pnl": 0.0,
         "status": "open"
@@ -3845,8 +3957,8 @@
         "confidence": 0.32074979637762524,
         "reason": "macdv_up mv=-12 h=3 comp=True",
         "exit_price": null,
-        "pnl": 0.0,
-        "status": "open"
+        "pnl": 0,
+        "status": "closed"
       },
       {
         "strategy": "macd_v",
@@ -3859,8 +3971,8 @@
         "confidence": 0.5580254399051114,
         "reason": "macdv_up mv=-36 h=7 comp=True",
         "exit_price": null,
-        "pnl": 0.0,
-        "status": "open"
+        "pnl": 0,
+        "status": "closed"
       },
       {
         "strategy": "macd_v",
@@ -3872,6 +3984,48 @@
         "market_title": "[SOL] Solana Up or Down - February 5, 1:15AM-1:30AM ET",
         "confidence": 0.9277368350455655,
         "reason": "macdv_dn mv=-78 h=-4 comp=True",
+        "exit_price": null,
+        "pnl": 0,
+        "status": "closed"
+      },
+      {
+        "strategy": "macd_v",
+        "asset": "ETH",
+        "side": "DOWN",
+        "entry_price": 0.455,
+        "entry_time": "2026-02-05T06:31:28.067511+00:00",
+        "market_id": "0x356224818c2e13aa43e5c3b9b972e5103f37bbc04523c4a559a109d5dd4a6349",
+        "market_title": "[ETH] Ethereum Up or Down - February 5, 1:30AM-1:45AM ET",
+        "confidence": 0.7295598543081001,
+        "reason": "macdv_dn mv=-58 h=1 comp=True",
+        "exit_price": null,
+        "pnl": 0.0,
+        "status": "open"
+      },
+      {
+        "strategy": "macd_v",
+        "asset": "SOL",
+        "side": "DOWN",
+        "entry_price": 0.485,
+        "entry_time": "2026-02-05T06:31:28.081512+00:00",
+        "market_id": "0x1af0cfeceeb4b3bc47c5bec14669d675c7ff36ec574f7072fe8e57c0923c6193",
+        "market_title": "[SOL] Solana Up or Down - February 5, 1:30AM-1:45AM ET",
+        "confidence": 0.8468499640316839,
+        "reason": "macdv_dn mv=-70 h=9 comp=True",
+        "exit_price": null,
+        "pnl": 0.0,
+        "status": "open"
+      },
+      {
+        "strategy": "macd_v",
+        "asset": "BTC",
+        "side": "UP",
+        "entry_price": 0.545,
+        "entry_time": "2026-02-05T06:32:32.130488+00:00",
+        "market_id": "0x3bbb8b8abb22d62610dad975c154215feadf4735f8d1aa6275e77510c313ea7b",
+        "market_title": "[BTC] Bitcoin Up or Down - February 5, 1:30AM-1:45AM ET",
+        "confidence": 0.3629319079016132,
+        "reason": "macdv_up mv=-16 h=13 comp=True",
         "exit_price": null,
         "pnl": 0.0,
         "status": "open"
@@ -4505,8 +4659,8 @@
         "confidence": 0.6666666666666666,
         "reason": "ks_2/3 adx=11 k=36 pctb=0.72",
         "exit_price": null,
-        "pnl": 0.0,
-        "status": "open"
+        "pnl": 0,
+        "status": "closed"
       },
       {
         "strategy": "kitchen_sink",
@@ -4518,6 +4672,20 @@
         "market_title": "[ETH] Ethereum Up or Down - February 5, 1:15AM-1:30AM ET",
         "confidence": 0.6666666666666666,
         "reason": "ks_2/3 adx=15 k=52 pctb=0.87",
+        "exit_price": null,
+        "pnl": 0,
+        "status": "closed"
+      },
+      {
+        "strategy": "kitchen_sink",
+        "asset": "BTC",
+        "side": "UP",
+        "entry_price": 0.545,
+        "entry_time": "2026-02-05T06:32:32.131732+00:00",
+        "market_id": "0x3bbb8b8abb22d62610dad975c154215feadf4735f8d1aa6275e77510c313ea7b",
+        "market_title": "[BTC] Bitcoin Up or Down - February 5, 1:30AM-1:45AM ET",
+        "confidence": 0.6666666666666666,
+        "reason": "ks_2/3 adx=12 k=53 pctb=1.05",
         "exit_price": null,
         "pnl": 0.0,
         "status": "open"
