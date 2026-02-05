@@ -343,9 +343,9 @@ class TALiveTrader:
     OUTPUT_FILE = Path(__file__).parent / "ta_live_results.json"
     BASE_POSITION_SIZE = 3.0   # Base $3 per trade - CLOB min 5 shares (~$2.75 @ $0.55)
     MIN_POSITION_SIZE = 3.0    # Minimum $3 (ensures 5+ shares at any entry price)
-    MAX_POSITION_SIZE = 10.0   # Scale up only after WR proven
+    MAX_POSITION_SIZE = 5.0    # Cap at $5 - protect small $75 bankroll
 
-    def __init__(self, dry_run: bool = False, bankroll: float = 500.0):
+    def __init__(self, dry_run: bool = False, bankroll: float = 85.76):
         self.dry_run = dry_run
         self.generator = TASignalGenerator()
         self.bregman = BregmanOptimizer(bankroll=bankroll)
