@@ -414,8 +414,10 @@ class TALiveTrader:
             except Exception as e:
                 print(f"[Live] Error loading state: {e}")
 
+    ARCHIVE_FILE = Path(__file__).parent / "ta_live_archive.json"
+
     def _save(self):
-        """Save current state."""
+        """Save current state to working file AND permanent archive."""
         data = {
             "start_time": self.start_time,
             "last_updated": datetime.now(timezone.utc).isoformat(),
@@ -433,8 +435,38 @@ class TALiveTrader:
             "ml_loss_features": self.ml.loss_features[-100:],
             "ml_weights": self.ml.feature_weights,
         }
+        # Working file (can be reset)
         with open(self.OUTPUT_FILE, 'w') as f:
             json.dump(data, f, indent=2)
+
+        # Permanent archive (NEVER WIPE) - append new closed trades
+        self._append_to_archive()
+
+    def _append_to_archive(self):
+        """Append closed trades to permanent archive (NEVER WIPE THIS FILE)."""
+        try:
+            # Load existing archive
+            if self.ARCHIVE_FILE.exists():
+                with open(self.ARCHIVE_FILE, 'r') as f:
+                    archive = json.load(f)
+            else:
+                archive = {'trades': [], 'daily_snapshots': []}
+
+            # Get existing trade IDs to avoid duplicates
+            existing_ids = {t.get('trade_id') for t in archive.get('trades', [])}
+
+            # Add new closed trades
+            for tid, trade in self.trades.items():
+                if trade.status == 'closed' and tid not in existing_ids:
+                    trade_data = asdict(trade)
+                    trade_data['archived_at'] = datetime.now(timezone.utc).isoformat()
+                    archive['trades'].append(trade_data)
+
+            # Save archive
+            with open(self.ARCHIVE_FILE, 'w') as f:
+                json.dump(archive, f, indent=2)
+        except Exception as e:
+            print(f"[Archive] Error: {e}")
 
     # Multi-asset configuration
     ASSETS = {
