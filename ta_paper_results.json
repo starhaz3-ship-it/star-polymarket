@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-04T02:15:00+00:00",
-  "last_updated": "2026-02-05T06:38:47.757115+00:00",
+  "last_updated": "2026-02-05T06:49:02.260399+00:00",
   "trades": {
     "0x65ee0003e52dbcd649b6d91e0b1e80c51eadc422503bb15d243fab2b7cbe6961_UP": {
       "trade_id": "0x65ee0003e52dbcd649b6d91e0b1e80c51eadc422503bb15d243fab2b7cbe6961_UP",
@@ -2139,14 +2139,50 @@
       "kelly_fraction": 0.25,
       "guaranteed_profit": 0.08041276513926832,
       "market_numeric_id": "1331539",
+      "exit_price": 0.985,
+      "exit_time": "2026-02-05T06:44:56.513853+00:00",
+      "pnl": 83.48623853211006,
+      "status": "closed"
+    },
+    "0xcfb1579a0d53bede893decd1c99d713216d9a52e8cf623215d770814c07ddd5d_UP": {
+      "trade_id": "0xcfb1579a0d53bede893decd1c99d713216d9a52e8cf623215d770814c07ddd5d_UP",
+      "market_title": "Bitcoin Up or Down - February 5, 1:45AM-2:00AM ET",
+      "side": "UP",
+      "entry_price": 0.485,
+      "entry_time": "2026-02-05T06:46:59.387030+00:00",
+      "size_usd": 100.0,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.24823603650793646,
+      "kl_divergence": 0.12758217311648445,
+      "kelly_fraction": 0.25,
+      "guaranteed_profit": 0.12758217311648445,
+      "market_numeric_id": "1331543",
+      "exit_price": null,
+      "exit_time": null,
+      "pnl": 0.0,
+      "status": "open"
+    },
+    "0xcfb1579a0d53bede893decd1c99d713216d9a52e8cf623215d770814c07ddd5d_DOWN": {
+      "trade_id": "0xcfb1579a0d53bede893decd1c99d713216d9a52e8cf623215d770814c07ddd5d_DOWN",
+      "market_title": "Bitcoin Up or Down - February 5, 1:45AM-2:00AM ET",
+      "side": "DOWN",
+      "entry_price": 0.515,
+      "entry_time": "2026-02-05T06:49:02.259395+00:00",
+      "size_usd": 100.0,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.23773958650793647,
+      "kl_divergence": 0.11912311828150932,
+      "kelly_fraction": 0.25,
+      "guaranteed_profit": 0.11912311828150932,
+      "market_numeric_id": "1331543",
       "exit_price": null,
       "exit_time": null,
       "pnl": 0.0,
       "status": "open"
     }
   },
-  "total_pnl": 1223.1795752187231,
-  "wins": 63,
+  "total_pnl": 1306.6658137508332,
+  "wins": 64,
   "losses": 55,
-  "signals_count": 829
+  "signals_count": 834
 }
