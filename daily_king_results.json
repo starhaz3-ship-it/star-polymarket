@@ -1,0 +1,321 @@
+{
+  "bankroll": 500.0,
+  "positions": [
+    {
+      "condition_id": "0x51dfd760be1dd8caa05a0b7c809bdb89db2e9eb5e9f6f80daa04a1e6cdf20dd4",
+      "market_title": "Bitcoin Up or Down on February 5?",
+      "asset": "BTC",
+      "outcome": "Up",
+      "token_id": "41157736988575577269397233819982825842427068396822545343608021383110479677221",
+      "entries": [
+        {
+          "price": 0.075,
+          "shares": 40,
+          "cost": 3.0,
+          "time": "2026-02-05T09:01:47.917294+00:00"
+        }
+      ],
+      "total_cost": 3.0,
+      "total_shares": 40.0,
+      "avg_price": 0.075,
+      "status": "open",
+      "pnl": 0.0,
+      "end_date": "2026-02-05T17:00:00Z"
+    },
+    {
+      "condition_id": "0xb8b05202cd1ea36a69d5fbd1a530587318f7caf1bcf649b1bd31c3ac5ab7844a",
+      "market_title": "Bitcoin Up or Down on February 6?",
+      "asset": "BTC",
+      "outcome": "Up",
+      "token_id": "25204369098127318950586392533720545453186525052966945799807371503453638347179",
+      "entries": [
+        {
+          "price": 0.5,
+          "shares": 6,
+          "cost": 3.0,
+          "time": "2026-02-05T09:01:48.804466+00:00"
+        }
+      ],
+      "total_cost": 3.0,
+      "total_shares": 6.0,
+      "avg_price": 0.5,
+      "status": "open",
+      "pnl": 0.0,
+      "end_date": "2026-02-06T17:00:00Z"
+    },
+    {
+      "condition_id": "0x2e5e29e779d3b29f34cbab06bc7696208004da9aacc7af622fe5dcb816628c20",
+      "market_title": "Ethereum Up or Down on February 5?",
+      "asset": "ETH",
+      "outcome": "Up",
+      "token_id": "74315109730525864746967048749430348453627497027889831635566011912956968702190",
+      "entries": [
+        {
+          "price": 0.305,
+          "shares": 9,
+          "cost": 2.745,
+          "time": "2026-02-05T09:01:49.652344+00:00"
+        }
+      ],
+      "total_cost": 2.745,
+      "total_shares": 9.0,
+      "avg_price": 0.305,
+      "status": "open",
+      "pnl": 0.0,
+      "end_date": "2026-02-05T17:00:00Z"
+    },
+    {
+      "condition_id": "0x741283a980e50efbcea841293ed12285cc80797ff12ddd1f708b0619b4c91661",
+      "market_title": "Ethereum Up or Down on February 6?",
+      "asset": "ETH",
+      "outcome": "Up",
+      "token_id": "28057735357011455487030406997062891377662369902320787436088276624993227685882",
+      "entries": [
+        {
+          "price": 0.495,
+          "shares": 6,
+          "cost": 2.9699999999999998,
+          "time": "2026-02-05T09:01:50.437603+00:00"
+        }
+      ],
+      "total_cost": 2.9699999999999998,
+      "total_shares": 6.0,
+      "avg_price": 0.49499999999999994,
+      "status": "open",
+      "pnl": 0.0,
+      "end_date": "2026-02-06T17:00:00Z"
+    },
+    {
+      "condition_id": "0xa19a9fabbb071db3c5a129d674eca0760abf98811dc2bcd86dd59db269516c95",
+      "market_title": "Solana Up or Down on February 5?",
+      "asset": "SOL",
+      "outcome": "Up",
+      "token_id": "66843899151537368132648387767286997413249665551506439258246525155197937012714",
+      "entries": [
+        {
+          "price": 0.495,
+          "shares": 6,
+          "cost": 2.9699999999999998,
+          "time": "2026-02-05T09:01:51.288838+00:00"
+        }
+      ],
+      "total_cost": 2.9699999999999998,
+      "total_shares": 6.0,
+      "avg_price": 0.49499999999999994,
+      "status": "open",
+      "pnl": 0.0,
+      "end_date": "2026-02-05T17:00:00Z"
+    },
+    {
+      "condition_id": "0x1b7a81754c5d33b3385b71ee581488b8dbb0409bac960ae0c1c64b24946c56e4",
+      "market_title": "Solana Up or Down on February 6?",
+      "asset": "SOL",
+      "outcome": "Up",
+      "token_id": "59604446696716142548089653074123796697491423440649457961776936099857192217428",
+      "entries": [
+        {
+          "price": 0.5,
+          "shares": 6,
+          "cost": 3.0,
+          "time": "2026-02-05T09:01:52.201503+00:00"
+        }
+      ],
+      "total_cost": 3.0,
+      "total_shares": 6.0,
+      "avg_price": 0.5,
+      "status": "open",
+      "pnl": 0.0,
+      "end_date": "2026-02-06T17:00:00Z"
+    },
+    {
+      "condition_id": "0x51dfd760be1dd8caa05a0b7c809bdb89db2e9eb5e9f6f80daa04a1e6cdf20dd4",
+      "market_title": "Bitcoin Up or Down on February 5?",
+      "asset": "BTC",
+      "outcome": "Down",
+      "token_id": "103373117244707650114267966790624778181091133652906353286666158527423703506442",
+      "entries": [
+        {
+          "price": 0.91,
+          "shares": 5,
+          "cost": 4.55,
+          "time": "2026-02-05T10:46:22.071082+00:00"
+        },
+        {
+          "price": 0.91,
+          "shares": 5,
+          "cost": 4.55,
+          "time": "2026-02-05T10:48:29.435432+00:00"
+        },
+        {
+          "price": 0.925,
+          "shares": 5,
+          "cost": 4.625,
+          "time": "2026-02-05T10:50:37.150462+00:00"
+        },
+        {
+          "price": 0.925,
+          "shares": 5,
+          "cost": 4.625,
+          "time": "2026-02-05T10:52:44.792565+00:00"
+        },
+        {
+          "price": 0.945,
+          "shares": 5,
+          "cost": 4.725,
+          "time": "2026-02-05T10:54:52.489113+00:00"
+        },
+        {
+          "price": 0.945,
+          "shares": 5,
+          "cost": 4.725,
+          "time": "2026-02-05T10:57:00.845772+00:00"
+        },
+        {
+          "price": 0.945,
+          "shares": 5,
+          "cost": 4.725,
+          "time": "2026-02-05T10:59:08.638623+00:00"
+        }
+      ],
+      "total_cost": 32.525000000000006,
+      "total_shares": 35.0,
+      "avg_price": 0.9292857142857145,
+      "status": "open",
+      "pnl": 0.0,
+      "end_date": "2026-02-05T17:00:00Z"
+    },
+    {
+      "condition_id": "0x2e5e29e779d3b29f34cbab06bc7696208004da9aacc7af622fe5dcb816628c20",
+      "market_title": "Ethereum Up or Down on February 5?",
+      "asset": "ETH",
+      "outcome": "Down",
+      "token_id": "19478144371202097705237431304365501744966508089510940778801375579402062708648",
+      "entries": [
+        {
+          "price": 0.76,
+          "shares": 5,
+          "cost": 3.8,
+          "time": "2026-02-05T10:57:02.661246+00:00"
+        },
+        {
+          "price": 0.8,
+          "shares": 5,
+          "cost": 4.0,
+          "time": "2026-02-05T10:59:10.132982+00:00"
+        },
+        {
+          "price": 0.8,
+          "shares": 5,
+          "cost": 4.0,
+          "time": "2026-02-05T11:01:17.793208+00:00"
+        },
+        {
+          "price": 0.775,
+          "shares": 5,
+          "cost": 3.875,
+          "time": "2026-02-05T11:03:26.095982+00:00"
+        },
+        {
+          "price": 0.775,
+          "shares": 5,
+          "cost": 3.875,
+          "time": "2026-02-05T11:05:34.984637+00:00"
+        },
+        {
+          "price": 0.75,
+          "shares": 5,
+          "cost": 3.75,
+          "time": "2026-02-05T11:07:43.879155+00:00"
+        },
+        {
+          "price": 0.75,
+          "shares": 5,
+          "cost": 3.75,
+          "time": "2026-02-05T11:09:53.403671+00:00"
+        },
+        {
+          "price": 0.76,
+          "shares": 5,
+          "cost": 3.8,
+          "time": "2026-02-05T11:11:59.454049+00:00"
+        }
+      ],
+      "total_cost": 30.85,
+      "total_shares": 40.0,
+      "avg_price": 0.77125,
+      "status": "open",
+      "pnl": 0.0,
+      "end_date": "2026-02-05T17:00:00Z"
+    },
+    {
+      "condition_id": "0xa19a9fabbb071db3c5a129d674eca0760abf98811dc2bcd86dd59db269516c95",
+      "market_title": "Solana Up or Down on February 5?",
+      "asset": "SOL",
+      "outcome": "Down",
+      "token_id": "64492577064352089121153006896329376560954949185936201766731361963335580116107",
+      "entries": [
+        {
+          "price": 0.755,
+          "shares": 5,
+          "cost": 3.775,
+          "time": "2026-02-05T10:59:11.618684+00:00"
+        },
+        {
+          "price": 0.735,
+          "shares": 5,
+          "cost": 3.675,
+          "time": "2026-02-05T11:01:19.797466+00:00"
+        },
+        {
+          "price": 0.735,
+          "shares": 5,
+          "cost": 3.675,
+          "time": "2026-02-05T11:03:27.791471+00:00"
+        },
+        {
+          "price": 0.735,
+          "shares": 5,
+          "cost": 3.675,
+          "time": "2026-02-05T11:05:36.487667+00:00"
+        },
+        {
+          "price": 0.735,
+          "shares": 5,
+          "cost": 3.675,
+          "time": "2026-02-05T11:07:45.372572+00:00"
+        },
+        {
+          "price": 0.76,
+          "shares": 5,
+          "cost": 3.8,
+          "time": "2026-02-05T11:18:23.860779+00:00"
+        },
+        {
+          "price": 0.76,
+          "shares": 5,
+          "cost": 3.8,
+          "time": "2026-02-05T11:20:32.094242+00:00"
+        },
+        {
+          "price": 0.765,
+          "shares": 5,
+          "cost": 3.825,
+          "time": "2026-02-05T11:22:40.674899+00:00"
+        },
+        {
+          "price": 0.765,
+          "shares": 5,
+          "cost": 3.825,
+          "time": "2026-02-05T11:24:48.322987+00:00"
+        }
+      ],
+      "total_cost": 33.725,
+      "total_shares": 45.0,
+      "avg_price": 0.7494444444444445,
+      "status": "open",
+      "pnl": 0.0,
+      "end_date": "2026-02-05T17:00:00Z"
+    }
+  ],
+  "trades": []
+}
