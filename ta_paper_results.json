@@ -1,9 +1,46 @@
 {
   "start_time": "2026-02-05T13:58:36.767298+00:00",
-  "last_updated": "2026-02-05T13:58:48.084886+00:00",
-  "trades": {},
-  "total_pnl": 0.0,
-  "wins": 0,
-  "losses": 0,
-  "signals_count": 1
+  "last_updated": "2026-02-05T22:59:19.971106+00:00",
+  "trades": {
+    "0xe31b9b0782c04a196e7a7cd88d57fae6f9ec861cc3505d1d1d20aa085a8461ce_UP": {
+      "trade_id": "0xe31b9b0782c04a196e7a7cd88d57fae6f9ec861cc3505d1d1d20aa085a8461ce_UP",
+      "market_title": "Bitcoin Up or Down - February 5, 12:30PM-12:45PM ET",
+      "side": "UP",
+      "entry_price": 0.145,
+      "entry_time": "2026-02-05T17:42:02.326986+00:00",
+      "size_usd": 100.0,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.6839404728571428,
+      "kl_divergence": 1.1699367756060854,
+      "kelly_fraction": 0.25,
+      "guaranteed_profit": 1.1699367756060854,
+      "market_numeric_id": "1334565",
+      "exit_price": 0.055,
+      "exit_time": "2026-02-05T17:46:08.045786+00:00",
+      "pnl": -62.068965517241374,
+      "status": "closed"
+    },
+    "0x353d7c5564e657fd55e67307bc82fcfd44f7dd17dab2af524ec3d19042ed1d28_UP": {
+      "trade_id": "0x353d7c5564e657fd55e67307bc82fcfd44f7dd17dab2af524ec3d19042ed1d28_UP",
+      "market_title": "Bitcoin Up or Down - February 5, 1:45PM-2:00PM ET",
+      "side": "UP",
+      "entry_price": 0.215,
+      "entry_time": "2026-02-05T18:57:50.348774+00:00",
+      "size_usd": 100.0,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.6215631387301587,
+      "kl_divergence": 0.8801337605042296,
+      "kelly_fraction": 0.25,
+      "guaranteed_profit": 0.8801337605042296,
+      "market_numeric_id": "1334965",
+      "exit_price": 0.835,
+      "exit_time": "2026-02-05T18:59:53.129030+00:00",
+      "pnl": 288.37209302325584,
+      "status": "closed"
+    }
+  },
+  "total_pnl": 226.30312750601448,
+  "wins": 1,
+  "losses": 1,
+  "signals_count": 118
 }
