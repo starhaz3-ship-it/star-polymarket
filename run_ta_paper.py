@@ -490,7 +490,7 @@ class TAPaperTrader:
             json.dump(data, f, indent=2)
 
     async def fetch_data(self):
-        """Fetch BTC candles and price with rate limiting."""
+        """Fetch BTC candles, price, orderbook and trades with rate limiting."""
         async with httpx.AsyncClient(timeout=15) as client:
             # Candles from Binance
             r = await client.get(
@@ -505,6 +505,33 @@ class TAPaperTrader:
                 params={"symbol": "BTCUSDT"}
             )
             btc_price = float(pr.json()["price"])
+
+            # Orderbook for OBI calculation
+            ob = await client.get(
+                "https://api.binance.com/api/v3/depth",
+                params={"symbol": "BTCUSDT", "limit": 20}
+            )
+            ob_data = ob.json()
+            bids = [(float(p), float(q)) for p, q in ob_data.get("bids", [])]
+            asks = [(float(p), float(q)) for p, q in ob_data.get("asks", [])]
+
+            # Recent trades for CVD calculation
+            tr = await client.get(
+                "https://api.binance.com/api/v3/trades",
+                params={"symbol": "BTCUSDT", "limit": 500}
+            )
+            raw_trades = tr.json()
+            trades = [{
+                "t": t["time"] / 1000,
+                "price": float(t["price"]),
+                "qty": float(t["qty"]),
+                "is_buy": not t["isBuyerMaker"]  # True if taker is buyer
+            } for t in raw_trades]
+
+            # Cache orderbook data for this cycle
+            self._bids = bids
+            self._asks = asks
+            self._trades = trades
 
             # Rate limit: delay before Polymarket call
             await asyncio.sleep(1.5)
@@ -553,7 +580,7 @@ class TAPaperTrader:
         else:
             print("[Markets] No active BTC 15m markets found")
 
-        return candles, btc_price, btc_markets
+        return candles, btc_price, btc_markets, bids, asks, trades
 
     def get_market_prices(self, market: Dict) -> tuple:
         """Extract UP/DOWN prices."""
@@ -626,7 +653,7 @@ class TAPaperTrader:
             print(f"[SKIP] Hour {current_hour} UTC is in skip list - resting")
             return None
 
-        candles, btc_price, markets = await self.fetch_data()
+        candles, btc_price, markets, bids, asks, trades = await self.fetch_data()
 
         if not candles:
             return None
@@ -637,14 +664,17 @@ class TAPaperTrader:
         # Calculate momentum for directional filter
         momentum = self._get_price_momentum(candles, lookback=5)
 
-        # Generate main signal from recent price action only
+        # Generate main signal from recent price action + orderbook flow
         main_signal = self.generator.generate_signal(
             market_id="btc_main",
             candles=recent_candles,
             current_price=btc_price,
             market_yes_price=0.5,
             market_no_price=0.5,
-            time_remaining_min=10.0
+            time_remaining_min=10.0,
+            bids=bids,
+            asks=asks,
+            trades=trades
         )
 
         self.signals_count += 1
@@ -679,7 +709,10 @@ class TAPaperTrader:
                 current_price=btc_price,
                 market_yes_price=up_price,
                 market_no_price=down_price,
-                time_remaining_min=time_left
+                time_remaining_min=time_left,
+                bids=bids,
+                asks=asks,
+                trades=trades
             )
 
             trade_key = f"{market_id}_{signal.side}" if signal.side else None
