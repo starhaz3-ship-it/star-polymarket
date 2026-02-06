@@ -75,6 +75,15 @@ class MACDResult:
 
 
 @dataclass
+class TTMSqueezeResult:
+    """TTM Squeeze indicator values (Bollinger Band + Keltner Channel squeeze)."""
+    squeeze_on: bool          # True = BB inside KC (volatility compression)
+    momentum: float           # Oscillator value (-100 to +100 range)
+    momentum_rising: bool     # True if momentum increasing
+    squeeze_fired: bool       # True = just came out of squeeze
+
+
+@dataclass
 class DirectionScore:
     """Direction scoring result."""
     up_score: int
@@ -92,6 +101,7 @@ class TASignal:
     rsi: Optional[float] = None
     rsi_slope: Optional[float] = None
     macd: Optional[MACDResult] = None
+    squeeze: Optional[TTMSqueezeResult] = None  # TTM Squeeze (BB inside KC)
     heiken_color: Optional[str] = None
     heiken_count: int = 0
 
@@ -316,6 +326,117 @@ class TASignalGenerator:
         slice_vals = values[-points:]
         return (slice_vals[-1] - slice_vals[0]) / (points - 1)
 
+    def compute_ttm_squeeze(
+        self,
+        candles: List[Candle],
+        bb_length: int = 20,
+        bb_mult: float = 2.0,
+        kc_length: int = 20,
+        kc_mult: float = 1.5
+    ) -> Optional[TTMSqueezeResult]:
+        """
+        Calculate TTM Squeeze indicator.
+
+        Squeeze = Bollinger Bands inside Keltner Channels (volatility compression)
+        - Squeeze ON: BB inside KC = price compression, breakout imminent
+        - Squeeze OFF (fired): BB outside KC = breakout happening
+        - Momentum oscillator shows direction of breakout
+
+        From your trading folder: TTM Source Code.txt
+        """
+        if len(candles) < max(bb_length, kc_length) + 5:
+            return None
+
+        closes = [c.close for c in candles]
+        highs = [c.high for c in candles]
+        lows = [c.low for c in candles]
+
+        # Bollinger Bands: SMA + 2*StdDev
+        bb_closes = closes[-bb_length:]
+        bb_sma = sum(bb_closes) / bb_length
+        variance = sum((x - bb_sma) ** 2 for x in bb_closes) / bb_length
+        bb_std = variance ** 0.5
+        bb_upper = bb_sma + bb_mult * bb_std
+        bb_lower = bb_sma - bb_mult * bb_std
+
+        # Keltner Channels: EMA + mult*ATR
+        kc_ema = self._ema(closes[-kc_length:], kc_length)
+        if kc_ema is None:
+            return None
+
+        # ATR calculation
+        trs = []
+        for i in range(len(candles) - kc_length, len(candles)):
+            if i == 0:
+                tr = highs[i] - lows[i]
+            else:
+                tr = max(
+                    highs[i] - lows[i],
+                    abs(highs[i] - closes[i - 1]),
+                    abs(lows[i] - closes[i - 1])
+                )
+            trs.append(tr)
+        atr = sum(trs) / len(trs)
+
+        kc_upper = kc_ema + kc_mult * atr
+        kc_lower = kc_ema - kc_mult * atr
+
+        # Squeeze detection: BB inside KC
+        squeeze_on = (bb_lower > kc_lower) and (bb_upper < kc_upper)
+
+        # Calculate momentum oscillator (linearized price deviation)
+        # From TTM formula: osc = linreg(close - (highest + lowest)/2 + sma, length, 0)
+        period_highs = highs[-bb_length:]
+        period_lows = lows[-bb_length:]
+        highest = max(period_highs)
+        lowest = min(period_lows)
+        midline = (highest + lowest) / 2 + bb_sma
+
+        # Calculate momentum as deviation from midline
+        momentum = (closes[-1] - midline / 2) / (bb_std if bb_std > 0 else 1) * 10
+
+        # Check if momentum is rising (last 3 values)
+        momentum_values = []
+        for i in range(-3, 0):
+            if len(closes) + i >= bb_length:
+                idx = len(closes) + i
+                prev_closes = closes[idx - bb_length + 1:idx + 1]
+                if len(prev_closes) == bb_length:
+                    prev_sma = sum(prev_closes) / bb_length
+                    prev_highest = max(highs[idx - bb_length + 1:idx + 1])
+                    prev_lowest = min(lows[idx - bb_length + 1:idx + 1])
+                    prev_mid = (prev_highest + prev_lowest) / 2 + prev_sma
+                    prev_var = sum((x - prev_sma) ** 2 for x in prev_closes) / bb_length
+                    prev_std = prev_var ** 0.5 if prev_var > 0 else 1
+                    momentum_values.append((closes[idx] - prev_mid / 2) / prev_std * 10)
+
+        momentum_rising = len(momentum_values) >= 2 and momentum_values[-1] > momentum_values[0]
+
+        # Check previous bar for squeeze to detect "fired" state
+        squeeze_fired = False
+        if len(candles) >= bb_length + 1:
+            prev_closes = closes[-(bb_length + 1):-1]
+            prev_sma = sum(prev_closes) / bb_length
+            prev_var = sum((x - prev_sma) ** 2 for x in prev_closes) / bb_length
+            prev_std = prev_var ** 0.5
+            prev_bb_upper = prev_sma + bb_mult * prev_std
+            prev_bb_lower = prev_sma - bb_mult * prev_std
+            prev_kc_ema = self._ema(closes[-(kc_length + 1):-1], kc_length)
+            if prev_kc_ema:
+                prev_trs = trs[:-1] if len(trs) > 1 else trs
+                prev_atr = sum(prev_trs) / len(prev_trs)
+                prev_kc_upper = prev_kc_ema + kc_mult * prev_atr
+                prev_kc_lower = prev_kc_ema - kc_mult * prev_atr
+                prev_squeeze = (prev_bb_lower > prev_kc_lower) and (prev_bb_upper < prev_kc_upper)
+                squeeze_fired = prev_squeeze and not squeeze_on
+
+        return TTMSqueezeResult(
+            squeeze_on=squeeze_on,
+            momentum=momentum,
+            momentum_rising=momentum_rising,
+            squeeze_fired=squeeze_fired
+        )
+
     def detect_regime(
         self,
         price: float,
@@ -385,7 +506,8 @@ class TASignalGenerator:
         macd: Optional[MACDResult],
         heiken_color: Optional[str],
         heiken_count: int,
-        failed_vwap_reclaim: bool = False
+        failed_vwap_reclaim: bool = False,
+        squeeze: Optional[TTMSqueezeResult] = None
     ) -> DirectionScore:
         """Calculate direction score based on TA indicators."""
         up = 1
@@ -455,6 +577,26 @@ class TASignalGenerator:
         if failed_vwap_reclaim:
             down += 3
             breakdown["failed_reclaim"] = "failed VWAP reclaim (+3 DOWN)"
+
+        # TTM Squeeze (volatility compression before breakout)
+        # When squeeze fires (BB exits KC), momentum direction is key
+        if squeeze is not None:
+            if squeeze.squeeze_fired:
+                # Squeeze just released - breakout happening!
+                if squeeze.momentum > 0 and squeeze.momentum_rising:
+                    up += 3
+                    breakdown["squeeze"] = f"FIRED bullish ({squeeze.momentum:.1f} +3 UP)"
+                elif squeeze.momentum < 0 and not squeeze.momentum_rising:
+                    down += 3
+                    breakdown["squeeze"] = f"FIRED bearish ({squeeze.momentum:.1f} +3 DOWN)"
+            elif squeeze.squeeze_on:
+                # Squeeze building - use momentum to predict direction
+                if squeeze.momentum > 2 and squeeze.momentum_rising:
+                    up += 1
+                    breakdown["squeeze"] = f"ON building bullish (+1 UP)"
+                elif squeeze.momentum < -2 and not squeeze.momentum_rising:
+                    down += 1
+                    breakdown["squeeze"] = f"ON building bearish (+1 DOWN)"
 
         raw_up = up / (up + down)
 
@@ -606,6 +748,9 @@ class TASignalGenerator:
             self.MACD_SIGNAL
         )
 
+        # Calculate TTM Squeeze (volatility compression before breakout)
+        signal.squeeze = self.compute_ttm_squeeze(candles)
+
         # Heiken Ashi
         ha_candles = self.compute_heiken_ashi(candles)
         if ha_candles:
@@ -651,7 +796,8 @@ class TASignalGenerator:
             macd=signal.macd,
             heiken_color=signal.heiken_color,
             heiken_count=signal.heiken_count,
-            failed_vwap_reclaim=failed_vwap_reclaim
+            failed_vwap_reclaim=failed_vwap_reclaim,
+            squeeze=signal.squeeze
         )
 
         # Apply time awareness
@@ -698,6 +844,14 @@ class TASignalGenerator:
             hist_status = "expanding" if signal.macd.hist_delta and signal.macd.hist_delta * signal.macd.histogram > 0 else "contracting"
             direction = "bullish" if signal.macd.histogram > 0 else "bearish"
             lines.append(f"MACD: {direction} ({hist_status})")
+
+        # TTM Squeeze
+        if signal.squeeze:
+            sq_status = "ON (compression)" if signal.squeeze.squeeze_on else "OFF"
+            if signal.squeeze.squeeze_fired:
+                sq_status = "FIRED!"
+            mom_dir = "rising" if signal.squeeze.momentum_rising else "falling"
+            lines.append(f"Squeeze: {sq_status} | Mom: {signal.squeeze.momentum:.1f} ({mom_dir})")
 
         lines.append(f"Heiken: {signal.heiken_color or 'N/A'} x{signal.heiken_count}")
         lines.append(f"Regime: {signal.regime.value} ({signal.regime_reason})")

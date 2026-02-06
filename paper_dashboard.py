@@ -62,6 +62,9 @@ class DashState:
     vwap: float = 0.0
     regime: str = "range"
     ha_greens: int = 0
+    squeeze_on: bool = False
+    squeeze_momentum: float = 0.0
+    squeeze_fired: bool = False
 
     # ML state
     ml_up_pct: float = 50.0
@@ -145,6 +148,76 @@ def heikin_ashi_trend(klines: List[dict]) -> Tuple[int, str]:
     elif greens <= 1:
         return greens, "DOWN"
     return greens, "MIXED"
+
+
+def calc_ttm_squeeze(klines: List[dict], bb_length: int = 20, kc_length: int = 20) -> Tuple[bool, float, bool]:
+    """
+    Calculate TTM Squeeze indicator.
+    Returns: (squeeze_on, momentum, squeeze_fired)
+    """
+    if len(klines) < max(bb_length, kc_length) + 5:
+        return False, 0.0, False
+
+    closes = [k["c"] for k in klines]
+    highs = [k["h"] for k in klines]
+    lows = [k["l"] for k in klines]
+
+    # Bollinger Bands: SMA + 2*StdDev
+    bb_closes = closes[-bb_length:]
+    bb_sma = sum(bb_closes) / bb_length
+    variance = sum((x - bb_sma) ** 2 for x in bb_closes) / bb_length
+    bb_std = variance ** 0.5
+    bb_upper = bb_sma + 2 * bb_std
+    bb_lower = bb_sma - 2 * bb_std
+
+    # Keltner Channels: EMA + 1.5*ATR
+    kc_ema = calc_ema(closes[-kc_length:], kc_length)
+    if kc_ema is None:
+        return False, 0.0, False
+
+    # ATR calculation
+    trs = []
+    for i in range(len(klines) - kc_length, len(klines)):
+        if i == 0:
+            tr = highs[i] - lows[i]
+        else:
+            tr = max(
+                highs[i] - lows[i],
+                abs(highs[i] - closes[i - 1]),
+                abs(lows[i] - closes[i - 1])
+            )
+        trs.append(tr)
+    atr = sum(trs) / len(trs)
+
+    kc_upper = kc_ema + 1.5 * atr
+    kc_lower = kc_ema - 1.5 * atr
+
+    # Squeeze detection: BB inside KC
+    squeeze_on = (bb_lower > kc_lower) and (bb_upper < kc_upper)
+
+    # Momentum: deviation from midline
+    highest = max(highs[-bb_length:])
+    lowest = min(lows[-bb_length:])
+    midline = (highest + lowest) / 2 + bb_sma
+    momentum = (closes[-1] - midline / 2) / (bb_std if bb_std > 0 else 1) * 10
+
+    # Check previous squeeze state for "fired" detection
+    squeeze_fired = False
+    if len(klines) > bb_length + 1:
+        prev_closes = closes[-(bb_length + 1):-1]
+        prev_sma = sum(prev_closes) / bb_length
+        prev_var = sum((x - prev_sma) ** 2 for x in prev_closes) / bb_length
+        prev_std = prev_var ** 0.5
+        prev_bb_upper = prev_sma + 2 * prev_std
+        prev_bb_lower = prev_sma - 2 * prev_std
+        prev_kc_ema = calc_ema(closes[-(kc_length + 1):-1], kc_length)
+        if prev_kc_ema:
+            prev_kc_upper = prev_kc_ema + 1.5 * atr
+            prev_kc_lower = prev_kc_ema - 1.5 * atr
+            prev_squeeze = (prev_bb_lower > prev_kc_lower) and (prev_bb_upper < prev_kc_upper)
+            squeeze_fired = prev_squeeze and not squeeze_on
+
+    return squeeze_on, momentum, squeeze_fired
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -289,6 +362,19 @@ def render_ta_panel(state: DashState) -> Panel:
     ha_dots = "▲" * state.ha_greens + "▼" * (3 - state.ha_greens)
     t.add_row("Heikin Ashi", f"[{ha_col}]{ha_dots}[/{ha_col}]", f"[{ha_col}]{state.ha_greens}/3 green[/{ha_col}]")
 
+    # TTM Squeeze (volatility compression)
+    if state.squeeze_fired:
+        sq_status = "[bold magenta]FIRED![/bold magenta]"
+        sq_sig = "BREAKOUT"
+    elif state.squeeze_on:
+        sq_status = "[yellow]ON[/yellow]"
+        sq_sig = "compressing"
+    else:
+        sq_status = "[dim]OFF[/dim]"
+        sq_sig = ""
+    mom_col = "green" if state.squeeze_momentum > 0 else "red"
+    t.add_row("Squeeze", sq_status, f"[{mom_col}]mom {state.squeeze_momentum:+.1f}[/{mom_col}]")
+
     return Panel(t, title="TECHNICAL", box=box.ROUNDED, expand=True)
 
 
@@ -414,6 +500,12 @@ async def update_state(state: DashState):
             state.rsi = calc_rsi(state.klines) or 50.0
             state.vwap = calc_vwap(state.klines)
             state.ha_greens, _ = heikin_ashi_trend(state.klines)
+
+            # TTM Squeeze calculation
+            sq_on, sq_mom, sq_fired = calc_ttm_squeeze(state.klines)
+            state.squeeze_on = sq_on
+            state.squeeze_momentum = sq_mom
+            state.squeeze_fired = sq_fired
 
             # Determine regime
             closes = [k["c"] for k in state.klines]
