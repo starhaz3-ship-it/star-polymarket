@@ -84,6 +84,27 @@ class TTMSqueezeResult:
 
 
 @dataclass
+class OrderFlowData:
+    """Order flow indicators from orderbook and trades."""
+    # OBI - Order Book Imbalance
+    obi: float = 0.0              # -1 to +1 (bid-ask volume ratio)
+    obi_signal: str = "NEUTRAL"   # BULLISH / BEARISH / NEUTRAL
+
+    # CVD - Cumulative Volume Delta
+    cvd_1m: float = 0.0           # Net buy pressure over 1 minute
+    cvd_5m: float = 0.0           # Net buy pressure over 5 minutes
+    cvd_signal: str = "NEUTRAL"   # BULLISH / BEARISH / NEUTRAL
+
+    # Orderbook walls
+    bid_walls: int = 0            # Number of large bid orders
+    ask_walls: int = 0            # Number of large ask orders
+
+    # Depth
+    bid_depth_usd: float = 0.0    # Total bid liquidity within 1%
+    ask_depth_usd: float = 0.0    # Total ask liquidity within 1%
+
+
+@dataclass
 class DirectionScore:
     """Direction scoring result."""
     up_score: int
@@ -104,6 +125,14 @@ class TASignal:
     squeeze: Optional[TTMSqueezeResult] = None  # TTM Squeeze (BB inside KC)
     heiken_color: Optional[str] = None
     heiken_count: int = 0
+
+    # Order Flow (OBI + CVD)
+    order_flow: Optional[OrderFlowData] = None
+
+    # EMA Cross
+    ema_fast: Optional[float] = None  # EMA(5)
+    ema_slow: Optional[float] = None  # EMA(20)
+    ema_cross: str = "NEUTRAL"        # GOLDEN / DEATH / NEUTRAL
 
     # Regime
     regime: MarketRegime = MarketRegime.CHOP
@@ -437,6 +466,168 @@ class TASignalGenerator:
             squeeze_fired=squeeze_fired
         )
 
+    def compute_obi(
+        self,
+        bids: List[Tuple[float, float]],
+        asks: List[Tuple[float, float]],
+        mid_price: float,
+        band_pct: float = 1.0
+    ) -> Tuple[float, str]:
+        """
+        Calculate Order Book Imbalance (OBI).
+
+        OBI = (bid_volume - ask_volume) / total_volume within band around mid price.
+        Returns: (obi_value, signal) where obi in [-1, +1], signal is BULLISH/BEARISH/NEUTRAL
+        """
+        if not bids or not asks or mid_price <= 0:
+            return 0.0, "NEUTRAL"
+
+        band = mid_price * band_pct / 100
+
+        # Sum volume within band
+        bid_vol = sum(qty for price, qty in bids if price >= mid_price - band)
+        ask_vol = sum(qty for price, qty in asks if price <= mid_price + band)
+        total = bid_vol + ask_vol
+
+        if total == 0:
+            return 0.0, "NEUTRAL"
+
+        obi = (bid_vol - ask_vol) / total
+
+        # Signal thresholds (from polymarket-assistant: ±10%)
+        if obi > 0.10:
+            return obi, "BULLISH"
+        elif obi < -0.10:
+            return obi, "BEARISH"
+        else:
+            return obi, "NEUTRAL"
+
+    def compute_cvd(
+        self,
+        trades: List[Dict],
+        window_seconds: int
+    ) -> float:
+        """
+        Calculate Cumulative Volume Delta (CVD) over time window.
+
+        CVD = sum of (qty * price * direction) where direction is +1 for buys, -1 for sells.
+        Returns net buying pressure in USD terms.
+        """
+        if not trades:
+            return 0.0
+
+        cutoff = time.time() - window_seconds
+        cvd = 0.0
+
+        for trade in trades:
+            trade_time = trade.get("t", trade.get("timestamp", 0))
+            if trade_time >= cutoff:
+                qty = trade.get("qty", trade.get("quantity", 0))
+                price = trade.get("price", 0)
+                is_buy = trade.get("is_buy", trade.get("side") == "buy")
+                direction = 1 if is_buy else -1
+                cvd += qty * price * direction
+
+        return cvd
+
+    def detect_walls(
+        self,
+        bids: List[Tuple[float, float]],
+        asks: List[Tuple[float, float]],
+        multiplier: float = 5.0
+    ) -> Tuple[int, int]:
+        """
+        Detect orderbook walls (large orders > N times average).
+        Returns: (bid_walls_count, ask_walls_count)
+        """
+        all_volumes = [qty for _, qty in bids] + [qty for _, qty in asks]
+        if not all_volumes:
+            return 0, 0
+
+        avg_vol = sum(all_volumes) / len(all_volumes)
+        threshold = avg_vol * multiplier
+
+        bid_walls = sum(1 for _, qty in bids if qty >= threshold)
+        ask_walls = sum(1 for _, qty in asks if qty >= threshold)
+
+        return bid_walls, ask_walls
+
+    def compute_order_flow(
+        self,
+        bids: List[Tuple[float, float]],
+        asks: List[Tuple[float, float]],
+        trades: List[Dict],
+        mid_price: float
+    ) -> OrderFlowData:
+        """
+        Compute all order flow indicators.
+
+        Args:
+            bids: List of (price, quantity) tuples
+            asks: List of (price, quantity) tuples
+            trades: List of trade dicts with t, qty, price, is_buy
+            mid_price: Current mid price
+
+        Returns: OrderFlowData with OBI, CVD, walls, depth
+        """
+        # OBI
+        obi_val, obi_signal = self.compute_obi(bids, asks, mid_price)
+
+        # CVD at multiple windows
+        cvd_1m = self.compute_cvd(trades, 60)
+        cvd_5m = self.compute_cvd(trades, 300)
+
+        # CVD signal based on 5-minute CVD
+        if cvd_5m > 0:
+            cvd_signal = "BULLISH"
+        elif cvd_5m < 0:
+            cvd_signal = "BEARISH"
+        else:
+            cvd_signal = "NEUTRAL"
+
+        # Walls
+        bid_walls, ask_walls = self.detect_walls(bids, asks)
+
+        # Depth within 1% of mid
+        band = mid_price * 0.01
+        bid_depth = sum(p * q for p, q in bids if p >= mid_price - band)
+        ask_depth = sum(p * q for p, q in asks if p <= mid_price + band)
+
+        return OrderFlowData(
+            obi=obi_val,
+            obi_signal=obi_signal,
+            cvd_1m=cvd_1m,
+            cvd_5m=cvd_5m,
+            cvd_signal=cvd_signal,
+            bid_walls=bid_walls,
+            ask_walls=ask_walls,
+            bid_depth_usd=bid_depth,
+            ask_depth_usd=ask_depth
+        )
+
+    def compute_ema_cross(
+        self,
+        closes: List[float],
+        fast_period: int = 5,
+        slow_period: int = 20
+    ) -> Tuple[Optional[float], Optional[float], str]:
+        """
+        Calculate EMA cross signal.
+        Returns: (ema_fast, ema_slow, cross_signal)
+        """
+        ema_fast = self._ema(closes, fast_period)
+        ema_slow = self._ema(closes, slow_period)
+
+        if ema_fast is None or ema_slow is None:
+            return None, None, "NEUTRAL"
+
+        if ema_fast > ema_slow:
+            return ema_fast, ema_slow, "GOLDEN"
+        elif ema_fast < ema_slow:
+            return ema_fast, ema_slow, "DEATH"
+        else:
+            return ema_fast, ema_slow, "NEUTRAL"
+
     def detect_regime(
         self,
         price: float,
@@ -507,9 +698,11 @@ class TASignalGenerator:
         heiken_color: Optional[str],
         heiken_count: int,
         failed_vwap_reclaim: bool = False,
-        squeeze: Optional[TTMSqueezeResult] = None
+        squeeze: Optional[TTMSqueezeResult] = None,
+        order_flow: Optional[OrderFlowData] = None,
+        ema_cross: str = "NEUTRAL"
     ) -> DirectionScore:
-        """Calculate direction score based on TA indicators."""
+        """Calculate direction score based on TA indicators + order flow."""
         up = 1
         down = 1
         breakdown = {}
@@ -597,6 +790,41 @@ class TASignalGenerator:
                 elif squeeze.momentum < -2 and not squeeze.momentum_rising:
                     down += 1
                     breakdown["squeeze"] = f"ON building bearish (+1 DOWN)"
+
+        # ORDER FLOW: OBI + CVD + Walls (from polymarket-assistant)
+        if order_flow is not None:
+            # OBI - Order Book Imbalance (±1 point)
+            if order_flow.obi_signal == "BULLISH":
+                up += 1
+                breakdown["obi"] = f"OBI {order_flow.obi:+.1%} (+1 UP)"
+            elif order_flow.obi_signal == "BEARISH":
+                down += 1
+                breakdown["obi"] = f"OBI {order_flow.obi:+.1%} (+1 DOWN)"
+
+            # CVD - Cumulative Volume Delta (±1 point)
+            if order_flow.cvd_signal == "BULLISH":
+                up += 1
+                breakdown["cvd"] = f"CVD buy pressure (+1 UP)"
+            elif order_flow.cvd_signal == "BEARISH":
+                down += 1
+                breakdown["cvd"] = f"CVD sell pressure (+1 DOWN)"
+
+            # Orderbook Walls (±2 points max)
+            wall_score = min(order_flow.bid_walls, 2) - min(order_flow.ask_walls, 2)
+            if wall_score > 0:
+                up += wall_score
+                breakdown["walls"] = f"{order_flow.bid_walls} bid walls (+{wall_score} UP)"
+            elif wall_score < 0:
+                down += abs(wall_score)
+                breakdown["walls"] = f"{order_flow.ask_walls} ask walls (+{abs(wall_score)} DOWN)"
+
+        # EMA Cross (±1 point)
+        if ema_cross == "GOLDEN":
+            up += 1
+            breakdown["ema_cross"] = "golden cross (+1 UP)"
+        elif ema_cross == "DEATH":
+            down += 1
+            breakdown["ema_cross"] = "death cross (+1 DOWN)"
 
         raw_up = up / (up + down)
 
@@ -703,9 +931,25 @@ class TASignalGenerator:
         market_yes_price: Optional[float],
         market_no_price: Optional[float],
         time_remaining_min: float = 15.0,
-        price_to_beat: Optional[float] = None
+        price_to_beat: Optional[float] = None,
+        bids: Optional[List[Tuple[float, float]]] = None,
+        asks: Optional[List[Tuple[float, float]]] = None,
+        trades: Optional[List[Dict]] = None
     ) -> TASignal:
-        """Generate complete TA signal for a market."""
+        """Generate complete TA signal for a market.
+
+        Args:
+            market_id: Market identifier
+            candles: OHLCV candle data
+            current_price: Current BTC price
+            market_yes_price: Polymarket UP price
+            market_no_price: Polymarket DOWN price
+            time_remaining_min: Minutes until market expires
+            price_to_beat: Reference price for comparison
+            bids: Optional orderbook bids [(price, qty), ...]
+            asks: Optional orderbook asks [(price, qty), ...]
+            trades: Optional recent trades [{t, qty, price, is_buy}, ...]
+        """
         signal = TASignal()
         signal.current_price = current_price
         signal.price_to_beat = price_to_beat
@@ -751,6 +995,18 @@ class TASignalGenerator:
         # Calculate TTM Squeeze (volatility compression before breakout)
         signal.squeeze = self.compute_ttm_squeeze(candles)
 
+        # Calculate EMA Cross (5/20)
+        signal.ema_fast, signal.ema_slow, signal.ema_cross = self.compute_ema_cross(closes, 5, 20)
+
+        # Compute Order Flow (OBI + CVD) if orderbook data provided
+        if bids is not None and asks is not None:
+            signal.order_flow = self.compute_order_flow(
+                bids=bids,
+                asks=asks,
+                trades=trades or [],
+                mid_price=current_price
+            )
+
         # Heiken Ashi
         ha_candles = self.compute_heiken_ashi(candles)
         if ha_candles:
@@ -786,7 +1042,7 @@ class TASignalGenerator:
             volume_avg=avg_volume
         )
 
-        # Score direction
+        # Score direction (including order flow if available)
         signal.direction = self.score_direction(
             price=current_price,
             vwap=signal.vwap,
@@ -797,7 +1053,9 @@ class TASignalGenerator:
             heiken_color=signal.heiken_color,
             heiken_count=signal.heiken_count,
             failed_vwap_reclaim=failed_vwap_reclaim,
-            squeeze=signal.squeeze
+            squeeze=signal.squeeze,
+            order_flow=signal.order_flow,
+            ema_cross=signal.ema_cross
         )
 
         # Apply time awareness
