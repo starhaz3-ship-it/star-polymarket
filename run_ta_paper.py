@@ -207,16 +207,18 @@ class MLAutoTuner:
 
         # If DOWN is underperforming, tighten requirements
         if down_wr < 0.50 and down_total >= 5:
-            # Increase confidence requirement
             new_conf = min(0.80, self.state.down_min_confidence + 0.03)
             recommendations["down_min_confidence"] = new_conf
-            # Lower max price
             new_price = max(0.30, self.state.down_max_price - 0.02)
             recommendations["down_max_price"] = new_price
         elif down_wr > 0.60 and down_total >= 5:
-            # DOWN is doing well, can slightly relax
-            new_conf = max(0.65, self.state.down_min_confidence - 0.02)
+            # DOWN is doing well - relax confidence AND expand price range
+            # Data shows $0.50-0.55 has 73% WR, best PnL bucket
+            new_conf = max(0.55, self.state.down_min_confidence - 0.02)
             recommendations["down_min_confidence"] = new_conf
+            # Allow up to $0.55 when DOWN is strong (73% WR in 0.50-0.55 bucket)
+            new_price = min(0.55, self.state.down_max_price + 0.01)
+            recommendations["down_max_price"] = new_price
 
         # If UP is underperforming, tighten requirements
         if up_wr < 0.50 and up_total >= 5:
@@ -423,9 +425,11 @@ class TAPaperTrader:
 
     # Risk management
     MAX_DAILY_LOSS = 30.0         # Stop after losing $30 in a day
-    # Skip hours based on 297 live trade analysis (keep hours with >50% WR or positive PnL)
-    # Removed: 5 (68% WR), 7 (53% WR), 21 (71% WR) - proven profitable
-    SKIP_HOURS_UTC = {0, 6, 8, 9, 10, 14, 15, 19, 20, 23}
+    # V3.2: Data-driven skip hours from 158 trade analysis
+    # REMOVED from skip (profitable): 6(56%WR +$108), 8(67%WR +$218), 10(67%WR +$74), 14(60%WR +$414)
+    # ADDED to skip (losing): 1(40%WR -$21), 3(45%WR -$128), 16(25%WR -$236), 17(33%WR -$133), 22(33%WR -$23)
+    # Best hours: 2(78%WR), 4(56%WR), 13(62%WR), 18(57%WR), 21(100%WR)
+    SKIP_HOURS_UTC = {0, 1, 3, 15, 16, 17, 19, 20, 22, 23}
 
     def __init__(self, bankroll: float = 100.0):
         self.generator = TASignalGenerator()
@@ -732,26 +736,49 @@ class TAPaperTrader:
             if market_id in self.traded_markets_this_cycle:
                 continue
 
-            # === WINNING FORMULA V2 FILTERS ===
+            # === WINNING FORMULA V3.2 FILTERS ===
+            # Data-driven from 158 trades analyzed:
+            #   DOWN <$0.35 = 100% WR (+$537)     = BEST
+            #   DOWN $0.35-0.40 = 60% WR (+$328)  = GOOD
+            #   DOWN $0.40-0.45 = 14% WR (-$321)  = DEATH ZONE - SKIP!
+            #   DOWN $0.45-0.50 = 57% WR (+$609)  = DECENT
+            #   DOWN $0.50-0.55 = 73% WR (+$793)  = GREAT
             skip_reason = None
 
-            # 1. ASYMMETRIC CONFIDENCE: UP is easier, DOWN is harder
+            # 1. ASYMMETRIC CONFIDENCE with PRICE AWARENESS
             if signal.side == "UP":
-                if signal.model_up < self.UP_MIN_CONFIDENCE:
-                    skip_reason = f"UP_conf_{signal.model_up:.0%}<{self.UP_MIN_CONFIDENCE:.0%}"
+                up_conf_req = self.UP_MIN_CONFIDENCE
+                if up_price < 0.25:
+                    up_conf_req = max(0.45, up_conf_req - 0.15)
+                elif up_price < 0.35:
+                    up_conf_req = max(0.50, up_conf_req - 0.10)
+
+                if signal.model_up < up_conf_req:
+                    skip_reason = f"UP_conf_{signal.model_up:.0%}<{up_conf_req:.0%}"
                 elif up_price > self.UP_MAX_PRICE:
                     skip_reason = f"UP_price_{up_price:.2f}>{self.UP_MAX_PRICE}"
-                # UP needs price NOT falling
                 elif momentum < -0.001:
                     skip_reason = f"UP_momentum_negative_{momentum:.3%}"
             elif signal.side == "DOWN":
-                if signal.model_down < self.DOWN_MIN_CONFIDENCE:
-                    skip_reason = f"DOWN_conf_{signal.model_down:.0%}<{self.DOWN_MIN_CONFIDENCE:.0%}"
-                elif down_price > self.DOWN_MAX_PRICE:
-                    skip_reason = f"DOWN_price_{down_price:.2f}>{self.DOWN_MAX_PRICE}"
-                # DOWN needs price FALLING (momentum confirmation)
-                elif momentum > self.DOWN_MIN_MOMENTUM_DROP:
-                    skip_reason = f"DOWN_momentum_not_falling_{momentum:.3%}"
+                # DEATH ZONE: $0.40-0.45 = 14% WR, -$321 PnL. NEVER trade here.
+                if 0.40 <= down_price < 0.45:
+                    skip_reason = f"DOWN_DEATH_ZONE_{down_price:.2f}_(14%WR)"
+                else:
+                    down_conf_req = self.DOWN_MIN_CONFIDENCE
+                    if down_price < 0.20:
+                        down_conf_req = max(0.40, down_conf_req - 0.20)  # 5:1 payoff
+                    elif down_price < 0.30:
+                        down_conf_req = max(0.45, down_conf_req - 0.15)  # 3.3:1 payoff
+                    elif down_price < 0.40:
+                        down_conf_req = max(0.50, down_conf_req - 0.10)  # 2.5:1 payoff
+
+                    if signal.model_down < down_conf_req:
+                        skip_reason = f"DOWN_conf_{signal.model_down:.0%}<{down_conf_req:.0%}"
+                    elif down_price > self.DOWN_MAX_PRICE:
+                        skip_reason = f"DOWN_price_{down_price:.2f}>{self.DOWN_MAX_PRICE}"
+                    # Momentum confirmation only for non-cheap entries
+                    elif down_price >= 0.30 and momentum > self.DOWN_MIN_MOMENTUM_DROP:
+                        skip_reason = f"DOWN_momentum_not_falling_{momentum:.3%}"
 
             if skip_reason:
                 print(f"[V2 Filter] {question[:30]}... | {skip_reason}")
@@ -815,6 +842,16 @@ class TAPaperTrader:
                                 'ema_cross': signal.ema_cross or 'NEUTRAL'
                             }
 
+                        # V3.2: Pass MACD + volume data for new ML features
+                        macd_hist = 0.0
+                        macd_sig = 0.0
+                        vol_ratio = 1.0
+                        if signal.macd:
+                            macd_hist = signal.macd.histogram_delta if hasattr(signal.macd, 'histogram_delta') else 0.0
+                            macd_sig = signal.macd.signal if hasattr(signal.macd, 'signal') else 0.0
+                        if hasattr(signal, 'volume_recent') and hasattr(signal, 'volume_avg'):
+                            vol_ratio = signal.volume_recent / signal.volume_avg if signal.volume_avg and signal.volume_avg > 0 else 1.0
+
                         ml_features = self.ml_engine.extract_features(
                             candles=recent_candles,
                             current_price=btc_price,
@@ -825,7 +862,10 @@ class TAPaperTrader:
                                 'price_vs_vwap': (btc_price - (signal.vwap or btc_price)) / btc_price if signal.vwap else 0,
                                 'kl_divergence': bregman_signal.kl_divergence,
                                 'heiken_streak': signal.heiken_count,
-                                'trend_strength': momentum
+                                'trend_strength': momentum,
+                                'macd_histogram': macd_hist,
+                                'macd_signal_line': macd_sig,
+                                'volume_ratio': vol_ratio,
                             },
                             order_flow=order_flow_dict
                         )
@@ -835,12 +875,21 @@ class TAPaperTrader:
                         self._pending_ml_features = ml_features
 
                         # Check if ML agrees with TA signal
+                        # V3.2: Softer veto - only block at very high ML confidence
+                        # At cheap prices, TA + payoff math should override ML doubt
+                        veto_threshold = 0.75  # Raised from 0.65 - ML needs to be VERY sure to veto
+                        if entry_price < 0.30:
+                            veto_threshold = 0.85  # Almost never veto cheap entries
+
                         if ml_prediction.recommended_side == "SKIP":
-                            ml_approved = False
-                            ml_str = f"[ML:SKIP conf={ml_prediction.confidence:.0%}]"
+                            # Only hard-skip if ML is quite confident
+                            if ml_prediction.confidence > 0.70:
+                                ml_approved = False
+                                ml_str = f"[ML:SKIP conf={ml_prediction.confidence:.0%}]"
+                            else:
+                                ml_str = f"[ML:SKIP-weak conf={ml_prediction.confidence:.0%} override]"
                         elif ml_prediction.recommended_side != signal.side:
-                            # ML disagrees - reduce confidence but don't block
-                            if ml_prediction.confidence > 0.65:
+                            if ml_prediction.confidence > veto_threshold:
                                 ml_approved = False
                                 ml_str = f"[ML:{ml_prediction.recommended_side} conf={ml_prediction.confidence:.0%} VETO]"
                             else:

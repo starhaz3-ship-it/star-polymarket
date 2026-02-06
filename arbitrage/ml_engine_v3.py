@@ -76,6 +76,13 @@ class MLFeatures:
     squeeze_momentum: float = 0.0  # Squeeze momentum direction
     ema_cross_signal: float = 0.0  # -1 DEATH, 0 NEUTRAL, +1 GOLDEN
 
+    # V3.2 features (from research + NYU insight)
+    macd_histogram: float = 0.0   # MACD histogram value (momentum)
+    macd_signal_line: float = 0.0 # MACD signal line
+    price_dist_from_50: float = 0.0  # NYU key: distance from 0.50 = edge quality
+    rsi_macd_confluence: float = 0.0  # RSI+MACD agreement (73-77% WR per research)
+    volume_ratio: float = 1.0     # Current vs average volume
+
     def to_array(self) -> np.ndarray:
         """Convert to numpy array for ML model."""
         return np.array([
@@ -86,8 +93,11 @@ class MLFeatures:
             self.ema_cross, self.trend_strength, self.heiken_streak,
             self.up_price, self.down_price, self.market_edge, self.kl_divergence,
             self.hour_sin, self.hour_cos, self.minute_in_window,
-            # Order flow features (5 new)
-            self.obi, self.cvd_5m, self.squeeze_on, self.squeeze_momentum, self.ema_cross_signal
+            # Order flow features (5)
+            self.obi, self.cvd_5m, self.squeeze_on, self.squeeze_momentum, self.ema_cross_signal,
+            # V3.2 features (5 new)
+            self.macd_histogram, self.macd_signal_line, self.price_dist_from_50,
+            self.rsi_macd_confluence, self.volume_ratio
         ])
 
     @staticmethod
@@ -100,8 +110,11 @@ class MLFeatures:
             'ema_cross', 'trend_strength', 'heiken_streak',
             'up_price', 'down_price', 'market_edge', 'kl_divergence',
             'hour_sin', 'hour_cos', 'minute_in_window',
-            # Order flow features (5 new)
-            'obi', 'cvd_5m', 'squeeze_on', 'squeeze_momentum', 'ema_cross_signal'
+            # Order flow features (5)
+            'obi', 'cvd_5m', 'squeeze_on', 'squeeze_momentum', 'ema_cross_signal',
+            # V3.2 features (5 new)
+            'macd_histogram', 'macd_signal_line', 'price_dist_from_50',
+            'rsi_macd_confluence', 'volume_ratio'
         ]
 
 
@@ -318,6 +331,30 @@ class AdvancedMLEngine:
             else:
                 features.ema_cross_signal = 0.0
 
+        # V3.2 features: MACD, price distance, RSI+MACD confluence, volume ratio
+        if signal_data:
+            features.macd_histogram = signal_data.get('macd_histogram', 0.0)
+            features.macd_signal_line = signal_data.get('macd_signal_line', 0.0)
+            features.volume_ratio = signal_data.get('volume_ratio', 1.0)
+
+        # NYU key insight: distance from 0.50 determines edge quality
+        # Extreme prices = lower volatility = better edge
+        avg_price = (up_price + down_price) / 2
+        features.price_dist_from_50 = abs(avg_price - 0.50)
+
+        # RSI + MACD confluence (research: 73-77% WR when both agree)
+        # +1 = both bullish, -1 = both bearish, 0 = conflicting
+        rsi_val = features.rsi
+        macd_val = features.macd_histogram
+        if rsi_val > 55 and macd_val > 0:
+            features.rsi_macd_confluence = 1.0  # Both bullish
+        elif rsi_val < 45 and macd_val < 0:
+            features.rsi_macd_confluence = -1.0  # Both bearish
+        elif (rsi_val > 55 and macd_val < 0) or (rsi_val < 45 and macd_val > 0):
+            features.rsi_macd_confluence = 0.0  # Conflicting - danger
+        else:
+            features.rsi_macd_confluence = 0.0  # Neutral
+
         return features
 
     def _calculate_ema(self, prices: List[float], period: int) -> float:
@@ -401,19 +438,39 @@ class AdvancedMLEngine:
 
         print(f"[ML V3] Training on {len(self.training_samples)} samples...")
 
-        # Prepare data
-        X = np.array([s["features"] for s in self.training_samples])
-        y = np.array([s["label"] for s in self.training_samples])
+        # Prepare data - handle old samples with fewer features
+        expected_features = len(MLFeatures.feature_names())
+        X_list = []
+        y_list = []
+        for s in self.training_samples:
+            feat = s["features"]
+            # Pad old samples that have fewer features with zeros
+            if len(feat) < expected_features:
+                feat = feat + [0.0] * (expected_features - len(feat))
+            elif len(feat) > expected_features:
+                feat = feat[:expected_features]
+            X_list.append(feat)
+            y_list.append(s["label"])
+
+        X = np.array(X_list)
+        y = np.array(y_list)
+
+        # Calculate class imbalance ratio for scale_pos_weight
+        # DOWN historically wins 60%+, so label=0 (DOWN won) is more common
+        n_pos = max(1, np.sum(y == 1))
+        n_neg = max(1, np.sum(y == 0))
+        scale_pos_weight = n_neg / n_pos
+        print(f"[ML V3] Class balance: UP={n_pos}, DOWN={n_neg}, scale={scale_pos_weight:.2f}")
 
         # Scale features
         X_scaled = self.scaler.fit_transform(X)
 
-        # Split for validation
+        # Split for validation (stratified to maintain class balance)
         X_train, X_val, y_train, y_val = train_test_split(
-            X_scaled, y, test_size=0.2, random_state=42
+            X_scaled, y, test_size=0.2, random_state=42, stratify=y
         )
 
-        # Train LightGBM
+        # Train LightGBM with improved hyperparameters
         lgb_train = lgb.Dataset(X_train, y_train)
         lgb_val = lgb.Dataset(X_val, y_val, reference=lgb_train)
 
@@ -421,30 +478,38 @@ class AdvancedMLEngine:
             'objective': 'binary',
             'metric': 'binary_logloss',
             'boosting_type': 'gbdt',
-            'num_leaves': 31,
-            'learning_rate': 0.05,
-            'feature_fraction': 0.8,
-            'bagging_fraction': 0.8,
+            'num_leaves': 47,           # Increased from 31 for more expressiveness
+            'learning_rate': 0.03,      # Slower learning, better generalization
+            'feature_fraction': 0.75,
+            'bagging_fraction': 0.75,
             'bagging_freq': 5,
+            'min_child_samples': 5,     # Prevent overfitting on small datasets
+            'scale_pos_weight': scale_pos_weight,  # Handle class imbalance
+            'lambda_l1': 0.1,           # L1 regularization
+            'lambda_l2': 0.1,           # L2 regularization
             'verbose': -1
         }
 
         self.lgb_model = lgb.train(
             lgb_params,
             lgb_train,
-            num_boost_round=100,
+            num_boost_round=200,        # More rounds with lower LR
             valid_sets=[lgb_val],
-            callbacks=[lgb.early_stopping(stopping_rounds=10, verbose=False)]
+            callbacks=[lgb.early_stopping(stopping_rounds=15, verbose=False)]
         )
 
-        # Train XGBoost
+        # Train XGBoost with improved hyperparameters
         xgb_params = {
             'objective': 'binary:logistic',
             'eval_metric': 'logloss',
-            'max_depth': 5,
-            'learning_rate': 0.05,
-            'subsample': 0.8,
-            'colsample_bytree': 0.8,
+            'max_depth': 6,             # Slightly deeper
+            'learning_rate': 0.03,      # Match LightGBM LR
+            'subsample': 0.75,
+            'colsample_bytree': 0.75,
+            'min_child_weight': 3,      # Prevent overfitting
+            'scale_pos_weight': scale_pos_weight,  # Handle class imbalance
+            'reg_alpha': 0.1,           # L1 regularization
+            'reg_lambda': 0.1,          # L2 regularization
             'verbosity': 0
         }
 
@@ -454,9 +519,9 @@ class AdvancedMLEngine:
         self.xgb_model = xgb.train(
             xgb_params,
             dtrain,
-            num_boost_round=100,
+            num_boost_round=200,        # More rounds
             evals=[(dval, 'val')],
-            early_stopping_rounds=10,
+            early_stopping_rounds=15,
             verbose_eval=False
         )
 
@@ -467,8 +532,13 @@ class AdvancedMLEngine:
         lgb_acc = np.mean((lgb_pred > 0.5) == y_val)
         xgb_acc = np.mean((xgb_pred > 0.5) == y_val)
 
-        print(f"[ML V3] LightGBM accuracy: {lgb_acc:.1%}")
-        print(f"[ML V3] XGBoost accuracy: {xgb_acc:.1%}")
+        # Also check ensemble accuracy
+        ensemble_pred = (lgb_pred + xgb_pred) / 2
+        ensemble_acc = np.mean((ensemble_pred > 0.5) == y_val)
+
+        print(f"[ML V3.2] LightGBM accuracy: {lgb_acc:.1%}")
+        print(f"[ML V3.2] XGBoost accuracy: {xgb_acc:.1%}")
+        print(f"[ML V3.2] Ensemble accuracy: {ensemble_acc:.1%}")
 
         self.is_trained = True
         self.samples_since_last_train = 0

@@ -174,11 +174,11 @@ class TASignalGenerator:
     MACD_SIGNAL = 9
     VWAP_SLOPE_LOOKBACK = 10  # minutes
 
-    # Phase thresholds
+    # Phase thresholds (base - adjusted by price in decide())
     PHASE_THRESHOLDS = {
-        TradePhase.EARLY: {"edge": 0.05, "min_prob": 0.55},
-        TradePhase.MID: {"edge": 0.05, "min_prob": 0.55},
-        TradePhase.LATE: {"edge": 0.08, "min_prob": 0.58},
+        TradePhase.EARLY: {"edge": 0.05, "min_prob": 0.52},
+        TradePhase.MID: {"edge": 0.05, "min_prob": 0.52},
+        TradePhase.LATE: {"edge": 0.08, "min_prob": 0.55},
     }
 
     def __init__(self):
@@ -847,7 +847,7 @@ class TASignalGenerator:
         """
         time_ratio = max(0, min(1, remaining_minutes / window_minutes))
         # Invert: closer to expiry = stronger signal (sqrt for smooth curve)
-        time_boost = max(0.6, 1.0 - (time_ratio * 0.4))  # 0.6 at 15min, 1.0 at 0min
+        time_boost = max(0.75, 1.0 - (time_ratio * 0.25))  # 0.75 at 15min, 1.0 at 0min
         adjusted_up = max(0, min(1, 0.5 + (raw_up - 0.5) * time_boost))
         adjusted_down = 1 - adjusted_up
 
@@ -884,9 +884,16 @@ class TASignalGenerator:
         edge_up: Optional[float],
         edge_down: Optional[float],
         model_up: Optional[float] = None,
-        model_down: Optional[float] = None
+        model_down: Optional[float] = None,
+        market_yes: Optional[float] = None,
+        market_no: Optional[float] = None
     ) -> Tuple[str, Optional[str], TradePhase, str, SignalStrength]:
-        """Make trading decision based on edge and phase."""
+        """Make trading decision based on edge and phase.
+
+        Price-aware thresholds: cheap entries (< $0.30) have massive payoff
+        asymmetry, so we lower the probability bar. At $0.20, payoff is 5:1
+        so even 25% probability is +EV.
+        """
         # Determine phase
         if remaining_minutes > 10:
             phase = TradePhase.EARLY
@@ -905,13 +912,25 @@ class TASignalGenerator:
         best_edge = edge_up if best_side == "UP" else edge_down
         best_model = model_up if best_side == "UP" else model_down
 
+        # Price-aware probability threshold adjustment
+        # Cheap entries have asymmetric payoff - lower the bar
+        entry_price = market_yes if best_side == "UP" else market_no
+        min_prob = thresholds["min_prob"]
+        if entry_price is not None:
+            if entry_price < 0.20:
+                min_prob = 0.40  # 5:1 payoff, even 40% prob is hugely +EV
+            elif entry_price < 0.30:
+                min_prob = 0.45  # 3.3:1 payoff, 45% prob = strong edge
+            elif entry_price < 0.40:
+                min_prob = 0.48  # 2.5:1 payoff, slightly lower bar
+
         # Check edge threshold
         if best_edge < thresholds["edge"]:
             return ("NO_TRADE", None, phase, f"edge_below_{thresholds['edge']}", SignalStrength.NONE)
 
-        # Check probability threshold
-        if best_model is not None and best_model < thresholds["min_prob"]:
-            return ("NO_TRADE", None, phase, f"prob_below_{thresholds['min_prob']}", SignalStrength.NONE)
+        # Check probability threshold (price-adjusted)
+        if best_model is not None and best_model < min_prob:
+            return ("NO_TRADE", None, phase, f"prob_below_{min_prob:.2f}", SignalStrength.NONE)
 
         # Determine strength
         if best_edge >= 0.20:
@@ -1073,13 +1092,15 @@ class TASignalGenerator:
             market_no_price
         )
 
-        # Make decision
+        # Make decision (pass market prices for price-aware thresholds)
         signal.action, signal.side, signal.phase, signal.reason, signal.strength = self.decide(
             time_remaining_min,
             signal.edge_up,
             signal.edge_down,
             signal.model_up,
-            signal.model_down
+            signal.model_down,
+            market_yes=market_yes_price,
+            market_no=market_no_price
         )
 
         return signal
