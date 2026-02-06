@@ -503,55 +503,93 @@ class TAPaperTrader:
         with open(self.OUTPUT_FILE, 'w') as f:
             json.dump(data, f, indent=2)
 
-    async def fetch_data(self):
-        """Fetch BTC candles, price, orderbook and trades with rate limiting."""
-        async with httpx.AsyncClient(timeout=15) as client:
-            # Candles from Binance
+    # Asset config: Binance symbols and Polymarket title keywords
+    ASSETS = {
+        "BTC": {"symbol": "BTCUSDT", "keywords": ["bitcoin", "btc"]},
+        "ETH": {"symbol": "ETHUSDT", "keywords": ["ethereum", "eth"]},
+        "SOL": {"symbol": "SOLUSDT", "keywords": ["solana", "sol"]},
+    }
+
+    async def _fetch_asset_data(self, client, symbol: str):
+        """Fetch candles, price, orderbook and trades for one asset."""
+        try:
             r = await client.get(
                 "https://api.binance.com/api/v3/klines",
-                params={"symbol": "BTCUSDT", "interval": "1m", "limit": 240}
+                params={"symbol": symbol, "interval": "1m", "limit": 240}
             )
             klines = r.json()
 
-            # Current price
             pr = await client.get(
                 "https://api.binance.com/api/v3/ticker/price",
-                params={"symbol": "BTCUSDT"}
+                params={"symbol": symbol}
             )
-            btc_price = float(pr.json()["price"])
+            price = float(pr.json()["price"])
 
-            # Orderbook for OBI calculation
             ob = await client.get(
                 "https://api.binance.com/api/v3/depth",
-                params={"symbol": "BTCUSDT", "limit": 20}
+                params={"symbol": symbol, "limit": 20}
             )
             ob_data = ob.json()
             bids = [(float(p), float(q)) for p, q in ob_data.get("bids", [])]
             asks = [(float(p), float(q)) for p, q in ob_data.get("asks", [])]
 
-            # Recent trades for CVD calculation
             tr = await client.get(
                 "https://api.binance.com/api/v3/trades",
-                params={"symbol": "BTCUSDT", "limit": 500}
+                params={"symbol": symbol, "limit": 500}
             )
             raw_trades = tr.json()
             trades = [{
                 "t": t["time"] / 1000,
                 "price": float(t["price"]),
                 "qty": float(t["qty"]),
-                "is_buy": not t["isBuyerMaker"]  # True if taker is buyer
+                "is_buy": not t["isBuyerMaker"]
             } for t in raw_trades]
 
-            # Cache orderbook data for this cycle
+            candles = [
+                Candle(k[0]/1000, float(k[1]), float(k[2]), float(k[3]), float(k[4]), float(k[5]))
+                for k in klines
+            ]
+            return candles, price, bids, asks, trades
+        except Exception as e:
+            print(f"[API] Error fetching {symbol}: {e}")
+            return [], 0.0, [], [], []
+
+    async def fetch_data(self):
+        """Fetch candles, prices, orderbook and markets for BTC + ETH + SOL."""
+        async with httpx.AsyncClient(timeout=15) as client:
+            # Fetch all asset data in parallel
+            import asyncio as aio
+            asset_tasks = {
+                asset: self._fetch_asset_data(client, cfg["symbol"])
+                for asset, cfg in self.ASSETS.items()
+            }
+            asset_results = {}
+            for asset, task in asset_tasks.items():
+                asset_results[asset] = await task
+                await aio.sleep(0.3)  # Rate limit between Binance calls
+
+            # Cache per-asset data for signal generation
+            self._asset_data = {}
+            for asset, (candles, price, bids, asks, trades) in asset_results.items():
+                self._asset_data[asset] = {
+                    "candles": candles, "price": price,
+                    "bids": bids, "asks": asks, "trades": trades
+                }
+
+            # Primary BTC data (for backward compat)
+            btc_data = self._asset_data.get("BTC", {})
+            btc_price = btc_data.get("price", 0.0)
+            bids = btc_data.get("bids", [])
+            asks = btc_data.get("asks", [])
+            trades = btc_data.get("trades", [])
             self._bids = bids
             self._asks = asks
             self._trades = trades
 
-            # Rate limit: delay before Polymarket call
-            await asyncio.sleep(1.5)
+            # Rate limit before Polymarket
+            await aio.sleep(1.5)
 
-            # BTC 15m markets - use EVENTS endpoint with tag_slug=15M
-            # This returns all crypto 15m up/down markets, then filter for BTC
+            # Fetch ALL 15m markets (BTC + ETH + SOL)
             markets = []
             try:
                 mr = await client.get(
@@ -563,16 +601,20 @@ class TAPaperTrader:
                     events = mr.json()
                     for event in events:
                         title = event.get("title", "").lower()
-                        # Filter for Bitcoin markets only
-                        if "bitcoin" not in title and "btc" not in title:
+                        # Match any supported asset
+                        matched_asset = None
+                        for asset, cfg in self.ASSETS.items():
+                            if any(kw in title for kw in cfg["keywords"]):
+                                matched_asset = asset
+                                break
+                        if not matched_asset:
                             continue
                         for m in event.get("markets", []):
                             if not m.get("closed", True):
-                                # Copy event title to market question if missing
                                 if not m.get("question"):
                                     m["question"] = event.get("title", "")
+                                m["_asset"] = matched_asset  # Tag with asset name
                                 markets.append(m)
-                    # Cache for rate limit fallback
                     if markets:
                         self._market_cache = markets
                 else:
@@ -582,19 +624,21 @@ class TAPaperTrader:
                 print(f"[API] Error: {e}, using cache")
                 markets = getattr(self, '_market_cache', [])
 
-        candles = [
-            Candle(k[0]/1000, float(k[1]), float(k[2]), float(k[3]), float(k[4]), float(k[5]))
-            for k in klines
-        ]
+        # Use BTC candles as primary (backward compat)
+        candles = btc_data.get("candles", [])
 
-        btc_markets = markets  # Already filtered by series slug
-
-        if btc_markets:
-            print(f"[Markets] Found {len(btc_markets)} BTC 15m Up/Down market(s)")
+        # Count by asset
+        asset_counts = {}
+        for m in markets:
+            a = m.get("_asset", "?")
+            asset_counts[a] = asset_counts.get(a, 0) + 1
+        counts_str = " | ".join(f"{a}:{c}" for a, c in sorted(asset_counts.items()))
+        if markets:
+            print(f"[Markets] Found {len(markets)} 15m markets ({counts_str})")
         else:
-            print("[Markets] No active BTC 15m markets found")
+            print("[Markets] No active 15m markets found")
 
-        return candles, btc_price, btc_markets, bids, asks, trades
+        return candles, btc_price, markets, bids, asks, trades
 
     def get_market_prices(self, market: Dict) -> tuple:
         """Extract UP/DOWN prices."""
@@ -675,10 +719,10 @@ class TAPaperTrader:
         # IMPORTANT: Only use the most recent 15 minutes of price action
         recent_candles = candles[-self.CANDLE_LOOKBACK:]
 
-        # Calculate momentum for directional filter
+        # Calculate momentum for directional filter (BTC primary)
         momentum = self._get_price_momentum(candles, lookback=5)
 
-        # Generate main signal from recent price action + orderbook flow
+        # Generate main signal from BTC price action + orderbook flow
         main_signal = self.generator.generate_signal(
             market_id="btc_main",
             candles=recent_candles,
@@ -693,7 +737,7 @@ class TAPaperTrader:
 
         self.signals_count += 1
 
-        # Sort markets by time remaining - only trade the NEAREST expiring one
+        # Sort markets by time remaining - trade nearest per asset
         eligible_markets = []
         for market in markets:
             up_price, down_price = self.get_market_prices(market)
@@ -710,23 +754,42 @@ class TAPaperTrader:
         if eligible_markets:
             print(f"[Filter] {len(eligible_markets)} markets in window, trading nearest ({eligible_markets[0][0]:.1f}min left)")
 
-        # Only trade the nearest expiring market for high turnover
-        for time_left, market, up_price, down_price in eligible_markets[:1]:
+        # V3.2: Trade the nearest expiring market PER ASSET (BTC + ETH + SOL)
+        # Pick nearest market for each asset to maximize turnover across all assets
+        nearest_per_asset = {}
+        for time_left, market, up_price, down_price in eligible_markets:
+            asset = market.get("_asset", "BTC")
+            if asset not in nearest_per_asset:
+                nearest_per_asset[asset] = (time_left, market, up_price, down_price)
+
+        for asset, (time_left, market, up_price, down_price) in nearest_per_asset.items():
             market_id = market.get("conditionId", "")
             market_numeric_id = market.get("id")
             question = market.get("question", "")
 
-            # Generate signal from recent 15-min price action only
+            # Use asset-specific candle data for signal generation
+            asset_data = getattr(self, '_asset_data', {}).get(asset, {})
+            asset_candles = asset_data.get("candles", candles)
+            asset_price = asset_data.get("price", btc_price)
+            asset_bids = asset_data.get("bids", bids)
+            asset_asks = asset_data.get("asks", asks)
+            asset_trades = asset_data.get("trades", trades)
+            asset_recent = asset_candles[-self.CANDLE_LOOKBACK:] if asset_candles else recent_candles
+
+            # Recalculate momentum for this specific asset
+            momentum = self._get_price_momentum(asset_candles, lookback=5) if asset_candles else momentum
+
+            # Generate signal from asset-specific price action
             signal = self.generator.generate_signal(
                 market_id=market_id,
-                candles=recent_candles,
-                current_price=btc_price,
+                candles=asset_recent,
+                current_price=asset_price,
                 market_yes_price=up_price,
                 market_no_price=down_price,
                 time_remaining_min=time_left,
-                bids=bids,
-                asks=asks,
-                trades=trades
+                bids=asset_bids,
+                asks=asset_asks,
+                trades=asset_trades
             )
 
             trade_key = f"{market_id}_{signal.side}" if signal.side else None
@@ -1199,7 +1262,10 @@ class TAPaperTrader:
                 signal = await self.run_cycle()
 
                 if signal:
-                    print(f"[Scan {cycle}] BTC ${signal.current_price:,.2f} | {signal.regime.value} | Model: {signal.model_up:.0%} UP")
+                    # Show all asset prices
+                    asset_data = getattr(self, '_asset_data', {})
+                    prices_str = " | ".join(f"{a} ${d.get('price', 0):,.2f}" for a, d in sorted(asset_data.items()) if d.get('price', 0) > 0)
+                    print(f"[Scan {cycle}] {prices_str} | {signal.regime.value} | Model: {signal.model_up:.0%} UP")
 
                 # 10-minute update
                 if now - last_update >= 600:
