@@ -383,7 +383,7 @@ class TAPaperTrade:
     side: str
     entry_price: float
     entry_time: str
-    size_usd: float = 100.0
+    size_usd: float = 10.0
     signal_strength: str = ""
     edge_at_entry: float = 0.0
     # Bregman optimization metrics
@@ -403,7 +403,7 @@ class TAPaperTrader:
     """Paper trades based on TA signals."""
 
     OUTPUT_FILE = Path(__file__).parent / "ta_paper_results.json"
-    POSITION_SIZE = 100.0
+    POSITION_SIZE = 10.0
 
     # === WINNING FORMULA V2 ===
     # Lessons learned from live trading losses:
@@ -420,10 +420,10 @@ class TAPaperTrader:
     DOWN_MIN_MOMENTUM_DROP = -0.002  # Price must be FALLING to bet DOWN
 
     # Risk management
-    MAX_DAILY_LOSS = 300.0        # Stop after losing $300 in a day
+    MAX_DAILY_LOSS = 30.0         # Stop after losing $30 in a day
     SKIP_HOURS_UTC = {0, 6, 7, 8, 14, 15, 19, 20, 21, 23}  # Whale-validated skip hours
 
-    def __init__(self, bankroll: float = 1000.0):
+    def __init__(self, bankroll: float = 100.0):
         self.generator = TASignalGenerator()
         self.bregman = BregmanOptimizer(bankroll=bankroll)
         self.bankroll = bankroll
