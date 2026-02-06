@@ -69,6 +69,13 @@ class MLFeatures:
     hour_cos: float = 0.0
     minute_in_window: float = 0.0
 
+    # Order flow features (from polymarket-assistant research)
+    obi: float = 0.0              # Order book imbalance: -1 to +1
+    cvd_5m: float = 0.0           # Cumulative volume delta (5 min)
+    squeeze_on: float = 0.0       # TTM Squeeze: 1 if BB inside KC, else 0
+    squeeze_momentum: float = 0.0  # Squeeze momentum direction
+    ema_cross_signal: float = 0.0  # -1 DEATH, 0 NEUTRAL, +1 GOLDEN
+
     def to_array(self) -> np.ndarray:
         """Convert to numpy array for ML model."""
         return np.array([
@@ -78,7 +85,9 @@ class MLFeatures:
             self.volatility_5m, self.volatility_15m, self.atr_ratio,
             self.ema_cross, self.trend_strength, self.heiken_streak,
             self.up_price, self.down_price, self.market_edge, self.kl_divergence,
-            self.hour_sin, self.hour_cos, self.minute_in_window
+            self.hour_sin, self.hour_cos, self.minute_in_window,
+            # Order flow features (5 new)
+            self.obi, self.cvd_5m, self.squeeze_on, self.squeeze_momentum, self.ema_cross_signal
         ])
 
     @staticmethod
@@ -90,7 +99,9 @@ class MLFeatures:
             'volatility_5m', 'volatility_15m', 'atr_ratio',
             'ema_cross', 'trend_strength', 'heiken_streak',
             'up_price', 'down_price', 'market_edge', 'kl_divergence',
-            'hour_sin', 'hour_cos', 'minute_in_window'
+            'hour_sin', 'hour_cos', 'minute_in_window',
+            # Order flow features (5 new)
+            'obi', 'cvd_5m', 'squeeze_on', 'squeeze_momentum', 'ema_cross_signal'
         ]
 
 
@@ -206,7 +217,8 @@ class AdvancedMLEngine:
 
     def extract_features(self, candles: List, current_price: float,
                         up_price: float, down_price: float,
-                        signal_data: Dict = None) -> MLFeatures:
+                        signal_data: Dict = None,
+                        order_flow: Dict = None) -> MLFeatures:
         """
         Extract features from candle data and market state.
 
@@ -216,6 +228,9 @@ class AdvancedMLEngine:
             up_price: Market UP price
             down_price: Market DOWN price
             signal_data: Optional dict with RSI, VWAP, etc.
+            order_flow: Optional dict with OBI, CVD, squeeze data:
+                        {'obi': float, 'cvd_5m': float, 'squeeze_on': bool,
+                         'squeeze_momentum': float, 'ema_cross': str}
         """
         features = MLFeatures()
 
@@ -287,6 +302,21 @@ class AdvancedMLEngine:
         features.hour_sin = np.sin(2 * np.pi * hour / 24)
         features.hour_cos = np.cos(2 * np.pi * hour / 24)
         features.minute_in_window = (now.minute % 15) / 15
+
+        # Order flow features (OBI, CVD, TTM Squeeze, EMA cross)
+        if order_flow:
+            features.obi = order_flow.get('obi', 0.0)
+            features.cvd_5m = order_flow.get('cvd_5m', 0.0)
+            features.squeeze_on = 1.0 if order_flow.get('squeeze_on', False) else 0.0
+            features.squeeze_momentum = order_flow.get('squeeze_momentum', 0.0)
+            # EMA cross: GOLDEN=+1, DEATH=-1, NEUTRAL=0
+            ema_cross_str = order_flow.get('ema_cross', 'NEUTRAL')
+            if ema_cross_str == 'GOLDEN':
+                features.ema_cross_signal = 1.0
+            elif ema_cross_str == 'DEATH':
+                features.ema_cross_signal = -1.0
+            else:
+                features.ema_cross_signal = 0.0
 
         return features
 
@@ -522,6 +552,25 @@ class AdvancedMLEngine:
 
         # EMA cross
         score += features.ema_cross * 5
+
+        # Order flow features (new)
+        # OBI: positive = more bids = bullish
+        score += features.obi * 0.3
+
+        # CVD: positive = net buying
+        if features.cvd_5m > 0:
+            score += 0.1
+        elif features.cvd_5m < 0:
+            score -= 0.1
+
+        # TTM Squeeze: if squeeze is on and momentum rising, expect breakout
+        if features.squeeze_on > 0.5 and features.squeeze_momentum > 0:
+            score += 0.2
+        elif features.squeeze_on > 0.5 and features.squeeze_momentum < 0:
+            score -= 0.2
+
+        # EMA cross signal: GOLDEN (+1) is bullish, DEATH (-1) is bearish
+        score += features.ema_cross_signal * 0.15
 
         # Convert to probability
         up_prob = 0.5 + np.tanh(score) * 0.3

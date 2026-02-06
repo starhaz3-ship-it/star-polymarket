@@ -777,6 +777,17 @@ class TAPaperTrader:
                     ml_approved = True
                     ml_str = ""
                     if self.use_ml_v3:
+                        # Build order flow dict for ML features
+                        order_flow_dict = None
+                        if signal.order_flow or signal.squeeze:
+                            order_flow_dict = {
+                                'obi': signal.order_flow.obi if signal.order_flow else 0.0,
+                                'cvd_5m': signal.order_flow.cvd_5m if signal.order_flow else 0.0,
+                                'squeeze_on': signal.squeeze.squeeze_on if signal.squeeze else False,
+                                'squeeze_momentum': signal.squeeze.momentum if signal.squeeze else 0.0,
+                                'ema_cross': signal.ema_cross or 'NEUTRAL'
+                            }
+
                         ml_features = self.ml_engine.extract_features(
                             candles=recent_candles,
                             current_price=btc_price,
@@ -788,7 +799,8 @@ class TAPaperTrader:
                                 'kl_divergence': bregman_signal.kl_divergence,
                                 'heiken_streak': signal.heiken_count,
                                 'trend_strength': momentum
-                            }
+                            },
+                            order_flow=order_flow_dict
                         )
                         ml_prediction = self.ml_engine.predict(ml_features)
 
