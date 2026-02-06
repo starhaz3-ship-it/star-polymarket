@@ -1,12 +1,12 @@
 {
-  "up_max_price": 0.35,
-  "up_min_confidence": 0.75,
-  "down_max_price": 0.4,
-  "down_min_confidence": 0.6599999999999999,
-  "min_edge": 0.12,
+  "up_max_price": 0.48,
+  "up_min_confidence": 0.61,
+  "down_max_price": 0.5,
+  "down_min_confidence": 0.65,
+  "min_edge": 0.06,
   "down_momentum_threshold": -0.002,
-  "tune_count": 5,
-  "last_tune_time": "2026-02-05T14:11:33.587975+00:00",
+  "tune_count": 6,
+  "last_tune_time": "2026-02-06T00:25:28.957948+00:00",
   "param_history": [
     {
       "time": "2026-02-05T13:36:59.511802+00:00",
@@ -98,6 +98,25 @@
         "up_min_confidence": 0.75,
         "up_max_price": 0.35,
         "best_price_wr": 1.0,
+        "best_edge_wr": 0.5797101449275363
+      }
+    },
+    {
+      "time": "2026-02-06T00:25:28.957948+00:00",
+      "changes": [
+        "DOWN conf: 58% -> 65%",
+        "UP conf: 58% -> 61%",
+        "UP max price: $0.50 -> $0.48"
+      ],
+      "recommendations": {
+        "up_win_rate": 0.44776119402985076,
+        "down_win_rate": 0.6022727272727273,
+        "up_pnl": -253.29209896869008,
+        "down_pnl": 1911.3949170641934,
+        "down_min_confidence": 0.65,
+        "up_min_confidence": 0.61,
+        "up_max_price": 0.48,
+        "best_price_wr": 0.8333333333333334,
         "best_edge_wr": 0.5797101449275363
       }
     }
