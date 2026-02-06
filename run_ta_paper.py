@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from arbitrage.ta_signals import TASignalGenerator, Candle, SignalStrength
 from arbitrage.bregman_optimizer import BregmanOptimizer, enhance_ta_signal_with_bregman
 from arbitrage.ml_engine_v3 import get_ml_engine, MLFeatures, AdvancedMLEngine
+from arbitrage.nyu_volatility import NYUVolatilityModel, calculate_nyu_volatility
 
 
 @dataclass
@@ -443,11 +444,17 @@ class TAPaperTrader:
         # ML Auto-Tuner
         self.ml_tuner = MLAutoTuner()
         self.last_tune_time = 0  # Unix timestamp of last tune
-        self.TUNE_INTERVAL = 1800  # Tune every 30 minutes
+        self.TUNE_INTERVAL = 7200  # Tune every 2 hours (was 30 min - too aggressive)
 
         # ML V3 Engine (LightGBM + XGBoost ensemble)
         self.ml_engine = get_ml_engine()
         self.use_ml_v3 = True  # Enable advanced ML predictions
+
+        # NYU Two-Parameter Volatility Model
+        # Key insight: Only price + time to expiry matter for volatility
+        # Extreme prices (away from 0.50) have LOWER volatility = better edge
+        self.nyu_model = NYUVolatilityModel()
+        self.use_nyu_model = True  # Enable NYU volatility-based edge scoring
 
         self._load()
         self._apply_tuned_params()  # Apply ML-tuned parameters on startup
@@ -756,6 +763,23 @@ class TAPaperTrader:
                 print(f"[Edge] {question[:30]}... | {skip_reason}")
                 continue
 
+            # 3. NYU TWO-PARAMETER VOLATILITY MODEL
+            # Key insight from NYU research: Only price + time matter
+            # Extreme prices (away from 0.50) have LOWER volatility = better edge
+            if self.use_nyu_model:
+                entry_price_check = up_price if signal.side == "UP" else down_price
+                nyu_result = self.nyu_model.calculate_volatility(entry_price_check, time_left)
+
+                # Use NYU edge score as a filter - but be lenient to get trades
+                if nyu_result.edge_score < 0.15:  # Very low bar - just avoid 50% zone
+                    skip_reason = f"NYU_edge_{nyu_result.edge_score:.2f}<0.15 (vol={nyu_result.volatility_regime})"
+                    print(f"[NYU] {question[:30]}... | {skip_reason}")
+                    continue
+
+                # Bonus: If NYU says TRADE, boost confidence in this signal
+                if nyu_result.recommended_action == "TRADE":
+                    print(f"[NYU] TRADE signal: edge={nyu_result.edge_score:.2f}, vol={nyu_result.instantaneous_volatility:.3f}")
+
             # Debug: show why no trade
             if signal.action != "ENTER":
                 edge = max(signal.edge_up or 0, signal.edge_down or 0)
@@ -848,8 +872,15 @@ class TAPaperTrader:
                     self.trades[trade_key] = trade
                     self.traded_markets_this_cycle.add(market_id)  # PREVENT DUPLICATES
                     momentum_str = f"Mom:{momentum:+.2%}" if momentum else ""
-                    print(f"[NEW] {signal.side} @ ${entry_price:.4f} | Edge: {edge:.1%} | {momentum_str} | {ml_str}")
-                    print(f"      Size: ${optimal_size:.2f} | KL: {bregman_signal.kl_divergence:.4f} | {question[:45]}...")
+
+                    # Get NYU volatility info for logging
+                    nyu_info = ""
+                    if self.use_nyu_model:
+                        nyu_r = self.nyu_model.calculate_volatility(entry_price, time_left)
+                        nyu_info = f"NYU:{nyu_r.edge_score:.2f}"
+
+                    print(f"[NEW] {signal.side} @ ${entry_price:.4f} | Edge: {edge:.1%} | {momentum_str} | {nyu_info} | {ml_str}")
+                    print(f"      Size: ${optimal_size:.2f} | KL: {bregman_signal.kl_divergence:.4f} | T-{time_left:.1f}min | {question[:40]}...")
 
             # Check for resolved markets
             if time_left < 0.5:
