@@ -66,6 +66,13 @@ class DashState:
     squeeze_momentum: float = 0.0
     squeeze_fired: bool = False
 
+    # Order Flow
+    obi: float = 0.0           # Order Book Imbalance (-1 to +1)
+    obi_signal: str = "NEUTRAL"
+    cvd_5m: float = 0.0        # Cumulative Volume Delta
+    cvd_signal: str = "NEUTRAL"
+    ema_cross: str = "NEUTRAL" # GOLDEN / DEATH / NEUTRAL
+
     # ML state
     ml_up_pct: float = 50.0
     ml_tuned_params: dict = None
@@ -220,9 +227,89 @@ def calc_ttm_squeeze(klines: List[dict], bb_length: int = 20, kc_length: int = 2
     return squeeze_on, momentum, squeeze_fired
 
 
+def calc_obi(bids: List[Tuple[float, float]], asks: List[Tuple[float, float]], mid: float) -> Tuple[float, str]:
+    """Calculate Order Book Imbalance within 1% of mid price."""
+    if not bids or not asks or mid <= 0:
+        return 0.0, "NEUTRAL"
+
+    band = mid * 0.01
+    bid_vol = sum(q for p, q in bids if p >= mid - band)
+    ask_vol = sum(q for p, q in asks if p <= mid + band)
+    total = bid_vol + ask_vol
+
+    if total == 0:
+        return 0.0, "NEUTRAL"
+
+    obi = (bid_vol - ask_vol) / total
+
+    if obi > 0.10:
+        return obi, "BULLISH"
+    elif obi < -0.10:
+        return obi, "BEARISH"
+    return obi, "NEUTRAL"
+
+
+def calc_cvd(trades: List[dict], window_secs: int = 300) -> Tuple[float, str]:
+    """Calculate Cumulative Volume Delta over time window."""
+    import time as _time
+    if not trades:
+        return 0.0, "NEUTRAL"
+
+    cutoff = _time.time() - window_secs
+    cvd = 0.0
+
+    for t in trades:
+        if t.get("t", 0) >= cutoff:
+            qty = t.get("qty", 0)
+            price = t.get("price", 0)
+            is_buy = t.get("is_buy", False)
+            cvd += qty * price * (1 if is_buy else -1)
+
+    if cvd > 0:
+        return cvd, "BULLISH"
+    elif cvd < 0:
+        return cvd, "BEARISH"
+    return cvd, "NEUTRAL"
+
+
 # ══════════════════════════════════════════════════════════════════════
 # DATA FETCHERS
 # ══════════════════════════════════════════════════════════════════════
+
+async def fetch_binance_orderbook(symbol: str = "BTCUSDT") -> Tuple[List, List]:
+    """Fetch orderbook from Binance."""
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{BINANCE_REST}/depth",
+                params={"symbol": symbol, "limit": 20}
+            )
+            data = resp.json()
+            bids = [(float(p), float(q)) for p, q in data.get("bids", [])]
+            asks = [(float(p), float(q)) for p, q in data.get("asks", [])]
+            return bids, asks
+    except:
+        return [], []
+
+
+async def fetch_binance_trades(symbol: str = "BTCUSDT", limit: int = 500) -> List[dict]:
+    """Fetch recent trades from Binance."""
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{BINANCE_REST}/trades",
+                params={"symbol": symbol, "limit": limit}
+            )
+            raw = resp.json()
+            return [{
+                "t": t["time"] / 1000,
+                "price": float(t["price"]),
+                "qty": float(t["qty"]),
+                "is_buy": not t["isBuyerMaker"]
+            } for t in raw]
+    except:
+        return []
+
 
 async def fetch_binance_klines(symbol: str = "BTCUSDT", interval: str = "1m", limit: int = 100) -> List[dict]:
     """Fetch klines from Binance."""
@@ -375,6 +462,19 @@ def render_ta_panel(state: DashState) -> Panel:
     mom_col = "green" if state.squeeze_momentum > 0 else "red"
     t.add_row("Squeeze", sq_status, f"[{mom_col}]mom {state.squeeze_momentum:+.1f}[/{mom_col}]")
 
+    # OBI - Order Book Imbalance
+    obi_col = "green" if state.obi_signal == "BULLISH" else "red" if state.obi_signal == "BEARISH" else "yellow"
+    t.add_row("OBI", f"[{obi_col}]{state.obi:+.1%}[/{obi_col}]", f"[{obi_col}]{state.obi_signal}[/{obi_col}]")
+
+    # CVD - Cumulative Volume Delta
+    cvd_col = "green" if state.cvd_signal == "BULLISH" else "red" if state.cvd_signal == "BEARISH" else "yellow"
+    cvd_fmt = f"${state.cvd_5m/1000:+.1f}K" if abs(state.cvd_5m) > 1000 else f"${state.cvd_5m:+.0f}"
+    t.add_row("CVD 5m", f"[{cvd_col}]{cvd_fmt}[/{cvd_col}]", f"[{cvd_col}]{state.cvd_signal}[/{cvd_col}]")
+
+    # EMA Cross
+    ema_col = "green" if state.ema_cross == "GOLDEN" else "red" if state.ema_cross == "DEATH" else "yellow"
+    t.add_row("EMA 5/20", f"[{ema_col}]{state.ema_cross}[/{ema_col}]", "")
+
     return Panel(t, title="TECHNICAL", box=box.ROUNDED, expand=True)
 
 
@@ -507,8 +607,21 @@ async def update_state(state: DashState):
             state.squeeze_momentum = sq_mom
             state.squeeze_fired = sq_fired
 
-            # Determine regime
+            # Closes array for EMA calculations
             closes = [k["c"] for k in state.klines]
+
+            # EMA Cross calculation
+            ema5 = calc_ema(closes, 5) if len(closes) >= 5 else None
+            ema20 = calc_ema(closes, 20) if len(closes) >= 20 else None
+            if ema5 and ema20:
+                if ema5 > ema20:
+                    state.ema_cross = "GOLDEN"
+                elif ema5 < ema20:
+                    state.ema_cross = "DEATH"
+                else:
+                    state.ema_cross = "NEUTRAL"
+
+            # Determine regime
             ema20 = calc_ema(closes, 20)
             if ema20:
                 if state.btc_price > ema20 * 1.001:
@@ -518,6 +631,17 @@ async def update_state(state: DashState):
                 else:
                     state.regime = "range"
     except Exception as e:
+        pass
+
+    # Fetch orderbook and trades for OBI/CVD
+    try:
+        bids, asks = await fetch_binance_orderbook()
+        trades = await fetch_binance_trades()
+        if bids and asks and state.btc_price > 0:
+            state.obi, state.obi_signal = calc_obi(bids, asks, state.btc_price)
+        if trades:
+            state.cvd_5m, state.cvd_signal = calc_cvd(trades, 300)
+    except:
         pass
 
     # Fetch PM prices
