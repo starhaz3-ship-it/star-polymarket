@@ -465,6 +465,17 @@ class TAPaperTrader:
         self.nyu_model = NYUVolatilityModel()
         self.use_nyu_model = True  # Enable NYU volatility-based edge scoring
 
+        # Arbitrage Scanner (distinct-baguette strategy)
+        # Buy both UP + DOWN when combined price < threshold for guaranteed profit
+        self.ARB_ENABLED = True
+        self.ARB_THRESHOLD = 0.97      # Max combined price (need sum < 0.97 for ~3% profit)
+        self.ARB_FEE_RATE = 0.02       # Simulated Polymarket fee (2%)
+        self.ARB_POSITION_SIZE = 10.0  # Total for both sides combined ($5 each side)
+        self.ARB_MIN_TIME = 2.0        # Min minutes remaining
+        self.ARB_MAX_TIME = 14.0       # Max minutes remaining
+        self.arb_trades = {}           # {trade_id: arb_trade_dict}
+        self.arb_stats = {"wins": 0, "losses": 0, "total_pnl": 0.0}
+
         self._load()
         self._apply_tuned_params()  # Apply ML-tuned parameters on startup
 
@@ -490,7 +501,11 @@ class TAPaperTrader:
                 self.losses = data.get("losses", 0)
                 self.signals_count = data.get("signals_count", 0)
                 self.start_time = data.get("start_time", self.start_time)
-                print(f"Loaded {len(self.trades)} trades from previous session")
+                # Load arb state
+                self.arb_trades = data.get("arb_trades", {})
+                self.arb_stats = data.get("arb_stats", {"wins": 0, "losses": 0, "total_pnl": 0.0})
+                arb_open = sum(1 for a in self.arb_trades.values() if a.get("status") == "open")
+                print(f"Loaded {len(self.trades)} trades + {len(self.arb_trades)} arb trades ({arb_open} open) from previous session")
             except Exception as e:
                 print(f"Error loading state: {e}")
 
@@ -503,6 +518,8 @@ class TAPaperTrader:
             "wins": self.wins,
             "losses": self.losses,
             "signals_count": self.signals_count,
+            "arb_trades": self.arb_trades,
+            "arb_stats": self.arb_stats,
         }
         with open(self.OUTPUT_FILE, 'w') as f:
             json.dump(data, f, indent=2)
@@ -699,6 +716,111 @@ class TAPaperTrader:
             self.daily_pnl = 0.0
             self.last_reset_day = today
 
+    def _scan_arbitrage(self, eligible_markets):
+        """Scan for both-sides arbitrage: UP + DOWN < threshold for guaranteed profit."""
+        if not self.ARB_ENABLED:
+            return
+
+        now = datetime.now(timezone.utc)
+
+        for time_left, market, up_price, down_price in eligible_markets:
+            market_id = market.get("conditionId", "")
+            question = market.get("question", "")
+            market_numeric_id = market.get("id")
+            asset = market.get("_asset", "BTC")
+
+            # Skip if we already have an arb trade on this market
+            arb_key = f"arb_{market_id}"
+            if arb_key in self.arb_trades:
+                continue
+
+            # Skip if we have a directional trade on this market
+            if any(market_id in tid for tid in self.trades):
+                continue
+
+            # Skip if already traded this cycle
+            if market_id in self.traded_markets_this_cycle:
+                continue
+
+            # Time filter
+            if time_left < self.ARB_MIN_TIME or time_left > self.ARB_MAX_TIME:
+                continue
+
+            # Core arb logic: check if UP + DOWN < threshold
+            spread = up_price + down_price
+
+            if spread < self.ARB_THRESHOLD:
+                guaranteed_profit_pct = (1.0 - spread - self.ARB_FEE_RATE) / spread
+                half_size = self.ARB_POSITION_SIZE / 2
+
+                # Calculate shares for each side
+                up_shares = half_size / up_price
+                down_shares = half_size / down_price
+
+                arb_trade = {
+                    "trade_id": arb_key,
+                    "market_title": question[:80],
+                    "asset": asset,
+                    "up_entry": up_price,
+                    "down_entry": down_price,
+                    "combined_cost": spread,
+                    "guaranteed_profit_pct": guaranteed_profit_pct,
+                    "size_usd": self.ARB_POSITION_SIZE,
+                    "up_size": half_size,
+                    "down_size": half_size,
+                    "up_shares": up_shares,
+                    "down_shares": down_shares,
+                    "entry_time": now.isoformat(),
+                    "status": "open",
+                    "market_numeric_id": market_numeric_id,
+                    "condition_id": market_id,
+                    "pnl": 0.0,
+                }
+                self.arb_trades[arb_key] = arb_trade
+                self.traded_markets_this_cycle.add(market_id)
+
+                print(f"[ARB] {asset} UP:${up_price:.2f} + DOWN:${down_price:.2f} = ${spread:.3f} | "
+                      f"Profit: {guaranteed_profit_pct:.1%} | Size: ${self.ARB_POSITION_SIZE} | "
+                      f"T-{time_left:.1f}min | {question[:40]}...")
+
+    def _resolve_arb_trade(self, arb, up_p, down_p):
+        """Resolve an arb trade given final UP/DOWN prices."""
+        if arb["status"] != "open":
+            return
+
+        now = datetime.now(timezone.utc)
+
+        if up_p >= 0.95:
+            # UP won - UP shares pay out at $1.00 each
+            payout = arb["up_shares"] * 1.0
+        elif down_p >= 0.95:
+            # DOWN won - DOWN shares pay out at $1.00 each
+            payout = arb["down_shares"] * 1.0
+        else:
+            # Not yet resolved (price in between) - mark to market
+            payout = arb["up_shares"] * up_p + arb["down_shares"] * down_p
+
+        fee = payout * self.ARB_FEE_RATE
+        net_pnl = payout - fee - arb["size_usd"]
+
+        arb["pnl"] = net_pnl
+        arb["exit_time"] = now.isoformat()
+        arb["exit_up_price"] = up_p
+        arb["exit_down_price"] = down_p
+        arb["status"] = "closed"
+
+        self.arb_stats["total_pnl"] += net_pnl
+        if net_pnl > 0:
+            self.arb_stats["wins"] += 1
+        else:
+            self.arb_stats["losses"] += 1
+
+        result = "WIN" if net_pnl > 0 else "LOSS"
+        winner = "UP" if up_p >= 0.95 else "DOWN"
+        print(f"[ARB {result}] {winner} won | PnL: ${net_pnl:+.2f} | "
+              f"Paid: ${arb['combined_cost']:.3f} | Payout: ${payout:.2f} | "
+              f"{arb['market_title'][:40]}...")
+
     async def run_cycle(self):
         """Run one trading cycle."""
         self._reset_daily_if_needed()
@@ -766,6 +888,11 @@ class TAPaperTrader:
             if asset not in nearest_per_asset:
                 nearest_per_asset[asset] = (time_left, market, up_price, down_price)
 
+        # === ARBITRAGE SCAN ===
+        # Check ALL eligible markets for both-sides arb (UP + DOWN < $0.97)
+        self._scan_arbitrage(eligible_markets)
+
+        # === DIRECTIONAL TRADING ===
         for asset, (time_left, market, up_price, down_price) in nearest_per_asset.items():
             market_id = market.get("conditionId", "")
             market_numeric_id = market.get("id")
@@ -1094,6 +1221,44 @@ class TAPaperTrader:
                         result = "WIN" if trade.pnl > 0 else "LOSS"
                         print(f"[{result}] {trade.side} PnL: ${trade.pnl:+.2f} | Day: ${self.daily_pnl:+.2f} | {trade.market_title[:35]}...")
 
+                # Also resolve arb trades on this market
+                for arb_key, arb in list(self.arb_trades.items()):
+                    if arb["status"] == "open" and arb.get("condition_id") == mkt_id:
+                        self._resolve_arb_trade(arb, up_p, down_p)
+
+        # === ARB EXPIRY RESOLUTION ===
+        # Check open arb trades older than 16 minutes via Gamma API
+        now = datetime.now(timezone.utc)
+        for arb_key, arb in list(self.arb_trades.items()):
+            if arb["status"] != "open":
+                continue
+            try:
+                entry_dt = datetime.fromisoformat(arb["entry_time"])
+            except Exception:
+                continue
+            age_minutes = (now - entry_dt).total_seconds() / 60
+            if age_minutes > 16:
+                if not arb.get("market_numeric_id"):
+                    arb["status"] = "closed"
+                    arb["pnl"] = 0.0
+                    arb["exit_time"] = now.isoformat()
+                    print(f"[ARB STALE] No numeric ID | {arb['market_title'][:40]}...")
+                    continue
+                try:
+                    async with httpx.AsyncClient(timeout=10) as client:
+                        r = await client.get(
+                            f"https://gamma-api.polymarket.com/markets/{arb['market_numeric_id']}",
+                            headers={"User-Agent": "Mozilla/5.0"}
+                        )
+                        if r.status_code == 200:
+                            rm = r.json()
+                            up_p, down_p = self.get_market_prices(rm)
+                            if up_p is not None and down_p is not None:
+                                self._resolve_arb_trade(arb, up_p, down_p)
+                    await asyncio.sleep(0.5)
+                except Exception as e:
+                    print(f"[ARB Expiry] Error resolving {arb_key[:20]}: {e}")
+
         # === EXPIRY RESOLUTION ===
         # Markets disappear from active=true&closed=false after they close.
         # Check all open trades older than 16 minutes and resolve them via Gamma API.
@@ -1207,6 +1372,17 @@ class TAPaperTrader:
             print(f"  Avg KL Divergence: {avg_kl:.4f}")
             print(f"  Avg Kelly Fraction: {avg_kelly:.1%}")
 
+        # Arbitrage Scanner stats
+        arb_closed = [a for a in self.arb_trades.values() if a.get("status") == "closed"]
+        arb_open = [a for a in self.arb_trades.values() if a.get("status") == "open"]
+        print(f"\nARBITRAGE SCANNER:")
+        print(f"  Arb trades: {len(self.arb_trades)} | Open: {len(arb_open)} | Closed: {len(arb_closed)}")
+        print(f"  Arb W/L: {self.arb_stats['wins']}/{self.arb_stats['losses']}")
+        print(f"  Arb PnL: ${self.arb_stats['total_pnl']:+.2f}")
+        if arb_closed:
+            avg_spread = sum(a["combined_cost"] for a in arb_closed) / len(arb_closed)
+            print(f"  Avg spread captured: ${avg_spread:.3f}")
+
         # Open trades
         print(f"\nOPEN TRADES ({len(open_trades)}):")
         for t in open_trades[:5]:
@@ -1273,6 +1449,12 @@ class TAPaperTrader:
         print(f"  Skip hours: {sorted(self.SKIP_HOURS_UTC)} UTC")
         print(f"  Daily loss limit: ${self.MAX_DAILY_LOSS}")
         print(f"Bankroll: ${self.bankroll} | Max Position: ${self.POSITION_SIZE}")
+        print()
+        arb_status = "ENABLED" if self.ARB_ENABLED else "DISABLED"
+        print(f"ARBITRAGE SCANNER: {arb_status}")
+        print(f"  Threshold: ${self.ARB_THRESHOLD} | Fee: {self.ARB_FEE_RATE:.0%} | Size: ${self.ARB_POSITION_SIZE}")
+        print(f"  Arb history: {self.arb_stats['wins']}W/{self.arb_stats['losses']}L | PnL: ${self.arb_stats['total_pnl']:+.2f}")
+        print()
         print("Scan: 2min | Update: 10min | ML Tune: 30min")
         print("=" * 70)
         print()
