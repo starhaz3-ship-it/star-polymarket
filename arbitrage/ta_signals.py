@@ -913,16 +913,24 @@ class TASignalGenerator:
         best_model = model_up if best_side == "UP" else model_down
 
         # Price-aware probability threshold adjustment
-        # Cheap entries have asymmetric payoff - lower the bar
+        # At price P, break-even probability = P (need >P to be +EV)
+        # Use 2.5x break-even as safety margin for cheap entries
+        # E.g. at $0.04: break-even=4%, min_prob=10%, model says 16% → TAKE IT (+300% EV)
         entry_price = market_yes if best_side == "UP" else market_no
         min_prob = thresholds["min_prob"]
         if entry_price is not None:
-            if entry_price < 0.20:
-                min_prob = 0.40  # 5:1 payoff, even 40% prob is hugely +EV
+            if entry_price < 0.10:
+                # 10:1+ payoff. At $0.04, need >10% prob (2.5x break-even)
+                min_prob = max(entry_price * 2.5, 0.08)
+            elif entry_price < 0.20:
+                # 5:1+ payoff. At $0.15, need >30% prob (2x break-even)
+                min_prob = max(entry_price * 2.0, 0.20)
             elif entry_price < 0.30:
-                min_prob = 0.45  # 3.3:1 payoff, 45% prob = strong edge
+                # 3.3:1 payoff. At $0.25, need >40% prob
+                min_prob = 0.40
             elif entry_price < 0.40:
-                min_prob = 0.48  # 2.5:1 payoff, slightly lower bar
+                # 2.5:1 payoff. Slightly lower bar
+                min_prob = 0.45
 
         # Check edge threshold
         if best_edge < thresholds["edge"]:

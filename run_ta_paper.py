@@ -220,17 +220,21 @@ class MLAutoTuner:
             new_price = min(0.55, self.state.down_max_price + 0.01)
             recommendations["down_max_price"] = new_price
 
-        # If UP is underperforming, tighten requirements
+        # If UP is underperforming, tighten requirements (slower ratchet)
+        # Note: dynamic pricing in V2 filters overrides base max price for high-confidence signals
         if up_wr < 0.50 and up_total >= 5:
-            new_conf = min(0.75, self.state.up_min_confidence + 0.03)
+            # Only tighten if not already at floor - avoid constant no-op changes
+            if self.state.up_min_confidence < 0.70:
+                new_conf = min(0.70, self.state.up_min_confidence + 0.02)
+                recommendations["up_min_confidence"] = new_conf
+            if self.state.up_max_price > 0.38:
+                new_price = max(0.38, self.state.up_max_price - 0.02)
+                recommendations["up_max_price"] = new_price
+        elif up_wr > 0.55 and up_total >= 5:
+            # UP improving - relax more aggressively to capture opportunity
+            new_conf = max(0.55, self.state.up_min_confidence - 0.03)
             recommendations["up_min_confidence"] = new_conf
-            new_price = max(0.35, self.state.up_max_price - 0.02)
-            recommendations["up_max_price"] = new_price
-        elif up_wr > 0.60 and up_total >= 5:
-            # UP is doing well, can slightly relax
-            new_conf = max(0.55, self.state.up_min_confidence - 0.02)
-            recommendations["up_min_confidence"] = new_conf
-            new_price = min(0.50, self.state.up_max_price + 0.02)
+            new_price = min(0.50, self.state.up_max_price + 0.03)
             recommendations["up_max_price"] = new_price
 
         # Analyze price buckets to find optimal entry prices
@@ -808,32 +812,54 @@ class TAPaperTrader:
             #   DOWN $0.50-0.55 = 73% WR (+$793)  = GREAT
             skip_reason = None
 
-            # 1. ASYMMETRIC CONFIDENCE with PRICE AWARENESS
+            # 1. ASYMMETRIC CONFIDENCE with PRICE + CONFIDENCE + TREND AWARENESS
             if signal.side == "UP":
-                up_conf_req = self.UP_MIN_CONFIDENCE
-                if up_price < 0.25:
-                    up_conf_req = max(0.45, up_conf_req - 0.15)
-                elif up_price < 0.35:
-                    up_conf_req = max(0.50, up_conf_req - 0.10)
+                # TREND FILTER: Don't take ultra-cheap UP (<$0.15) during downtrends
+                if up_price < 0.15 and hasattr(signal, 'regime') and signal.regime.value == 'trend_down':
+                    skip_reason = f"UP_cheap_contrarian_{up_price:.2f}_in_downtrend"
+                else:
+                    up_conf_req = self.UP_MIN_CONFIDENCE
+                    if up_price < 0.25:
+                        up_conf_req = max(0.45, up_conf_req - 0.15)
+                    elif up_price < 0.35:
+                        up_conf_req = max(0.50, up_conf_req - 0.10)
 
-                if signal.model_up < up_conf_req:
-                    skip_reason = f"UP_conf_{signal.model_up:.0%}<{up_conf_req:.0%}"
-                elif up_price > self.UP_MAX_PRICE:
-                    skip_reason = f"UP_price_{up_price:.2f}>{self.UP_MAX_PRICE}"
-                elif momentum < -0.001:
-                    skip_reason = f"UP_momentum_negative_{momentum:.3%}"
+                    # Dynamic UP max price: high model confidence unlocks higher prices
+                    # Base: UP_MAX_PRICE. At 80%+ conf → $0.48, 85%+ → $0.55
+                    effective_up_max = self.UP_MAX_PRICE
+                    if signal.model_up >= 0.85:
+                        effective_up_max = max(effective_up_max, 0.55)
+                    elif signal.model_up >= 0.80:
+                        effective_up_max = max(effective_up_max, 0.48)
+                    elif signal.model_up >= 0.70:
+                        effective_up_max = max(effective_up_max, 0.42)
+
+                    if signal.model_up < up_conf_req:
+                        skip_reason = f"UP_conf_{signal.model_up:.0%}<{up_conf_req:.0%}"
+                    elif up_price > effective_up_max:
+                        skip_reason = f"UP_price_{up_price:.2f}>{effective_up_max:.2f}"
+                    elif momentum < -0.001:
+                        skip_reason = f"UP_momentum_negative_{momentum:.3%}"
             elif signal.side == "DOWN":
                 # DEATH ZONE: $0.40-0.45 = 14% WR, -$321 PnL. NEVER trade here.
                 if 0.40 <= down_price < 0.45:
                     skip_reason = f"DOWN_DEATH_ZONE_{down_price:.2f}_(14%WR)"
+                # TREND FILTER: Don't take ultra-cheap DOWN (<$0.15) during uptrends
+                # These are contrarian long shots that almost never hit
+                elif down_price < 0.15 and hasattr(signal, 'regime') and signal.regime.value == 'trend_up':
+                    skip_reason = f"DOWN_cheap_contrarian_{down_price:.2f}_in_uptrend"
                 else:
                     down_conf_req = self.DOWN_MIN_CONFIDENCE
-                    if down_price < 0.20:
-                        down_conf_req = max(0.40, down_conf_req - 0.20)  # 5:1 payoff
+                    # Break-even aware confidence: at price P, need P prob to break even
+                    # Use 2.5x break-even for cheap entries, scaling down for expensive
+                    if down_price < 0.10:
+                        down_conf_req = max(down_price * 2.5, 0.08)  # 10:1+ payoff
+                    elif down_price < 0.20:
+                        down_conf_req = max(down_price * 2.0, 0.15)  # 5:1+ payoff
                     elif down_price < 0.30:
-                        down_conf_req = max(0.45, down_conf_req - 0.15)  # 3.3:1 payoff
+                        down_conf_req = max(0.40, down_conf_req - 0.15)  # 3.3:1 payoff
                     elif down_price < 0.40:
-                        down_conf_req = max(0.50, down_conf_req - 0.10)  # 2.5:1 payoff
+                        down_conf_req = max(0.45, down_conf_req - 0.10)  # 2.5:1 payoff
 
                     if signal.model_down < down_conf_req:
                         skip_reason = f"DOWN_conf_{signal.model_down:.0%}<{down_conf_req:.0%}"
