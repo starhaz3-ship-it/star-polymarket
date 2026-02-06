@@ -423,8 +423,9 @@ class TAPaperTrader:
 
     # Risk management
     MAX_DAILY_LOSS = 30.0         # Stop after losing $30 in a day
-    # Added 5, 9, 10 based on backtest (worst performing hours)
-    SKIP_HOURS_UTC = {0, 5, 6, 7, 8, 9, 10, 14, 15, 19, 20, 21, 23}
+    # Skip hours based on 297 live trade analysis (keep hours with >50% WR or positive PnL)
+    # Removed: 5 (68% WR), 7 (53% WR), 21 (71% WR) - proven profitable
+    SKIP_HOURS_UTC = {0, 6, 8, 9, 10, 14, 15, 19, 20, 23}
 
     def __init__(self, bankroll: float = 100.0):
         self.generator = TASignalGenerator()
