@@ -412,16 +412,18 @@ class TAPaperTrader:
     # 3. Multiple orders per market = disaster (DCA gone wrong)
     # 4. Need momentum confirmation before betting direction
 
-    # Asymmetric requirements - UP is safer than DOWN in bull market
-    UP_MAX_PRICE = 0.45           # Only buy UP at value prices (<45¢)
-    UP_MIN_CONFIDENCE = 0.60      # Lower bar for UP (trend follower)
-    DOWN_MAX_PRICE = 0.40         # DOWN needs even cheaper price (<40¢)
-    DOWN_MIN_CONFIDENCE = 0.72    # Higher bar for DOWN (counter-trend)
-    DOWN_MIN_MOMENTUM_DROP = -0.002  # Price must be FALLING to bet DOWN
+    # === BACKTEST-VALIDATED FILTERS (2026-02-06) ===
+    # DOWN at cheap prices with falling momentum = best edge
+    UP_MAX_PRICE = 0.40           # Strict: only cheap UP entries (<40¢)
+    UP_MIN_CONFIDENCE = 0.65      # Higher bar for UP (underperforms)
+    DOWN_MAX_PRICE = 0.40         # Critical: entry < $0.40 for edge
+    DOWN_MIN_CONFIDENCE = 0.55    # DOWN is more reliable, can be lower
+    DOWN_MIN_MOMENTUM_DROP = -0.002  # CRITICAL: Price must be FALLING
 
     # Risk management
     MAX_DAILY_LOSS = 30.0         # Stop after losing $30 in a day
-    SKIP_HOURS_UTC = {0, 6, 7, 8, 14, 15, 19, 20, 21, 23}  # Whale-validated skip hours
+    # Added 5, 9, 10 based on backtest (worst performing hours)
+    SKIP_HOURS_UTC = {0, 5, 6, 7, 8, 9, 10, 14, 15, 19, 20, 21, 23}
 
     def __init__(self, bankroll: float = 100.0):
         self.generator = TASignalGenerator()
