@@ -342,12 +342,12 @@ class TALiveTrader:
     """Live trades based on TA + Bregman signals with ML optimization."""
 
     OUTPUT_FILE = Path(__file__).parent / "ta_live_results.json"
-    # Minimum sizing for live validation (CLOB min = 5 shares ≈ $3)
-    BASE_POSITION_SIZE = 3.0   # Minimum live bet
-    MIN_POSITION_SIZE = 3.0    # Floor $3
-    MAX_POSITION_SIZE = 3.0    # Cap $3 - prove it works before scaling
+    # Position sizing: $5 base, hourly ML scales 0.5x-1.5x ($3-$8)
+    BASE_POSITION_SIZE = 5.0   # Standard bet
+    MIN_POSITION_SIZE = 3.0    # Floor $3 (CLOB minimum)
+    MAX_POSITION_SIZE = 8.0    # Cap $8 (hourly ML + Kelly can push here)
 
-    def __init__(self, dry_run: bool = False, bankroll: float = 11.71):
+    def __init__(self, dry_run: bool = False, bankroll: float = 70.12):
         self.dry_run = dry_run
         self.generator = TASignalGenerator()
         self.bregman = BregmanOptimizer(bankroll=bankroll)
