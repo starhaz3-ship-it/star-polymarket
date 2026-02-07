@@ -224,8 +224,27 @@ class MLOptimizer:
         return 0.5
 
 
+def _get_polygon_w3():
+    """Get a connected Web3 instance using multi-RPC fallback."""
+    from web3 import Web3
+    rpcs = [
+        "https://1rpc.io/matic",               # Free, no key, generous limits
+        "https://polygon-bor-rpc.publicnode.com",  # Free, no key
+        "https://polygon.drpc.org",             # Free, no key
+        "https://polygon-rpc.com",              # Free but aggressive rate limiting
+    ]
+    for rpc in rpcs:
+        try:
+            w3 = Web3(Web3.HTTPProvider(rpc, request_kwargs={"timeout": 30}))
+            if w3.is_connected():
+                return w3
+        except Exception:
+            continue
+    return None
+
+
 def auto_redeem_winnings():
-    """Auto-redeem any resolved winning positions to USDC. Runs silently."""
+    """Auto-redeem resolved winning positions to USDC. Reports every claim."""
     try:
         from web3 import Web3
         from dotenv import load_dotenv
@@ -248,18 +267,11 @@ def auto_redeem_winnings():
 
         total_val = sum(float(p.get("currentValue", 0) or 0) for p in redeemable)
         if total_val <= 0:
-            return  # Nothing worth claiming
+            return
 
-        rpcs = ["https://polygon-rpc.com", "https://rpc.ankr.com/polygon", "https://polygon.llamarpc.com"]
-        w3 = None
-        for rpc in rpcs:
-            try:
-                w3 = Web3(Web3.HTTPProvider(rpc, request_kwargs={"timeout": 30}))
-                if w3.is_connected():
-                    break
-            except Exception:
-                continue
-        if not w3 or not w3.is_connected():
+        w3 = _get_polygon_w3()
+        if not w3:
+            print("[REDEEM] All RPCs failed - skipping")
             return
 
         key = os.getenv("POLYMARKET_PRIVATE_KEY", "")
@@ -287,6 +299,15 @@ def auto_redeem_winnings():
         ctf = w3.eth.contract(address=Web3.to_checksum_address(CTF), abi=ctf_abi)
         factory = w3.eth.contract(address=Web3.to_checksum_address(FACTORY), abi=factory_abi)
 
+        # Check for stuck nonces first - unstick if needed
+        time.sleep(2)
+        confirmed_nonce = w3.eth.get_transaction_count(account.address, "latest")
+        time.sleep(2)
+        pending_nonce = w3.eth.get_transaction_count(account.address, "pending")
+        if pending_nonce > confirmed_nonce:
+            print(f"[REDEEM] Stuck nonce detected ({pending_nonce - confirmed_nonce} pending) - skipping until clear")
+            return
+
         claimed = 0
         done = set()
         for p in redeemable:
@@ -295,37 +316,54 @@ def auto_redeem_winnings():
             if not cid or cid in done or val <= 0:
                 continue
             done.add(cid)
+            title = p.get("title", "")[:40]
+            outcome = p.get("outcome", "")
             try:
                 redeem_data = ctf.encode_abi("redeemPositions", args=[
                     Web3.to_checksum_address(USDC), bytes(32),
                     Web3.to_bytes(hexstr=cid), [1, 2],
                 ])
                 proxy_txn = (Web3.to_checksum_address(CTF), 1, Web3.to_bytes(hexstr=redeem_data), 0)
+                time.sleep(5)  # Rate limit between RPC calls
                 nonce = w3.eth.get_transaction_count(account.address)
+                time.sleep(5)
                 gas_price = w3.eth.gas_price
                 txn = factory.functions.proxy([proxy_txn]).build_transaction({
                     "from": account.address, "nonce": nonce,
                     "gasPrice": min(gas_price * 2, w3.to_wei(100, "gwei")), "gas": 300000,
                 })
                 signed = w3.eth.account.sign_transaction(txn, key)
+                time.sleep(5)
                 tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
-                receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=60)
-                if receipt["status"] == 1:
+                # Fire-and-forget: don't wait_for_receipt (causes rate limiting)
+                # Just check nonce increment after a delay
+                time.sleep(20)
+                new_nonce = w3.eth.get_transaction_count(account.address, "latest")
+                if new_nonce > nonce:
                     claimed += 1
-                    print(f"[REDEEM] Claimed ${val:.2f} | {p.get('title','')[:40]}")
-                time.sleep(15)  # Rate limit
-            except Exception:
+                    print(f"[REDEEM] Claimed ${val:.2f} {outcome} | {title}")
+                else:
+                    print(f"[REDEEM] TX sent for ${val:.2f} {outcome} (pending) | {title}")
+                time.sleep(10)  # Cooldown between redeems
+            except Exception as e:
+                err_msg = str(e)[:60]
+                if "already known" in err_msg:
+                    print(f"[REDEEM] ${val:.2f} already pending | {title}")
+                else:
+                    print(f"[REDEEM] Error on ${val:.2f}: {err_msg}")
                 time.sleep(15)
                 continue
 
         if claimed:
-            print(f"[REDEEM] Auto-claimed {claimed} winning positions")
+            print(f"[REDEEM] Auto-claimed {claimed} winning positions (${total_val:.2f} total)")
 
         # Check remaining POL balance for gas
         try:
+            time.sleep(5)
             signer = account.address
             bal_wei = w3.eth.get_balance(signer)
             bal_pol = float(w3.from_wei(bal_wei, "ether"))
+            time.sleep(5)
             gas_price_gwei = float(w3.from_wei(w3.eth.gas_price, "gwei"))
             cost_per = 300000 * gas_price_gwei / 1e9
             remaining = int(bal_pol / cost_per) if cost_per > 0 else 0
@@ -335,7 +373,7 @@ def auto_redeem_winnings():
         except Exception:
             pass
     except Exception as e:
-        pass  # Silently fail - don't disrupt trading
+        print(f"[REDEEM] Error: {str(e)[:60]}")
 
 
 class TALiveTrader:
