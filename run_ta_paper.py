@@ -435,7 +435,7 @@ class TAPaperTrader:
     # REMOVED from skip (profitable): 6(56%WR +$108), 8(67%WR +$218), 10(67%WR +$74), 14(60%WR +$414)
     # ADDED to skip (losing): 1(40%WR -$21), 3(45%WR -$128), 16(25%WR -$236), 17(33%WR -$133), 22(33%WR -$23)
     # Best hours: 2(78%WR), 4(56%WR), 13(62%WR), 18(57%WR), 21(100%WR)
-    SKIP_HOURS_UTC = {0, 1, 3, 15, 16, 17, 19, 20, 22, 23}
+    SKIP_HOURS_UTC = {0, 1, 3, 8, 15, 16, 17, 19, 20, 22, 23}
 
     def __init__(self, bankroll: float = 100.0):
         self.generator = TASignalGenerator()

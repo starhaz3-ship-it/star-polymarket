@@ -69,6 +69,17 @@ class CopyTrader:
         "PBot1": "0x88f46b9e5d86b4fb85be55ab0ec4004264b9d4db",  # $107K PnL, 6,098 trades, $7.6M volume
         "0x93C2": "0x93C22116E4402C9332Ee6Db578050e688934C072",  # User-added whale
         "0xE594": "0xE594336603F4fB5d3ba4125a67021ab3B4347052",  # User-added whale
+        # --- Tier 1: High profit + high WR (added 2026-02-07 from leaderboard research) ---
+        "ImJustKen": "0x9d84ce0306f8551e02efef1680475fc0f1dc1344",  # $2.6M profit, 63% WR, liquid mispricings
+        "FeatherLeather": "0xd25c72ac0928385610611c8148803dc717334d20",  # $1.76M/mo, Polymarket #2 monthly
+        "FollowMeABC123": "0xc257ea7e3a81ca8e16df8935d44d513959fa358e",  # $224K PnL, 73.9% WR (best WR on leaderboard)
+        "weflyhigh": "0x03e8a544e97eeff5753bc1e90d46e5ef22af1697",  # $1.06M/mo, Polymarket #4 monthly
+        # --- Tier 2: Strong candidates (added 2026-02-07) ---
+        "beachboy4": "0xc2e7800b5af46e6093872b177b7a5e7f0563be51",  # $816K/mo, volatile but big
+        "BWArmageddon": "0x9976874011b081e1e408444c579f48aa5b5967da",  # $668K/mo monthly leaderboard
+        "betwick": "0xc851cd9bee7d262afd78674f861f9f576a12cd2a",  # @poly_matches smart trader, $10K+ positions
+        "MEPP": "0x6d9fc316c3b8377060a44b852ba664adbfd59790",  # @poly_matches smart trader, $10K+ positions
+        "RememberAmalek": "0x6139c42e48cf190e67a0a85d492413b499336b7a",  # @poly_matches smart trader
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]
