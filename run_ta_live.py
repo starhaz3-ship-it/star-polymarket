@@ -517,7 +517,7 @@ class TALiveTrader:
     # Whale-validated: 0=12.7%, 21=20.5%, 23=25.2% WR (terrible)
     # Backtested: 6-8=40-44%, 14-15=30-34%, 19-20=28-34%
     # Removed 16 (whale WR 39.4% - decent)
-    SKIP_HOURS_UTC = {0, 1, 3, 8, 15, 16, 17, 19, 20, 22, 23}  # Match paper (data-driven)
+    SKIP_HOURS_UTC = {0, 1, 8, 22, 23}  # Opened US/EU overlap (UTC 15-17,19,20) + UTC 3 (proven profitable)
 
     def _ema(self, candles, period: int) -> float:
         """Calculate EMA from candle close prices."""
