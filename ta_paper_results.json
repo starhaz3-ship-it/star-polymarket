@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-06T02:50:00.000000+00:00",
-  "last_updated": "2026-02-07T21:59:24.033325+00:00",
+  "last_updated": "2026-02-07T22:34:43.877542+00:00",
   "trades": {
     "0x1fb81f426bb06ab8bdfe5c070d98e7b400ac9cf7a89a0a6ef18a87005a583360_DOWN": {
       "trade_id": "0x1fb81f426bb06ab8bdfe5c070d98e7b400ac9cf7a89a0a6ef18a87005a583360_DOWN",
@@ -1734,11 +1734,256 @@
   "total_pnl": 676.0912286566054,
   "wins": 60,
   "losses": 36,
-  "signals_count": 508,
+  "signals_count": 511,
   "arb_trades": {},
   "arb_stats": {
     "wins": 0,
     "losses": 0,
     "total_pnl": 0.0
+  },
+  "hourly_stats": {
+    "0": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "1": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "2": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "3": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "4": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "5": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "6": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "7": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "8": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "9": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "10": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "11": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "12": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "13": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "14": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "15": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "16": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "17": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "18": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "19": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "20": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "21": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "22": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "23": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    }
+  },
+  "skip_hour_shadows": {},
+  "skip_hour_stats": {
+    "0": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "1": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "2": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "3": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "4": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "5": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "6": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "7": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "8": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "9": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "10": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "11": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "12": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "13": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "14": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "15": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "16": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "17": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "18": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "19": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "20": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "21": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "22": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "23": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    }
   }
 }

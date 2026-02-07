@@ -496,6 +496,14 @@ class TAPaperTrader:
             h: {"wins": 0, "losses": 0, "pnl": 0.0} for h in range(24)
         }
 
+        # === SKIP HOUR SHADOW TRACKING ===
+        # Paper-trade during paused hours WITHOUT affecting real stats.
+        # Accumulates data to evaluate whether skip hours should be reopened.
+        self.skip_hour_shadows: Dict[str, dict] = {}  # {trade_key: shadow_trade_dict}
+        self.skip_hour_stats: Dict[int, dict] = {
+            h: {"wins": 0, "losses": 0, "pnl": 0.0} for h in range(24)
+        }
+
         self._load()
         self._apply_tuned_params()  # Apply ML-tuned parameters on startup
 
@@ -554,6 +562,13 @@ class TAPaperTrader:
                     h = int(h_str)
                     if h in self.hourly_stats:
                         self.hourly_stats[h] = stats
+                # Load skip-hour shadow tracking
+                self.skip_hour_shadows = data.get("skip_hour_shadows", {})
+                saved_skip_stats = data.get("skip_hour_stats", {})
+                for h_str, stats in saved_skip_stats.items():
+                    h = int(h_str)
+                    if h in self.skip_hour_stats:
+                        self.skip_hour_stats[h] = stats
                 arb_open = sum(1 for a in self.arb_trades.values() if a.get("status") == "open")
                 print(f"Loaded {len(self.trades)} trades + {len(self.arb_trades)} arb trades ({arb_open} open) from previous session")
             except Exception as e:
@@ -571,6 +586,8 @@ class TAPaperTrader:
             "arb_trades": self.arb_trades,
             "arb_stats": self.arb_stats,
             "hourly_stats": self.hourly_stats,
+            "skip_hour_shadows": self.skip_hour_shadows,
+            "skip_hour_stats": self.skip_hour_stats,
         }
         with open(self.OUTPUT_FILE, 'w') as f:
             json.dump(data, f, indent=2)
@@ -882,11 +899,11 @@ class TAPaperTrader:
             print(f"[RISK] Daily loss limit hit: ${self.daily_pnl:.2f} - resting")
             return None
 
-        # Check skip hours
+        # Check skip hours — shadow-trade instead of resting
         current_hour = datetime.now(timezone.utc).hour
-        if current_hour in self.SKIP_HOURS_UTC:
-            print(f"[SKIP] Hour {current_hour} UTC is in skip list - resting")
-            return None
+        is_skip_hour = current_hour in self.SKIP_HOURS_UTC
+        if is_skip_hour:
+            print(f"[SKIP] Hour {current_hour} UTC is in skip list - shadow tracking only")
 
         candles, btc_price, markets, bids, asks, trades = await self.fetch_data()
 
@@ -1407,9 +1424,118 @@ class TAPaperTrader:
                 except Exception as e:
                     print(f"[Expiry] Error resolving {tid[:20]}: {e}")
 
+        # === SKIP HOUR SHADOW RESOLUTION ===
+        # Resolve open shadow trades from skip hours (runs every cycle)
+        for skey, shadow in list(self.skip_hour_shadows.items()):
+            if shadow.get("status") != "open":
+                continue
+            try:
+                entry_dt = datetime.fromisoformat(shadow["entry_time"])
+            except Exception:
+                continue
+            age_minutes = (now - entry_dt).total_seconds() / 60
+            if age_minutes < 16:
+                # Try resolving via current markets
+                for mkt in markets:
+                    mkt_id = mkt.get("conditionId", "")
+                    if mkt_id != shadow.get("market_id"):
+                        continue
+                    mkt_time = self.get_time_remaining(mkt)
+                    if mkt_time < 0.5:
+                        up_p, down_p = self.get_market_prices(mkt)
+                        if up_p is None or down_p is None:
+                            continue
+                        price = up_p if shadow["side"] == "UP" else down_p
+                        if price >= 0.95:
+                            exit_val = shadow["size_usd"] / shadow["entry_price"]
+                        elif price <= 0.05:
+                            exit_val = 0
+                        else:
+                            exit_val = (shadow["size_usd"] / shadow["entry_price"]) * price
+                        shadow["exit_price"] = price
+                        shadow["exit_time"] = now.isoformat()
+                        shadow["pnl"] = exit_val - shadow["size_usd"]
+                        shadow["status"] = "closed"
+                        swon = shadow["pnl"] > 0
+                        sh = shadow.get("entry_hour", 0)
+                        if sh not in self.skip_hour_stats:
+                            self.skip_hour_stats[sh] = {"wins": 0, "losses": 0, "pnl": 0.0}
+                        self.skip_hour_stats[sh]["wins" if swon else "losses"] += 1
+                        self.skip_hour_stats[sh]["pnl"] += shadow["pnl"]
+                        sr = "WIN" if swon else "LOSS"
+                        print(f"[SHADOW {sr}] UTC {sh} | {shadow['side']} ${shadow['pnl']:+.2f} | {shadow.get('title', '')[:40]}")
+            else:
+                # Resolve via Gamma API for stale shadows
+                nid = shadow.get("market_numeric_id")
+                if not nid:
+                    shadow["status"] = "closed"
+                    shadow["pnl"] = 0.0
+                    shadow["exit_time"] = now.isoformat()
+                    continue
+                try:
+                    async with httpx.AsyncClient(timeout=10) as client:
+                        r = await client.get(
+                            f"https://gamma-api.polymarket.com/markets/{nid}",
+                            headers={"User-Agent": "Mozilla/5.0"}
+                        )
+                        if r.status_code == 200:
+                            rm = r.json()
+                            up_p, down_p = self.get_market_prices(rm)
+                            if up_p is not None and down_p is not None:
+                                price = up_p if shadow["side"] == "UP" else down_p
+                                if price >= 0.95:
+                                    exit_val = shadow["size_usd"] / shadow["entry_price"]
+                                elif price <= 0.05:
+                                    exit_val = 0
+                                else:
+                                    exit_val = (shadow["size_usd"] / shadow["entry_price"]) * price
+                                shadow["exit_price"] = price
+                                shadow["exit_time"] = now.isoformat()
+                                shadow["pnl"] = exit_val - shadow["size_usd"]
+                                shadow["status"] = "closed"
+                                swon = shadow["pnl"] > 0
+                                sh = shadow.get("entry_hour", 0)
+                                if sh not in self.skip_hour_stats:
+                                    self.skip_hour_stats[sh] = {"wins": 0, "losses": 0, "pnl": 0.0}
+                                self.skip_hour_stats[sh]["wins" if swon else "losses"] += 1
+                                self.skip_hour_stats[sh]["pnl"] += shadow["pnl"]
+                                sr = "WIN" if swon else "LOSS"
+                                print(f"[SHADOW {sr}] UTC {sh} | {shadow['side']} ${shadow['pnl']:+.2f} | {shadow.get('title', '')[:40]}")
+                    await asyncio.sleep(0.5)
+                except Exception:
+                    pass
+
         # === DIRECTIONAL TRADING (Phase 2: Multi-Outcome Kelly allocation) ===
         # Sort candidates by quality (highest P(correct) first = best signal gets most budget)
         # Then allocate with correlation discounts so correlated trades don't blow up exposure
+        if trade_candidates and is_skip_hour:
+            # SKIP HOUR: Record as shadow trades, don't touch real stats
+            for cand in trade_candidates:
+                skey = f"shadow_{cand['trade_key']}"
+                if skey in self.skip_hour_shadows:
+                    continue
+                entry_price = cand['entry_price']
+                self.skip_hour_shadows[skey] = {
+                    "trade_key": skey,
+                    "market_id": cand['market_id'],
+                    "market_numeric_id": cand['market_numeric_id'],
+                    "title": cand['question'][:80],
+                    "asset": cand['asset'],
+                    "side": cand['signal'].side,
+                    "entry_price": entry_price,
+                    "entry_time": datetime.now(timezone.utc).isoformat(),
+                    "entry_hour": current_hour,
+                    "size_usd": cand['individual_size'],
+                    "edge": cand['edge'] if cand['edge'] else 0,
+                    "p_correct": cand['meta_pred'].p_correct,
+                    "status": "open",
+                    "exit_price": None,
+                    "pnl": 0.0,
+                }
+                print(f"[SHADOW NEW] UTC {current_hour} | {cand['signal'].side} @ ${entry_price:.4f} | Edge: {cand['edge']:.1%} | P(correct): {cand['meta_pred'].p_correct:.0%} | {cand['question'][:40]}...")
+            self._save()
+            return main_signal
+
         if trade_candidates:
             trade_candidates.sort(key=lambda c: c['meta_pred'].p_correct, reverse=True)
             cycle_exposure = 0.0
@@ -1591,6 +1717,32 @@ class TAPaperTrader:
             print("    No hourly data yet - all hours at 1.0x (collecting...)")
         cur_h = now.hour
         print(f"  Current: UTC {cur_h} -> {self._get_hour_multiplier(cur_h)}x multiplier")
+
+        # Skip hour shadow tracking
+        shadow_closed = [s for s in self.skip_hour_shadows.values() if s.get("status") == "closed"]
+        shadow_open = [s for s in self.skip_hour_shadows.values() if s.get("status") == "open"]
+        shadow_wins = sum(1 for s in shadow_closed if s.get("pnl", 0) > 0)
+        shadow_losses = len(shadow_closed) - shadow_wins
+        shadow_pnl = sum(s.get("pnl", 0) for s in shadow_closed)
+        print(f"\nSKIP HOUR SHADOWS (NOT counted in real stats):")
+        print(f"  Total: {len(shadow_closed)} closed, {len(shadow_open)} open")
+        print(f"  W/L: {shadow_wins}/{shadow_losses} | WR: {shadow_wins / max(1, len(shadow_closed)) * 100:.0f}%")
+        print(f"  Shadow PnL: ${shadow_pnl:+.2f}")
+        skip_active = []
+        for h in sorted(self.SKIP_HOURS_UTC):
+            ss = self.skip_hour_stats.get(h, {"wins": 0, "losses": 0, "pnl": 0.0})
+            st = ss["wins"] + ss["losses"]
+            if st > 0:
+                swr = ss["wins"] / st * 100
+                mst = (h - 7) % 24
+                verdict = "REOPEN?" if swr >= 55 and st >= 10 else "KEEP SKIP" if st >= 10 else "collecting..."
+                skip_active.append(f"    UTC {h:>2} (MST {mst:>2}h): {st}T {swr:.0f}% WR ${ss['pnl']:+.1f} [{verdict}]")
+        if skip_active:
+            print("  Per-hour breakdown:")
+            for line in skip_active:
+                print(line)
+        else:
+            print("  No skip-hour shadow data yet — collecting...")
 
         # Open trades
         print(f"\nOPEN TRADES ({len(open_trades)}):")
