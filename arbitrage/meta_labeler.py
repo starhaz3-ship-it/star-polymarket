@@ -540,8 +540,8 @@ class MetaLabeler:
         pct = min(1.0, (p_correct - self.TRADE_THRESHOLD) / range_p)
         multiplier = 0.5 + pct * 1.5
 
-        # Apply Kelly fraction cap
-        max_kelly_size = base_size * min(kelly_fraction * 4, 2.5)
+        # Apply Kelly fraction cap (loosened so meta-labeler sizing takes effect)
+        max_kelly_size = base_size * min(kelly_fraction * 10, 2.5)
         sized = multiplier * base_size
 
         return max(base_size * 0.5, min(sized, max_kelly_size, base_size * 2.5))
