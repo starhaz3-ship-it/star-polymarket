@@ -1042,13 +1042,19 @@ class TAPaperTrader:
                     entry_price = up_price if signal.side == "UP" else down_price
                     edge = signal.edge_up if signal.side == "UP" else signal.edge_down
 
-                    # Bregman divergence optimization
+                    # Bregman divergence optimization + Frank-Wolfe profit guarantee
                     bregman_signal = self.bregman.calculate_optimal_trade(
                         model_prob=signal.model_up,
                         market_yes_price=up_price,
-                        market_no_price=down_price
+                        market_no_price=down_price,
+                        time_remaining_min=time_left,
                     )
                     self.bregman_signals += 1
+
+                    # FW profit guarantee: skip if execution costs eat too much edge
+                    if not bregman_signal.fw_executable:
+                        print(f"[FW] {question[:30]}... | profit_ratio={bregman_signal.profit_ratio:.0%}<{self.bregman.ALPHA_THRESHOLD:.0%} gap={bregman_signal.fw_gap:.4f}")
+                        continue
 
                     # === ML V3 PREDICTION (kept for model_agreement meta-feature) ===
                     ml_prediction = None

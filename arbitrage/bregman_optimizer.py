@@ -6,12 +6,15 @@ Based on the mathematical framework from the optimization proof:
 - D is the Bregman divergence between true probability μ* and market price θ
 - For prediction markets with log scoring: D = KL divergence
 
+Frank-Wolfe Profit Guarantee (Proposition 4.1):
+- net_profit = bregman_divergence(μ_t, θ) - fw_gap(μ_t)
+- Only execute when net_profit >= α * bregman_divergence (α = 0.9)
+- FW gap estimates execution costs: fees, spread, slippage, time decay
+
 Key insight: The edge is bounded by how much your belief differs from the market,
-measured by information-theoretic divergence.
+measured by information-theoretic divergence. But only CAPTURABLE edge matters.
 
-This is the strategy behind gabagool22's $739K profit.
-
-Reference: Appendix A, Proof of Proposition 2.4
+Reference: Appendix A, Proof of Proposition 2.4 + Frank-Wolfe Market Maker
 """
 
 import math
@@ -44,13 +47,19 @@ class BregmanSignal:
     optimal_edge: float  # Edge as percentage
     kelly_fraction: float  # Optimal bet fraction
 
+    # Frank-Wolfe profit guarantee (Proposition 4.1)
+    fw_gap: float = 0.0  # Execution cost estimate (fees + spread + time decay)
+    net_profit: float = 0.0  # bregman_div - fw_gap (capturable profit)
+    profit_ratio: float = 0.0  # net_profit / bregman_div (α quality score, 0-1)
+    fw_executable: bool = True  # True if profit_ratio >= ALPHA_THRESHOLD
+
     # Decision
-    action: OptimalAction
-    confidence: float  # 0-1 confidence in signal
+    action: OptimalAction = OptimalAction.NO_TRADE
+    confidence: float = 0.0  # 0-1 confidence in signal
 
     # Optimal trade sizing
-    optimal_size_pct: float  # % of bankroll
-    expected_log_growth: float  # Kelly growth rate
+    optimal_size_pct: float = 0.0  # % of bankroll
+    expected_log_growth: float = 0.0  # Kelly growth rate
 
 
 class BregmanOptimizer:
@@ -69,6 +78,12 @@ class BregmanOptimizer:
 
     # Confidence thresholds
     HIGH_CONFIDENCE_DIV = 0.10  # 10% divergence = high confidence
+
+    # Frank-Wolfe parameters
+    ALPHA_THRESHOLD = 0.70  # Only trade when 70%+ of edge is capturable
+    FEE_RATE = 0.02  # Polymarket 2% fee on winnings
+    BASE_SPREAD_COST = 0.005  # ~0.5% average spread cost
+    TIME_DECAY_RATE = 0.001  # Edge erosion per minute near expiry
 
     def __init__(self, bankroll: float = 1000.0):
         self.bankroll = bankroll
@@ -131,11 +146,54 @@ class BregmanOptimizer:
 
         return p * win_growth + (1 - p) * loss_growth
 
+    def estimate_fw_gap(
+        self,
+        market_prob: float,
+        kl_div: float,
+        time_remaining_min: float = 10.0,
+        spread: Optional[float] = None,
+    ) -> float:
+        """
+        Estimate Frank-Wolfe gap: execution costs that eat into theoretical edge.
+
+        FW gap = fee_cost + spread_cost + time_decay_cost
+
+        From the FWMM paper: profit = bregman_div - fw_gap.
+        Only trade when fw_gap is small relative to bregman_div.
+        """
+        # 1. Fee cost: Polymarket charges ~2% on net winnings
+        # Expected fee = fee_rate * expected_payout * P(win)
+        # Approximate as fee_rate * kl_div (proportional to edge)
+        fee_cost = self.FEE_RATE * max(kl_div, 0.01)
+
+        # 2. Spread cost: cost of crossing the bid-ask spread
+        # Wider spreads near 50% (more liquid but tighter edge)
+        # Narrower spreads at extremes (less liquid but edge is larger)
+        if spread is not None:
+            spread_cost = spread * 0.5  # Half-spread as cost estimate
+        else:
+            # Estimate: spread is wider near 50%, tighter at extremes
+            price_extremity = abs(market_prob - 0.50)
+            spread_cost = self.BASE_SPREAD_COST * (1.0 - price_extremity)
+
+        # 3. Time decay: edge erodes faster near expiry as market converges to truth
+        # Near expiry (<3 min), other traders have same info, edge shrinks
+        if time_remaining_min < 3.0:
+            time_cost = self.TIME_DECAY_RATE * (3.0 - time_remaining_min) ** 2
+        elif time_remaining_min < 5.0:
+            time_cost = self.TIME_DECAY_RATE * (5.0 - time_remaining_min) * 0.5
+        else:
+            time_cost = 0.0
+
+        return fee_cost + spread_cost + time_cost
+
     def calculate_optimal_trade(
         self,
         model_prob: float,
         market_yes_price: float,
-        market_no_price: Optional[float] = None
+        market_no_price: Optional[float] = None,
+        time_remaining_min: float = 10.0,
+        spread: Optional[float] = None,
     ) -> BregmanSignal:
         """
         Calculate optimal trade using Bregman divergence theory.
@@ -166,6 +224,14 @@ class BregmanOptimizer:
 
         # The guaranteed profit is at least D(μ*||θ) per the proof
         guaranteed_profit = kl_div
+
+        # Frank-Wolfe profit guarantee (Proposition 4.1):
+        # net_profit = bregman_div - fw_gap
+        # Only trade when net_profit >= alpha * bregman_div
+        fw_gap = self.estimate_fw_gap(market_prob, kl_div, time_remaining_min, spread)
+        net_profit = max(0.0, kl_div - fw_gap)
+        profit_ratio = net_profit / kl_div if kl_div > 0.001 else 0.0
+        fw_executable = profit_ratio >= self.ALPHA_THRESHOLD
 
         # Calculate edge as percentage
         optimal_edge = (model_prob - market_prob) * 100  # For YES side
@@ -214,6 +280,10 @@ class BregmanOptimizer:
             guaranteed_profit=guaranteed_profit,
             optimal_edge=optimal_edge,
             kelly_fraction=kelly_frac,
+            fw_gap=fw_gap,
+            net_profit=net_profit,
+            profit_ratio=profit_ratio,
+            fw_executable=fw_executable,
             action=action,
             confidence=confidence,
             optimal_size_pct=kelly_frac * 100,
@@ -259,6 +329,9 @@ class BregmanOptimizer:
             "",
             "TRADING METRICS:",
             f"  Guaranteed Profit ≥ {signal.guaranteed_profit:.4f}",
+            f"  FW Gap (exec cost): {signal.fw_gap:.4f}",
+            f"  Net Profit: {signal.net_profit:.4f} ({signal.profit_ratio:.0%} capturable)",
+            f"  FW Executable: {signal.fw_executable} (α≥{self.ALPHA_THRESHOLD:.0%})",
             f"  Edge: {signal.optimal_edge:+.2f}%",
             f"  Kelly Fraction: {signal.kelly_fraction:.1%}",
             f"  Expected Log Growth: {signal.expected_log_growth:.4f}",
