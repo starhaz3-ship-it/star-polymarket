@@ -11,7 +11,7 @@ import time
 import os
 import math
 import numpy as np
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from pathlib import Path
 from dataclasses import dataclass, asdict, field
 from typing import Dict, List, Optional, Tuple
@@ -1048,11 +1048,16 @@ class TALiveTrader:
 
     async def run_cycle(self):
         """Run one trading cycle across all assets."""
-        # Skip low win-rate hours (06:00-08:00 UTC = 42% WR, -$27 PnL)
+        # Skip low win-rate hours — still resolve open trades, just don't place new ones
         current_hour = datetime.now(timezone.utc).hour
-        if current_hour in self.SKIP_HOURS_UTC:
-            print(f"[SKIP] Hour {current_hour:02d} UTC is in skip list - resting")
-            return None
+        is_skip_hour = current_hour in self.SKIP_HOURS_UTC
+        if is_skip_hour:
+            open_count = sum(1 for t in self.trades.values() if t.status == "open")
+            if open_count > 0:
+                print(f"[SKIP] Hour {current_hour:02d} UTC - resolving {open_count} open trades...")
+            else:
+                print(f"[SKIP] Hour {current_hour:02d} UTC is in skip list - resting")
+                return None
 
         asset_data = await self.fetch_data()
 
@@ -1111,6 +1116,12 @@ class TALiveTrader:
 
             # Try all eligible markets (nearest first) — near-expiry markets may already be heavily priced
             for time_left, market, up_price, down_price in eligible_markets:
+                # Skip hour: only allow $3 ULTRA-HIGH conviction trades (Feb 7-8 exception)
+                if is_skip_hour:
+                    today = datetime.now(timezone.utc).date()
+                    skip_hour_exception = today <= date(2026, 2, 9)  # Feb 7-8 (expires after Feb 8)
+                    if not skip_hour_exception:
+                        break
                 market_id = market.get("conditionId", "")
                 question = market.get("question", "")
 
@@ -1303,6 +1314,15 @@ class TALiveTrader:
                             print(f"[ML] {asset} Rejected: {signal.side} score={ml_score:.2f} < {min_score:.2f}")
                             continue
 
+                        # === SKIP HOUR ULTRA-CONVICTION GATE (Feb 7-8 temp) ===
+                        # Only $3 minimum-size trades with very high probability signals
+                        if is_skip_hour:
+                            model_conf = signal.model_up if signal.side == "UP" else signal.model_down
+                            if best_edge < 0.25 or model_conf < 0.70 or entry_price > 0.35:
+                                print(f"  [{asset}] SKIP-HOUR gate: edge={best_edge:.0%} conf={model_conf:.0%} price=${entry_price:.2f} (need 25%+/70%+/<$0.35)")
+                                continue
+                            print(f"  [{asset}] SKIP-HOUR EXCEPTION: edge={best_edge:.0%} conf={model_conf:.0%} price=${entry_price:.2f} -> $3 trade")
+
                         position_size = self.calculate_position_size(
                             edge=edge if edge else 0.10,
                             kelly_fraction=bregman_signal.kelly_fraction,
@@ -1326,6 +1346,12 @@ class TALiveTrader:
 
                         hour_mult = self._get_hour_multiplier(datetime.now(timezone.utc).hour)
                         hour_tag = f", Hour={hour_mult}x" if hour_mult != 1.0 else ""
+
+                        # Skip hour: force $3 minimum size
+                        if is_skip_hour:
+                            position_size = self.MIN_POSITION_SIZE  # $3
+                            hour_tag = ", SKIP-HR=$3"
+
                         print(f"[SIZE] {asset} ${position_size:.2f} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, {trend_tag}{hour_tag})")
 
                         success, order_result = await self.execute_trade(
