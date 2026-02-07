@@ -3,11 +3,18 @@
 # Format: - [ ] HYPOTHESIS | Expected Impact | Status
 
 ## HIGH IMPACT (test first)
-- [ ] **KL divergence > 0.15 as hard filter** | Higher KL = more mispricing = higher WR? Backtest against paper trades | UNTESTED
-- [ ] **Entry price < $0.30 mandatory for DOWN** | $0.20-0.30 bucket = 100% WR historically | UNTESTED
-- [ ] **SOL underperformance check** | Does SOL drag down overall WR vs BTC/ETH only? | UNTESTED
-- [ ] **Time remaining sweet spot** | Is 3-5 min better than 8-12 min? Backtest optimal entry window | UNTESTED
-- [ ] **Model confidence > 60% hard floor** | Does cutting low-confidence trades improve net PnL? | UNTESTED
+- [x] **KL divergence >= 0.15 as hard filter** | KL<0.15=36% WR, KL>=0.15=67% WR | **DEPLOYED V3.4**
+- [x] **Entry price < $0.30 mandatory for DOWN** | REJECTED: DOWN<$0.30=36% WR, DOWN>=$0.30=64% WR | **OPPOSITE OF EXPECTED**
+- [x] **SOL underperformance check** | REJECTED: SOL has highest avg PnL/trade ($7.49) | **NOT AN ISSUE**
+- [x] **Time remaining sweet spot** | 5-8min=94% WR, 8-12min=77% WR, 2-5min=47% WR | **DEPLOYED V3.4 (5min floor)**
+- [x] **Model confidence via edge >= 0.30 floor** | Edge<0.30=36% WR, Edge>=0.30=70% WR | **DEPLOYED V3.4**
+
+## HIGH IMPACT (new from V3.4 analysis)
+- [ ] **Asymmetric DOWN thresholds for ETH/SOL** | ETH DOWN=40% WR, SOL DOWN=44% WR. Require edge>=0.35 for non-BTC DOWN? | UNTESTED
+- [ ] **Block "good" signal trades, require "strong" only** | "Good"=57% WR $1.20/trade vs "Strong"=63% $7.50/trade | NEED MORE DATA (only 7 "good" trades)
+- [ ] **Death zone $0.40-0.45 recalibration** | Paper shows 80% WR for DOWN $0.35-0.45. Maybe death zone is outdated? | MONITOR (keep block, collect more data)
+- [ ] **BTC UP overweight** | BTC UP=90.9% WR (10/11). Should we increase size for BTC UP specifically? | UNTESTED
+- [ ] **Hour 13-14 UTC skip evaluation** | 43%/33% WR. Add to skip hours? | NEED MORE DATA (only 10 trades combined)
 
 ## MEDIUM IMPACT
 - [ ] **Hourly sizing boost after 50+ trades** | Are Bayesian hourly multipliers helping or neutral? | COLLECTING DATA

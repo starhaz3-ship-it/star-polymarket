@@ -1089,9 +1089,9 @@ class TALiveTrader:
 
     # Conviction thresholds - matched to paper tuner (tune #35)
     MIN_MODEL_CONFIDENCE = 0.56  # Match paper tuner
-    MIN_EDGE = 0.20              # Match paper tuner (was 0.25)
+    MIN_EDGE = 0.30              # V3.4: edge<0.30 = 36% WR (96 paper trades)
     MAX_ENTRY_PRICE = 0.55       # Match paper (was 0.45)
-    MIN_KL_DIVERGENCE = 0.0      # Disabled - paper uses FW profit gate instead
+    MIN_KL_DIVERGENCE = 0.15     # V3.4: KL<0.15 = 36% WR vs 67% above (96 paper trades)
 
     # Paper trades both sides successfully (UP 81% WR in paper)
     DOWN_ONLY_MODE = False       # Disabled - match paper
@@ -1115,7 +1115,7 @@ class TALiveTrader:
     MAX_CONCURRENT_POSITIONS = 6 # Relaxed - paper trades BTC+ETH+SOL simultaneously
 
     # Entry window - match paper
-    MIN_TIME_REMAINING = 2.0     # Match paper (was 3.0)
+    MIN_TIME_REMAINING = 5.0     # V3.4: 2-5min = 47% WR; 5-12min = 83% WR (96 paper trades)
     MAX_TIME_REMAINING = 15.0    # Match paper (was 14.0)
 
     # Kelly position sizing - CONSERVATIVE: slow churn, protect capital
@@ -1196,8 +1196,13 @@ class TALiveTrader:
         is_skip_hour = current_hour in self.SKIP_HOURS_UTC
         if is_skip_hour:
             open_count = sum(1 for t in self.trades.values() if t.status == "open")
+            # Feb 7-8 exception: allow $3 ultra-high conviction trades during skip hours
+            today = datetime.now(timezone.utc).date()
+            skip_hour_exception = today <= date(2026, 2, 9)
             if open_count > 0:
                 print(f"[SKIP] Hour {current_hour:02d} UTC - resolving {open_count} open trades...")
+            elif skip_hour_exception:
+                print(f"[SKIP] Hour {current_hour:02d} UTC - scanning for $3 high-conviction trades...")
             else:
                 print(f"[SKIP] Hour {current_hour:02d} UTC is in skip list - resting")
                 return None
@@ -1262,12 +1267,9 @@ class TALiveTrader:
 
             # Try all eligible markets (nearest first) — near-expiry markets may already be heavily priced
             for time_left, market, up_price, down_price in eligible_markets:
-                # Skip hour: only allow $3 ULTRA-HIGH conviction trades (Feb 7-8 exception)
-                if is_skip_hour:
-                    today = datetime.now(timezone.utc).date()
-                    skip_hour_exception = today <= date(2026, 2, 9)  # Feb 7-8 (expires after Feb 8)
-                    if not skip_hour_exception:
-                        break
+                # Skip hour: break unless Feb 7-8 exception is active (checked above)
+                if is_skip_hour and not skip_hour_exception:
+                    break
                 market_id = market.get("conditionId", "")
                 question = market.get("question", "")
 
@@ -1347,9 +1349,9 @@ class TALiveTrader:
                     # DEATH ZONE: $0.40-0.45 = 14% WR, -$321 PnL. NEVER trade here. (V3.3)
                     if 0.40 <= down_price < 0.45:
                         skip_reason = f"DOWN_DEATH_ZONE_{down_price:.2f}_(14%WR)"
-                    # TREND FILTER: Don't take ultra-cheap DOWN (<$0.15) during uptrends
-                    elif down_price < 0.15 and hasattr(signal, 'regime') and signal.regime.value == 'trend_up':
-                        skip_reason = f"DOWN_cheap_contrarian_{down_price:.2f}_in_uptrend"
+                    # V3.4: Block ALL DOWN < $0.15 — 0% WR in 96 paper trades (3 trades, 3 total losses)
+                    elif down_price < 0.15:
+                        skip_reason = f"DOWN_ultra_cheap_{down_price:.2f}_(0%WR)"
                     else:
                         # Break-even aware confidence for DOWN (V3.3)
                         down_conf_req = self.MIN_MODEL_CONFIDENCE
@@ -1450,6 +1452,12 @@ class TALiveTrader:
                             market_no_price=down_price
                         )
 
+                        # === KL DIVERGENCE FILTER (V3.4) ===
+                        # KL < 0.15 = 36% WR (model agrees with market = no edge)
+                        if bregman_signal.kl_divergence < self.MIN_KL_DIVERGENCE:
+                            print(f"  [{asset}] KL too low: {bregman_signal.kl_divergence:.3f} < {self.MIN_KL_DIVERGENCE}")
+                            continue
+
                         features = self.ml.extract_features(signal, bregman_signal, candles)
 
                         ml_score = self.ml.score_trade(features, signal.side)
@@ -1460,14 +1468,14 @@ class TALiveTrader:
                             print(f"[ML] {asset} Rejected: {signal.side} score={ml_score:.2f} < {min_score:.2f}")
                             continue
 
-                        # === SKIP HOUR ULTRA-CONVICTION GATE (Feb 7-8 temp) ===
-                        # Only $3 minimum-size trades with very high probability signals
+                        # === SKIP HOUR $3 TRADES (Feb 7-8 temp, loosened) ===
+                        # Relaxed gate: edge>=15%, conf>=55%, price<=$0.45
                         if is_skip_hour:
                             model_conf = signal.model_up if signal.side == "UP" else signal.model_down
-                            if best_edge < 0.25 or model_conf < 0.70 or entry_price > 0.35:
-                                print(f"  [{asset}] SKIP-HOUR gate: edge={best_edge:.0%} conf={model_conf:.0%} price=${entry_price:.2f} (need 25%+/70%+/<$0.35)")
+                            if best_edge < 0.15 or model_conf < 0.55 or entry_price > 0.45:
+                                print(f"  [{asset}] SKIP-HR: edge={best_edge:.0%} conf={model_conf:.0%} ${entry_price:.2f} (need 15%+/55%+/<$0.45)")
                                 continue
-                            print(f"  [{asset}] SKIP-HOUR EXCEPTION: edge={best_edge:.0%} conf={model_conf:.0%} price=${entry_price:.2f} -> $3 trade")
+                            print(f"  [{asset}] SKIP-HR $3 TRADE: edge={best_edge:.0%} conf={model_conf:.0%} ${entry_price:.2f}")
 
                         position_size = self.calculate_position_size(
                             edge=edge if edge else 0.10,
@@ -1858,8 +1866,8 @@ class TALiveTrader:
         print(f"PAPER-MATCHED: All settings copied 1:1 from paper tuner (tune #35)")
         print(f"SHADOW TRACKING: ATR filter + trend bias tracked for ML removal evaluation")
         print(f"HOURLY ML SIZING: Bayesian WR per hour -> reduce bad hours, boost good (after 10 trades)")
-        print(f"Filters: Edge>={self.MIN_EDGE:.0%} | Conf>={self.MIN_MODEL_CONFIDENCE:.0%} | ATR(14)x1.5 | NYU>0.15")
-        print(f"V3.3: Death zone $0.40-0.45 | Trend filter | Break-even aware | Dynamic UP max")
+        print(f"Filters: Edge>={self.MIN_EDGE:.0%} | Conf>={self.MIN_MODEL_CONFIDENCE:.0%} | KL>={self.MIN_KL_DIVERGENCE} | ATR(14)x1.5 | NYU>0.15")
+        print(f"V3.4: Death zone $0.40-0.45 | DOWN<$0.15=BLOCK | 5min entry floor | KL filter | Dynamic UP max")
         print(f"UP: Dynamic max price (70%->$0.42, 80%->$0.48, 85%->$0.55) | Scaled conf for cheap entries")
         print(f"DOWN: Death zone $0.40-0.45=SKIP | Break-even conf for cheap | Momentum confirm >{self.DOWN_MIN_MOMENTUM_DROP}")
         print(f"NYU model: edge_score>0.15 (avoid 50% zone)")

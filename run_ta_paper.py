@@ -41,7 +41,7 @@ class MLTunerState:
     up_min_confidence: float = 0.60
     down_max_price: float = 0.40
     down_min_confidence: float = 0.72
-    min_edge: float = 0.12
+    min_edge: float = 0.30
     down_momentum_threshold: float = -0.002
 
     # Performance tracking
@@ -538,7 +538,7 @@ class TAPaperTrader:
         self.UP_MIN_CONFIDENCE = params["up_min_confidence"]
         self.DOWN_MAX_PRICE = params["down_max_price"]
         self.DOWN_MIN_CONFIDENCE = params["down_min_confidence"]
-        self.MIN_EDGE = params["min_edge"]
+        self.MIN_EDGE = max(params["min_edge"], 0.30)  # V3.4: floor at 0.30
         self.DOWN_MIN_MOMENTUM_DROP = params["down_momentum_threshold"]
         print(f"[ML] Applied tuned params: UP<${self.UP_MAX_PRICE}@{self.UP_MIN_CONFIDENCE:.0%} | DOWN<${self.DOWN_MAX_PRICE}@{self.DOWN_MIN_CONFIDENCE:.0%} | Edge>{self.MIN_EDGE:.0%}")
 
@@ -764,7 +764,9 @@ class TAPaperTrader:
 
     # Conviction thresholds - prevent flip-flopping
     MIN_MODEL_CONFIDENCE = 0.65  # Model must be at least 65% confident in direction
-    MIN_EDGE = 0.12              # At least 12% edge vs market price (was 10%)
+    MIN_EDGE = 0.30              # V3.4: edge<0.30 = 36% WR (96 paper trades)
+    MIN_KL_DIVERGENCE = 0.15     # V3.4: KL<0.15 = 36% WR vs 67% above (96 paper trades)
+    MIN_TIME_REMAINING = 5.0     # V3.4: 2-5min = 47% WR; 5-12min = 83% WR (96 paper trades)
     MAX_ENTRY_PRICE = 0.55       # Don't buy at prices above 55¢ (no edge zone)
     CANDLE_LOOKBACK = 15         # Only use last 15 minutes of price action
 
@@ -938,7 +940,7 @@ class TAPaperTrader:
             time_left = self.get_time_remaining(market)
             if up_price is None or down_price is None:
                 continue
-            if time_left > 15 or time_left < 2:
+            if time_left > 15 or time_left < self.MIN_TIME_REMAINING:
                 continue
             eligible_markets.append((time_left, market, up_price, down_price))
 
@@ -1041,10 +1043,9 @@ class TAPaperTrader:
                 # DEATH ZONE: $0.40-0.45 = 14% WR, -$321 PnL. NEVER trade here.
                 if 0.40 <= down_price < 0.45:
                     skip_reason = f"DOWN_DEATH_ZONE_{down_price:.2f}_(14%WR)"
-                # TREND FILTER: Don't take ultra-cheap DOWN (<$0.15) during uptrends
-                # These are contrarian long shots that almost never hit
-                elif down_price < 0.15 and hasattr(signal, 'regime') and signal.regime.value == 'trend_up':
-                    skip_reason = f"DOWN_cheap_contrarian_{down_price:.2f}_in_uptrend"
+                # V3.4: Block ALL DOWN < $0.15 — 0% WR in 96 paper trades (3 trades, 3 total losses)
+                elif down_price < 0.15:
+                    skip_reason = f"DOWN_ultra_cheap_{down_price:.2f}_(0%WR)"
                 else:
                     down_conf_req = self.DOWN_MIN_CONFIDENCE
                     # Break-even aware confidence: at price P, need P prob to break even
@@ -1117,6 +1118,12 @@ class TAPaperTrader:
                     # FW profit guarantee: skip if execution costs eat too much edge
                     if not bregman_signal.fw_executable:
                         print(f"[FW] {question[:30]}... | profit_ratio={bregman_signal.profit_ratio:.0%}<{self.bregman.ALPHA_THRESHOLD:.0%} gap={bregman_signal.fw_gap:.4f}")
+                        continue
+
+                    # === KL DIVERGENCE FILTER (V3.4) ===
+                    # KL < 0.15 = 36% WR (model agrees with market = no edge)
+                    if bregman_signal.kl_divergence < self.MIN_KL_DIVERGENCE:
+                        print(f"[KL] {question[:30]}... | KL={bregman_signal.kl_divergence:.3f}<{self.MIN_KL_DIVERGENCE} (no divergence edge)")
                         continue
 
                     # === ML V3 PREDICTION (kept for model_agreement meta-feature) ===
@@ -1808,7 +1815,8 @@ class TAPaperTrader:
         print("CURRENT ML-TUNED PARAMETERS:")
         print(f"  UP:   Max price ${self.UP_MAX_PRICE:.2f} | Min conf {self.UP_MIN_CONFIDENCE:.0%} | Need rising momentum")
         print(f"  DOWN: Max price ${self.DOWN_MAX_PRICE:.2f} | Min conf {self.DOWN_MIN_CONFIDENCE:.0%} | Need falling momentum")
-        print(f"  Min edge: {self.MIN_EDGE:.0%}")
+        print(f"  Min edge: {self.MIN_EDGE:.0%} | Min KL: {self.MIN_KL_DIVERGENCE} | Entry window: {self.MIN_TIME_REMAINING}-15 min")
+        print(f"  V3.4: Death zone $0.40-0.45 | DOWN<$0.15=BLOCK | KL filter | {self.MIN_TIME_REMAINING}min entry floor")
         print()
         print(f"  Skip hours: {sorted(self.SKIP_HOURS_UTC)} UTC")
         print(f"  Daily loss limit: ${self.MAX_DAILY_LOSS}")
