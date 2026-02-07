@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-07T21:35:00+00:00",
-  "last_updated": "2026-02-07T21:59:52.580464+00:00",
+  "last_updated": "2026-02-07T22:49:36.687691+00:00",
   "dry_run": false,
   "trades": {
     "0x9f8e13e8ea48e319ec788592b20812f72ee2364ae25f8fde51079f886828cf03_DOWN": {
@@ -110,10 +110,10 @@
         "_full_size": 6.86,
         "_with_trend": true
       },
-      "exit_price": null,
-      "exit_time": null,
+      "exit_price": 0.455,
+      "exit_time": "2026-02-07T22:49:35.654159+00:00",
       "pnl": 0.0,
-      "status": "open",
+      "status": "closed",
       "order_id": "0x7baf7d9d4787a1c856eab54a24d710af079e98f93906385479437b34cb0a3dc8",
       "execution_error": null
     },
@@ -148,10 +148,10 @@
         "_full_size": 7.12,
         "_with_trend": true
       },
-      "exit_price": null,
-      "exit_time": null,
+      "exit_price": 0.285,
+      "exit_time": "2026-02-07T22:49:35.654159+00:00",
       "pnl": 0.0,
-      "status": "open",
+      "status": "closed",
       "order_id": "0x6f4214f97647725b23b0cab544912ff5174b94102e3264221a93ef85be893585",
       "execution_error": null
     }
@@ -159,7 +159,7 @@
   "total_pnl": 9.629759829211885,
   "wins": 2,
   "losses": 0,
-  "signals_count": 25,
+  "signals_count": 26,
   "ml_rejections": 0,
   "consecutive_wins": 2,
   "consecutive_losses": 0,
@@ -225,9 +225,10 @@
       "size_usd": 5.0,
       "filter_reason": "atr_volatility",
       "atr_ratio": 1.55,
-      "status": "open",
-      "exit_price": null,
-      "pnl": 0.0
+      "status": "closed",
+      "exit_price": 0.495,
+      "pnl": 0.0,
+      "exit_time": "2026-02-07T22:49:35.654159+00:00"
     }
   },
   "shadow_stats": {

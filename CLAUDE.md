@@ -26,37 +26,34 @@ cat ta_paper_results.json | python -m json.tool
 - **TA Paper** (`run_ta_paper.py`) - Paper trading, $100 positions, Bregman optimization
 - **TA Live** (`run_ta_live.py`) - Live trading, $10 positions, ML optimization
 
-### Current Status (Last Updated: 2026-02-05 early morning)
-- Live Trader: RUNNING with v4 whale+ADX+MACD-V optimized filters
-- Strategy: TA + Bregman + Kelly + ATR + ADX + MACD-V + RSI + 200 EMA
+### Current Status (Last Updated: 2026-02-07)
+- Live Trader: RUNNING — $5 base bets, $70.12 bankroll, multi-RPC redeem
+- Paper Trader: RUNNING — $10 bets, skip-hour shadow tracking active
+- Strategy: TA + Bregman + Kelly + ATR + NYU Vol + ML Scoring + 200 EMA
 - Markets: BTC/ETH/SOL 15-minute Up/Down via Polymarket API (`tag_slug=15M`)
-- Position sizing: $3-$10, minimum $3 (CLOB requires 5+ shares), quarter-Kelly
-- **V4 FILTERS** — whale-validated + hedge fund indicators:
-  - Edge minimum: 10%
-  - ATR(14) on 1m candles: skip if recent 3 bars > 1.5x ATR
-  - ADX(14): DOWN needs ADX>20 (trend confirm), UP blocked when ADX>40 (exhausted)
-  - MACD-V (Spiroglou 2022): skip when momentum opposes signal (|MACD-V|>50)
-  - ATR Compression: ATR(20)<ATR(30) = +20% position size bonus (breakout setup)
-  - RSI confirmation: DOWN requires RSI<55, UP requires RSI>45
-  - UP trades restricted: need 65% confidence, 30% edge, RSI>55
-  - Skip hours: {0,6,7,8,14,15,19,20,21,23} UTC (10 hours skipped, whale-validated)
-  - Max entry price: $0.55
-  - No volatility cap needed (RSI + skip hours handle it per backtest)
-- Trend bias: 200 EMA → with-trend 70% capital, counter-trend 30%
-- Auto-redeem: Claims winnings on-chain after every win
-- ML threshold: 0.50 (adaptive: 0.30 when winning >60%, 1.0 when losing <40%)
-- **Data findings** (250 trades): DOWN 66.4% WR vs UP 41.1% WR
-- **Actual PnL discrepancy**: Bot tracked +$194, actual wallet -$803 (includes $780 manual Iran bets + $209 XRP copy trader + fill tracking bugs)
+- Position sizing: $3-$8, quarter-Kelly, Bayesian hourly multiplier (0.5x-1.5x)
+- Skip hours: {0, 1, 8, 22, 23} UTC — shadow-tracked for re-evaluation
+- Trend bias: 200 EMA → counter-trend gets 85% size (softer than old 30%)
+- Auto-redeem: Multi-RPC fallback (1rpc.io > publicnode > drpc > polygon-rpc)
+- **Live session**: 2W/0L (+$9.63) from $70.12 start
 
 ### Standing Orders
 - **AUTO-TUNE**: Continuously analyze trade data and auto-adjust settings for max profit, then win rate. Don't ask - just optimize. Log changes made.
-- ML should tune trend bias ratios (70/30) over time based on actual results
-- Review and adjust SKIP_HOURS_UTC, asset list, edge thresholds as data accumulates
+- **FULL AUTONOMY**: Star has granted full ownership of the trading pipeline. Research, backtest, deploy, and ML-refine continuously. Cut losers fast, promote winners immediately.
+
+## EVOLUTION PROTOCOL (run every session on "Access Star-Polymarket")
+1. **Health Check**: Verify live trader, paper trader, and whale watcher are running. Restart any that are down.
+2. **Read Fresh Data**: Load `latest_analysis.json` (auto-generated every 6h), `ta_live_results.json`, `ta_paper_results.json`
+3. **Performance Audit**: Find new losers to cut, winners to boost, parameter drift
+4. **Skip-Hour Shadows**: Check `skip_hour_stats` in paper results — any hour with 55%+ WR and 10+ trades = recommend REOPEN
+5. **Research Backlog**: Read `RESEARCH_BACKLOG.md` — pick highest-impact untested hypothesis, test it
+6. **Deploy Improvements**: Apply findings to live trader immediately. Log all changes.
+7. **Update Memory**: Write findings to memory files (`proven_edges.md`, `failed_experiments.md`)
+8. **Report to Star**: Brief summary of what changed and why
 
 ### Reminders
-- **2026-02-04 ~6PM MST (12h report)**: Generate full performance report with charts. Compare pre-optimization (before 5AM MST) vs post-optimization metrics. Include: PnL by asset, side, hour, trend bias effectiveness, strong-signal dampening results. Auto-tweak any underperforming settings. Run this analysis script: `python analyze_performance.py` (create if needed).
-- **2026-02-07**: Review ML threshold — if profitable, lower ML threshold again (currently 0.50 default, 0.30 when winning >60%, 1.0 when losing <40%). Check `get_min_score_threshold()` in `run_ta_live.py`.
-- **POL gas balance**: Alert Star when signer wallet POL drops below 100 redemptions (~22 POL). Signer: `0xD375494Fd97366F543DAB3CB88684EFE738DCd40`. Auto-warning built into `auto_redeem_winnings()` in `run_ta_live.py`.
+- **POL gas balance**: Alert Star when signer wallet POL drops below 100 redemptions (~22 POL). Signer: `0xD375494Fd97366F543DAB3CB88684EFE738DCd40`.
+- **2026-02-21**: Revisit TREND_FOLLOW strategy (blacklisted, 14% WR live — 2-week cooling-off).
 
 ### Key Files
 - `run_ta_paper.py` - Paper trading runner

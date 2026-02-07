@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-06T02:50:00.000000+00:00",
-  "last_updated": "2026-02-07T22:34:43.877542+00:00",
+  "last_updated": "2026-02-07T23:07:40.056837+00:00",
   "trades": {
     "0x1fb81f426bb06ab8bdfe5c070d98e7b400ac9cf7a89a0a6ef18a87005a583360_DOWN": {
       "trade_id": "0x1fb81f426bb06ab8bdfe5c070d98e7b400ac9cf7a89a0a6ef18a87005a583360_DOWN",
@@ -1734,7 +1734,7 @@
   "total_pnl": 676.0912286566054,
   "wins": 60,
   "losses": 36,
-  "signals_count": 511,
+  "signals_count": 516,
   "arb_trades": {},
   "arb_stats": {
     "wins": 0,
@@ -1863,7 +1863,25 @@
       "pnl": 0.0
     }
   },
-  "skip_hour_shadows": {},
+  "skip_hour_shadows": {
+    "shadow_0x760943fe3bab8cde74eaeadf6d02346e9e8965404fd7c4a8244a18a2dc4ab5ac_DOWN": {
+      "trade_key": "shadow_0x760943fe3bab8cde74eaeadf6d02346e9e8965404fd7c4a8244a18a2dc4ab5ac_DOWN",
+      "market_id": "0x760943fe3bab8cde74eaeadf6d02346e9e8965404fd7c4a8244a18a2dc4ab5ac",
+      "market_numeric_id": "1349454",
+      "title": "Ethereum Up or Down - February 7, 6:00PM-6:15PM ET",
+      "asset": "ETH",
+      "side": "DOWN",
+      "entry_price": 0.335,
+      "entry_time": "2026-02-07T23:05:35.045493+00:00",
+      "entry_hour": 23,
+      "size_usd": 20.0,
+      "edge": 0.27996355954545454,
+      "p_correct": 0.9667806706428641,
+      "status": "open",
+      "exit_price": null,
+      "pnl": 0.0
+    }
+  },
   "skip_hour_stats": {
     "0": {
       "wins": 0,
