@@ -29,6 +29,7 @@ from arbitrage.ta_signals import TASignalGenerator, Candle, SignalStrength
 from arbitrage.bregman_optimizer import BregmanOptimizer, enhance_ta_signal_with_bregman
 from arbitrage.ml_engine_v3 import get_ml_engine, MLFeatures, AdvancedMLEngine
 from arbitrage.nyu_volatility import NYUVolatilityModel, calculate_nyu_volatility
+from arbitrage.meta_labeler import get_meta_labeler, MetaLabeler
 
 
 @dataclass
@@ -464,6 +465,12 @@ class TAPaperTrader:
         # Extreme prices (away from 0.50) have LOWER volatility = better edge
         self.nyu_model = NYUVolatilityModel()
         self.use_nyu_model = True  # Enable NYU volatility-based edge scoring
+
+        # Meta-Labeler (Lopez de Prado framework)
+        # Predicts P(primary signal is correct) instead of direction
+        # Replaces binary ML veto with calibrated confidence + position sizing
+        self.meta_labeler = get_meta_labeler()
+        self.use_meta_labeler = True
 
         # Arbitrage Scanner (distinct-baguette strategy)
         # Buy both UP + DOWN when combined price < threshold for guaranteed profit
@@ -1043,8 +1050,8 @@ class TAPaperTrader:
                     )
                     self.bregman_signals += 1
 
-                    # === ML V3 PREDICTION ===
-                    ml_approved = True
+                    # === ML V3 PREDICTION (kept for model_agreement meta-feature) ===
+                    ml_prediction = None
                     ml_str = ""
                     if self.use_ml_v3:
                         # Build order flow dict for ML features
@@ -1087,39 +1094,46 @@ class TAPaperTrader:
                         )
                         ml_prediction = self.ml_engine.predict(ml_features)
 
-                        # Store features for training later
+                        # Store features for primary ML training later
                         self._pending_ml_features = ml_features
 
-                        # Check if ML agrees with TA signal
-                        # V3.2: Softer veto - only block at very high ML confidence
-                        # At cheap prices, TA + payoff math should override ML doubt
-                        veto_threshold = 0.75  # Raised from 0.65 - ML needs to be VERY sure to veto
-                        if entry_price < 0.30:
-                            veto_threshold = 0.85  # Almost never veto cheap entries
+                        ml_str = f"[ML:{ml_prediction.recommended_side} conf={ml_prediction.confidence:.0%}]"
 
-                        if ml_prediction.recommended_side == "SKIP":
-                            # Only hard-skip if ML is quite confident
-                            if ml_prediction.confidence > 0.70:
-                                ml_approved = False
-                                ml_str = f"[ML:SKIP conf={ml_prediction.confidence:.0%}]"
-                            else:
-                                ml_str = f"[ML:SKIP-weak conf={ml_prediction.confidence:.0%} override]"
-                        elif ml_prediction.recommended_side != signal.side:
-                            if ml_prediction.confidence > veto_threshold:
-                                ml_approved = False
-                                ml_str = f"[ML:{ml_prediction.recommended_side} conf={ml_prediction.confidence:.0%} VETO]"
-                            else:
-                                ml_str = f"[ML:{ml_prediction.recommended_side} conf={ml_prediction.confidence:.0%} weak]"
-                        else:
-                            ml_str = f"[ML:AGREE conf={ml_prediction.confidence:.0%}]"
+                    # === META-LABELING: Should we take this trade? ===
+                    # Instead of binary ML veto, use calibrated P(correct) for filtering + sizing
+                    nyu_result_for_meta = None
+                    if self.use_nyu_model:
+                        nyu_result_for_meta = self.nyu_model.calculate_volatility(entry_price, time_left)
 
-                    if not ml_approved:
-                        print(f"[ML V3] {question[:30]}... | {ml_str} - skipping")
+                    meta_features = self.meta_labeler.extract_meta_features(
+                        signal=signal,
+                        bregman_signal=bregman_signal,
+                        ml_prediction=ml_prediction,
+                        nyu_result=nyu_result_for_meta,
+                        candles=asset_recent,
+                        entry_price=entry_price,
+                        side=signal.side,
+                        momentum=momentum,
+                    )
+                    meta_pred = self.meta_labeler.predict(meta_features)
+
+                    if self.use_meta_labeler and meta_pred.recommended_action == "SKIP":
+                        print(f"[META] P(correct)={meta_pred.p_correct:.0%} {meta_pred.confidence_tier} SKIP | {ml_str} | {question[:30]}...")
                         continue
 
-                    # Use Kelly fraction for position sizing (capped)
-                    optimal_size = min(self.POSITION_SIZE, self.bankroll * bregman_signal.kelly_fraction)
-                    optimal_size = max(10.0, optimal_size)  # Minimum $10
+                    # Meta-label sized position (replaces fixed Kelly sizing)
+                    optimal_size = self.meta_labeler.calculate_position_size(
+                        p_correct=meta_pred.p_correct,
+                        base_size=self.POSITION_SIZE,
+                        kelly_fraction=bregman_signal.kelly_fraction,
+                    )
+                    optimal_size = max(5.0, optimal_size)  # Minimum $5
+
+                    # Store meta-features for training on resolution
+                    self._pending_meta_features = meta_features
+                    self._pending_meta_side = signal.side
+
+                    meta_str = f"[META:P={meta_pred.p_correct:.0%} {meta_pred.confidence_tier} sz={meta_pred.position_size_mult:.1f}x]"
 
                     trade = TAPaperTrade(
                         trade_id=trade_key,
@@ -1145,8 +1159,8 @@ class TAPaperTrader:
                         nyu_r = self.nyu_model.calculate_volatility(entry_price, time_left)
                         nyu_info = f"NYU:{nyu_r.edge_score:.2f}"
 
-                    print(f"[NEW] {signal.side} @ ${entry_price:.4f} | Edge: {edge:.1%} | {momentum_str} | {nyu_info} | {ml_str}")
-                    print(f"      Size: ${optimal_size:.2f} | KL: {bregman_signal.kl_divergence:.4f} | T-{time_left:.1f}min | {question[:40]}...")
+                    print(f"[NEW] {signal.side} @ ${entry_price:.4f} | Edge: {edge:.1%} | {momentum_str} | {nyu_info} | {meta_str}")
+                    print(f"      Size: ${optimal_size:.2f} | KL: {bregman_signal.kl_divergence:.4f} | {ml_str} | T-{time_left:.1f}min | {question[:40]}...")
 
             # Check for resolved markets
             if time_left < 0.5:
@@ -1188,6 +1202,18 @@ class TAPaperTrader:
                                 )
                             except Exception as e:
                                 print(f"[ML V3] Training update error: {e}")
+
+                        # === META-LABEL ONLINE LEARNING ===
+                        if self.use_meta_labeler and hasattr(self, '_pending_meta_features'):
+                            try:
+                                self.meta_labeler.add_sample(
+                                    meta_features=self._pending_meta_features,
+                                    won=(trade.pnl > 0),
+                                    pnl=trade.pnl,
+                                    side=getattr(self, '_pending_meta_side', trade.side),
+                                )
+                            except Exception as e:
+                                print(f"[META] Training update error: {e}")
 
         # === ACTIVE MARKET RESOLUTION ===
         # Check ALL markets (not just eligible ones) for near-expiry resolution.
@@ -1357,6 +1383,13 @@ class TAPaperTrader:
         if ml_status['recent_win_rate'] > 0:
             print(f"  Recent WR: {ml_status['recent_win_rate']:.1%}")
 
+        # Meta-Labeler stats
+        meta_status = self.meta_labeler.get_status()
+        print(f"\nMETA-LABELER (Lopez de Prado):")
+        print(f"  Trained: {meta_status['is_trained']} | Samples: {meta_status['training_samples']}")
+        print(f"  Predictions: {meta_status['predictions_made']} | Avg P(correct): {meta_status['avg_p_correct']:.0%}")
+        print(f"  Trade rate: {meta_status['trade_rate']:.0%} | Sizing: {meta_status['position_size_range']}")
+
         # ML Tuner stats
         print(f"\nML AUTO-TUNER:")
         print(f"  Tune cycles: #{self.ml_tuner.state.tune_count}")
@@ -1432,13 +1465,16 @@ class TAPaperTrader:
     async def run(self):
         """Main loop with 10-minute updates."""
         print("=" * 70)
-        print("TA + BREGMAN PAPER TRADER V3 - LIGHTGBM + XGBOOST ENSEMBLE")
+        print("TA + BREGMAN PAPER TRADER V3.4 - META-LABELING UPGRADE")
         print("=" * 70)
-        print("Strategy: Momentum-confirmed + ML ensemble prediction")
+        print("Strategy: Momentum + ML ensemble + Meta-Label filter/sizing")
         print("ML V3 Engine: LightGBM + XGBoost (online learning enabled)")
         ml_status = self.ml_engine.get_status()
         print(f"  Training samples: {ml_status['training_samples']} | Trained: {ml_status['is_trained']}")
-        print("ML Auto-Tuner: ENABLED (tunes every 30 min based on performance)")
+        meta_status = self.meta_labeler.get_status()
+        print(f"Meta-Labeler: {'TRAINED' if meta_status['is_trained'] else 'HEURISTIC'} | {meta_status['training_samples']} samples")
+        print(f"  P(correct) threshold: {self.meta_labeler.TRADE_THRESHOLD:.0%} | Position sizing: 0.5x-2.0x")
+        print("ML Auto-Tuner: ENABLED (tunes every 2h based on performance)")
         print(f"Tune cycle: #{self.ml_tuner.state.tune_count}")
         print()
         print("CURRENT ML-TUNED PARAMETERS:")
