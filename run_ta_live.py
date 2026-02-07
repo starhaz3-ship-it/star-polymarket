@@ -27,8 +27,9 @@ print = partial(print, flush=True)
 # Import from arbitrage package
 sys.path.insert(0, str(Path(__file__).parent))
 
-from arbitrage.ta_signals import TASignalGenerator, Candle, SignalStrength, TASignal
+from arbitrage.ta_signals import TASignalGenerator, Candle, SignalStrength, TASignal, MarketRegime
 from arbitrage.bregman_optimizer import BregmanOptimizer, BregmanSignal
+from arbitrage.nyu_volatility import NYUVolatilityModel
 
 load_dotenv()
 
@@ -367,6 +368,10 @@ class TALiveTrader:
         # Duplicate order protection - track markets we've traded this cycle
         self.recently_traded_markets: set = set()
 
+        # NYU Two-Parameter Volatility Model (V3.3 port)
+        self.nyu_model = NYUVolatilityModel()
+        self.use_nyu_model = True
+
         # Executor for live trading
         self.executor = None
         if not dry_run:
@@ -496,7 +501,7 @@ class TALiveTrader:
     # Whale-validated: 0=12.7%, 21=20.5%, 23=25.2% WR (terrible)
     # Backtested: 6-8=40-44%, 14-15=30-34%, 19-20=28-34%
     # Removed 16 (whale WR 39.4% - decent)
-    SKIP_HOURS_UTC = {0, 6, 7, 8, 14, 15, 19, 20, 21, 23}
+    SKIP_HOURS_UTC = {0, 6, 7, 8, 14, 15, 16, 19, 20, 21, 23}
 
     def _ema(self, candles, period: int) -> float:
         """Calculate EMA from candle close prices."""
@@ -516,6 +521,14 @@ class TALiveTrader:
             return "BEARISH"  # Below 200 EMA -> favor DOWN
         else:
             return "BULLISH"  # Above 200 EMA -> favor UP
+
+    def _get_price_momentum(self, candles: List, lookback: int = 5) -> float:
+        """Calculate recent price momentum (% change over lookback candles)."""
+        if len(candles) < lookback:
+            return 0.0
+        old_price = candles[-lookback].close
+        new_price = candles[-1].close
+        return (new_price - old_price) / old_price
 
     def _compute_atr(self, candles, period: int = 14) -> float:
         """Compute Average True Range from 1-min candles."""
@@ -880,6 +893,7 @@ class TALiveTrader:
     UP_MIN_EDGE = 0.40           # UP needs 40%+ edge
     UP_RSI_MIN = 60              # UP only when RSI strongly bullish
     CANDLE_LOOKBACK = 15         # Only use last 15 minutes of price action
+    DOWN_MIN_MOMENTUM_DROP = -0.002  # V3.3: Price must be falling for non-cheap DOWN entries
 
     # Risk management - TIGHTER
     MAX_DAILY_LOSS = 30.0        # Stop after $30 loss (was $50)
@@ -1013,7 +1027,7 @@ class TALiveTrader:
                 if self.DOWN_ONLY_MODE and signal.side == "UP":
                     continue  # Silent skip - don't spam logs
 
-                # === CONVICTION FILTERS (with debug) ===
+                # === CONVICTION FILTERS (V3.3 PORT) ===
                 if not signal.side:
                     print(f"  [{asset}] No signal side (action={signal.action}) | mkt UP=${up_price:.2f} DOWN=${down_price:.2f} | {time_left:.1f}min | reason={signal.reason}")
                     continue
@@ -1024,28 +1038,85 @@ class TALiveTrader:
                     print(f"  [{asset}] DOWN confidence too low: {signal.model_down:.1%} < {self.MIN_MODEL_CONFIDENCE:.0%}")
                     continue
 
+                if signal.action != "ENTER":
+                    print(f"  [{asset}] Action is {signal.action}, not ENTER")
+                    continue
+
+                # === V3.3: SIDE-SPECIFIC FILTERS WITH TREND + DEATH ZONE + BREAK-EVEN AWARE ===
+                skip_reason = None
+                momentum = self._get_price_momentum(candles, lookback=5)
+
+                if signal.side == "UP":
+                    # TREND FILTER: Don't take ultra-cheap UP (<$0.15) during downtrends
+                    if up_price < 0.15 and hasattr(signal, 'regime') and signal.regime.value == 'trend_down':
+                        skip_reason = f"UP_cheap_contrarian_{up_price:.2f}_in_downtrend"
+                    else:
+                        # Scaled confidence for cheap UP prices (V3.3)
+                        up_conf_req = self.UP_MIN_CONFIDENCE
+                        if up_price < 0.25:
+                            up_conf_req = max(0.45, up_conf_req - 0.15)
+                        elif up_price < 0.35:
+                            up_conf_req = max(0.50, up_conf_req - 0.10)
+
+                        # Dynamic UP max price: high model confidence unlocks higher prices (V3.3)
+                        effective_up_max = self.MAX_ENTRY_PRICE
+                        if signal.model_up >= 0.85:
+                            effective_up_max = max(effective_up_max, 0.55)
+                        elif signal.model_up >= 0.80:
+                            effective_up_max = max(effective_up_max, 0.48)
+                        elif signal.model_up >= 0.70:
+                            effective_up_max = max(effective_up_max, 0.42)
+
+                        if signal.model_up < up_conf_req:
+                            skip_reason = f"UP_conf_{signal.model_up:.0%}<{up_conf_req:.0%}"
+                        elif up_price > effective_up_max:
+                            skip_reason = f"UP_price_{up_price:.2f}>{effective_up_max:.2f}"
+                        elif momentum < -0.001:
+                            skip_reason = f"UP_momentum_negative_{momentum:.3%}"
+
+                elif signal.side == "DOWN":
+                    # DEATH ZONE: $0.40-0.45 = 14% WR, -$321 PnL. NEVER trade here. (V3.3)
+                    if 0.40 <= down_price < 0.45:
+                        skip_reason = f"DOWN_DEATH_ZONE_{down_price:.2f}_(14%WR)"
+                    # TREND FILTER: Don't take ultra-cheap DOWN (<$0.15) during uptrends
+                    elif down_price < 0.15 and hasattr(signal, 'regime') and signal.regime.value == 'trend_up':
+                        skip_reason = f"DOWN_cheap_contrarian_{down_price:.2f}_in_uptrend"
+                    else:
+                        # Break-even aware confidence for DOWN (V3.3)
+                        down_conf_req = self.MIN_MODEL_CONFIDENCE
+                        if down_price < 0.10:
+                            down_conf_req = max(down_price * 2.5, 0.08)  # 10:1+ payoff
+                        elif down_price < 0.20:
+                            down_conf_req = max(down_price * 2.0, 0.15)  # 5:1+ payoff
+                        elif down_price < 0.30:
+                            down_conf_req = max(0.40, down_conf_req - 0.15)  # 3.3:1 payoff
+                        elif down_price < 0.40:
+                            down_conf_req = max(0.45, down_conf_req - 0.10)  # 2.5:1 payoff
+
+                        if signal.model_down < down_conf_req:
+                            skip_reason = f"DOWN_conf_{signal.model_down:.0%}<{down_conf_req:.0%}"
+                        elif down_price > self.MAX_ENTRY_PRICE:
+                            skip_reason = f"DOWN_price_{down_price:.2f}>{self.MAX_ENTRY_PRICE}"
+                        # Momentum confirmation only for non-cheap entries
+                        elif down_price >= 0.30 and momentum > self.DOWN_MIN_MOMENTUM_DROP:
+                            skip_reason = f"DOWN_momentum_not_falling_{momentum:.3%}"
+
+                if skip_reason:
+                    print(f"  [{asset}] V3.3 filter: {skip_reason}")
+                    continue
+
+                # === EDGE FILTER ===
                 best_edge = signal.edge_up if signal.side == "UP" else signal.edge_down
                 if best_edge is not None and best_edge < self.MIN_EDGE:
                     print(f"  [{asset}] Edge too small: {best_edge:.1%} < {self.MIN_EDGE:.0%}")
                     continue
 
-                entry_price_check = up_price if signal.side == "UP" else down_price
-                if entry_price_check is not None and entry_price_check > self.MAX_ENTRY_PRICE:
-                    print(f"  [{asset}] Entry price too high: ${entry_price_check:.2f} > ${self.MAX_ENTRY_PRICE}")
-                    continue
-
-                if signal.action != "ENTER":
-                    print(f"  [{asset}] Action is {signal.action}, not ENTER")
-                    continue
-
                 # === ATR VOLATILITY FILTER ===
-                # Skip if recent bars are too volatile vs ATR (choppy = bad WR)
                 if self._is_volatile_atr(candles, period=14, multiplier=1.5):
                     print(f"  [{asset}] ATR filter: recent bars too volatile vs ATR(14) - skipping")
                     continue
 
                 # === RSI CONFIRMATION FILTER ===
-                # DOWN only when RSI < 55, UP only when RSI > 45
                 rsi = signal.rsi or 50.0
                 if signal.side == "DOWN" and rsi >= 55:
                     print(f"  [{asset}] RSI filter: DOWN requires RSI<55, got {rsi:.1f}")
@@ -1055,46 +1126,35 @@ class TALiveTrader:
                     continue
 
                 # === ADX TREND STRENGTH FILTER ===
-                # Hedge fund insight: DOWN trades confirmed by ADX>30 (strong trend)
-                # UP trades benefit from LOW ADX (coiled volatility = breakout)
                 adx_data = self._compute_adx(candles, period=14)
                 if adx_data:
                     adx_val = adx_data['adx']
                     if signal.side == "DOWN" and adx_val < 20:
-                        print(f"  [{asset}] ADX filter: DOWN needs ADX>20 for trend confirm, got {adx_val:.1f}")
+                        print(f"  [{asset}] ADX filter: DOWN needs ADX>20, got {adx_val:.1f}")
                         continue
                     if signal.side == "UP" and adx_val > 40:
-                        print(f"  [{asset}] ADX filter: UP exit signal ADX>{40}, got {adx_val:.1f} - trend exhausted")
+                        print(f"  [{asset}] ADX filter: UP blocked ADX>40, got {adx_val:.1f}")
                         continue
 
                 # === MACD-V MOMENTUM FILTER (Spiroglou 2022) ===
-                # MACD-V = (EMA12 - EMA26) / ATR(26) * 100
-                # Neutral zone -50 to +50 = low momentum chop → skip
-                # Positive = bullish, Negative = bearish
                 macd_v = self._compute_macd_v(candles, fast=12, slow=26)
                 if macd_v is not None:
                     if signal.side == "DOWN" and macd_v > 50:
-                        print(f"  [{asset}] MACD-V filter: DOWN signal but momentum bullish ({macd_v:.0f} > 50)")
+                        print(f"  [{asset}] MACD-V filter: DOWN but momentum bullish ({macd_v:.0f} > 50)")
                         continue
                     if signal.side == "UP" and macd_v < -50:
-                        print(f"  [{asset}] MACD-V filter: UP signal but momentum bearish ({macd_v:.0f} < -50)")
+                        print(f"  [{asset}] MACD-V filter: UP but momentum bearish ({macd_v:.0f} < -50)")
                         continue
 
-                # === UP TRADE EXTRA REQUIREMENTS (41% WR - only take best setups) ===
-                if signal.side == "UP":
-                    if signal.model_up < self.UP_MIN_CONFIDENCE:
-                        print(f"  [{asset}] UP needs {self.UP_MIN_CONFIDENCE:.0%} confidence, got {signal.model_up:.1%}")
+                # === NYU TWO-PARAMETER VOLATILITY FILTER (V3.3) ===
+                if self.use_nyu_model:
+                    entry_price_nyu = up_price if signal.side == "UP" else down_price
+                    nyu_result = self.nyu_model.calculate_volatility(entry_price_nyu, time_left)
+                    if nyu_result.edge_score < 0.15:
+                        print(f"  [{asset}] NYU filter: edge={nyu_result.edge_score:.2f}<0.15 (vol={nyu_result.volatility_regime})")
                         continue
-                    up_edge = signal.edge_up or 0
-                    if up_edge < self.UP_MIN_EDGE:
-                        print(f"  [{asset}] UP needs {self.UP_MIN_EDGE:.0%} edge, got {up_edge:.1%}")
-                        continue
-                    # Short-term momentum check: don't buy UP if price dropped in last 5 candles
-                    if len(candles) >= 5:
-                        recent_change = (candles[-1].close - candles[-5].close) / candles[-5].close
-                        if recent_change < -0.001:  # Dropped more than 0.1% in 5 min
-                            print(f"  [{asset}] UP momentum filter: price dropped {recent_change:.2%} in 5min - skipping")
-                            continue
+                    if nyu_result.recommended_action == "TRADE":
+                        print(f"  [{asset}] NYU TRADE: edge={nyu_result.edge_score:.2f}, vol={nyu_result.instantaneous_volatility:.3f}")
 
                 if signal.action == "ENTER" and signal.side and trade_key:
                     if trade_key not in self.trades:
@@ -1399,9 +1459,11 @@ class TALiveTrader:
         print(f"Assets: {', '.join(self.ASSETS.keys())} (XRP dropped - underperforming)")
         print(f"Target: 78.7% WR (backtested) | MIN bet ${self.MIN_POSITION_SIZE} until proven")
         print(f"Filters: ATR(14)x1.5 | ADX(14) | MACD-V | Edge>={self.MIN_EDGE:.0%} | RSI: DOWN<55, UP>45")
+        print(f"V3.3 PORT: Death zone $0.40-0.45 | Trend filter | Break-even aware | Dynamic UP max | NYU filter")
         print(f"ADX: DOWN needs ADX>20 | UP blocked ADX>40 | MACD-V: skip opposing momentum >50")
-        print(f"ATR Compression: ATR(20)<ATR(30) = +20% size bonus (breakout setup)")
-        print(f"UP extra: conf>{self.UP_MIN_CONFIDENCE:.0%} edge>{self.UP_MIN_EDGE:.0%} RSI>{self.UP_RSI_MIN}")
+        print(f"UP: Dynamic max price (70%→$0.42, 80%→$0.48, 85%→$0.55) | Scaled conf for cheap entries")
+        print(f"DOWN: Death zone $0.40-0.45=SKIP | Break-even conf for cheap | Momentum confirm >{self.DOWN_MIN_MOMENTUM_DROP}")
+        print(f"NYU model: edge_score>0.15 (avoid 50% zone)")
         print(f"Trend Bias: 200 EMA | With-trend {self.TREND_BIAS_STRONG:.0%} / Counter-trend {self.TREND_BIAS_WEAK:.0%}")
         print(f"Skip Hours (UTC): {sorted(self.SKIP_HOURS_UTC)}")
         print(f"Entry Window: {self.MIN_TIME_REMAINING}-{self.MAX_TIME_REMAINING} min")
