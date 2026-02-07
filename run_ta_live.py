@@ -342,12 +342,12 @@ class TALiveTrader:
     """Live trades based on TA + Bregman signals with ML optimization."""
 
     OUTPUT_FILE = Path(__file__).parent / "ta_live_results.json"
-    # Paper-matched sizing (paper: $10 base, meta-labeler $5-$20)
-    BASE_POSITION_SIZE = 10.0  # Match paper trader
-    MIN_POSITION_SIZE = 5.0    # Floor $5 (match paper meta-labeler min)
-    MAX_POSITION_SIZE = 20.0   # Cap $20 (match paper meta-labeler max)
+    # Minimum sizing for live validation (CLOB min = 5 shares ≈ $3)
+    BASE_POSITION_SIZE = 3.0   # Minimum live bet
+    MIN_POSITION_SIZE = 3.0    # Floor $3
+    MAX_POSITION_SIZE = 3.0    # Cap $3 - prove it works before scaling
 
-    def __init__(self, dry_run: bool = False, bankroll: float = 85.76):
+    def __init__(self, dry_run: bool = False, bankroll: float = 11.71):
         self.dry_run = dry_run
         self.generator = TASignalGenerator()
         self.bregman = BregmanOptimizer(bankroll=bankroll)
@@ -660,7 +660,7 @@ class TALiveTrader:
     def _is_atr_compressing(self, candles, short: int = 20, long: int = 30) -> bool:
         """ATR Compression: short-term ATR < long-term ATR = coiled volatility.
         From BTA breakout model: ATR(20) < ATR(30) means volatility is
-        compressing → breakout imminent → higher confidence entry.
+        compressing -> breakout imminent -> higher confidence entry.
         """
         if len(candles) < long + 1:
             return False
@@ -1439,7 +1439,7 @@ class TALiveTrader:
                     print(f"[EXPIRE CHECK] Error for {tid[:20]}: {e}")
 
         # === EXPIRE SHADOW TRADES ===
-        # Shadow trades that are > 16 min old and unresolved → close as unknown
+        # Shadow trades that are > 16 min old and unresolved -> close as unknown
         for skey, shadow in list(self.shadow_trades.items()):
             if shadow.get("status") != "open":
                 continue
@@ -1549,7 +1549,7 @@ class TALiveTrader:
         print(f"SHADOW TRACKING: ATR filter + trend bias tracked for ML removal evaluation")
         print(f"Filters: Edge>={self.MIN_EDGE:.0%} | Conf>={self.MIN_MODEL_CONFIDENCE:.0%} | ATR(14)x1.5 | NYU>0.15")
         print(f"V3.3: Death zone $0.40-0.45 | Trend filter | Break-even aware | Dynamic UP max")
-        print(f"UP: Dynamic max price (70%→$0.42, 80%→$0.48, 85%→$0.55) | Scaled conf for cheap entries")
+        print(f"UP: Dynamic max price (70%->$0.42, 80%->$0.48, 85%->$0.55) | Scaled conf for cheap entries")
         print(f"DOWN: Death zone $0.40-0.45=SKIP | Break-even conf for cheap | Momentum confirm >{self.DOWN_MIN_MOMENTUM_DROP}")
         print(f"NYU model: edge_score>0.15 (avoid 50% zone)")
         print(f"Skip Hours (UTC): {sorted(self.SKIP_HOURS_UTC)}")
