@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-06T02:50:00.000000+00:00",
-  "last_updated": "2026-02-07T18:56:40.490556+00:00",
+  "last_updated": "2026-02-07T18:58:45.968816+00:00",
   "trades": {
     "0x1fb81f426bb06ab8bdfe5c070d98e7b400ac9cf7a89a0a6ef18a87005a583360_DOWN": {
       "trade_id": "0x1fb81f426bb06ab8bdfe5c070d98e7b400ac9cf7a89a0a6ef18a87005a583360_DOWN",
@@ -1644,7 +1644,7 @@
   "total_pnl": 474.49470153473555,
   "wins": 54,
   "losses": 33,
-  "signals_count": 478,
+  "signals_count": 479,
   "arb_trades": {},
   "arb_stats": {
     "wins": 0,

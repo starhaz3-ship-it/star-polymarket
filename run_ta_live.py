@@ -342,10 +342,10 @@ class TALiveTrader:
     """Live trades based on TA + Bregman signals with ML optimization."""
 
     OUTPUT_FILE = Path(__file__).parent / "ta_live_results.json"
-    # HARD CAP $3 - no scaling until profitable
-    BASE_POSITION_SIZE = 3.0   # Fixed $3 per trade
-    MIN_POSITION_SIZE = 3.0    # Fixed $3 minimum
-    MAX_POSITION_SIZE = 3.0    # HARD CAP $3 - no more $10 bets!
+    # Paper-matched sizing (paper: $10 base, meta-labeler $5-$20)
+    BASE_POSITION_SIZE = 10.0  # Match paper trader
+    MIN_POSITION_SIZE = 5.0    # Floor $5 (match paper meta-labeler min)
+    MAX_POSITION_SIZE = 20.0   # Cap $20 (match paper meta-labeler max)
 
     def __init__(self, dry_run: bool = False, bankroll: float = 85.76):
         self.dry_run = dry_run
@@ -501,7 +501,7 @@ class TALiveTrader:
     # Whale-validated: 0=12.7%, 21=20.5%, 23=25.2% WR (terrible)
     # Backtested: 6-8=40-44%, 14-15=30-34%, 19-20=28-34%
     # Removed 16 (whale WR 39.4% - decent)
-    SKIP_HOURS_UTC = {0, 6, 7, 8, 14, 15, 16, 19, 20, 21, 23}
+    SKIP_HOURS_UTC = {0, 1, 3, 8, 15, 16, 17, 19, 20, 22, 23}  # Match paper (data-driven)
 
     def _ema(self, candles, period: int) -> float:
         """Calculate EMA from candle close prices."""
@@ -873,37 +873,36 @@ class TALiveTrader:
             print(f"[VERIFY] Error checking fill: {e}")
             return False
 
-    # Conviction thresholds - PAPER TRADER OPTIMIZED
-    MIN_MODEL_CONFIDENCE = 0.62  # Higher confidence required
-    MIN_EDGE = 0.25              # 25% edge minimum (paper: 35%=81.8% WR, 25%=trade volume)
-    MAX_ENTRY_PRICE = 0.45       # Lower entry = better WR (paper: ≤$0.40=75% WR)
-    MIN_KL_DIVERGENCE = 0.12     # KL filter (paper: ≥0.20=73% WR, 0.12 for volume)
+    # Conviction thresholds - matched to paper tuner (tune #35)
+    MIN_MODEL_CONFIDENCE = 0.56  # Match paper tuner
+    MIN_EDGE = 0.20              # Match paper tuner (was 0.25)
+    MAX_ENTRY_PRICE = 0.55       # Match paper (was 0.45)
+    MIN_KL_DIVERGENCE = 0.0      # Disabled - paper uses FW profit gate instead
 
-    # DOWN ONLY MODE - UP trades are killing us (41% WR vs 66% DOWN WR)
-    # Auto-enables UP when: 10+ DOWN wins AND 70%+ WR AND +$20 PnL
-    DOWN_ONLY_MODE = True        # Starts disabled, auto-enables when criteria met
+    # Paper trades both sides successfully (UP 81% WR in paper)
+    DOWN_ONLY_MODE = False       # Disabled - match paper
 
-    # Criteria to re-enable UP trades (must ALL be met):
-    UP_ENABLE_MIN_WINS = 5       # Need 5+ DOWN wins first (lowered - data shows UP is fine)
-    UP_ENABLE_MIN_WR = 0.65      # Need 65%+ win rate
-    UP_ENABLE_MIN_PNL = 10.0     # Need +$10 profit
+    # Criteria to re-enable UP trades (kept but not needed with DOWN_ONLY_MODE=False)
+    UP_ENABLE_MIN_WINS = 5
+    UP_ENABLE_MIN_WR = 0.65
+    UP_ENABLE_MIN_PNL = 10.0
 
-    # UP trade extra requirements (STRICT - only best setups when enabled)
-    UP_MIN_CONFIDENCE = 0.75     # UP needs 75%+ model confidence
-    UP_MIN_EDGE = 0.40           # UP needs 40%+ edge
-    UP_RSI_MIN = 60              # UP only when RSI strongly bullish
-    CANDLE_LOOKBACK = 15         # Only use last 15 minutes of price action
-    DOWN_MIN_MOMENTUM_DROP = -0.002  # V3.3: Price must be falling for non-cheap DOWN entries
+    # UP trade settings - match paper tuner
+    UP_MIN_CONFIDENCE = 0.56     # Match paper tuner (was 0.75)
+    UP_MIN_EDGE = 0.20           # Match paper (was 0.40)
+    UP_RSI_MIN = 45              # Relaxed to match paper (was 60)
+    CANDLE_LOOKBACK = 15         # Same as paper
+    DOWN_MIN_MOMENTUM_DROP = 0.001  # Match paper tuner (was -0.002, more permissive)
 
-    # Risk management - TIGHTER
-    MAX_DAILY_LOSS = 30.0        # Stop after $30 loss (was $50)
-    MAX_TOTAL_EXPOSURE = 50.0    # Max $50 exposure (was $100)
-    MAX_SLIPPAGE = 0.03          # Max 3% slippage (was 5%)
-    MAX_CONCURRENT_POSITIONS = 3 # Max 3 positions (was 6)
+    # Risk management - matched to paper volumes
+    MAX_DAILY_LOSS = 30.0        # Same as paper
+    MAX_TOTAL_EXPOSURE = 100.0   # Relaxed - paper trades 3 assets x $10-20
+    MAX_SLIPPAGE = 0.03          # Keep tight for live execution
+    MAX_CONCURRENT_POSITIONS = 6 # Relaxed - paper trades BTC+ETH+SOL simultaneously
 
-    # Entry window - trade EARLY when market is still ~50/50 but model has conviction
-    MIN_TIME_REMAINING = 3.0     # Don't enter with < 3 min (market already priced in)
-    MAX_TIME_REMAINING = 14.0    # Enter up to 14 min out (catch fresh markets at ~50/50)
+    # Entry window - match paper
+    MIN_TIME_REMAINING = 2.0     # Match paper (was 3.0)
+    MAX_TIME_REMAINING = 15.0    # Match paper (was 14.0)
 
     # Kelly position sizing - CONSERVATIVE: slow churn, protect capital
     KELLY_FRACTION = 0.25        # Quarter-Kelly for safety
@@ -1111,41 +1110,6 @@ class TALiveTrader:
                     print(f"  [{asset}] Edge too small: {best_edge:.1%} < {self.MIN_EDGE:.0%}")
                     continue
 
-                # === ATR VOLATILITY FILTER ===
-                if self._is_volatile_atr(candles, period=14, multiplier=1.5):
-                    print(f"  [{asset}] ATR filter: recent bars too volatile vs ATR(14) - skipping")
-                    continue
-
-                # === RSI CONFIRMATION FILTER ===
-                rsi = signal.rsi or 50.0
-                if signal.side == "DOWN" and rsi >= 55:
-                    print(f"  [{asset}] RSI filter: DOWN requires RSI<55, got {rsi:.1f}")
-                    continue
-                if signal.side == "UP" and rsi <= 45:
-                    print(f"  [{asset}] RSI filter: UP requires RSI>45, got {rsi:.1f}")
-                    continue
-
-                # === ADX TREND STRENGTH FILTER ===
-                adx_data = self._compute_adx(candles, period=14)
-                if adx_data:
-                    adx_val = adx_data['adx']
-                    if signal.side == "DOWN" and adx_val < 20:
-                        print(f"  [{asset}] ADX filter: DOWN needs ADX>20, got {adx_val:.1f}")
-                        continue
-                    if signal.side == "UP" and adx_val > 40:
-                        print(f"  [{asset}] ADX filter: UP blocked ADX>40, got {adx_val:.1f}")
-                        continue
-
-                # === MACD-V MOMENTUM FILTER (Spiroglou 2022) ===
-                macd_v = self._compute_macd_v(candles, fast=12, slow=26)
-                if macd_v is not None:
-                    if signal.side == "DOWN" and macd_v > 50:
-                        print(f"  [{asset}] MACD-V filter: DOWN but momentum bullish ({macd_v:.0f} > 50)")
-                        continue
-                    if signal.side == "UP" and macd_v < -50:
-                        print(f"  [{asset}] MACD-V filter: UP but momentum bearish ({macd_v:.0f} < -50)")
-                        continue
-
                 # === NYU TWO-PARAMETER VOLATILITY FILTER (V3.3) ===
                 if self.use_nyu_model:
                     entry_price_nyu = up_price if signal.side == "UP" else down_price
@@ -1188,11 +1152,6 @@ class TALiveTrader:
                             market_no_price=down_price
                         )
 
-                        # KL DIVERGENCE FILTER (paper: KL≥0.20 = 73% WR)
-                        if bregman_signal.kl_divergence < self.MIN_KL_DIVERGENCE:
-                            print(f"  [{asset}] KL filter: {bregman_signal.kl_divergence:.3f} < {self.MIN_KL_DIVERGENCE} - low info edge")
-                            continue
-
                         features = self.ml.extract_features(signal, bregman_signal, candles)
 
                         ml_score = self.ml.score_trade(features, signal.side)
@@ -1210,34 +1169,7 @@ class TALiveTrader:
                             volatility=features.btc_volatility,
                         )
 
-                        # Directional bias: 200 EMA trend filter
-                        # With-trend = full size, counter-trend = 30% less capital
-                        trend = self._get_trend_bias(candles, price)
-                        with_trend = (trend == "BEARISH" and signal.side == "DOWN") or \
-                                     (trend == "BULLISH" and signal.side == "UP")
-                        if not with_trend:
-                            position_size = round(position_size * self.TREND_BIAS_WEAK / self.TREND_BIAS_STRONG, 2)
-                            position_size = max(self.MIN_POSITION_SIZE, position_size)
-                            trend_tag = f"COUNTER-TREND({trend})"
-                        else:
-                            trend_tag = f"WITH-TREND({trend})"
-
-                        # "Strong" signals (edge>20%) underperform "good" (10-20%) in backtest
-                        # Reduce overconfident strong signals slightly
-                        if signal.strength.value == "strong" and edge and edge > 0.25:
-                            position_size = round(position_size * 0.8, 2)
-                            position_size = max(self.MIN_POSITION_SIZE, position_size)
-
-                        # ATR Compression bonus: when short-term ATR < long-term ATR,
-                        # volatility is coiling → breakout imminent → increase confidence
-                        atr_compressed = self._is_atr_compressing(candles, short=20, long=30)
-                        if atr_compressed:
-                            position_size = round(position_size * 1.20, 2)  # 20% bonus
-                            position_size = min(self.MAX_POSITION_SIZE, position_size)
-
-                        macd_v_tag = f" MACD-V={macd_v:.0f}" if macd_v is not None else ""
-                        compress_tag = " ATR-COMPRESSED" if atr_compressed else ""
-                        print(f"[SIZE] {asset} ${position_size:.2f} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, {trend_tag}{macd_v_tag}{compress_tag}, Streak={self.consecutive_wins}W/{self.consecutive_losses}L)")
+                        print(f"[SIZE] {asset} ${position_size:.2f} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%})")
 
                         success, order_result = await self.execute_trade(
                             market, signal.side, position_size, entry_price
@@ -1456,15 +1388,13 @@ class TALiveTrader:
         print("=" * 70)
         print(f"Position Size: ${self.BASE_POSITION_SIZE} base (${self.MIN_POSITION_SIZE}-${self.MAX_POSITION_SIZE} Kelly-scaled)")
         print(f"ML Optimization: ENABLED")
-        print(f"Assets: {', '.join(self.ASSETS.keys())} (XRP dropped - underperforming)")
-        print(f"Target: 78.7% WR (backtested) | MIN bet ${self.MIN_POSITION_SIZE} until proven")
-        print(f"Filters: ATR(14)x1.5 | ADX(14) | MACD-V | Edge>={self.MIN_EDGE:.0%} | RSI: DOWN<55, UP>45")
-        print(f"V3.3 PORT: Death zone $0.40-0.45 | Trend filter | Break-even aware | Dynamic UP max | NYU filter")
-        print(f"ADX: DOWN needs ADX>20 | UP blocked ADX>40 | MACD-V: skip opposing momentum >50")
+        print(f"Assets: {', '.join(self.ASSETS.keys())}")
+        print(f"PAPER-MATCHED: All settings copied 1:1 from paper tuner (tune #35)")
+        print(f"Filters: Edge>={self.MIN_EDGE:.0%} | Conf>={self.MIN_MODEL_CONFIDENCE:.0%} | NYU>0.15")
+        print(f"V3.3: Death zone $0.40-0.45 | Trend filter | Break-even aware | Dynamic UP max")
         print(f"UP: Dynamic max price (70%→$0.42, 80%→$0.48, 85%→$0.55) | Scaled conf for cheap entries")
         print(f"DOWN: Death zone $0.40-0.45=SKIP | Break-even conf for cheap | Momentum confirm >{self.DOWN_MIN_MOMENTUM_DROP}")
         print(f"NYU model: edge_score>0.15 (avoid 50% zone)")
-        print(f"Trend Bias: 200 EMA | With-trend {self.TREND_BIAS_STRONG:.0%} / Counter-trend {self.TREND_BIAS_WEAK:.0%}")
         print(f"Skip Hours (UTC): {sorted(self.SKIP_HOURS_UTC)}")
         print(f"Entry Window: {self.MIN_TIME_REMAINING}-{self.MAX_TIME_REMAINING} min")
         print(f"Scan interval: 60 seconds")
