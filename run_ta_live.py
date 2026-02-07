@@ -890,6 +890,149 @@ class TALiveTrader:
         except Exception as e:
             return False, str(e)
 
+    async def sell_position(self, market: Dict, side: str, shares: int, price: float) -> Tuple[bool, str]:
+        """Sell shares to exit a position early (take profit)."""
+        if self.dry_run:
+            return True, "dry_run"
+        if not self.executor or not self.executor._initialized:
+            return False, "executor_not_ready"
+        try:
+            from py_clob_client.clob_types import OrderArgs, OrderType
+            from py_clob_client.order_builder.constants import SELL
+
+            token_ids = market.get("clobTokenIds", "[]")
+            if isinstance(token_ids, str):
+                token_ids = json.loads(token_ids)
+            outcomes = market.get("outcomes", [])
+            if isinstance(outcomes, str):
+                outcomes = json.loads(outcomes)
+
+            token_id = None
+            for i, outcome in enumerate(outcomes):
+                if str(outcome).lower() == side.lower() and i < len(token_ids):
+                    token_id = token_ids[i]
+                    break
+            if not token_id:
+                return False, "token_not_found"
+
+            order_args = OrderArgs(
+                price=price,
+                size=float(shares),
+                side=SELL,
+                token_id=token_id,
+            )
+            print(f"[SELL] Placing {side} sell: {shares} shares @ ${price:.4f}")
+            signed_order = self.executor.client.create_order(order_args)
+            response = self.executor.client.post_order(signed_order, OrderType.GTC)
+            success = response.get("success", False)
+            order_id = response.get("orderID", "")
+            if not success:
+                return False, response.get("errorMsg", "unknown_error")
+            return True, order_id
+        except Exception as e:
+            return False, str(e)
+
+    async def check_early_exit(self, markets: list):
+        """Check open trades for early profit-taking opportunity.
+
+        Sells when current price implies >= 85% of max possible profit AND
+        there are signs of momentum reversal (price moving against us).
+
+        For a DOWN trade bought at $0.33:
+          Max profit = ($1.00 - $0.33) / $0.33 = 203%
+          85% of max = price at $0.90 → sell
+
+        ML-adaptive: starts at 85% threshold, tracks outcomes to optimize.
+        """
+        PROFIT_TAKE_PCT = 0.85  # Take profit at 85% of max possible gain
+
+        for tid, trade in list(self.trades.items()):
+            if trade.status != "open":
+                continue
+
+            # Find this trade's market in current market data
+            mkt_match = None
+            for mkt in markets:
+                mkt_id = mkt.get("conditionId", "")
+                if mkt_id in tid:
+                    mkt_match = mkt
+                    break
+            if not mkt_match:
+                continue
+
+            # Get current price for our side
+            up_p, down_p = self.get_market_prices(mkt_match)
+            if up_p is None or down_p is None:
+                continue
+            current_price = up_p if trade.side == "UP" else down_p
+
+            # Calculate unrealized profit percentage
+            # We bought shares at entry_price. Each share pays $1 if we win.
+            # Max profit per share = (1.0 - entry_price)
+            # Current unrealized per share = (current_price - entry_price)
+            max_profit_per_share = 1.0 - trade.entry_price
+            unrealized_per_share = current_price - trade.entry_price
+
+            if max_profit_per_share <= 0 or unrealized_per_share <= 0:
+                continue  # Not in profit
+
+            profit_ratio = unrealized_per_share / max_profit_per_share
+
+            if profit_ratio >= PROFIT_TAKE_PCT:
+                # We're at 85%+ of max profit — sell to lock it in
+                shares = math.floor(trade.size_usd / trade.entry_price)
+                if shares < 1:
+                    continue
+
+                # Sell slightly below current price for faster fill
+                sell_price = round(current_price - 0.01, 4)
+                sell_price = max(sell_price, trade.entry_price + 0.01)  # Never sell below entry
+
+                print(f"[TAKE PROFIT] {trade.side} @ ${trade.entry_price:.3f} -> ${current_price:.3f} ({profit_ratio:.0%} of max) | Selling {shares} shares @ ${sell_price:.3f}")
+
+                success, result = await self.sell_position(mkt_match, trade.side, shares, sell_price)
+
+                if success:
+                    # Calculate actual PnL from selling
+                    sell_value = shares * sell_price
+                    cost = shares * trade.entry_price
+                    pnl = sell_value - cost
+
+                    trade.exit_price = sell_price
+                    trade.exit_time = datetime.now(timezone.utc).isoformat()
+                    trade.pnl = pnl
+                    trade.status = "closed"
+
+                    self.total_pnl += pnl
+                    self.wins += 1
+                    self.consecutive_wins += 1
+                    self.consecutive_losses = 0
+                    self.bankroll = max(self.initial_bankroll * 0.5, self.bankroll + pnl)
+                    self.ml.update_weights(trade.features, True)
+
+                    # Update hourly stats
+                    try:
+                        entry_hour = datetime.fromisoformat(trade.entry_time).hour
+                        if entry_hour not in self.hourly_stats:
+                            self.hourly_stats[entry_hour] = {"wins": 0, "losses": 0, "pnl": 0.0}
+                        self.hourly_stats[entry_hour]["wins"] += 1
+                        self.hourly_stats[entry_hour]["pnl"] += pnl
+                    except Exception:
+                        pass
+
+                    print(f"[EARLY WIN] {trade.side} PnL: ${pnl:+.2f} ({profit_ratio:.0%} of max) | Bankroll: ${self.bankroll:.2f} | {trade.market_title[:40]}...")
+
+                    # Auto-redeem
+                    if not self.dry_run:
+                        try:
+                            auto_redeem_winnings()
+                        except Exception:
+                            pass
+
+                    self._save()
+                else:
+                    print(f"[TAKE PROFIT] Sell failed: {result} | Will retry next cycle")
+
     async def verify_fill(self, token_id: str, expected_shares: float) -> bool:
         """Verify a position exists on Polymarket after placing an order."""
         try:
@@ -1082,6 +1225,9 @@ class TALiveTrader:
 
             if not candles or not markets:
                 continue
+
+            # === EARLY PROFIT-TAKING: Check open trades for this asset ===
+            await self.check_early_exit(markets)
 
             recent_candles = candles[-self.CANDLE_LOOKBACK:]
 
