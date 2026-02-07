@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-06T02:50:00.000000+00:00",
-  "last_updated": "2026-02-07T23:09:45.411364+00:00",
+  "last_updated": "2026-02-07T23:46:12.672272+00:00",
   "trades": {
     "0x1fb81f426bb06ab8bdfe5c070d98e7b400ac9cf7a89a0a6ef18a87005a583360_DOWN": {
       "trade_id": "0x1fb81f426bb06ab8bdfe5c070d98e7b400ac9cf7a89a0a6ef18a87005a583360_DOWN",
@@ -1734,7 +1734,7 @@
   "total_pnl": 676.0912286566054,
   "wins": 60,
   "losses": 36,
-  "signals_count": 517,
+  "signals_count": 520,
   "arb_trades": {},
   "arb_stats": {
     "wins": 0,
@@ -1877,9 +1877,10 @@
       "size_usd": 20.0,
       "edge": 0.27996355954545454,
       "p_correct": 0.9667806706428641,
-      "status": "open",
-      "exit_price": null,
-      "pnl": 0.0
+      "status": "closed",
+      "exit_price": 1.0,
+      "pnl": 39.70149253731343,
+      "exit_time": "2026-02-07T23:42:01.076961+00:00"
     }
   },
   "skip_hour_stats": {
@@ -1999,9 +2000,9 @@
       "pnl": 0.0
     },
     "23": {
-      "wins": 0,
+      "wins": 1,
       "losses": 0,
-      "pnl": 0.0
+      "pnl": 39.70149253731343
     }
   }
 }
