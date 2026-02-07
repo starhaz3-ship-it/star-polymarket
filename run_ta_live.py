@@ -372,6 +372,15 @@ class TALiveTrader:
         self.nyu_model = NYUVolatilityModel()
         self.use_nyu_model = True
 
+        # === SHADOW TRADE TRACKER ===
+        # Records trades blocked by ATR filter + counterfactual trend bias sizing
+        # Used to ML-evaluate whether these filters should stay or be removed
+        self.shadow_trades: Dict[str, dict] = {}  # {trade_key: shadow_trade_dict}
+        self.shadow_stats = {
+            "atr_blocked": 0, "atr_blocked_wins": 0, "atr_blocked_losses": 0, "atr_blocked_pnl": 0.0,
+            "trend_bias_trades": 0, "trend_bias_actual_pnl": 0.0, "trend_bias_full_pnl": 0.0,
+        }
+
         # Executor for live trading
         self.executor = None
         if not dry_run:
@@ -415,7 +424,12 @@ class TALiveTrader:
                 self.ml.win_features = data.get("ml_win_features", [])
                 self.ml.loss_features = data.get("ml_loss_features", [])
 
-                print(f"[Live] Loaded {len(self.trades)} trades from previous session")
+                # Load shadow trade state
+                self.shadow_trades = data.get("shadow_trades", {})
+                self.shadow_stats = data.get("shadow_stats", self.shadow_stats)
+
+                shadow_open = sum(1 for s in self.shadow_trades.values() if s.get("status") == "open")
+                print(f"[Live] Loaded {len(self.trades)} trades + {len(self.shadow_trades)} shadow ({shadow_open} open)")
             except Exception as e:
                 print(f"[Live] Error loading state: {e}")
 
@@ -439,6 +453,8 @@ class TALiveTrader:
             "ml_win_features": self.ml.win_features[-100:],  # Keep last 100
             "ml_loss_features": self.ml.loss_features[-100:],
             "ml_weights": self.ml.feature_weights,
+            "shadow_trades": self.shadow_trades,
+            "shadow_stats": self.shadow_stats,
         }
         # Working file (can be reset)
         with open(self.OUTPUT_FILE, 'w') as f:
@@ -1110,6 +1126,34 @@ class TALiveTrader:
                     print(f"  [{asset}] Edge too small: {best_edge:.1%} < {self.MIN_EDGE:.0%}")
                     continue
 
+                # === ATR VOLATILITY FILTER (with shadow tracking) ===
+                # Blocks trades during wild price action to protect execution quality
+                # Shadow-tracks blocked trades to ML-evaluate if filter helps
+                atr_blocked = False
+                if self._is_volatile_atr(candles, period=14, multiplier=1.5):
+                    atr_blocked = True
+                    entry_price_shadow = up_price if signal.side == "UP" else down_price
+                    shadow_key = f"shadow_atr_{market_id}_{signal.side}"
+                    if shadow_key not in self.shadow_trades:
+                        self.shadow_trades[shadow_key] = {
+                            "trade_key": shadow_key, "market_id": market_id,
+                            "market_title": question[:80], "asset": asset,
+                            "side": signal.side, "entry_price": entry_price_shadow,
+                            "entry_time": datetime.now(timezone.utc).isoformat(),
+                            "size_usd": self.BASE_POSITION_SIZE,
+                            "filter_reason": "atr_volatility",
+                            "atr_ratio": 0.0,  # filled below
+                            "status": "open", "exit_price": None, "pnl": 0.0,
+                        }
+                        # Calculate ATR ratio for ML features
+                        atr_val = self._compute_atr(candles[:-3], 14)
+                        recent_ranges = [c.high - c.low for c in candles[-3:]]
+                        avg_recent = sum(recent_ranges) / len(recent_ranges) if recent_ranges else 0
+                        self.shadow_trades[shadow_key]["atr_ratio"] = round(avg_recent / atr_val, 2) if atr_val > 0 else 0
+                        self.shadow_stats["atr_blocked"] += 1
+                        print(f"  [{asset}] ATR BLOCKED (shadow #{self.shadow_stats['atr_blocked']}): {signal.side} @ ${entry_price_shadow:.3f} | ATR ratio={self.shadow_trades[shadow_key]['atr_ratio']:.1f}x")
+                    continue
+
                 # === NYU TWO-PARAMETER VOLATILITY FILTER (V3.3) ===
                 if self.use_nyu_model:
                     entry_price_nyu = up_price if signal.side == "UP" else down_price
@@ -1169,7 +1213,21 @@ class TALiveTrader:
                             volatility=features.btc_volatility,
                         )
 
-                        print(f"[SIZE] {asset} ${position_size:.2f} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%})")
+                        # === TREND BIAS (soft, with counterfactual tracking) ===
+                        # 200 EMA trend: counter-trend trades get 85% size (softer than old 30%)
+                        # Track what full-size would have earned for ML evaluation
+                        trend = self._get_trend_bias(candles, price)
+                        with_trend = (trend == "BEARISH" and signal.side == "DOWN") or \
+                                     (trend == "BULLISH" and signal.side == "UP")
+                        full_size = position_size  # What we'd bet without trend bias
+                        if not with_trend:
+                            position_size = round(position_size * 0.85, 2)  # Softer: 85% (was 43%)
+                            position_size = max(self.MIN_POSITION_SIZE, position_size)
+                            trend_tag = f"COUNTER({trend}) 85%"
+                        else:
+                            trend_tag = f"WITH({trend})"
+
+                        print(f"[SIZE] {asset} ${position_size:.2f} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, {trend_tag})")
 
                         success, order_result = await self.execute_trade(
                             market, signal.side, position_size, entry_price
@@ -1191,13 +1249,16 @@ class TALiveTrader:
                             edge_at_entry=edge if edge else 0,
                             kl_divergence=bregman_signal.kl_divergence,
                             kelly_fraction=bregman_signal.kelly_fraction,
-                            features=asdict(features),
+                            features={**asdict(features), "_full_size": full_size, "_with_trend": with_trend},
                             order_id=order_result,
                             execution_error=None,
                             status="open",
                         )
                         self.trades[trade_key] = new_trade
                         self.recently_traded_markets.add(market_id)  # Prevent duplicate orders
+                        # Track trend bias counterfactual
+                        if not with_trend:
+                            self.shadow_stats["trend_bias_trades"] += 1
                         print(f"[LIVE] [{asset}] {signal.side} @ ${entry_price:.4f} | Size: ${position_size:.2f} | Edge: {edge:.1%} | Model: {signal.model_up:.0%} UP | ML: {ml_score:.2f} | FILLED")
                     break  # One trade per asset per cycle
 
@@ -1252,6 +1313,44 @@ class TALiveTrader:
                                     auto_redeem_winnings()
                                 except Exception:
                                     pass
+
+                            # Track trend bias counterfactual PnL
+                            full_size = open_trade.features.get("_full_size", open_trade.size_usd)
+                            if full_size != open_trade.size_usd:
+                                if res_price >= 0.95:
+                                    full_exit = full_size / open_trade.entry_price
+                                elif res_price <= 0.05:
+                                    full_exit = 0
+                                else:
+                                    full_exit = (full_size / open_trade.entry_price) * res_price
+                                full_pnl = full_exit - full_size
+                                self.shadow_stats["trend_bias_actual_pnl"] += open_trade.pnl
+                                self.shadow_stats["trend_bias_full_pnl"] += full_pnl
+
+                    # === RESOLVE SHADOW TRADES on this market ===
+                    for skey, shadow in list(self.shadow_trades.items()):
+                        if shadow.get("status") == "open" and shadow.get("market_id") == mkt_id:
+                            s_price = mkt_up if shadow["side"] == "UP" else mkt_down
+                            if s_price >= 0.95:
+                                s_exit = shadow["size_usd"] / shadow["entry_price"]
+                            elif s_price <= 0.05:
+                                s_exit = 0
+                            else:
+                                s_exit = (shadow["size_usd"] / shadow["entry_price"]) * s_price
+                            shadow["exit_price"] = s_price
+                            shadow["pnl"] = s_exit - shadow["size_usd"]
+                            shadow["status"] = "closed"
+                            shadow["exit_time"] = datetime.now(timezone.utc).isoformat()
+                            won = shadow["pnl"] > 0
+                            reason = shadow.get("filter_reason", "unknown")
+                            if reason == "atr_volatility":
+                                if won:
+                                    self.shadow_stats["atr_blocked_wins"] += 1
+                                else:
+                                    self.shadow_stats["atr_blocked_losses"] += 1
+                                self.shadow_stats["atr_blocked_pnl"] += shadow["pnl"]
+                            result = "WIN" if won else "LOSS"
+                            print(f"[SHADOW {result}] {shadow['side']} ${shadow['pnl']:+.2f} ({reason}) | {shadow['market_title'][:35]}...")
 
         # Check for expired trades (markets disappear from active query after close)
         now = datetime.now(timezone.utc)
@@ -1339,6 +1438,29 @@ class TALiveTrader:
                 except Exception as e:
                     print(f"[EXPIRE CHECK] Error for {tid[:20]}: {e}")
 
+        # === EXPIRE SHADOW TRADES ===
+        # Shadow trades that are > 16 min old and unresolved → close as unknown
+        for skey, shadow in list(self.shadow_trades.items()):
+            if shadow.get("status") != "open":
+                continue
+            try:
+                s_entry = datetime.fromisoformat(shadow["entry_time"])
+                s_age = (now - s_entry).total_seconds() / 60
+                if s_age > 16:
+                    shadow["status"] = "closed"
+                    shadow["pnl"] = 0.0
+                    shadow["exit_price"] = shadow["entry_price"]
+                    shadow["exit_time"] = now.isoformat()
+            except Exception:
+                pass
+
+        # Keep only last 200 shadow trades to prevent file bloat
+        if len(self.shadow_trades) > 200:
+            closed_shadows = [(k, v) for k, v in self.shadow_trades.items() if v.get("status") == "closed"]
+            closed_shadows.sort(key=lambda x: x[1].get("entry_time", ""))
+            for k, _ in closed_shadows[:len(closed_shadows) - 150]:
+                del self.shadow_trades[k]
+
         self._save()
         return main_signal
 
@@ -1374,6 +1496,40 @@ class TALiveTrader:
         print(f"  Score Threshold: {self.ml.get_min_score_threshold():.2f}")
         print(f"  Feature Weights: KL={self.ml.feature_weights['kl_divergence']:.2f}")
 
+        # Shadow trade analysis - ML evaluation of ATR filter + trend bias
+        ss = self.shadow_stats
+        atr_total = ss["atr_blocked_wins"] + ss["atr_blocked_losses"]
+        print(f"\nSHADOW TRACKING (filter evaluation):")
+        print(f"  ATR Filter:")
+        print(f"    Blocked: {ss['atr_blocked']} trades | Resolved: {atr_total}")
+        if atr_total > 0:
+            atr_wr = ss["atr_blocked_wins"] / atr_total * 100
+            print(f"    Shadow WR: {atr_wr:.0f}% ({ss['atr_blocked_wins']}W/{ss['atr_blocked_losses']}L)")
+            print(f"    Shadow PnL: ${ss['atr_blocked_pnl']:+.2f}")
+            # ML verdict: if shadow trades would have won, filter is HURTING us
+            if atr_wr > win_rate and ss["atr_blocked_pnl"] > 0:
+                print(f"    VERDICT: ATR filter HURTING (+${ss['atr_blocked_pnl']:.2f} missed) - CONSIDER REMOVING")
+            elif atr_wr < 40:
+                print(f"    VERDICT: ATR filter HELPING (blocked {atr_wr:.0f}% WR losers)")
+            else:
+                print(f"    VERDICT: INCONCLUSIVE (need more data)")
+        else:
+            print(f"    No resolved shadow trades yet")
+
+        print(f"  Trend Bias (85% counter-trend):")
+        print(f"    Counter-trend trades: {ss['trend_bias_trades']}")
+        if ss["trend_bias_trades"] > 0:
+            actual = ss["trend_bias_actual_pnl"]
+            full = ss["trend_bias_full_pnl"]
+            saved = actual - full  # Positive = bias saved money (lost less)
+            print(f"    Actual PnL: ${actual:+.2f} | Full-size PnL: ${full:+.2f}")
+            if saved > 0:
+                print(f"    VERDICT: Trend bias SAVED ${saved:.2f} - KEEP")
+            elif saved < -5:
+                print(f"    VERDICT: Trend bias COST ${-saved:.2f} - CONSIDER REMOVING")
+            else:
+                print(f"    VERDICT: INCONCLUSIVE (diff ${saved:+.2f})")
+
         print(f"\nOPEN TRADES ({len(open_trades)}):")
         for t in open_trades[:5]:
             print(f"  {t.side} @ ${t.entry_price:.4f} | {t.market_title[:35]}...")
@@ -1390,7 +1546,8 @@ class TALiveTrader:
         print(f"ML Optimization: ENABLED")
         print(f"Assets: {', '.join(self.ASSETS.keys())}")
         print(f"PAPER-MATCHED: All settings copied 1:1 from paper tuner (tune #35)")
-        print(f"Filters: Edge>={self.MIN_EDGE:.0%} | Conf>={self.MIN_MODEL_CONFIDENCE:.0%} | NYU>0.15")
+        print(f"SHADOW TRACKING: ATR filter + trend bias tracked for ML removal evaluation")
+        print(f"Filters: Edge>={self.MIN_EDGE:.0%} | Conf>={self.MIN_MODEL_CONFIDENCE:.0%} | ATR(14)x1.5 | NYU>0.15")
         print(f"V3.3: Death zone $0.40-0.45 | Trend filter | Break-even aware | Dynamic UP max")
         print(f"UP: Dynamic max price (70%→$0.42, 80%→$0.48, 85%→$0.55) | Scaled conf for cheap entries")
         print(f"DOWN: Death zone $0.40-0.45=SKIP | Break-even conf for cheap | Momentum confirm >{self.DOWN_MIN_MOMENTUM_DROP}")
