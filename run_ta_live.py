@@ -372,6 +372,15 @@ class TALiveTrader:
         self.nyu_model = NYUVolatilityModel()
         self.use_nyu_model = True
 
+        # === HOURLY ML POSITION SIZING ===
+        # Bayesian approach: start at 1.0x, reduce for low WR hours, boost high WR after proof
+        # Prior: 5 virtual trades at 50% WR per hour (regularization)
+        # Phase 1 (first day): only REDUCE (0.5x-1.0x multiplier)
+        # Phase 2 (after 24h + 10 trades): allow BOOST (0.5x-1.5x multiplier)
+        self.hourly_stats: Dict[int, dict] = {
+            h: {"wins": 0, "losses": 0, "pnl": 0.0} for h in range(24)
+        }
+
         # === SHADOW TRADE TRACKER ===
         # Records trades blocked by ATR filter + counterfactual trend bias sizing
         # Used to ML-evaluate whether these filters should stay or be removed
@@ -428,6 +437,13 @@ class TALiveTrader:
                 self.shadow_trades = data.get("shadow_trades", {})
                 self.shadow_stats = data.get("shadow_stats", self.shadow_stats)
 
+                # Load hourly stats
+                saved_hourly = data.get("hourly_stats", {})
+                for h_str, stats in saved_hourly.items():
+                    h = int(h_str)
+                    if h in self.hourly_stats:
+                        self.hourly_stats[h] = stats
+
                 shadow_open = sum(1 for s in self.shadow_trades.values() if s.get("status") == "open")
                 print(f"[Live] Loaded {len(self.trades)} trades + {len(self.shadow_trades)} shadow ({shadow_open} open)")
             except Exception as e:
@@ -455,6 +471,7 @@ class TALiveTrader:
             "ml_weights": self.ml.feature_weights,
             "shadow_trades": self.shadow_trades,
             "shadow_stats": self.shadow_stats,
+            "hourly_stats": self.hourly_stats,
         }
         # Working file (can be reset)
         with open(self.OUTPUT_FILE, 'w') as f:
@@ -923,16 +940,52 @@ class TALiveTrader:
     # Kelly position sizing - CONSERVATIVE: slow churn, protect capital
     KELLY_FRACTION = 0.25        # Quarter-Kelly for safety
 
+    def _get_hour_multiplier(self, hour: int) -> float:
+        """
+        Bayesian hourly position multiplier. Learns win rates per hour and adjusts.
+
+        Phase 1 (< 10 total hourly trades): only REDUCE for bad hours (0.5x-1.0x)
+        Phase 2 (>= 10 total hourly trades): allow BOOST for proven hours (0.5x-1.5x)
+
+        Uses Beta distribution prior: 5 virtual wins + 5 virtual losses (50% WR prior)
+        so new hours start neutral and need real data to move the needle.
+        """
+        stats = self.hourly_stats.get(hour, {"wins": 0, "losses": 0, "pnl": 0.0})
+        real_trades = stats["wins"] + stats["losses"]
+
+        # Bayesian posterior: add prior of 5W/5L to smooth early estimates
+        prior_wins, prior_losses = 5, 5
+        post_wins = stats["wins"] + prior_wins
+        post_losses = stats["losses"] + prior_losses
+        post_wr = post_wins / (post_wins + post_losses)  # Posterior mean
+
+        # Neutral WR = 0.50 -> multiplier = 1.0
+        # WR < 0.50 -> reduce toward 0.5x
+        # WR > 0.50 -> boost toward 1.5x (Phase 2 only)
+        total_all_hours = sum(s["wins"] + s["losses"] for s in self.hourly_stats.values())
+        phase2 = total_all_hours >= 10
+
+        if post_wr < 0.50:
+            # Scale down: 0.50 WR -> 1.0x, 0.30 WR -> 0.5x
+            mult = max(0.5, 0.5 + (post_wr / 0.50) * 0.5)
+        elif phase2 and post_wr > 0.50:
+            # Scale up: 0.50 WR -> 1.0x, 0.70 WR -> 1.5x
+            mult = min(1.5, 1.0 + ((post_wr - 0.50) / 0.20) * 0.5)
+        else:
+            mult = 1.0
+
+        return round(mult, 2)
+
     def calculate_position_size(self, edge: float, kelly_fraction: float,
                                   btc_1h_change: float, volatility: float) -> float:
         """
-        Conservative position sizing: $5 base, scale to $10 max only with
-        high ML conviction. Protect capital, churn profits slowly.
+        Conservative position sizing with hourly ML multiplier.
+        Base $3, scale with conviction, then adjust by time-of-day win rate.
         """
-        # Start at base ($5)
+        # Start at base
         size = self.BASE_POSITION_SIZE
 
-        # ML conviction scaling: only increase toward $10 with strong edge+kelly
+        # ML conviction scaling: only increase toward max with strong edge+kelly
         conviction = min(1.0, kelly_fraction * edge / 0.10)  # 0-1 score
         size += conviction * (self.MAX_POSITION_SIZE - self.BASE_POSITION_SIZE)
 
@@ -945,7 +998,13 @@ class TALiveTrader:
         if self.consecutive_losses >= 2:
             size = self.MIN_POSITION_SIZE
 
-        # Hard clamp $5-$10 always
+        # === HOURLY ML MULTIPLIER ===
+        hour = datetime.now(timezone.utc).hour
+        hour_mult = self._get_hour_multiplier(hour)
+        if hour_mult != 1.0:
+            size *= hour_mult
+
+        # Hard clamp
         size = max(self.MIN_POSITION_SIZE, min(self.MAX_POSITION_SIZE, size))
         return round(size, 2)
 
@@ -1227,7 +1286,9 @@ class TALiveTrader:
                         else:
                             trend_tag = f"WITH({trend})"
 
-                        print(f"[SIZE] {asset} ${position_size:.2f} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, {trend_tag})")
+                        hour_mult = self._get_hour_multiplier(datetime.now(timezone.utc).hour)
+                        hour_tag = f", Hour={hour_mult}x" if hour_mult != 1.0 else ""
+                        print(f"[SIZE] {asset} ${position_size:.2f} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, {trend_tag}{hour_tag})")
 
                         success, order_result = await self.execute_trade(
                             market, signal.side, position_size, entry_price
@@ -1298,14 +1359,25 @@ class TALiveTrader:
                                 self.consecutive_losses += 1
                                 self.consecutive_wins = 0
 
+                            # === UPDATE HOURLY STATS ===
+                            try:
+                                entry_hour = datetime.fromisoformat(open_trade.entry_time).hour
+                                if entry_hour not in self.hourly_stats:
+                                    self.hourly_stats[entry_hour] = {"wins": 0, "losses": 0, "pnl": 0.0}
+                                self.hourly_stats[entry_hour]["wins" if won else "losses"] += 1
+                                self.hourly_stats[entry_hour]["pnl"] += open_trade.pnl
+                            except Exception:
+                                pass
+
                             # Compound: update bankroll with PnL
                             self.bankroll = max(self.initial_bankroll * 0.5, self.bankroll + open_trade.pnl)
 
                             # Update ML
                             self.ml.update_weights(open_trade.features, won)
 
+                            hour_mult = self._get_hour_multiplier(datetime.now(timezone.utc).hour)
                             result = "WIN" if won else "LOSS"
-                            print(f"[{result}] {open_trade.side} PnL: ${open_trade.pnl:+.2f} | Size: ${open_trade.size_usd:.2f} | Bankroll: ${self.bankroll:.2f} | {open_trade.market_title[:40]}...")
+                            print(f"[{result}] {open_trade.side} PnL: ${open_trade.pnl:+.2f} | Size: ${open_trade.size_usd:.2f} | Bankroll: ${self.bankroll:.2f} | HourMult: {hour_mult}x | {open_trade.market_title[:40]}...")
 
                             # Auto-redeem winnings after each win
                             if won and not self.dry_run:
@@ -1530,6 +1602,34 @@ class TALiveTrader:
             else:
                 print(f"    VERDICT: INCONCLUSIVE (diff ${saved:+.2f})")
 
+        # Hourly ML sizing display
+        total_hourly_trades = sum(s["wins"] + s["losses"] for s in self.hourly_stats.values())
+        phase = "BOOST+REDUCE" if total_hourly_trades >= 10 else "REDUCE-ONLY"
+        print(f"\nHOURLY ML SIZING ({phase}, {total_hourly_trades} total trades):")
+        active_hours = []
+        for h in range(24):
+            s = self.hourly_stats[h]
+            trades_h = s["wins"] + s["losses"]
+            if trades_h > 0:
+                wr = s["wins"] / trades_h * 100
+                mult = self._get_hour_multiplier(h)
+                mst = (h - 7) % 24
+                tag = ""
+                if mult < 1.0:
+                    tag = " REDUCED"
+                elif mult > 1.0:
+                    tag = " BOOSTED"
+                active_hours.append(f"    UTC {h:>2} (MST {mst:>2}h): {trades_h}T {wr:.0f}% WR ${s['pnl']:+.1f} -> {mult}x{tag}")
+        if active_hours:
+            for line in active_hours:
+                print(line)
+        else:
+            print("    No hourly data yet - all hours at 1.0x (collecting...)")
+        # Show current hour multiplier
+        cur_h = now.hour
+        cur_mult = self._get_hour_multiplier(cur_h)
+        print(f"  Current: UTC {cur_h} -> {cur_mult}x multiplier")
+
         print(f"\nOPEN TRADES ({len(open_trades)}):")
         for t in open_trades[:5]:
             print(f"  {t.side} @ ${t.entry_price:.4f} | {t.market_title[:35]}...")
@@ -1547,6 +1647,7 @@ class TALiveTrader:
         print(f"Assets: {', '.join(self.ASSETS.keys())}")
         print(f"PAPER-MATCHED: All settings copied 1:1 from paper tuner (tune #35)")
         print(f"SHADOW TRACKING: ATR filter + trend bias tracked for ML removal evaluation")
+        print(f"HOURLY ML SIZING: Bayesian WR per hour -> reduce bad hours, boost good (after 10 trades)")
         print(f"Filters: Edge>={self.MIN_EDGE:.0%} | Conf>={self.MIN_MODEL_CONFIDENCE:.0%} | ATR(14)x1.5 | NYU>0.15")
         print(f"V3.3: Death zone $0.40-0.45 | Trend filter | Break-even aware | Dynamic UP max")
         print(f"UP: Dynamic max price (70%->$0.42, 80%->$0.48, 85%->$0.55) | Scaled conf for cheap entries")

@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-06T02:50:00.000000+00:00",
-  "last_updated": "2026-02-07T18:58:45.968816+00:00",
+  "last_updated": "2026-02-07T20:56:04.872840+00:00",
   "trades": {
     "0x1fb81f426bb06ab8bdfe5c070d98e7b400ac9cf7a89a0a6ef18a87005a583360_DOWN": {
       "trade_id": "0x1fb81f426bb06ab8bdfe5c070d98e7b400ac9cf7a89a0a6ef18a87005a583360_DOWN",
@@ -1581,10 +1581,10 @@
       "kelly_fraction": 0.25,
       "guaranteed_profit": 0.1901255011601513,
       "market_numeric_id": "1346528",
-      "exit_price": null,
-      "exit_time": null,
-      "pnl": 0.0,
-      "status": "open"
+      "exit_price": 0.0,
+      "exit_time": "2026-02-07T20:55:59.717083+00:00",
+      "pnl": -20.0,
+      "status": "closed"
     },
     "0x3c3787f59daf6d245c8535030d80f6a2965c8cf79482236660093414d58b70ee_UP": {
       "trade_id": "0x3c3787f59daf6d245c8535030d80f6a2965c8cf79482236660093414d58b70ee_UP",
@@ -1599,10 +1599,10 @@
       "kelly_fraction": 0.25,
       "guaranteed_profit": 0.3747197824345277,
       "market_numeric_id": "1346529",
-      "exit_price": null,
-      "exit_time": null,
-      "pnl": 0.0,
-      "status": "open"
+      "exit_price": 0.0,
+      "exit_time": "2026-02-07T20:55:59.717083+00:00",
+      "pnl": -5.0,
+      "status": "closed"
     },
     "0xd3bc7b21bb39132ccde1f0e51e9b91bd664b33acfab5e4d9f5b43c307b4d9e5c_DOWN": {
       "trade_id": "0xd3bc7b21bb39132ccde1f0e51e9b91bd664b33acfab5e4d9f5b43c307b4d9e5c_DOWN",
@@ -1617,10 +1617,10 @@
       "kelly_fraction": 0.25,
       "guaranteed_profit": 0.5522334332489127,
       "market_numeric_id": "1346528",
-      "exit_price": null,
-      "exit_time": null,
-      "pnl": 0.0,
-      "status": "open"
+      "exit_price": 1.0,
+      "exit_time": "2026-02-07T20:55:59.717083+00:00",
+      "pnl": 73.02325581395348,
+      "status": "closed"
     },
     "0x3c3787f59daf6d245c8535030d80f6a2965c8cf79482236660093414d58b70ee_DOWN": {
       "trade_id": "0x3c3787f59daf6d245c8535030d80f6a2965c8cf79482236660093414d58b70ee_DOWN",
@@ -1635,20 +1635,178 @@
       "kelly_fraction": 0.25,
       "guaranteed_profit": 0.7026382765319721,
       "market_numeric_id": "1346529",
+      "exit_price": 1.0,
+      "exit_time": "2026-02-07T20:55:59.717083+00:00",
+      "pnl": 94.28571428571429,
+      "status": "closed"
+    },
+    "0x0212b25be97574b5fc0869c5f50d0d474dd271080bfdb56ddbe5019fbcbba668_DOWN": {
+      "trade_id": "0x0212b25be97574b5fc0869c5f50d0d474dd271080bfdb56ddbe5019fbcbba668_DOWN",
+      "market_title": "Bitcoin Up or Down - February 7, 3:45PM-4:00PM ET",
+      "side": "DOWN",
+      "entry_price": 0.205,
+      "entry_time": "2026-02-07T20:56:04.872840+00:00",
+      "size_usd": 20.0,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.40268262881410266,
+      "kl_divergence": 0.3832515627402764,
+      "kelly_fraction": 0.25,
+      "guaranteed_profit": 0.3832515627402764,
+      "market_numeric_id": "1348451",
+      "exit_price": null,
+      "exit_time": null,
+      "pnl": 0.0,
+      "status": "open"
+    },
+    "0xd1d20646b31326ded7b6144e7d2fdabe9d223634c6554d0e92a00de60de05102_DOWN": {
+      "trade_id": "0xd1d20646b31326ded7b6144e7d2fdabe9d223634c6554d0e92a00de60de05102_DOWN",
+      "market_title": "Ethereum Up or Down - February 7, 3:45PM-4:00PM ET",
+      "side": "DOWN",
+      "entry_price": 0.115,
+      "entry_time": "2026-02-07T20:56:04.872840+00:00",
+      "size_usd": 5.0,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.5122612885984849,
+      "kl_divergence": 0.741794646394684,
+      "kelly_fraction": 0.25,
+      "guaranteed_profit": 0.741794646394684,
+      "market_numeric_id": "1348452",
       "exit_price": null,
       "exit_time": null,
       "pnl": 0.0,
       "status": "open"
     }
   },
-  "total_pnl": 474.49470153473555,
-  "wins": 54,
-  "losses": 33,
-  "signals_count": 479,
+  "total_pnl": 616.8036716344034,
+  "wins": 56,
+  "losses": 35,
+  "signals_count": 480,
   "arb_trades": {},
   "arb_stats": {
     "wins": 0,
     "losses": 0,
     "total_pnl": 0.0
+  },
+  "hourly_stats": {
+    "0": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "1": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "2": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "3": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "4": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "5": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "6": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "7": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "8": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "9": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "10": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "11": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "12": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "13": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "14": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "15": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "16": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "17": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "18": {
+      "wins": 2,
+      "losses": 2,
+      "pnl": 142.30897009966776
+    },
+    "19": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "20": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "21": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "22": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "23": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    }
   }
 }

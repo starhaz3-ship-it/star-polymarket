@@ -435,7 +435,7 @@ class TAPaperTrader:
     # REMOVED from skip (profitable): 6(56%WR +$108), 8(67%WR +$218), 10(67%WR +$74), 14(60%WR +$414)
     # ADDED to skip (losing): 1(40%WR -$21), 3(45%WR -$128), 16(25%WR -$236), 17(33%WR -$133), 22(33%WR -$23)
     # Best hours: 2(78%WR), 4(56%WR), 13(62%WR), 18(57%WR), 21(100%WR)
-    SKIP_HOURS_UTC = {0, 1, 3, 8, 15, 16, 17, 19, 20, 22, 23}
+    SKIP_HOURS_UTC = {0, 1, 8, 22, 23}  # Opened US/EU overlap (UTC 15-17,19,20) + UTC 3 (proven profitable)
 
     def __init__(self, bankroll: float = 100.0):
         self.generator = TASignalGenerator()
@@ -490,8 +490,38 @@ class TAPaperTrader:
         self.arb_trades = {}           # {trade_id: arb_trade_dict}
         self.arb_stats = {"wins": 0, "losses": 0, "total_pnl": 0.0}
 
+        # === HOURLY ML POSITION SIZING ===
+        # Bayesian: start neutral, reduce bad hours, boost good hours after proof
+        self.hourly_stats: Dict[int, dict] = {
+            h: {"wins": 0, "losses": 0, "pnl": 0.0} for h in range(24)
+        }
+
         self._load()
         self._apply_tuned_params()  # Apply ML-tuned parameters on startup
+
+    def _get_hour_multiplier(self, hour: int) -> float:
+        """
+        Bayesian hourly position multiplier. Learns win rates per hour and adjusts.
+        Phase 1 (< 10 total trades): only REDUCE for bad hours (0.5x-1.0x)
+        Phase 2 (>= 10 total trades): allow BOOST for proven hours (0.5x-1.5x)
+        Uses Beta prior: 5W/5L per hour (50% WR) for smoothing.
+        """
+        stats = self.hourly_stats.get(hour, {"wins": 0, "losses": 0, "pnl": 0.0})
+        prior_wins, prior_losses = 5, 5
+        post_wins = stats["wins"] + prior_wins
+        post_losses = stats["losses"] + prior_losses
+        post_wr = post_wins / (post_wins + post_losses)
+
+        total_all_hours = sum(s["wins"] + s["losses"] for s in self.hourly_stats.values())
+        phase2 = total_all_hours >= 10
+
+        if post_wr < 0.50:
+            mult = max(0.5, 0.5 + (post_wr / 0.50) * 0.5)
+        elif phase2 and post_wr > 0.50:
+            mult = min(1.5, 1.0 + ((post_wr - 0.50) / 0.20) * 0.5)
+        else:
+            mult = 1.0
+        return round(mult, 2)
 
     def _apply_tuned_params(self):
         """Apply ML-tuned parameters to trading thresholds."""
@@ -518,6 +548,12 @@ class TAPaperTrader:
                 # Load arb state
                 self.arb_trades = data.get("arb_trades", {})
                 self.arb_stats = data.get("arb_stats", {"wins": 0, "losses": 0, "total_pnl": 0.0})
+                # Load hourly stats
+                saved_hourly = data.get("hourly_stats", {})
+                for h_str, stats in saved_hourly.items():
+                    h = int(h_str)
+                    if h in self.hourly_stats:
+                        self.hourly_stats[h] = stats
                 arb_open = sum(1 for a in self.arb_trades.values() if a.get("status") == "open")
                 print(f"Loaded {len(self.trades)} trades + {len(self.arb_trades)} arb trades ({arb_open} open) from previous session")
             except Exception as e:
@@ -534,6 +570,7 @@ class TAPaperTrader:
             "signals_count": self.signals_count,
             "arb_trades": self.arb_trades,
             "arb_stats": self.arb_stats,
+            "hourly_stats": self.hourly_stats,
         }
         with open(self.OUTPUT_FILE, 'w') as f:
             json.dump(data, f, indent=2)
@@ -1142,6 +1179,10 @@ class TAPaperTrader:
                         base_size=self.POSITION_SIZE,
                         kelly_fraction=bregman_signal.kelly_fraction,
                     )
+                    # === HOURLY ML MULTIPLIER ===
+                    hour_mult = self._get_hour_multiplier(datetime.now(timezone.utc).hour)
+                    if hour_mult != 1.0:
+                        individual_size *= hour_mult
                     individual_size = max(5.0, individual_size)
 
                     # Collect candidate for multi-Kelly allocation
@@ -1180,13 +1221,25 @@ class TAPaperTrader:
 
                         self.total_pnl += trade.pnl
                         self.daily_pnl += trade.pnl  # Track daily P&L
-                        if trade.pnl > 0:
+                        won = trade.pnl > 0
+                        if won:
                             self.wins += 1
                         else:
                             self.losses += 1
 
-                        result = "WIN" if trade.pnl > 0 else "LOSS"
-                        print(f"[{result}] {trade.side} PnL: ${trade.pnl:+.2f} | Day: ${self.daily_pnl:+.2f} | {trade.market_title[:35]}...")
+                        # === UPDATE HOURLY STATS ===
+                        try:
+                            entry_hour = datetime.fromisoformat(trade.entry_time).hour
+                            if entry_hour not in self.hourly_stats:
+                                self.hourly_stats[entry_hour] = {"wins": 0, "losses": 0, "pnl": 0.0}
+                            self.hourly_stats[entry_hour]["wins" if won else "losses"] += 1
+                            self.hourly_stats[entry_hour]["pnl"] += trade.pnl
+                        except Exception:
+                            pass
+
+                        hour_mult = self._get_hour_multiplier(datetime.now(timezone.utc).hour)
+                        result = "WIN" if won else "LOSS"
+                        print(f"[{result}] {trade.side} PnL: ${trade.pnl:+.2f} | Day: ${self.daily_pnl:+.2f} | HrMult: {hour_mult}x | {trade.market_title[:35]}...")
 
                         # === ML V3 ONLINE LEARNING ===
                         if self.use_ml_v3 and hasattr(self, '_pending_ml_features'):
@@ -1237,11 +1290,20 @@ class TAPaperTrader:
                         trade.status = "closed"
                         self.total_pnl += trade.pnl
                         self.daily_pnl += trade.pnl
-                        if trade.pnl > 0:
+                        won2 = trade.pnl > 0
+                        if won2:
                             self.wins += 1
                         else:
                             self.losses += 1
-                        result = "WIN" if trade.pnl > 0 else "LOSS"
+                        try:
+                            eh = datetime.fromisoformat(trade.entry_time).hour
+                            if eh not in self.hourly_stats:
+                                self.hourly_stats[eh] = {"wins": 0, "losses": 0, "pnl": 0.0}
+                            self.hourly_stats[eh]["wins" if won2 else "losses"] += 1
+                            self.hourly_stats[eh]["pnl"] += trade.pnl
+                        except Exception:
+                            pass
+                        result = "WIN" if won2 else "LOSS"
                         print(f"[{result}] {trade.side} PnL: ${trade.pnl:+.2f} | Day: ${self.daily_pnl:+.2f} | {trade.market_title[:35]}...")
 
                 # Also resolve arb trades on this market
@@ -1326,11 +1388,20 @@ class TAPaperTrader:
                                 open_trade.status = "closed"
                                 self.total_pnl += open_trade.pnl
                                 self.daily_pnl += open_trade.pnl
-                                if open_trade.pnl > 0:
+                                won3 = open_trade.pnl > 0
+                                if won3:
                                     self.wins += 1
                                 else:
                                     self.losses += 1
-                                result = "WIN" if open_trade.pnl > 0 else "LOSS"
+                                try:
+                                    eh3 = datetime.fromisoformat(open_trade.entry_time).hour
+                                    if eh3 not in self.hourly_stats:
+                                        self.hourly_stats[eh3] = {"wins": 0, "losses": 0, "pnl": 0.0}
+                                    self.hourly_stats[eh3]["wins" if won3 else "losses"] += 1
+                                    self.hourly_stats[eh3]["pnl"] += open_trade.pnl
+                                except Exception:
+                                    pass
+                                result = "WIN" if won3 else "LOSS"
                                 print(f"[{result}] (expired) {open_trade.side} PnL: ${open_trade.pnl:+.2f} | Day: ${self.daily_pnl:+.2f} | {open_trade.market_title[:30]}...")
                     await asyncio.sleep(0.5)  # Rate limit between resolved market lookups
                 except Exception as e:
@@ -1494,6 +1565,32 @@ class TAPaperTrader:
         if arb_closed:
             avg_spread = sum(a["combined_cost"] for a in arb_closed) / len(arb_closed)
             print(f"  Avg spread captured: ${avg_spread:.3f}")
+
+        # Hourly ML sizing
+        total_hourly = sum(s["wins"] + s["losses"] for s in self.hourly_stats.values())
+        phase = "BOOST+REDUCE" if total_hourly >= 10 else "REDUCE-ONLY"
+        print(f"\nHOURLY ML SIZING ({phase}, {total_hourly} total trades):")
+        active_h = []
+        for h in range(24):
+            s = self.hourly_stats[h]
+            th = s["wins"] + s["losses"]
+            if th > 0:
+                wr_h = s["wins"] / th * 100
+                mult = self._get_hour_multiplier(h)
+                mst = (h - 7) % 24
+                tag = ""
+                if mult < 1.0:
+                    tag = " REDUCED"
+                elif mult > 1.0:
+                    tag = " BOOSTED"
+                active_h.append(f"    UTC {h:>2} (MST {mst:>2}h): {th}T {wr_h:.0f}% WR ${s['pnl']:+.1f} -> {mult}x{tag}")
+        if active_h:
+            for line in active_h:
+                print(line)
+        else:
+            print("    No hourly data yet - all hours at 1.0x (collecting...)")
+        cur_h = now.hour
+        print(f"  Current: UTC {cur_h} -> {self._get_hour_multiplier(cur_h)}x multiplier")
 
         # Open trades
         print(f"\nOPEN TRADES ({len(open_trades)}):")

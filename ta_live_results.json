@@ -1,12 +1,127 @@
 {
   "start_time": "2026-02-07T20:30:00+00:00",
-  "last_updated": "2026-02-07T20:45:28.881538+00:00",
+  "last_updated": "2026-02-07T20:57:28.849614+00:00",
   "dry_run": false,
-  "trades": {},
+  "trades": {
+    "0x0212b25be97574b5fc0869c5f50d0d474dd271080bfdb56ddbe5019fbcbba668_DOWN": {
+      "trade_id": "0x0212b25be97574b5fc0869c5f50d0d474dd271080bfdb56ddbe5019fbcbba668_DOWN",
+      "market_id": "0x0212b25be97574b5fc0869c5f50d0d474dd271080bfdb56ddbe5019fbcbba668",
+      "market_title": "[BTC] Bitcoin Up or Down - February 7, 3:45PM-4:00PM ET",
+      "side": "DOWN",
+      "entry_price": 0.205,
+      "entry_time": "2026-02-07T20:56:24.066549+00:00",
+      "size_usd": 3.0,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.3621359945238095,
+      "kl_divergence": 0.3139653900943555,
+      "kelly_fraction": 0.25,
+      "features": {
+        "rsi": 44.94225321420753,
+        "rsi_slope": 0.0,
+        "vwap_distance": -0.1061861297284277,
+        "vwap_slope": 5.833415495865564,
+        "heiken_count": 3,
+        "heiken_bullish": false,
+        "macd_histogram": 0.0,
+        "macd_expanding": false,
+        "time_remaining": 3.6057646,
+        "model_confidence": 0.13427198904761906,
+        "kl_divergence": 0.3139653900943555,
+        "kelly_fraction": 0.25,
+        "market_edge": -36.213599452380954,
+        "btc_1h_change": 0.3952328430063625,
+        "btc_volatility": 0.05030921863640748,
+        "_full_size": 3.0,
+        "_with_trend": false
+      },
+      "exit_price": null,
+      "exit_time": null,
+      "pnl": 0.0,
+      "status": "open",
+      "order_id": "0x410603ebea69ddc75bd76f85799eb3b3b281b1f0c40b577c2034a92dad076c0e",
+      "execution_error": null
+    },
+    "0xd1d20646b31326ded7b6144e7d2fdabe9d223634c6554d0e92a00de60de05102_DOWN": {
+      "trade_id": "0xd1d20646b31326ded7b6144e7d2fdabe9d223634c6554d0e92a00de60de05102_DOWN",
+      "market_id": "0xd1d20646b31326ded7b6144e7d2fdabe9d223634c6554d0e92a00de60de05102",
+      "market_title": "[ETH] Ethereum Up or Down - February 7, 3:45PM-4:00PM ET",
+      "side": "DOWN",
+      "entry_price": 0.115,
+      "entry_time": "2026-02-07T20:56:24.968268+00:00",
+      "size_usd": 3.0,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.45214419890873025,
+      "kl_divergence": 0.5954103761520468,
+      "kelly_fraction": 0.25,
+      "features": {
+        "rsi": 57.85246876858956,
+        "rsi_slope": 0.0,
+        "vwap_distance": -0.100756977062323,
+        "vwap_slope": 0.9113231555207272,
+        "heiken_count": 2,
+        "heiken_bullish": false,
+        "macd_histogram": 0.0,
+        "macd_expanding": false,
+        "time_remaining": 3.5988729166666666,
+        "model_confidence": 0.13428839781746038,
+        "kl_divergence": 0.5954103761520468,
+        "kelly_fraction": 0.25,
+        "market_edge": -45.21441989087302,
+        "btc_1h_change": 0.6944145334118085,
+        "btc_volatility": 0.1237814473596686,
+        "_full_size": 3.0,
+        "_with_trend": false
+      },
+      "exit_price": null,
+      "exit_time": null,
+      "pnl": 0.0,
+      "status": "open",
+      "order_id": "0x07924b14df8ce83b0ae4afacd62f0bc244aa37b647c0cbe9f796b6cbd1a0b1f7",
+      "execution_error": null
+    },
+    "0xd64f511fef917d89c1c93c9a77256d748109108df15efb6f2444e3be0f782c3a_DOWN": {
+      "trade_id": "0xd64f511fef917d89c1c93c9a77256d748109108df15efb6f2444e3be0f782c3a_DOWN",
+      "market_id": "0xd64f511fef917d89c1c93c9a77256d748109108df15efb6f2444e3be0f782c3a",
+      "market_title": "[SOL] Solana Up or Down - February 7, 3:45PM-4:00PM ET",
+      "side": "DOWN",
+      "entry_price": 0.165,
+      "entry_time": "2026-02-07T20:56:25.347664+00:00",
+      "size_usd": 3.0,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.5230537926666666,
+      "kl_divergence": 0.6753443001763333,
+      "kelly_fraction": 0.25,
+      "features": {
+        "rsi": 47.22222222222215,
+        "rsi_slope": 0.0,
+        "vwap_distance": -0.07642779886025258,
+        "vwap_slope": 0.005754599682763089,
+        "heiken_count": 2,
+        "heiken_bullish": false,
+        "macd_histogram": 0.0,
+        "macd_expanding": false,
+        "time_remaining": 3.5838622,
+        "model_confidence": 0.3761075853333333,
+        "kl_divergence": 0.6753443001763333,
+        "kelly_fraction": 0.25,
+        "market_edge": -52.30537926666666,
+        "btc_1h_change": 0.7370450164417799,
+        "btc_volatility": 0.09817573481991036,
+        "_full_size": 3.0,
+        "_with_trend": false
+      },
+      "exit_price": null,
+      "exit_time": null,
+      "pnl": 0.0,
+      "status": "open",
+      "order_id": "0x0095643a404f3b663d58814451c89cf20e57418ec9666e7ca6359a334088a59c",
+      "execution_error": null
+    }
+  },
   "total_pnl": 0.0,
   "wins": 0,
   "losses": 0,
-  "signals_count": 3,
+  "signals_count": 15,
   "ml_rejections": 0,
   "consecutive_wins": 0,
   "consecutive_losses": 0,
@@ -27,8 +142,130 @@
     "atr_blocked_wins": 0,
     "atr_blocked_losses": 0,
     "atr_blocked_pnl": 0.0,
-    "trend_bias_trades": 0,
+    "trend_bias_trades": 3,
     "trend_bias_actual_pnl": 0.0,
     "trend_bias_full_pnl": 0.0
+  },
+  "hourly_stats": {
+    "0": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "1": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "2": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "3": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "4": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "5": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "6": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "7": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "8": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "9": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "10": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "11": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "12": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "13": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "14": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "15": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "16": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "17": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "18": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "19": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "20": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "21": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "22": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "23": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    }
   }
 }
