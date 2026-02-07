@@ -7,6 +7,7 @@ Includes ML-based automatic parameter tuning based on trade performance.
 
 import asyncio
 import json
+import math
 import time
 import statistics
 from datetime import datetime, timezone
@@ -472,6 +473,12 @@ class TAPaperTrader:
         self.meta_labeler = get_meta_labeler()
         self.use_meta_labeler = True
 
+        # Multi-Outcome Kelly (correlated asset allocation)
+        # BTC/ETH/SOL are ~85% correlated - 3 same-direction bets ≈ 1 big bet
+        # Allocates by quality (best P(correct) first) with correlation discount
+        self.CRYPTO_CORRELATION = 0.85  # Same-direction correlation
+        self.MAX_CYCLE_BUDGET = self.POSITION_SIZE * 2.5  # Max $25 total per cycle
+
         # Arbitrage Scanner (distinct-baguette strategy)
         # Buy both UP + DOWN when combined price < threshold for guaranteed profit
         self.ARB_ENABLED = True
@@ -899,7 +906,9 @@ class TAPaperTrader:
         # Check ALL eligible markets for both-sides arb (UP + DOWN < $0.97)
         self._scan_arbitrage(eligible_markets)
 
-        # === DIRECTIONAL TRADING ===
+        # === DIRECTIONAL TRADING (Phase 1: Collect candidates) ===
+        # Gather all trades that pass filters, then allocate via multi-outcome Kelly
+        trade_candidates = []
         for asset, (time_left, market, up_price, down_price) in nearest_per_asset.items():
             market_id = market.get("conditionId", "")
             market_numeric_id = market.get("id")
@@ -1036,7 +1045,7 @@ class TAPaperTrader:
                 edge = max(signal.edge_up or 0, signal.edge_down or 0)
                 print(f"[Skip] {question[:35]}... | UP:{up_price:.2f} DOWN:{down_price:.2f} | Edge:{edge:.1%} | {signal.reason}")
 
-            # Enter trade if signal - use Bregman optimization for sizing
+            # Collect candidate if signal passes all filters
             if signal.action == "ENTER" and signal.side and trade_key:
                 if trade_key not in self.trades:
                     entry_price = up_price if signal.side == "UP" else down_price
@@ -1127,46 +1136,28 @@ class TAPaperTrader:
                         print(f"[META] P(correct)={meta_pred.p_correct:.0%} {meta_pred.confidence_tier} SKIP | {ml_str} | {question[:30]}...")
                         continue
 
-                    # Meta-label sized position (replaces fixed Kelly sizing)
-                    optimal_size = self.meta_labeler.calculate_position_size(
+                    # Individual meta-label size (before multi-Kelly adjustment)
+                    individual_size = self.meta_labeler.calculate_position_size(
                         p_correct=meta_pred.p_correct,
                         base_size=self.POSITION_SIZE,
                         kelly_fraction=bregman_signal.kelly_fraction,
                     )
-                    optimal_size = max(5.0, optimal_size)  # Minimum $5
+                    individual_size = max(5.0, individual_size)
 
-                    # Store meta-features for training on resolution
-                    self._pending_meta_features = meta_features
-                    self._pending_meta_side = signal.side
-
-                    meta_str = f"[META:P={meta_pred.p_correct:.0%} {meta_pred.confidence_tier} sz={meta_pred.position_size_mult:.1f}x]"
-
-                    trade = TAPaperTrade(
-                        trade_id=trade_key,
-                        market_title=question[:80],
-                        side=signal.side,
-                        entry_price=entry_price,
-                        entry_time=datetime.now(timezone.utc).isoformat(),
-                        size_usd=optimal_size,
-                        signal_strength=signal.strength.value,
-                        edge_at_entry=edge if edge else 0,
-                        kl_divergence=bregman_signal.kl_divergence,
-                        kelly_fraction=bregman_signal.kelly_fraction,
-                        guaranteed_profit=bregman_signal.guaranteed_profit,
-                        market_numeric_id=market_numeric_id,
-                    )
-                    self.trades[trade_key] = trade
-                    self.traded_markets_this_cycle.add(market_id)  # PREVENT DUPLICATES
-                    momentum_str = f"Mom:{momentum:+.2%}" if momentum else ""
-
-                    # Get NYU volatility info for logging
-                    nyu_info = ""
-                    if self.use_nyu_model:
-                        nyu_r = self.nyu_model.calculate_volatility(entry_price, time_left)
-                        nyu_info = f"NYU:{nyu_r.edge_score:.2f}"
-
-                    print(f"[NEW] {signal.side} @ ${entry_price:.4f} | Edge: {edge:.1%} | {momentum_str} | {nyu_info} | {meta_str}")
-                    print(f"      Size: ${optimal_size:.2f} | KL: {bregman_signal.kl_divergence:.4f} | {ml_str} | T-{time_left:.1f}min | {question[:40]}...")
+                    # Collect candidate for multi-Kelly allocation
+                    trade_candidates.append({
+                        'asset': asset, 'trade_key': trade_key, 'signal': signal,
+                        'entry_price': entry_price, 'edge': edge,
+                        'individual_size': individual_size,
+                        'bregman_signal': bregman_signal,
+                        'meta_pred': meta_pred, 'meta_features': meta_features,
+                        'ml_features': ml_features if ml_prediction else None,
+                        'ml_str': ml_str, 'momentum': momentum,
+                        'question': question, 'market_id': market_id,
+                        'market_numeric_id': market_numeric_id,
+                        'time_left': time_left, 'up_price': up_price,
+                        'down_price': down_price,
+                    })
 
             # Check for resolved markets
             if time_left < 0.5:
@@ -1344,6 +1335,88 @@ class TAPaperTrader:
                     await asyncio.sleep(0.5)  # Rate limit between resolved market lookups
                 except Exception as e:
                     print(f"[Expiry] Error resolving {tid[:20]}: {e}")
+
+        # === DIRECTIONAL TRADING (Phase 2: Multi-Outcome Kelly allocation) ===
+        # Sort candidates by quality (highest P(correct) first = best signal gets most budget)
+        # Then allocate with correlation discounts so correlated trades don't blow up exposure
+        if trade_candidates:
+            trade_candidates.sort(key=lambda c: c['meta_pred'].p_correct, reverse=True)
+            cycle_exposure = 0.0
+            cycle_same_dir = {}  # {side: count}
+
+            n_candidates = len(trade_candidates)
+            sides = [c['signal'].side for c in trade_candidates]
+            n_down = sum(1 for s in sides if s == "DOWN")
+            n_up = sum(1 for s in sides if s == "UP")
+            is_mixed = n_down > 0 and n_up > 0
+
+            for cand in trade_candidates:
+                side = cand['signal'].side
+                n_same = cycle_same_dir.get(side, 0)
+
+                # Correlation discount: each additional same-direction trade gets penalized
+                # 1st trade: full size, 2nd: 54%, 3rd: 37% (for ρ=0.85)
+                if n_same > 0:
+                    discount = 1.0 / (1.0 + n_same * self.CRYPTO_CORRELATION)
+                else:
+                    discount = 1.0
+
+                # Mixed directions are partially hedged - less discount
+                if is_mixed:
+                    discount = max(discount, 0.6)
+
+                kelly_size = cand['individual_size'] * discount
+
+                # Cap at remaining cycle budget
+                remaining = self.MAX_CYCLE_BUDGET - cycle_exposure
+                optimal_size = min(kelly_size, remaining)
+                optimal_size = max(5.0, optimal_size)  # Floor $5
+
+                if remaining < 5.0:
+                    print(f"[KELLY] Cycle budget exhausted (${cycle_exposure:.0f}/${self.MAX_CYCLE_BUDGET:.0f}) | Skipping {cand['asset']} {side}")
+                    continue
+
+                # === EXECUTE TRADE ===
+                meta_str = f"[META:P={cand['meta_pred'].p_correct:.0%} {cand['meta_pred'].confidence_tier} sz={cand['meta_pred'].position_size_mult:.1f}x]"
+                kelly_str = f"[KELLY:{discount:.0%}of${cand['individual_size']:.0f}]" if discount < 1.0 else ""
+
+                # Store meta-features for training on resolution
+                self._pending_meta_features = cand['meta_features']
+                self._pending_meta_side = side
+                if cand['ml_features'] is not None:
+                    self._pending_ml_features = cand['ml_features']
+
+                trade = TAPaperTrade(
+                    trade_id=cand['trade_key'],
+                    market_title=cand['question'][:80],
+                    side=side,
+                    entry_price=cand['entry_price'],
+                    entry_time=datetime.now(timezone.utc).isoformat(),
+                    size_usd=optimal_size,
+                    signal_strength=cand['signal'].strength.value,
+                    edge_at_entry=cand['edge'] if cand['edge'] else 0,
+                    kl_divergence=cand['bregman_signal'].kl_divergence,
+                    kelly_fraction=cand['bregman_signal'].kelly_fraction,
+                    guaranteed_profit=cand['bregman_signal'].guaranteed_profit,
+                    market_numeric_id=cand['market_numeric_id'],
+                )
+                self.trades[cand['trade_key']] = trade
+                self.traded_markets_this_cycle.add(cand['market_id'])
+
+                momentum_str = f"Mom:{cand['momentum']:+.2%}" if cand['momentum'] else ""
+                nyu_info = ""
+                if self.use_nyu_model:
+                    nyu_r = self.nyu_model.calculate_volatility(cand['entry_price'], cand['time_left'])
+                    nyu_info = f"NYU:{nyu_r.edge_score:.2f}"
+
+                print(f"[NEW] {side} @ ${cand['entry_price']:.4f} | Edge: {cand['edge']:.1%} | {momentum_str} | {nyu_info} | {meta_str} {kelly_str}")
+                print(f"      Size: ${optimal_size:.2f} | KL: {cand['bregman_signal'].kl_divergence:.4f} | {cand['ml_str']} | T-{cand['time_left']:.1f}min | {cand['question'][:40]}...")
+
+                cycle_exposure += optimal_size
+                cycle_same_dir[side] = n_same + 1
+
+            if len(trade_candidates) > 1:
+                print(f"[KELLY] {len(trade_candidates)} candidates | Allocated ${cycle_exposure:.2f}/${self.MAX_CYCLE_BUDGET:.0f} budget | Sides: {dict(cycle_same_dir)}")
 
         self._save()
         return main_signal
