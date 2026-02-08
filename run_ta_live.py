@@ -1237,13 +1237,13 @@ class TALiveTrader:
         is_skip_hour = current_hour in self.SKIP_HOURS_UTC
         if is_skip_hour:
             open_count = sum(1 for t in self.trades.values() if t.status == "open")
-            # Feb 7-8 exception: allow $3 ultra-high conviction trades during skip hours
+            # Feb 7-10 exception: allow $4 high-conviction trades during skip hours
             today = datetime.now(timezone.utc).date()
-            skip_hour_exception = today <= date(2026, 2, 9)
+            skip_hour_exception = today <= date(2026, 2, 10)
             if open_count > 0:
                 print(f"[SKIP] Hour {current_hour:02d} UTC - resolving {open_count} open trades...")
             elif skip_hour_exception:
-                print(f"[SKIP] Hour {current_hour:02d} UTC - scanning for $3 high-conviction trades...")
+                print(f"[SKIP] Hour {current_hour:02d} UTC - scanning for $4 high-conviction trades...")
             else:
                 print(f"[SKIP] Hour {current_hour:02d} UTC is in skip list - resting")
                 return None
@@ -1543,10 +1543,10 @@ class TALiveTrader:
                         hour_mult = self._get_hour_multiplier(datetime.now(timezone.utc).hour)
                         hour_tag = f", Hour={hour_mult}x" if hour_mult != 1.0 else ""
 
-                        # Skip hour: force $3 minimum size
+                        # Skip hour: cap at $4
                         if is_skip_hour:
-                            position_size = self.MIN_POSITION_SIZE  # $3
-                            hour_tag = ", SKIP-HR=$3"
+                            position_size = 4.0
+                            hour_tag = ", SKIP-HR=$4"
 
                         print(f"[SIZE] {asset} ${position_size:.2f} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, {trend_tag}{hour_tag})")
 
@@ -1915,16 +1915,26 @@ class TALiveTrader:
         print(f"NYU model: edge_score>0.15 (avoid 50% zone)")
         print(f"Skip Hours (UTC): {sorted(self.SKIP_HOURS_UTC)}")
         print(f"Entry Window: {self.MIN_TIME_REMAINING}-{self.MAX_TIME_REMAINING} min")
-        print(f"Scan interval: 60 seconds")
+        print(f"Scan interval: 30 seconds (+ auto-redeem every 30s)")
         print("=" * 70)
 
         last_update = 0
+        last_redeem_check = 0
         cycle = 0
 
         while True:
             try:
                 cycle += 1
                 now = time.time()
+
+                # Auto-redeem check every 30 seconds
+                if not self.dry_run and now - last_redeem_check >= 30:
+                    try:
+                        auto_redeem_winnings()
+                    except Exception as e:
+                        if "No winning" not in str(e):
+                            print(f"[REDEEM] Error: {e}")
+                    last_redeem_check = now
 
                 signal = await self.run_cycle()
 
@@ -1936,7 +1946,7 @@ class TALiveTrader:
                     self.print_update(signal)
                     last_update = now
 
-                await asyncio.sleep(60)  # 1 minute - faster scanning for optimal entries
+                await asyncio.sleep(30)  # 30s - faster scanning + redeem checks
 
             except KeyboardInterrupt:
                 print("\nStopping...")
