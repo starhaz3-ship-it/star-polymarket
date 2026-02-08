@@ -353,7 +353,7 @@ class TALiveTrader:
     MIN_POSITION_SIZE = 5.0    # Floor $5
     MAX_POSITION_SIZE = 8.0    # Hard cap $8 — was $10, caused $21 bets with ghost processes
 
-    def __init__(self, dry_run: bool = False, bankroll: float = 54.01):
+    def __init__(self, dry_run: bool = False, bankroll: float = 45.82):
         self.dry_run = dry_run
         self.generator = TASignalGenerator()
         self.bregman = BregmanOptimizer(bankroll=bankroll)
@@ -662,7 +662,10 @@ class TALiveTrader:
     SHADOW_ASSETS = {}
     # ETH-specific constraints (V3.9)
     ETH_UP_ONLY = True  # Only allow UP trades on ETH (70% WR vs 47% DOWN)
-    ETH_MAX_PRICE = 0.40  # ETH best in $0.15-$0.40 range
+    ETH_MAX_PRICE = 0.45  # V3.10: Shadow showed 4W/2L (67%WR, +$6.68) at >0.40 — loosened
+    # SOL DOWN constraint (V3.10): Paper data shows SOL_DOWN = 50% WR (coin flip)
+    # Require higher edge for SOL DOWN trades (edge >= 0.35 lifts to ~71% WR per paper analysis)
+    SOL_DOWN_MIN_EDGE = 0.35
 
     # Directional bias based on 200 EMA trend
     # Below 200 EMA = bearish: 70% capital on DOWN, 30% on UP
@@ -679,7 +682,7 @@ class TALiveTrader:
     # Shadow-tracked on paper account for re-evaluation
     # V3.6: Reopened UTC 10-13 (73-80% WR in paper, +$222 from 34 trades)
     # Only skip: UTC 1 (no data), UTC 8 (20% WR), UTC 14 (33% WR), UTC 15 (no data)
-    SKIP_HOURS_UTC = {1, 8, 14, 15}
+    SKIP_HOURS_UTC = {1, 8, 13, 14, 15}  # V3.10: Added 13 (43% WR in paper, 7 trades)
 
     def _ema(self, candles, period: int) -> float:
         """Calculate EMA from candle close prices."""
@@ -1238,8 +1241,8 @@ class TALiveTrader:
 
     # Conviction thresholds - matched to paper tuner (tune #35)
     MIN_MODEL_CONFIDENCE = 0.56  # Match paper tuner
-    MIN_EDGE = 0.30              # V3.5: Raised back from 0.25 — overnight showed 25% wasn't enough
-    LOW_EDGE_THRESHOLD = 0.30    # Trades below this get minimum size
+    MIN_EDGE = 0.22              # V3.10: Shadow data showed 0.30 blocking 100% winners (+$5.04 missed)
+    LOW_EDGE_THRESHOLD = 0.25    # Trades below this get minimum size
     MAX_ENTRY_PRICE = 0.45       # V3.6: $0.45-0.55 = 50% WR coin flip, cut it
     MIN_ENTRY_PRICE = 0.15       # V3.6: <$0.15 = 16.7% WR, -$40 loss — hard floor
     MIN_KL_DIVERGENCE = 0.15     # V3.4: KL<0.15 = 36% WR vs 67% above (96 paper trades)
@@ -1477,6 +1480,13 @@ class TALiveTrader:
                         print(f"  [{asset}] V3.9: BTC DOWN contrarian (trend=BULLISH, price=${down_price:.2f}<$0.50)")
                         self._record_filter_shadow(asset, signal.side, down_price, market_id, question, "v39_btc_down_contrarian")
                         continue
+                # V3.10: SOL DOWN = 50% WR in paper (coin flip). Require higher edge.
+                if asset == "SOL" and signal.side == "DOWN":
+                    sol_edge = signal.edge_down if signal.edge_down else 0
+                    if sol_edge < self.SOL_DOWN_MIN_EDGE:
+                        print(f"  [{asset}] V3.10: SOL DOWN edge {sol_edge:.1%} < {self.SOL_DOWN_MIN_EDGE:.0%} (paper: 50% WR, need >=35%)")
+                        self._record_filter_shadow(asset, signal.side, down_price, market_id, question, "v310_sol_down_edge")
+                        continue
 
                 # === CONVICTION FILTERS (V3.3 PORT) ===
                 if not signal.side:
@@ -1610,7 +1620,8 @@ class TALiveTrader:
                     entry_price_nyu = up_price if signal.side == "UP" else down_price
                     nyu_result = self.nyu_model.calculate_volatility(entry_price_nyu, time_left)
                     # Adaptive threshold: high vol = more opportunity, relax gate
-                    nyu_threshold = {"low": 0.15, "medium": 0.10, "high": 0.05}.get(nyu_result.volatility_regime, 0.15)
+                    # V3.10: Shadow data showed 7/7 blocked = winners (+$21.99 missed). Loosened all tiers.
+                    nyu_threshold = {"low": 0.10, "medium": 0.05, "high": 0.02}.get(nyu_result.volatility_regime, 0.10)
                     if nyu_result.edge_score < nyu_threshold:
                         print(f"  [{asset}] NYU filter: edge={nyu_result.edge_score:.2f}<{nyu_threshold} (vol={nyu_result.volatility_regime})")
                         self._record_filter_shadow(asset, signal.side, entry_price_nyu, market_id, question, "nyu_vol")
@@ -2545,7 +2556,7 @@ class TALiveTrader:
         print(f"Live Assets: {', '.join(self.ASSETS.keys())} | Shadow: {', '.join(self.SHADOW_ASSETS.keys())}")
         print(f"Max {self.MAX_CONCURRENT_POSITIONS} concurrent | Edge>={self.MIN_EDGE:.0%}")
         print(f"HOURLY ML SIZING: Bayesian WR per hour -> reduce bad hours, boost good (after 10 trades)")
-        print(f"Filters: Edge>={self.MIN_EDGE:.0%} | Conf>={self.MIN_MODEL_CONFIDENCE:.0%} | KL>={self.MIN_KL_DIVERGENCE} | ATR(14)x1.5 | NYU>0.15")
+        print(f"Filters: Edge>={self.MIN_EDGE:.0%} | Conf>={self.MIN_MODEL_CONFIDENCE:.0%} | KL>={self.MIN_KL_DIVERGENCE} | ATR(14)x1.5 | NYU>0.10")
         print(f"UP: Dynamic max price (70%->$0.42, 80%->$0.48, 85%->$0.55) | Scaled conf for cheap entries")
         print(f"DOWN: Death zone $0.40-0.45=SKIP | Break-even conf for cheap | Momentum confirm >{self.DOWN_MIN_MOMENTUM_DROP}")
         print(f"NYU model: edge_score>0.15 (avoid 50% zone)")

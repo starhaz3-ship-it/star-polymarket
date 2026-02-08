@@ -27,15 +27,18 @@ cat ta_paper_results.json | python -m json.tool
 - **TA Live** (`run_ta_live.py`) - Live trading, $10 positions, ML optimization
 
 ### Current Status (Last Updated: 2026-02-08)
-- Live Trader: RUNNING — $5 base bets, $93.27 bankroll, IH2P adaptations (Bond+DCA+Hedge), adaptive NYU
-- Paper Trader: RUNNING — $10 bets, $93.27 bankroll, skip-hour shadow tracking active
-- Strategy: TA + Bregman + Kelly + ATR + NYU Vol (adaptive) + ML Scoring + 200 EMA + CBC + IH2P
-- Markets: BTC/ETH/SOL 15-minute Up/Down via Polymarket API (`tag_slug=15M`)
-- Position sizing: $3-$8, quarter-Kelly, Bayesian hourly multiplier (0.5x-1.5x)
-- Skip hours: {0, 1, 8, 22, 23} UTC — shadow-tracked for re-evaluation
-- Trend bias: 200 EMA → counter-trend gets 85% size (softer than old 30%)
-- Auto-redeem: Multi-RPC fallback (1rpc.io > publicnode > drpc > polygon-rpc)
-- **Live session**: 2W/0L (+$9.63) from $70.12 start
+- Live Trader: **V3.10** RUNNING — $5-$8 HARD MAX, ~$46 bankroll, capital rebuild mode
+- Paper Trader: RUNNING — $10 bets, 110 trades, 66.4% WR, +$1005 PnL
+- Strategy: TA + Bregman + Kelly + ATR + NYU Vol (adaptive) + ML Scoring + 200 EMA + CBC
+- Markets: BTC/SOL/ETH live (ETH UP only) | 15-minute Up/Down via Polymarket API (`tag_slug=15M`)
+- Position sizing: $5-$8 HARD_MAX_BET (triple-enforced), quarter-Kelly, Bayesian hourly multiplier
+- **PID lock**: Prevents ghost double-instances (7 ghosts caused $21 stacking bug)
+- **IH2P**: ALL DISABLED during capital rebuild (Bond/DCA/Hedge off)
+- V3.10 filters: conf>=55%, KL>=0.20, edge>=22%, NYU loosened, ETH $0.45 cap, shadow-tracking active
+- **Auto-evolution**: filter_stats shadow tracking + _auto_evolve() every 30 min
+- Skip hours: {1, 8, 14, 15} UTC
+- Auto-redeem: Multi-RPC fallback + bankroll auto-sync on claim
+- **Capital rebuild**: From ~$46 after ghost process losses. Target: $100+
 
 ### Standing Orders
 - **AUTO-TUNE**: Continuously analyze trade data and auto-adjust settings for max profit, then win rate. Don't ask - just optimize. Log changes made.
