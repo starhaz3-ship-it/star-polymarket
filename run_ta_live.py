@@ -349,7 +349,7 @@ class TALiveTrader:
     MIN_POSITION_SIZE = 5.0    # Floor $5
     MAX_POSITION_SIZE = 8.0    # Hard cap $8 — was $10, caused $21 bets with ghost processes
 
-    def __init__(self, dry_run: bool = False, bankroll: float = 53.57):
+    def __init__(self, dry_run: bool = False, bankroll: float = 45.04):
         self.dry_run = dry_run
         self.generator = TASignalGenerator()
         self.bregman = BregmanOptimizer(bankroll=bankroll)
@@ -1519,14 +1519,15 @@ class TALiveTrader:
                         elif up_price < 0.35:
                             up_conf_req = max(0.50, up_conf_req - 0.10)
 
-                        # Dynamic UP max price: high model confidence unlocks higher prices (V3.3)
-                        effective_up_max = self.MAX_ENTRY_PRICE
+                        # Dynamic UP max price: confidence unlocks higher prices (V3.3, softened V3.9)
+                        # Shadow data: v33_conviction blocked 75% winners at $0.49-$0.52. Loosening.
+                        effective_up_max = self.MAX_ENTRY_PRICE  # $0.45 base
                         if signal.model_up >= 0.85:
-                            effective_up_max = max(effective_up_max, 0.55)
-                        elif signal.model_up >= 0.80:
+                            effective_up_max = max(effective_up_max, 0.58)
+                        elif signal.model_up >= 0.75:
+                            effective_up_max = max(effective_up_max, 0.52)
+                        elif signal.model_up >= 0.65:
                             effective_up_max = max(effective_up_max, 0.48)
-                        elif signal.model_up >= 0.70:
-                            effective_up_max = max(effective_up_max, 0.42)
 
                         if signal.model_up < up_conf_req:
                             skip_reason = f"UP_conf_{signal.model_up:.0%}<{up_conf_req:.0%}"
