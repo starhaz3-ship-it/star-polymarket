@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-07T21:35:00+00:00",
-  "last_updated": "2026-02-08T05:27:57.111773+00:00",
+  "last_updated": "2026-02-08T06:16:14.898147+00:00",
   "dry_run": false,
   "trades": {
     "0x14c1c09233fc589e69dcbd77899d057faee0d0dbf3dbd59657c291829db0dc14_UP": {
@@ -156,22 +156,22 @@
         "_atr_ratio": 1.17,
         "_atr_high": false
       },
-      "exit_price": null,
-      "exit_time": null,
-      "pnl": 0.0,
-      "status": "open",
+      "exit_price": 0.485,
+      "exit_time": "2026-02-08T05:30:17.972365+00:00",
+      "pnl": 2.4986301369863,
+      "status": "closed",
       "order_id": "0x70884429088da23040554a36b9f1d4fc93043ca765807200698f19b2af43f310",
       "execution_error": null
     }
   },
-  "total_pnl": 10.622499554287753,
-  "wins": 2,
+  "total_pnl": 13.121129691274053,
+  "wins": 3,
   "losses": 1,
-  "signals_count": 442,
+  "signals_count": 460,
   "ml_rejections": 0,
-  "consecutive_wins": 0,
-  "consecutive_losses": 1,
-  "bankroll": 132.19249955428776,
+  "consecutive_wins": 1,
+  "consecutive_losses": 0,
+  "bankroll": 134.69112969127406,
   "ml_win_features": [
     {
       "rsi": 75.01117318435779,
@@ -213,6 +213,27 @@
       "_full_size": 8.0,
       "_with_trend": false,
       "_atr_ratio": 0.77,
+      "_atr_high": false
+    },
+    {
+      "rsi": 60.447761194029475,
+      "rsi_slope": 0.0,
+      "vwap_distance": 0.04891829250483797,
+      "vwap_slope": 0.021840412917653238,
+      "heiken_count": 2,
+      "heiken_bullish": true,
+      "macd_histogram": 0.0,
+      "macd_expanding": false,
+      "time_remaining": 6.113915733333333,
+      "model_confidence": 0.6415010031746031,
+      "kl_divergence": 0.438348967219807,
+      "kelly_fraction": 0.25,
+      "market_edge": 45.57505015873016,
+      "btc_1h_change": 0.2642617248122541,
+      "btc_volatility": 0.07626222021254538,
+      "_full_size": 7.6,
+      "_with_trend": true,
+      "_atr_ratio": 1.17,
       "_atr_high": false
     }
   ],
@@ -301,9 +322,9 @@
       "pnl": 11.483259047958638
     },
     "5": {
-      "wins": 0,
+      "wins": 1,
       "losses": 1,
-      "pnl": -0.8607594936708862
+      "pnl": 1.6378706433154138
     },
     "6": {
       "wins": 0,

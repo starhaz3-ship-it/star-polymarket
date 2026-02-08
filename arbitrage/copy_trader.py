@@ -80,6 +80,8 @@ class CopyTrader:
         "betwick": "0xc851cd9bee7d262afd78674f861f9f576a12cd2a",  # @poly_matches smart trader, $10K+ positions
         "MEPP": "0x6d9fc316c3b8377060a44b852ba664adbfd59790",  # @poly_matches smart trader, $10K+ positions
         "RememberAmalek": "0x6139c42e48cf190e67a0a85d492413b499336b7a",  # @poly_matches smart trader
+        "Trim-Trowel": "0xcb3143ee858e14d0b3fe40ffeaea78416e646b02",  # 620 trades, $630K portfolio
+        "tbs8t": "0x4bd74aef0ee5f1ec0718890f55c15f047e28373e",  # 82 markets, $1.15M portfolio
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]
