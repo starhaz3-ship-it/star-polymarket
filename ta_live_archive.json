@@ -25235,6 +25235,45 @@
       "order_id": "0x7b06ca40f70d195c29139dea57c9d6ba32d5779a8015fa1f6159e999d3363e31",
       "execution_error": null,
       "archived_at": "2026-02-08T02:31:00.327973+00:00"
+    },
+    {
+      "trade_id": "0xc36ab853430978ac8b3dc6cb40d07088794e47bbfaa8c948f11334e101b93108_UP",
+      "market_id": "0xc36ab853430978ac8b3dc6cb40d07088794e47bbfaa8c948f11334e101b93108",
+      "market_title": "[ETH] Ethereum Up or Down - February 7, 10:00PM-10:15PM ET",
+      "side": "UP",
+      "entry_price": 0.185,
+      "entry_time": "2026-02-08T03:07:28.373618+00:00",
+      "size_usd": 6.8,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.606462855,
+      "kl_divergence": 0.8661618057058653,
+      "kelly_fraction": 0.25,
+      "features": {
+        "rsi": 53.183747725895074,
+        "rsi_slope": 0.0,
+        "vwap_distance": 0.01061838589090058,
+        "vwap_slope": 0.04888315699609949,
+        "heiken_count": 1,
+        "heiken_bullish": true,
+        "macd_histogram": 0.0,
+        "macd_expanding": false,
+        "time_remaining": 7.5366861,
+        "model_confidence": 0.58292571,
+        "kl_divergence": 0.8661618057058653,
+        "kelly_fraction": 0.25,
+        "market_edge": 60.6462855,
+        "btc_1h_change": -0.4286764495278839,
+        "btc_volatility": 0.06774695204061679,
+        "_full_size": 8.0,
+        "_with_trend": false
+      },
+      "exit_price": 0.455,
+      "exit_time": "2026-02-08T03:15:57.293450+00:00",
+      "pnl": 9.924324324324324,
+      "status": "closed",
+      "order_id": "0xbd18981b4a5e19d3962e50b1ea10e5a3144b444d684d5c7068a7b23569831f55",
+      "execution_error": null,
+      "archived_at": "2026-02-08T03:15:58.344499+00:00"
     }
   ]
 }

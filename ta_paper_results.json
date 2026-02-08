@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-06T02:50:00.000000+00:00",
-  "last_updated": "2026-02-08T02:35:41.235982+00:00",
+  "last_updated": "2026-02-08T03:46:49.820605+00:00",
   "trades": {
     "0x1fb81f426bb06ab8bdfe5c070d98e7b400ac9cf7a89a0a6ef18a87005a583360_DOWN": {
       "trade_id": "0x1fb81f426bb06ab8bdfe5c070d98e7b400ac9cf7a89a0a6ef18a87005a583360_DOWN",
@@ -1747,12 +1747,30 @@
       "exit_time": "2026-02-08T02:31:29.600610+00:00",
       "pnl": -14.117647058823529,
       "status": "closed"
+    },
+    "0xc36ab853430978ac8b3dc6cb40d07088794e47bbfaa8c948f11334e101b93108_UP": {
+      "trade_id": "0xc36ab853430978ac8b3dc6cb40d07088794e47bbfaa8c948f11334e101b93108_UP",
+      "market_title": "Ethereum Up or Down - February 7, 10:00PM-10:15PM ET",
+      "side": "UP",
+      "entry_price": 0.185,
+      "entry_time": "2026-02-08T03:07:04.633474+00:00",
+      "size_usd": 20.0,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.45965874958333336,
+      "kl_divergence": 0.5097974476139147,
+      "kelly_fraction": 0.25,
+      "guaranteed_profit": 0.5097974476139147,
+      "market_numeric_id": "1349818",
+      "exit_price": 0.455,
+      "exit_time": "2026-02-08T03:15:26.984723+00:00",
+      "pnl": 29.189189189189193,
+      "status": "closed"
     }
   },
-  "total_pnl": 661.9735815977818,
-  "wins": 60,
+  "total_pnl": 691.162770786971,
+  "wins": 61,
   "losses": 37,
-  "signals_count": 601,
+  "signals_count": 635,
   "arb_trades": {},
   "arb_stats": {
     "wins": 0,
@@ -1776,9 +1794,9 @@
       "pnl": -14.117647058823529
     },
     "3": {
-      "wins": 0,
+      "wins": 1,
       "losses": 0,
-      "pnl": 0.0
+      "pnl": 29.189189189189193
     },
     "4": {
       "wins": 0,
