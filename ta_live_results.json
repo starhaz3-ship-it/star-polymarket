@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-07T21:35:00+00:00",
-  "last_updated": "2026-02-08T02:35:33.509049+00:00",
+  "last_updated": "2026-02-08T03:24:28.028571+00:00",
   "dry_run": false,
   "trades": {
     "0x9f8e13e8ea48e319ec788592b20812f72ee2364ae25f8fde51079f886828cf03_DOWN": {
@@ -34,12 +34,13 @@
         "_full_size": 7.23,
         "_with_trend": false
       },
-      "exit_price": 0.505,
+      "exit_price": 1.0,
       "exit_time": "2026-02-07T21:45:59.343120+00:00",
-      "pnl": 1.9168831168831169,
+      "pnl": 9.824025974025973,
       "status": "closed",
       "order_id": "0x434fb6d002f72388f9ead978b49ae3bf28804965ebaeb7f05618b5b576c954c0",
-      "execution_error": null
+      "execution_error": null,
+      "_csv_note": "Redeemed $64.72 on-chain. Bot tracked $6.15 of $18.77 total."
     },
     "0x68adb9fcc03ad748a91391c12bac384b242ddfe17712e621b9f0e09e8e15901c_DOWN": {
       "trade_id": "0x68adb9fcc03ad748a91391c12bac384b242ddfe17712e621b9f0e09e8e15901c_DOWN",
@@ -72,12 +73,13 @@
         "_full_size": 6.5,
         "_with_trend": false
       },
-      "exit_price": 0.875,
+      "exit_price": 1.0,
       "exit_time": "2026-02-07T21:46:00.607106+00:00",
-      "pnl": 7.712876712328768,
+      "pnl": 9.603287671232877,
       "status": "closed",
       "order_id": "0xb3d9254c26ca802b2e8e27e82430b5c40022963cca262fb60e18cda8513e010c",
-      "execution_error": null
+      "execution_error": null,
+      "_csv_note": "Redeemed $24.00 on-chain. Bot tracked $5.52 of $8.64 total."
     },
     "0xdabd16a9969980aec44f650ccbbc79ba910e507a6ce1eb5478506544f9153f2c_UP": {
       "trade_id": "0xdabd16a9969980aec44f650ccbbc79ba910e507a6ce1eb5478506544f9153f2c_UP",
@@ -110,12 +112,13 @@
         "_full_size": 6.86,
         "_with_trend": true
       },
-      "exit_price": 0.455,
+      "exit_price": 1.0,
       "exit_time": "2026-02-07T22:49:35.654159+00:00",
-      "pnl": 0.0,
+      "pnl": 8.216923076923075,
       "status": "closed",
       "order_id": "0x7baf7d9d4787a1c856eab54a24d710af079e98f93906385479437b34cb0a3dc8",
-      "execution_error": null
+      "execution_error": null,
+      "_csv_note": "CSV CORRECTION: UP won, redeemed $42.83. Was recorded as pnl=0 push."
     },
     "0xb6c0d44c1899da28134678464fbde8fca6c8c4f01342933960fe8e34c4e83bfe_UP": {
       "trade_id": "0xb6c0d44c1899da28134678464fbde8fca6c8c4f01342933960fe8e34c4e83bfe_UP",
@@ -148,12 +151,13 @@
         "_full_size": 7.12,
         "_with_trend": true
       },
-      "exit_price": 0.285,
+      "exit_price": 0.0,
       "exit_time": "2026-02-07T22:49:35.654159+00:00",
-      "pnl": 0.0,
+      "pnl": -7.12,
       "status": "closed",
       "order_id": "0x6f4214f97647725b23b0cab544912ff5174b94102e3264221a93ef85be893585",
-      "execution_error": null
+      "execution_error": null,
+      "_csv_note": "CSV CORRECTION: UP lost, no redeem on-chain. Was recorded as pnl=0 push."
     },
     "0x0d891c37f08e96371614247d5009a7079686c1cb6aecd4f604a8d3a5376aea62_UP": {
       "trade_id": "0x0d891c37f08e96371614247d5009a7079686c1cb6aecd4f604a8d3a5376aea62_UP",
@@ -186,9 +190,9 @@
         "_full_size": 7.89,
         "_with_trend": false
       },
-      "exit_price": 0.765,
+      "exit_price": 1.0,
       "exit_time": "2026-02-08T01:00:36.203861+00:00",
-      "pnl": 2.4000000000000004,
+      "pnl": 4.0588235294117645,
       "status": "closed",
       "order_id": "0xc74f93f62894b7fdbc553d712389a4a81cb72d5228e9bf51fbca1c88463e1f5f",
       "execution_error": null
@@ -224,9 +228,9 @@
         "_full_size": 8.0,
         "_with_trend": true
       },
-      "exit_price": 0.855,
+      "exit_price": 1.0,
       "exit_time": "2026-02-08T02:00:09.305236+00:00",
-      "pnl": 3.333333333333332,
+      "pnl": 4.4074074074074066,
       "status": "closed",
       "order_id": "0xf453f85bb1c42cf2f901044400ed6e2643c2ce375e79dfc78303a08c30a45dce",
       "execution_error": null
@@ -262,12 +266,13 @@
         "_full_size": 8.0,
         "_with_trend": true
       },
-      "exit_price": 0.785,
+      "exit_price": 1.0,
       "exit_time": "2026-02-08T02:00:10.083426+00:00",
-      "pnl": 3.0384615384615383,
+      "pnl": 4.692307692307692,
       "status": "closed",
       "order_id": "0x7a1d472ec7ff74eaf97438b1a4f3e3d56e1711aa42b7966dbc0f8511a5147a6c",
-      "execution_error": null
+      "execution_error": null,
+      "_csv_note": "Redeemed $7.00 on-chain."
     },
     "0xffdb3c38876f98544ad78cf89ff591cb6f1800931dfedb2dce332afc1c977f31_UP": {
       "trade_id": "0xffdb3c38876f98544ad78cf89ff591cb6f1800931dfedb2dce332afc1c977f31_UP",
@@ -300,9 +305,9 @@
         "_full_size": 7.66,
         "_with_trend": true
       },
-      "exit_price": 0.875,
+      "exit_price": 1.0,
       "exit_time": "2026-02-08T02:30:58.310807+00:00",
-      "pnl": 8.110588235294117,
+      "pnl": 10.363529411764706,
       "status": "closed",
       "order_id": "0x43c6f01b49caa12e8f1fdb6957e7ca3e03048ab862e677c77dad283c2b5802f6",
       "execution_error": null
@@ -338,22 +343,61 @@
         "_full_size": 8.0,
         "_with_trend": true
       },
-      "exit_price": 0.925,
+      "exit_price": 1.0,
       "exit_time": "2026-02-08T02:30:59.629935+00:00",
-      "pnl": 10.734177215189874,
+      "pnl": 12.253164556962023,
       "status": "closed",
       "order_id": "0x7b06ca40f70d195c29139dea57c9d6ba32d5779a8015fa1f6159e999d3363e31",
       "execution_error": null
+    },
+    "0xc36ab853430978ac8b3dc6cb40d07088794e47bbfaa8c948f11334e101b93108_UP": {
+      "trade_id": "0xc36ab853430978ac8b3dc6cb40d07088794e47bbfaa8c948f11334e101b93108_UP",
+      "market_id": "0xc36ab853430978ac8b3dc6cb40d07088794e47bbfaa8c948f11334e101b93108",
+      "market_title": "[ETH] Ethereum Up or Down - February 7, 10:00PM-10:15PM ET",
+      "side": "UP",
+      "entry_price": 0.185,
+      "entry_time": "2026-02-08T03:07:28.373618+00:00",
+      "size_usd": 6.8,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.606462855,
+      "kl_divergence": 0.8661618057058653,
+      "kelly_fraction": 0.25,
+      "features": {
+        "rsi": 53.183747725895074,
+        "rsi_slope": 0.0,
+        "vwap_distance": 0.01061838589090058,
+        "vwap_slope": 0.04888315699609949,
+        "heiken_count": 1,
+        "heiken_bullish": true,
+        "macd_histogram": 0.0,
+        "macd_expanding": false,
+        "time_remaining": 7.5366861,
+        "model_confidence": 0.58292571,
+        "kl_divergence": 0.8661618057058653,
+        "kelly_fraction": 0.25,
+        "market_edge": 60.6462855,
+        "btc_1h_change": -0.4286764495278839,
+        "btc_volatility": 0.06774695204061679,
+        "_full_size": 8.0,
+        "_with_trend": false
+      },
+      "exit_price": 0.17,
+      "exit_time": "2026-02-08T03:15:57.293450+00:00",
+      "pnl": -0.5513513513513508,
+      "status": "closed",
+      "order_id": "0xbd18981b4a5e19d3962e50b1ea10e5a3144b444d684d5c7068a7b23569831f55",
+      "execution_error": null,
+      "_csv_note": "Sold at $0.17 via CLOB. ETH went down, UP lost."
     }
   },
-  "total_pnl": 37.24632015149075,
-  "wins": 7,
-  "losses": 0,
-  "signals_count": 194,
+  "total_pnl": 55.74811796868417,
+  "wins": 8,
+  "losses": 2,
+  "signals_count": 240,
   "ml_rejections": 0,
-  "consecutive_wins": 7,
+  "consecutive_wins": 0,
   "consecutive_losses": 0,
-  "bankroll": 107.36632015149074,
+  "bankroll": 125.86811796868417,
   "ml_win_features": [
     {
       "rsi": 50.683694872951406,
@@ -487,9 +531,48 @@
       "btc_volatility": 0.0709755089394671,
       "_full_size": 8.0,
       "_with_trend": true
+    },
+    {
+      "rsi": 53.183747725895074,
+      "rsi_slope": 0.0,
+      "vwap_distance": 0.01061838589090058,
+      "vwap_slope": 0.04888315699609949,
+      "heiken_count": 1,
+      "heiken_bullish": true,
+      "macd_histogram": 0.0,
+      "macd_expanding": false,
+      "time_remaining": 7.5366861,
+      "model_confidence": 0.58292571,
+      "kl_divergence": 0.8661618057058653,
+      "kelly_fraction": 0.25,
+      "market_edge": 60.6462855,
+      "btc_1h_change": -0.4286764495278839,
+      "btc_volatility": 0.06774695204061679,
+      "_full_size": 8.0,
+      "_with_trend": false
     }
   ],
-  "ml_loss_features": [],
+  "ml_loss_features": [
+    {
+      "rsi": 42.64058679706508,
+      "rsi_slope": 0.0,
+      "vwap_distance": 0.024742597431677418,
+      "vwap_slope": -0.1656475642506747,
+      "heiken_count": 2,
+      "heiken_bullish": true,
+      "macd_histogram": 0.0,
+      "macd_expanding": false,
+      "time_remaining": 3.3254734,
+      "model_confidence": 0.13493934904761895,
+      "kl_divergence": 0.173412542428174,
+      "kelly_fraction": 0.25,
+      "market_edge": 28.24696745238095,
+      "btc_1h_change": -0.02948996627679144,
+      "btc_volatility": 0.07434292141695924,
+      "_full_size": 7.12,
+      "_with_trend": true
+    }
+  ],
   "ml_weights": {
     "rsi_oversold": 1.0,
     "vwap_distance": 1.0,
@@ -546,16 +629,79 @@
       "exit_price": 0.855,
       "pnl": 5.555555555555555,
       "exit_time": "2026-02-08T02:00:10.082424+00:00"
+    },
+    "shadow_atr_0xbdcd40b012d35bffd7e43c5f9f494119e20356c7c296405c5372568d6065d28a_DOWN": {
+      "trade_key": "shadow_atr_0xbdcd40b012d35bffd7e43c5f9f494119e20356c7c296405c5372568d6065d28a_DOWN",
+      "market_id": "0xbdcd40b012d35bffd7e43c5f9f494119e20356c7c296405c5372568d6065d28a",
+      "market_title": "Bitcoin Up or Down - February 7, 9:45PM-10:00PM ET",
+      "asset": "BTC",
+      "side": "DOWN",
+      "entry_price": 0.465,
+      "entry_time": "2026-02-08T02:54:42.108153+00:00",
+      "size_usd": 5.0,
+      "filter_reason": "atr_volatility",
+      "atr_ratio": 1.92,
+      "status": "closed",
+      "exit_price": 0.815,
+      "pnl": 3.763440860215052,
+      "exit_time": "2026-02-08T03:00:01.669608+00:00"
+    },
+    "shadow_atr_0xb9c94b20b144741a8b119dec2f1b2e924ac80a3732cc8e6fe45b73613ae6d262_DOWN": {
+      "trade_key": "shadow_atr_0xb9c94b20b144741a8b119dec2f1b2e924ac80a3732cc8e6fe45b73613ae6d262_DOWN",
+      "market_id": "0xb9c94b20b144741a8b119dec2f1b2e924ac80a3732cc8e6fe45b73613ae6d262",
+      "market_title": "Ethereum Up or Down - February 7, 9:45PM-10:00PM ET",
+      "asset": "ETH",
+      "side": "DOWN",
+      "entry_price": 0.525,
+      "entry_time": "2026-02-08T02:54:42.108153+00:00",
+      "size_usd": 5.0,
+      "filter_reason": "atr_volatility",
+      "atr_ratio": 1.85,
+      "status": "closed",
+      "exit_price": 0.895,
+      "pnl": 3.5238095238095237,
+      "exit_time": "2026-02-08T03:00:01.669608+00:00"
+    },
+    "shadow_atr_0x0aced991f2f9f9a806e0fa519ad464de2a47b1330b864c05e57e14a3a1d0c293_DOWN": {
+      "trade_key": "shadow_atr_0x0aced991f2f9f9a806e0fa519ad464de2a47b1330b864c05e57e14a3a1d0c293_DOWN",
+      "market_id": "0x0aced991f2f9f9a806e0fa519ad464de2a47b1330b864c05e57e14a3a1d0c293",
+      "market_title": "Solana Up or Down - February 7, 9:45PM-10:00PM ET",
+      "asset": "SOL",
+      "side": "DOWN",
+      "entry_price": 0.465,
+      "entry_time": "2026-02-08T02:54:42.109159+00:00",
+      "size_usd": 5.0,
+      "filter_reason": "atr_volatility",
+      "atr_ratio": 2.0,
+      "status": "closed",
+      "exit_price": 0.91,
+      "pnl": 4.78494623655914,
+      "exit_time": "2026-02-08T03:00:01.669608+00:00"
+    },
+    "shadow_atr_0xe438493b99d3ebd5a02f4bdab3d77fc21019671c7a27f1809db98cc7a7fc9eca_UP": {
+      "trade_key": "shadow_atr_0xe438493b99d3ebd5a02f4bdab3d77fc21019671c7a27f1809db98cc7a7fc9eca_UP",
+      "market_id": "0xe438493b99d3ebd5a02f4bdab3d77fc21019671c7a27f1809db98cc7a7fc9eca",
+      "market_title": "Solana Up or Down - February 7, 10:15PM-10:30PM ET",
+      "asset": "SOL",
+      "side": "UP",
+      "entry_price": 0.505,
+      "entry_time": "2026-02-08T03:22:20.860399+00:00",
+      "size_usd": 5.0,
+      "filter_reason": "atr_volatility",
+      "atr_ratio": 1.61,
+      "status": "open",
+      "exit_price": null,
+      "pnl": 0.0
     }
   },
   "shadow_stats": {
-    "atr_blocked": 3,
-    "atr_blocked_wins": 2,
+    "atr_blocked": 7,
+    "atr_blocked_wins": 5,
     "atr_blocked_losses": 0,
-    "atr_blocked_pnl": 10.555555555555555,
-    "trend_bias_trades": 3,
-    "trend_bias_actual_pnl": 18.401554701006756,
-    "trend_bias_full_pnl": 34.6391512657814
+    "atr_blocked_pnl": 22.62775217613927,
+    "trend_bias_trades": 4,
+    "trend_bias_actual_pnl": 28.32587902533108,
+    "trend_bias_full_pnl": 46.31482694145708
   },
   "hourly_stats": {
     "0": {
@@ -574,9 +720,9 @@
       "pnl": 18.84476545048399
     },
     "3": {
-      "wins": 0,
+      "wins": 1,
       "losses": 0,
-      "pnl": 0.0
+      "pnl": 9.924324324324324
     },
     "4": {
       "wins": 0,
@@ -666,17 +812,18 @@
     "21": {
       "wins": 2,
       "losses": 0,
-      "pnl": 9.629759829211885
+      "pnl": 19.43
     },
     "22": {
-      "wins": 0,
-      "losses": 0,
-      "pnl": 0.0
+      "wins": 1,
+      "losses": 1,
+      "pnl": 1.1
     },
     "23": {
       "wins": 0,
       "losses": 0,
       "pnl": 0.0
     }
-  }
+  },
+  "_csv_reconciled": "2026-02-07 Polymarket-History CSV"
 }
