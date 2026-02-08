@@ -1209,7 +1209,7 @@ class TALiveTrader:
     UP_MIN_CONFIDENCE = 0.56     # Match paper tuner (was 0.75)
     UP_MIN_EDGE = 0.20           # Match paper (was 0.40)
     UP_RSI_MIN = 45              # Relaxed to match paper (was 60)
-    CANDLE_LOOKBACK = 15         # Same as paper
+    CANDLE_LOOKBACK = 120        # V3.6b: Was 15 — killed MACD(35), TTM(25), EMA Cross(20), RSI slope. Now all 9 indicators active.
     DOWN_MIN_MOMENTUM_DROP = 0.001  # Match paper tuner (was -0.002, more permissive)
 
     # Risk management - matched to paper volumes

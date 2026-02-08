@@ -769,7 +769,7 @@ class TAPaperTrader:
     MIN_TIME_REMAINING = 5.0     # V3.4: 2-5min = 47% WR; 5-12min = 83% WR (96 paper trades)
     MAX_ENTRY_PRICE = 0.45       # V3.6: $0.45-0.55 = 50% WR coin flip, cut it
     MIN_ENTRY_PRICE = 0.15       # V3.6: <$0.15 = 16.7% WR, -$40 loss — hard floor
-    CANDLE_LOOKBACK = 15         # Only use last 15 minutes of price action
+    CANDLE_LOOKBACK = 120        # V3.6b: Was 15 — killed MACD(35), TTM(25), EMA Cross(20), RSI slope. Now all 9 indicators active.
 
     def _get_price_momentum(self, candles: List, lookback: int = 5) -> float:
         """Calculate recent price momentum (% change over lookback candles)."""
