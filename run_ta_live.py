@@ -301,20 +301,21 @@ def _get_poly_web3_service():
 
 def auto_redeem_winnings():
     """Auto-redeem resolved WINNING positions to USDC via Polymarket's gasless relayer.
-    Uses poly-web3 package with Builder API credentials."""
+    Uses poly-web3 package with Builder API credentials.
+    Returns: float amount of USDC claimed (0.0 if nothing claimed)."""
     try:
         proxy_address = os.getenv("POLYMARKET_PROXY_ADDRESS", "")
         if not proxy_address:
-            return
+            return 0.0
 
         service = _get_poly_web3_service()
         if not service:
-            return
+            return 0.0
 
         # Check for redeemable positions
         positions = service.fetch_positions(user_address=proxy_address)
         if not positions:
-            return
+            return 0.0
 
         total_shares = sum(float(p.get("size", 0) or 0) for p in positions)
         print(f"[REDEEM] Found {len(positions)} winning positions ({total_shares:.0f} shares, ~${total_shares:.2f} USDC)")
@@ -328,12 +329,15 @@ def auto_redeem_winnings():
                     tx_hash = r.get("transactionHash", "?")[:20]
                     state = r.get("state", "?")
                     print(f"[REDEEM]   tx={tx_hash}... state={state}")
+            return total_shares
         else:
             print(f"[REDEEM] No claims succeeded this cycle")
+            return 0.0
 
     except Exception as e:
         if "No winning" not in str(e):
             print(f"[REDEEM] Error: {str(e)[:80]}")
+        return 0.0
 
 
 class TALiveTrader:
@@ -349,7 +353,7 @@ class TALiveTrader:
     MIN_POSITION_SIZE = 5.0    # Floor $5
     MAX_POSITION_SIZE = 8.0    # Hard cap $8 — was $10, caused $21 bets with ghost processes
 
-    def __init__(self, dry_run: bool = False, bankroll: float = 45.04):
+    def __init__(self, dry_run: bool = False, bankroll: float = 54.01):
         self.dry_run = dry_run
         self.generator = TASignalGenerator()
         self.bregman = BregmanOptimizer(bankroll=bankroll)
@@ -2563,7 +2567,11 @@ class TALiveTrader:
                 # Auto-redeem check every 30 seconds
                 if not self.dry_run and now - last_redeem_check >= 30:
                     try:
-                        auto_redeem_winnings()
+                        claimed = auto_redeem_winnings()
+                        if claimed and claimed > 0:
+                            self.bankroll += claimed
+                            print(f"[BANKROLL] +${claimed:.2f} redeemed -> ${self.bankroll:.2f}")
+                            self._save()
                     except Exception as e:
                         if "No winning" not in str(e):
                             print(f"[REDEEM] Error: {e}")
