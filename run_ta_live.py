@@ -1376,10 +1376,11 @@ class TALiveTrader:
                     print(f"  [{asset}] V3.3 filter: {skip_reason}")
                     continue
 
-                # === EDGE FILTER ===
+                # === EDGE FILTER (relaxed during skip hours) ===
                 best_edge = signal.edge_up if signal.side == "UP" else signal.edge_down
-                if best_edge is not None and best_edge < self.MIN_EDGE:
-                    print(f"  [{asset}] Edge too small: {best_edge:.1%} < {self.MIN_EDGE:.0%}")
+                edge_floor = 0.15 if is_skip_hour else self.MIN_EDGE
+                if best_edge is not None and best_edge < edge_floor:
+                    print(f"  [{asset}] Edge too small: {best_edge:.1%} < {edge_floor:.0%}")
                     continue
 
                 # === ATR VOLATILITY FILTER (with shadow tracking) ===
@@ -1452,9 +1453,9 @@ class TALiveTrader:
                             market_no_price=down_price
                         )
 
-                        # === KL DIVERGENCE FILTER (V3.4) ===
+                        # === KL DIVERGENCE FILTER (V3.4, skipped during skip hours) ===
                         # KL < 0.15 = 36% WR (model agrees with market = no edge)
-                        if bregman_signal.kl_divergence < self.MIN_KL_DIVERGENCE:
+                        if not is_skip_hour and bregman_signal.kl_divergence < self.MIN_KL_DIVERGENCE:
                             print(f"  [{asset}] KL too low: {bregman_signal.kl_divergence:.3f} < {self.MIN_KL_DIVERGENCE}")
                             continue
 
