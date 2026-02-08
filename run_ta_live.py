@@ -406,6 +406,9 @@ class TALiveTrader:
             "dca_topups": 0, "dca_topup_pnl": 0.0,
             "hedge_trades": 0, "hedge_wins": 0, "hedge_losses": 0, "hedge_pnl": 0.0,
         }
+        # === FILTER REJECTION TRACKING (V3.9) ===
+        # Every filter rejection creates a shadow trade to measure filter effectiveness
+        self.filter_stats: Dict[str, dict] = {}  # {filter_name: {blocked, wins, losses, pnl}}
 
         # Executor for live trading
         self.executor = None
@@ -457,6 +460,9 @@ class TALiveTrader:
                 # Merge saved stats into defaults (preserves new keys)
                 for k, v in saved_stats.items():
                     self.shadow_stats[k] = v
+
+                # Load filter rejection stats (V3.9)
+                self.filter_stats = data.get("filter_stats", {})
 
                 # Restore IH2P feature flags from saved state
                 ih2p = data.get("ih2p_features", {})
@@ -587,6 +593,7 @@ class TALiveTrader:
             "ml_weights": self.ml.feature_weights,
             "shadow_trades": self.shadow_trades,
             "shadow_stats": self.shadow_stats,
+            "filter_stats": self.filter_stats,
             "hourly_stats": self.hourly_stats,
             "ih2p_features": {
                 "bond_enabled": self.BOND_MODE_ENABLED,
@@ -631,8 +638,8 @@ class TALiveTrader:
             print(f"[Archive] Error: {e}")
 
     # Multi-asset configuration
-    # V3.5: ETH removed from live (1W/12L, 8% WR, -$70.81 overnight)
-    # ETH still paper-tracked via SHADOW_ASSETS for re-evaluation
+    # V3.9: ETH promoted to live (UP only). Paper: 70% WR on ETH UP, +$158 over 20 trades.
+    # ETH DOWN stays blocked (47.1% WR in paper — not worth the risk during capital rebuild).
     ASSETS = {
         "BTC": {
             "symbol": "BTCUSDT",
@@ -642,14 +649,16 @@ class TALiveTrader:
             "symbol": "SOLUSDT",
             "keywords": ["solana", "sol"],
         },
-    }
-    # Shadow-only assets: fetched + signals generated + logged, but NEVER executed
-    SHADOW_ASSETS = {
         "ETH": {
             "symbol": "ETHUSDT",
             "keywords": ["ethereum", "eth"],
         },
     }
+    # Shadow-only assets: fetched + signals generated + logged, but NEVER executed
+    SHADOW_ASSETS = {}
+    # ETH-specific constraints (V3.9)
+    ETH_UP_ONLY = True  # Only allow UP trades on ETH (70% WR vs 47% DOWN)
+    ETH_MAX_PRICE = 0.40  # ETH best in $0.15-$0.40 range
 
     # Directional bias based on 200 EMA trend
     # Below 200 EMA = bearish: 70% capital on DOWN, 30% on UP
@@ -1447,6 +1456,24 @@ class TALiveTrader:
                 if self.DOWN_ONLY_MODE and signal.side == "UP":
                     continue  # Silent skip - don't spam logs
 
+                # === V3.9: ETH UP-ONLY + BTC DOWN CONTRARIAN BLOCK ===
+                # ETH DOWN = 47.1% WR in paper. Only allow UP (70% WR).
+                if asset == "ETH" and self.ETH_UP_ONLY and signal.side == "DOWN":
+                    continue  # Silent skip
+                # ETH max price (best in $0.15-$0.40 range, $0.40-$0.50 = 50% WR)
+                if asset == "ETH" and signal.side == "UP" and up_price > self.ETH_MAX_PRICE:
+                    print(f"  [{asset}] V3.9: ETH UP price ${up_price:.2f} > ${self.ETH_MAX_PRICE} cap")
+                    self._record_filter_shadow(asset, signal.side, up_price, market_id, question, "v39_eth_price")
+                    continue
+                # BTC DOWN contrarian: both live BTC DOWN losses were against uptrend.
+                # Require with-trend OR entry > $0.50 for BTC DOWN.
+                if asset == "BTC" and signal.side == "DOWN":
+                    btc_trend = self._get_trend_bias(candles, price)
+                    if btc_trend == "BULLISH" and down_price < 0.50:
+                        print(f"  [{asset}] V3.9: BTC DOWN contrarian (trend=BULLISH, price=${down_price:.2f}<$0.50)")
+                        self._record_filter_shadow(asset, signal.side, down_price, market_id, question, "v39_btc_down_contrarian")
+                        continue
+
                 # === CONVICTION FILTERS (V3.3 PORT) ===
                 if not signal.side:
                     print(f"  [{asset}] No signal side (action={signal.action}) | mkt UP=${up_price:.2f} DOWN=${down_price:.2f} | {time_left:.1f}min | reason={signal.reason}")
@@ -1537,6 +1564,8 @@ class TALiveTrader:
 
                 if skip_reason and not is_bond_trade:
                     print(f"  [{asset}] V3.3 filter: {skip_reason}")
+                    ep = up_price if signal.side == "UP" else down_price
+                    self._record_filter_shadow(asset, signal.side, ep, market_id, question, "v33_conviction")
                     continue
 
                 # === EDGE FILTER (with low-edge circuit breaker) ===
@@ -1552,6 +1581,8 @@ class TALiveTrader:
                 if best_edge is not None and best_edge < edge_floor and not is_bond_trade:
                     lock_tag = " [LOCKOUT]" if low_edge_locked else ""
                     print(f"  [{asset}] Edge too small: {best_edge:.1%} < {edge_floor:.0%}{lock_tag}")
+                    ep = up_price if signal.side == "UP" else down_price
+                    self._record_filter_shadow(asset, signal.side, ep, market_id, question, "edge_floor")
                     continue
                 is_low_edge = best_edge is not None and best_edge < self.LOW_EDGE_THRESHOLD
 
@@ -1577,6 +1608,7 @@ class TALiveTrader:
                     nyu_threshold = {"low": 0.15, "medium": 0.10, "high": 0.05}.get(nyu_result.volatility_regime, 0.15)
                     if nyu_result.edge_score < nyu_threshold:
                         print(f"  [{asset}] NYU filter: edge={nyu_result.edge_score:.2f}<{nyu_threshold} (vol={nyu_result.volatility_regime})")
+                        self._record_filter_shadow(asset, signal.side, entry_price_nyu, market_id, question, "nyu_vol")
                         continue
                     if nyu_result.recommended_action == "TRADE":
                         print(f"  [{asset}] NYU TRADE: edge={nyu_result.edge_score:.2f}, vol={nyu_result.instantaneous_volatility:.3f}")
@@ -1644,6 +1676,7 @@ class TALiveTrader:
                         kl_floor = 0.20  # V3.8: Data shows <0.20 is coin-flip territory
                         if bregman_signal.kl_divergence < kl_floor:
                             print(f"  [{asset}] KL too low: {bregman_signal.kl_divergence:.3f} < {kl_floor}")
+                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "kl_divergence")
                             continue
 
                         features = self.ml.extract_features(signal, bregman_signal, candles)
@@ -1654,6 +1687,7 @@ class TALiveTrader:
                         if ml_score < min_score:
                             self.ml_rejections += 1
                             print(f"[ML] {asset} Rejected: {signal.side} score={ml_score:.2f} < {min_score:.2f}")
+                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "ml_score")
                             continue
 
                         # === V3.8 DATA-DRIVEN FILTERS (103 paper + 6 live trades) ===
@@ -1664,6 +1698,7 @@ class TALiveTrader:
                         raw_conf = signal.model_up if signal.side == "UP" else signal.model_down
                         if raw_conf < 0.55:
                             print(f"  [{asset}] V3.8: Raw confidence too low: {raw_conf:.1%} < 55%")
+                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_confidence")
                             continue
 
                         # 2. VWAP ALIGNMENT FILTER
@@ -1674,10 +1709,12 @@ class TALiveTrader:
                         if signal.side == "DOWN" and vwap_dist > 0.15:
                             # Betting DOWN but price is well ABOVE VWAP = fighting the trend
                             print(f"  [{asset}] V3.8: VWAP misalign DOWN (vwap_dist={vwap_dist:+.3f} > +0.15)")
+                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_vwap")
                             continue
                         if signal.side == "UP" and vwap_dist < -0.15:
                             # Betting UP but price is well BELOW VWAP = fighting the trend
                             print(f"  [{asset}] V3.8: VWAP misalign UP (vwap_dist={vwap_dist:+.3f} < -0.15)")
+                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_vwap")
                             continue
 
                         # 3. HEIKEN ASHI CONTRADICTION VETO
@@ -1687,9 +1724,11 @@ class TALiveTrader:
                         ha_count = features.heiken_count
                         if signal.side == "UP" and not ha_bullish and ha_count >= 3:
                             print(f"  [{asset}] V3.8: Heiken contradiction (UP vs {ha_count} bearish candles)")
+                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_heiken")
                             continue
                         if signal.side == "DOWN" and ha_bullish and ha_count >= 3:
                             print(f"  [{asset}] V3.8: Heiken contradiction (DOWN vs {ha_count} bullish candles)")
+                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_heiken")
                             continue
 
                         # 4. ATR VOLATILITY GATE
@@ -1697,6 +1736,7 @@ class TALiveTrader:
                         # Require higher confidence in volatile markets.
                         if atr_ratio > 1.2 and raw_conf < 0.65:
                             print(f"  [{asset}] V3.8: High vol (ATR={atr_ratio:.1f}x) needs conf>65%, got {raw_conf:.1%}")
+                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_atr_vol")
                             continue
 
                         position_size = self.calculate_position_size(
@@ -1987,13 +2027,21 @@ class TALiveTrader:
                             shadow["status"] = "closed"
                             shadow["exit_time"] = datetime.now(timezone.utc).isoformat()
                             won = shadow["pnl"] > 0
-                            reason = shadow.get("filter_reason", "unknown")
+                            reason = shadow.get("filter_reason", shadow.get("reason", "unknown"))
                             if reason == "atr_volatility":
                                 if won:
                                     self.shadow_stats["atr_blocked_wins"] += 1
                                 else:
                                     self.shadow_stats["atr_blocked_losses"] += 1
                                 self.shadow_stats["atr_blocked_pnl"] += shadow["pnl"]
+                            # Track filter rejection stats (V3.9)
+                            fname = shadow.get("filter_name")
+                            if fname and fname in self.filter_stats:
+                                if won:
+                                    self.filter_stats[fname]["wins"] += 1
+                                else:
+                                    self.filter_stats[fname]["losses"] += 1
+                                self.filter_stats[fname]["pnl"] += shadow["pnl"]
                             result = "WIN" if won else "LOSS"
                             print(f"[SHADOW {result}] {shadow['side']} ${shadow['pnl']:+.2f} ({reason}) | {shadow['market_title'][:35]}...")
 
@@ -2095,8 +2143,8 @@ class TALiveTrader:
                 except Exception as e:
                     print(f"[EXPIRE CHECK] Error for {tid[:20]}: {e}")
 
-        # === EXPIRE SHADOW TRADES ===
-        # Shadow trades that are > 16 min old and unresolved -> close as unknown
+        # === RESOLVE EXPIRED SHADOW TRADES via gamma-api ===
+        # Shadow trades that are > 16 min old: fetch actual market outcome instead of defaulting to pnl=0
         for skey, shadow in list(self.shadow_trades.items()):
             if shadow.get("status") != "open":
                 continue
@@ -2104,10 +2152,60 @@ class TALiveTrader:
                 s_entry = datetime.fromisoformat(shadow["entry_time"])
                 s_age = (now - s_entry).total_seconds() / 60
                 if s_age > 16:
-                    shadow["status"] = "closed"
-                    shadow["pnl"] = 0.0
-                    shadow["exit_price"] = shadow["entry_price"]
-                    shadow["exit_time"] = now.isoformat()
+                    s_market_id = shadow.get("market_id", "")
+                    s_size = shadow.get("size_usd", 5.0)
+                    s_resolved = False
+                    if s_market_id:
+                        try:
+                            import httpx
+                            r = httpx.get(
+                                "https://gamma-api.polymarket.com/markets",
+                                params={"condition_id": s_market_id, "limit": "1"},
+                                headers={"User-Agent": "Mozilla/5.0"},
+                                timeout=10
+                            )
+                            if r.status_code == 200 and r.json():
+                                mkt = r.json()[0]
+                                outcomes = mkt.get("outcomes", [])
+                                prices = mkt.get("outcomePrices", [])
+                                if isinstance(outcomes, str):
+                                    outcomes = json.loads(outcomes)
+                                if isinstance(prices, str):
+                                    prices = json.loads(prices)
+                                for i, outcome in enumerate(outcomes):
+                                    if str(outcome).lower() == shadow["side"].lower() and i < len(prices):
+                                        res_price = float(prices[i])
+                                        if res_price >= 0.95:
+                                            s_exit = s_size / shadow["entry_price"]
+                                        elif res_price <= 0.05:
+                                            s_exit = 0
+                                        else:
+                                            s_exit = (s_size / shadow["entry_price"]) * res_price
+                                        shadow["exit_price"] = res_price
+                                        shadow["pnl"] = round(s_exit - s_size, 2)
+                                        shadow["status"] = "closed"
+                                        shadow["exit_time"] = now.isoformat()
+                                        won = shadow["pnl"] > 0
+                                        # Track filter stats
+                                        fname = shadow.get("filter_name")
+                                        if fname and fname in self.filter_stats:
+                                            if won:
+                                                self.filter_stats[fname]["wins"] += 1
+                                            else:
+                                                self.filter_stats[fname]["losses"] += 1
+                                            self.filter_stats[fname]["pnl"] += shadow["pnl"]
+                                        reason = shadow.get("reason", "shadow")
+                                        result = "WIN" if won else "LOSS"
+                                        print(f"[SHADOW {result}] {shadow['side']} ${shadow['pnl']:+.2f} ({reason}) | {shadow.get('market_title', skey)[:35]}...")
+                                        s_resolved = True
+                                        break
+                        except Exception:
+                            pass
+                    if not s_resolved:
+                        shadow["status"] = "closed"
+                        shadow["pnl"] = 0.0
+                        shadow["exit_price"] = shadow["entry_price"]
+                        shadow["exit_time"] = now.isoformat()
             except Exception:
                 pass
 
@@ -2143,6 +2241,100 @@ class TALiveTrader:
             if ss["hedge_pnl"] < -3.0:
                 self.HEDGE_ENABLED = False
                 print(f"[ML-REVOKE] Hedges DISABLED (PnL=${ss['hedge_pnl']:+.2f} after {ss['hedge_trades']} trades)")
+
+    def _record_filter_shadow(self, asset: str, side: str, entry_price: float,
+                              market_id: str, market_title: str, filter_name: str,
+                              size_usd: float = 5.0):
+        """Record a shadow trade for a filter rejection (V3.9).
+
+        Tracks what would have happened if we took the trade the filter blocked.
+        Used to evaluate whether each filter is helping or hurting.
+        """
+        shadow_key = f"filter_{market_id}_{side}_{filter_name}"
+        if shadow_key in self.shadow_trades:
+            return  # Already tracking this one
+        self.shadow_trades[shadow_key] = {
+            "asset": asset, "side": side, "entry_price": entry_price,
+            "entry_time": datetime.now(timezone.utc).isoformat(),
+            "market_id": market_id,
+            "market_title": f"[{asset}] {market_title[:75]}",
+            "size_usd": size_usd,
+            "status": "open", "reason": f"filter_{filter_name}",
+            "filter_name": filter_name,
+        }
+        # Init filter stats if new
+        if filter_name not in self.filter_stats:
+            self.filter_stats[filter_name] = {"blocked": 0, "wins": 0, "losses": 0, "pnl": 0.0}
+        self.filter_stats[filter_name]["blocked"] += 1
+
+    def _auto_evolve(self):
+        """Auto-evolution engine (V3.9): adjusts filters based on shadow trade data.
+
+        Runs every 30 minutes. Analyzes filter_stats to determine which filters
+        are helping (blocking losers) vs hurting (blocking winners). Auto-adjusts
+        parameters when data is conclusive (10+ resolved shadows per filter).
+        """
+        changes = []
+        total_trades = self.wins + self.losses
+
+        # 1. FILTER EFFECTIVENESS: Auto-loosen filters blocking >60% winners
+        for fname, fs in self.filter_stats.items():
+            resolved = fs["wins"] + fs["losses"]
+            if resolved < 10:
+                continue  # Not enough data
+            fwr = fs["wins"] / resolved * 100
+
+            if fwr > 65 and fs["pnl"] > 5.0:
+                # This filter is blocking profitable trades — flag for loosening
+                changes.append(f"[EVOLVE] WARNING: {fname} blocking {fwr:.0f}% winners (${fs['pnl']:+.2f} missed). CONSIDER LOOSENING.")
+
+            elif fwr < 30:
+                # Filter is doing great — blocking mostly losers
+                changes.append(f"[EVOLVE] {fname} EFFECTIVE: blocking {100-fwr:.0f}% losers. KEEP.")
+
+        # 2. HOURLY PERFORMANCE: Auto-add/remove skip hours
+        for h in range(24):
+            s = self.hourly_stats[h]
+            trades_h = s["wins"] + s["losses"]
+            if trades_h < 5:
+                continue
+
+            wr = s["wins"] / trades_h * 100
+            # If an active hour has <25% WR over 5+ trades, add to skip hours
+            if h not in self.SKIP_HOURS_UTC and wr < 25 and trades_h >= 5:
+                self.SKIP_HOURS_UTC.add(h)
+                changes.append(f"[EVOLVE] UTC {h} BLOCKED: {wr:.0f}% WR over {trades_h} trades — auto-added to skip hours")
+
+            # If a skipped hour has >65% WR over 8+ trades in shadow, remove from skip
+            # (Would need shadow data for skip hours — future enhancement)
+
+        # 3. ETH PROMOTION CHECK: If ETH shadows show >60% WR over 15+ resolved
+        eth_shadows = [s for s in self.shadow_trades.values()
+                       if s.get("asset") == "ETH" and s.get("status") == "closed"
+                       and s.get("reason") == "shadow_asset"]
+        eth_wins = sum(1 for s in eth_shadows if s.get("pnl", 0) > 0)
+        eth_total = len(eth_shadows)
+        if eth_total >= 15:
+            eth_wr = eth_wins / eth_total * 100
+            if eth_wr >= 60:
+                changes.append(f"[EVOLVE] ETH PROMOTION READY: {eth_wr:.0f}% WR over {eth_total} shadow trades. Consider promoting to live.")
+            elif eth_wr < 40:
+                changes.append(f"[EVOLVE] ETH STRUGGLING: {eth_wr:.0f}% WR over {eth_total} shadows. Keep shadow-only.")
+
+        # 4. OVERALL HEALTH: Warn if WR is declining
+        if total_trades >= 10:
+            overall_wr = self.wins / total_trades * 100
+            if overall_wr < 40:
+                changes.append(f"[EVOLVE] WARNING: Overall WR {overall_wr:.0f}% is below 40%. Filters may be too loose or market regime shifted.")
+            elif overall_wr > 65:
+                changes.append(f"[EVOLVE] STRONG: Overall WR {overall_wr:.0f}%. Current filters are working well.")
+
+        if changes:
+            print(f"\n{'='*50}")
+            print(f"AUTO-EVOLUTION CHECK ({datetime.now(timezone.utc).strftime('%H:%M UTC')})")
+            for c in changes:
+                print(f"  {c}")
+            print(f"{'='*50}")
 
     async def _process_dca_topups(self, asset_data: Dict):
         """Execute pending DCA top-up orders if price is same or better."""
@@ -2276,6 +2468,18 @@ class TALiveTrader:
             else:
                 print(f"    VERDICT: INCONCLUSIVE (diff ${saved:+.2f})")
 
+        # Filter rejection tracking (V3.9)
+        if self.filter_stats:
+            print(f"\nFILTER EFFECTIVENESS (V3.9 shadow tracking):")
+            for fname, fs in sorted(self.filter_stats.items(), key=lambda x: x[1]["blocked"], reverse=True):
+                resolved = fs["wins"] + fs["losses"]
+                if resolved > 0:
+                    fwr = fs["wins"] / resolved * 100
+                    verdict = "HELPING" if fwr < 40 else ("HURTING" if fwr > 60 else "NEUTRAL")
+                    print(f"  {fname}: {fs['blocked']} blocked | {resolved} resolved ({fs['wins']}W/{fs['losses']}L {fwr:.0f}%WR) ${fs['pnl']:+.2f} | {verdict}")
+                else:
+                    print(f"  {fname}: {fs['blocked']} blocked | 0 resolved (awaiting data)")
+
         # Hourly ML sizing display
         total_hourly_trades = sum(s["wins"] + s["losses"] for s in self.hourly_stats.values())
         phase = "BOOST+REDUCE" if total_hourly_trades >= 10 else "REDUCE-ONLY"
@@ -2347,6 +2551,7 @@ class TALiveTrader:
 
         last_update = 0
         last_redeem_check = 0
+        last_evolve_check = 0
         cycle = 0
 
         while True:
@@ -2372,6 +2577,11 @@ class TALiveTrader:
                 if now - last_update >= 600:
                     self.print_update(signal)
                     last_update = now
+
+                # 30-minute auto-evolution check
+                if now - last_evolve_check >= 1800:
+                    self._auto_evolve()
+                    last_evolve_check = now
 
                 await asyncio.sleep(30)  # 30s - faster scanning + redeem checks
 
