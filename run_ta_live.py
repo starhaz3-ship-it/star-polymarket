@@ -398,6 +398,7 @@ class TALiveTrader:
             self._init_executor()
 
         self._load()
+        self._resolve_stale_trades()
 
     def _init_executor(self):
         """Initialize the trade executor."""
@@ -450,6 +451,90 @@ class TALiveTrader:
                 print(f"[Live] Loaded {len(self.trades)} trades + {len(self.shadow_trades)} shadow ({shadow_open} open)")
             except Exception as e:
                 print(f"[Live] Error loading state: {e}")
+
+    def _resolve_stale_trades(self):
+        """Resolve any open trades that are past expiry on startup.
+
+        Prevents orphaned trades when the process dies mid-trade and restarts.
+        Uses the same gamma-api resolution logic as the main scan loop.
+        """
+        now = datetime.now(timezone.utc)
+        stale = [(tid, t) for tid, t in self.trades.items()
+                 if t.status == "open" and
+                 (now - datetime.fromisoformat(t.entry_time)).total_seconds() / 60 > 16]
+        if not stale:
+            return
+
+        print(f"[Startup] Resolving {len(stale)} stale open trade(s)...")
+        import httpx
+        for tid, trade in stale:
+            try:
+                r = httpx.get(
+                    "https://gamma-api.polymarket.com/markets",
+                    params={"condition_id": trade.market_id, "limit": "1"},
+                    headers={"User-Agent": "Mozilla/5.0"},
+                    timeout=10
+                )
+                if r.status_code == 200 and r.json():
+                    mkt = r.json()[0]
+                    outcomes = mkt.get("outcomes", [])
+                    prices = mkt.get("outcomePrices", [])
+                    if isinstance(outcomes, str):
+                        outcomes = json.loads(outcomes)
+                    if isinstance(prices, str):
+                        prices = json.loads(prices)
+
+                    res_price = None
+                    for i, outcome in enumerate(outcomes):
+                        if str(outcome).lower() == trade.side.lower() and i < len(prices):
+                            res_price = float(prices[i])
+                            break
+
+                    if res_price is not None:
+                        if res_price >= 0.95:
+                            exit_val = trade.size_usd / trade.entry_price
+                        elif res_price <= 0.05:
+                            exit_val = 0
+                        else:
+                            exit_val = (trade.size_usd / trade.entry_price) * res_price
+
+                        trade.exit_price = res_price
+                        trade.exit_time = now.isoformat()
+                        trade.pnl = exit_val - trade.size_usd
+                        trade.status = "closed"
+
+                        self.total_pnl += trade.pnl
+                        won = trade.pnl > 0
+                        if won:
+                            self.wins += 1
+                            self.consecutive_wins += 1
+                            self.consecutive_losses = 0
+                        else:
+                            self.losses += 1
+                            self.consecutive_losses += 1
+                            self.consecutive_wins = 0
+                        self.bankroll = max(self.initial_bankroll * 0.5, self.bankroll + trade.pnl)
+                        self.ml.update_weights(trade.features, won)
+
+                        result = "WIN" if won else "LOSS"
+                        print(f"  [{result}] {trade.side} ${trade.pnl:+.2f} | {trade.market_title[:50]}")
+                    else:
+                        trade.status = "closed"
+                        trade.pnl = 0.0
+                        trade.exit_price = trade.entry_price
+                        trade.exit_time = now.isoformat()
+                        print(f"  [EXPIRED] {trade.side} | No resolved price | {trade.market_title[:50]}")
+                else:
+                    trade.status = "closed"
+                    trade.pnl = 0.0
+                    trade.exit_price = trade.entry_price
+                    trade.exit_time = now.isoformat()
+                    print(f"  [EXPIRED] {trade.side} | Market not found | {trade.market_title[:50]}")
+            except Exception as e:
+                print(f"  [ERROR] {tid[:20]}: {e}")
+
+        self._save()
+        print(f"[Startup] Resolved {len(stale)} stale trade(s), saved state")
 
     ARCHIVE_FILE = Path(__file__).parent / "ta_live_archive.json"
 
