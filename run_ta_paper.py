@@ -767,7 +767,8 @@ class TAPaperTrader:
     MIN_EDGE = 0.30              # V3.4: edge<0.30 = 36% WR (96 paper trades)
     MIN_KL_DIVERGENCE = 0.15     # V3.4: KL<0.15 = 36% WR vs 67% above (96 paper trades)
     MIN_TIME_REMAINING = 5.0     # V3.4: 2-5min = 47% WR; 5-12min = 83% WR (96 paper trades)
-    MAX_ENTRY_PRICE = 0.55       # Don't buy at prices above 55¢ (no edge zone)
+    MAX_ENTRY_PRICE = 0.45       # V3.6: $0.45-0.55 = 50% WR coin flip, cut it
+    MIN_ENTRY_PRICE = 0.15       # V3.6: <$0.15 = 16.7% WR, -$40 loss — hard floor
     CANDLE_LOOKBACK = 15         # Only use last 15 minutes of price action
 
     def _get_price_momentum(self, candles: List, lookback: int = 5) -> float:

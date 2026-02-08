@@ -343,7 +343,8 @@ class TALiveTrader:
     # Position sizing: $5 base, max $8 (V3.5 reduced from $3-$8)
     BASE_POSITION_SIZE = 5.0   # Standard bet
     MIN_POSITION_SIZE = 5.0    # Floor $5 (was $3)
-    MAX_POSITION_SIZE = 8.0    # Cap $8
+    MAX_POSITION_SIZE = 10.0   # V3.6: Raised to $10 (was $8) — sweet spot entries justify more
+    SWEET_SPOT_BOOST = 1.3     # V3.6: 30% size boost for $0.15-$0.35 entries (69% WR, +$11/trade)
 
     def __init__(self, dry_run: bool = False, bankroll: float = 93.27):
         self.dry_run = dry_run
@@ -660,7 +661,9 @@ class TALiveTrader:
     #   12h: 0W/7L (-$51.94), 13h: 0W/1L (-$6.72), 15h: 0W/2L (-$14.12)
     #   20h: 0W/2L (-$8.78)
     # Shadow-tracked on paper account for re-evaluation
-    SKIP_HOURS_UTC = {0, 1, 8, 10, 11, 12, 13, 15, 20, 22, 23}
+    # V3.6: Reopened UTC 10-13 (73-80% WR in paper, +$222 from 34 trades)
+    # Only skip: UTC 1 (no data), UTC 8 (20% WR), UTC 14 (33% WR), UTC 15 (no data)
+    SKIP_HOURS_UTC = {1, 8, 14, 15}
 
     def _ema(self, candles, period: int) -> float:
         """Calculate EMA from candle close prices."""
@@ -1190,7 +1193,8 @@ class TALiveTrader:
     MIN_MODEL_CONFIDENCE = 0.56  # Match paper tuner
     MIN_EDGE = 0.30              # V3.5: Raised back from 0.25 — overnight showed 25% wasn't enough
     LOW_EDGE_THRESHOLD = 0.30    # Trades below this get minimum size
-    MAX_ENTRY_PRICE = 0.55       # Match paper (was 0.45)
+    MAX_ENTRY_PRICE = 0.45       # V3.6: $0.45-0.55 = 50% WR coin flip, cut it
+    MIN_ENTRY_PRICE = 0.15       # V3.6: <$0.15 = 16.7% WR, -$40 loss — hard floor
     MIN_KL_DIVERGENCE = 0.15     # V3.4: KL<0.15 = 36% WR vs 67% above (96 paper trades)
 
     # Paper trades both sides successfully (UP 81% WR in paper)
@@ -1585,6 +1589,12 @@ class TALiveTrader:
                             continue
 
                         entry_price = up_price if signal.side == "UP" else down_price
+
+                        # === V3.6: Hard floor — entries <$0.15 are 16.7% WR losers ===
+                        if entry_price < self.MIN_ENTRY_PRICE and not is_bond_trade:
+                            print(f"  [{asset}] Entry too cheap: ${entry_price:.3f} < ${self.MIN_ENTRY_PRICE}")
+                            continue
+
                         edge = signal.edge_up if signal.side == "UP" else signal.edge_down
 
                         bregman_signal = self.bregman.calculate_optimal_trade(
@@ -1629,6 +1639,11 @@ class TALiveTrader:
                             trend_tag = f"COUNTER({trend}) 85%"
                         else:
                             trend_tag = f"WITH({trend})"
+
+                        # === V3.6: Sweet spot boost — $0.15-$0.35 entries = 69% WR ===
+                        if 0.15 <= entry_price <= 0.35 and not is_low_edge:
+                            position_size = round(position_size * self.SWEET_SPOT_BOOST, 2)
+                            position_size = min(self.MAX_POSITION_SIZE, position_size)
 
                         hour_mult = self._get_hour_multiplier(datetime.now(timezone.utc).hour)
                         hour_tag = f", Hour={hour_mult}x" if hour_mult != 1.0 else ""
