@@ -349,7 +349,7 @@ class TALiveTrader:
     MIN_POSITION_SIZE = 5.0    # Floor $5
     MAX_POSITION_SIZE = 8.0    # Hard cap $8 — was $10, caused $21 bets with ghost processes
 
-    def __init__(self, dry_run: bool = False, bankroll: float = 45.67):
+    def __init__(self, dry_run: bool = False, bankroll: float = 53.57):
         self.dry_run = dry_run
         self.generator = TASignalGenerator()
         self.bregman = BregmanOptimizer(bankroll=bankroll)
