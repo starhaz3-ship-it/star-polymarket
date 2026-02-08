@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-06T02:50:00.000000+00:00",
-  "last_updated": "2026-02-08T03:46:49.820605+00:00",
+  "last_updated": "2026-02-08T18:42:03.646751+00:00",
   "trades": {
     "0x1fb81f426bb06ab8bdfe5c070d98e7b400ac9cf7a89a0a6ef18a87005a583360_DOWN": {
       "trade_id": "0x1fb81f426bb06ab8bdfe5c070d98e7b400ac9cf7a89a0a6ef18a87005a583360_DOWN",
@@ -1765,12 +1765,84 @@
       "exit_time": "2026-02-08T03:15:26.984723+00:00",
       "pnl": 29.189189189189193,
       "status": "closed"
+    },
+    "0x1ebd92e4cee7f5349b6f743852968f3fbdc3eda6b38e90798f07e02f34c692bb_DOWN": {
+      "trade_id": "0x1ebd92e4cee7f5349b6f743852968f3fbdc3eda6b38e90798f07e02f34c692bb_DOWN",
+      "market_title": "Ethereum Up or Down - February 8, 12:15PM-12:30PM ET",
+      "side": "DOWN",
+      "entry_price": 0.225,
+      "entry_time": "2026-02-08T17:21:22.506233+00:00",
+      "size_usd": 20.0,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.30793259808760687,
+      "kl_divergence": 0.22302687228346296,
+      "kelly_fraction": 0.25,
+      "guaranteed_profit": 0.22302687228346296,
+      "market_numeric_id": "1352088",
+      "exit_price": 0.835,
+      "exit_time": "2026-02-08T17:30:57.844638+00:00",
+      "pnl": 54.222222222222214,
+      "status": "closed"
+    },
+    "0xf44aea43c7f7d9c0cde64a5b7e93eb84be67cd4ee54cbd26c2c3db98b1bb2d3d_DOWN": {
+      "trade_id": "0xf44aea43c7f7d9c0cde64a5b7e93eb84be67cd4ee54cbd26c2c3db98b1bb2d3d_DOWN",
+      "market_title": "Solana Up or Down - February 8, 12:15PM-12:30PM ET",
+      "side": "DOWN",
+      "entry_price": 0.225,
+      "entry_time": "2026-02-08T17:21:22.506233+00:00",
+      "size_usd": 5.0,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.4696017159722222,
+      "kl_divergence": 0.49858058557522084,
+      "kelly_fraction": 0.25,
+      "guaranteed_profit": 0.49858058557522084,
+      "market_numeric_id": "1352090",
+      "exit_price": 0.755,
+      "exit_time": "2026-02-08T17:30:57.844638+00:00",
+      "pnl": 11.777777777777779,
+      "status": "closed"
+    },
+    "0x5b2ae19cee8ee5c798f61bc3e7802d92a5109236726f1927176e367e470a0614_DOWN": {
+      "trade_id": "0x5b2ae19cee8ee5c798f61bc3e7802d92a5109236726f1927176e367e470a0614_DOWN",
+      "market_title": "Bitcoin Up or Down - February 8, 12:15PM-12:30PM ET",
+      "side": "DOWN",
+      "entry_price": 0.335,
+      "entry_time": "2026-02-08T17:23:27.580247+00:00",
+      "size_usd": 20.0,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.36749862626262625,
+      "kl_divergence": 0.28090866081412946,
+      "kelly_fraction": 0.25,
+      "guaranteed_profit": 0.28090866081412946,
+      "market_numeric_id": "1352089",
+      "exit_price": 0.695,
+      "exit_time": "2026-02-08T17:30:57.844638+00:00",
+      "pnl": 21.492537313432827,
+      "status": "closed"
+    },
+    "0x501578d67fec79dd02212dea422010ac5742cccdece916aae4dd9575ce8394a2_DOWN": {
+      "trade_id": "0x501578d67fec79dd02212dea422010ac5742cccdece916aae4dd9575ce8394a2_DOWN",
+      "market_title": "Bitcoin Up or Down - February 8, 1:30PM-1:45PM ET",
+      "side": "DOWN",
+      "entry_price": 0.205,
+      "entry_time": "2026-02-08T18:37:53.595833+00:00",
+      "size_usd": 18.22432107772667,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.4152118493560607,
+      "kl_divergence": 0.4060458937533747,
+      "kelly_fraction": 0.25,
+      "guaranteed_profit": 0.4060458937533747,
+      "market_numeric_id": "1352795",
+      "exit_price": null,
+      "exit_time": null,
+      "pnl": 0.0,
+      "status": "open"
     }
   },
-  "total_pnl": 691.162770786971,
-  "wins": 61,
+  "total_pnl": 778.6553081004039,
+  "wins": 64,
   "losses": 37,
-  "signals_count": 635,
+  "signals_count": 680,
   "arb_trades": {},
   "arb_stats": {
     "wins": 0,
@@ -1864,9 +1936,9 @@
       "pnl": 0.0
     },
     "17": {
-      "wins": 0,
+      "wins": 3,
       "losses": 0,
-      "pnl": 0.0
+      "pnl": 87.49253731343282
     },
     "18": {
       "wins": 0,

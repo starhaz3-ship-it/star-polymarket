@@ -437,7 +437,7 @@ class TAPaperTrader:
     # Best hours: 2(78%WR), 4(56%WR), 13(62%WR), 18(57%WR), 21(100%WR)
     SKIP_HOURS_UTC = {0, 1, 8, 22, 23}  # Opened US/EU overlap (UTC 15-17,19,20) + UTC 3 (proven profitable)
 
-    def __init__(self, bankroll: float = 100.0):
+    def __init__(self, bankroll: float = 93.27):
         self.generator = TASignalGenerator()
         self.bregman = BregmanOptimizer(bankroll=bankroll)
         self.bankroll = bankroll
@@ -1085,9 +1085,10 @@ class TAPaperTrader:
                 entry_price_check = up_price if signal.side == "UP" else down_price
                 nyu_result = self.nyu_model.calculate_volatility(entry_price_check, time_left)
 
-                # Use NYU edge score as a filter - but be lenient to get trades
-                if nyu_result.edge_score < 0.15:  # Very low bar - just avoid 50% zone
-                    skip_reason = f"NYU_edge_{nyu_result.edge_score:.2f}<0.15 (vol={nyu_result.volatility_regime})"
+                # Adaptive NYU threshold: high vol = more opportunity, relax gate (V3.6)
+                nyu_threshold = {"low": 0.15, "medium": 0.10, "high": 0.05}.get(nyu_result.volatility_regime, 0.15)
+                if nyu_result.edge_score < nyu_threshold:
+                    skip_reason = f"NYU_edge_{nyu_result.edge_score:.2f}<{nyu_threshold} (vol={nyu_result.volatility_regime})"
                     print(f"[NYU] {question[:30]}... | {skip_reason}")
                     continue
 

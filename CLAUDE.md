@@ -26,10 +26,10 @@ cat ta_paper_results.json | python -m json.tool
 - **TA Paper** (`run_ta_paper.py`) - Paper trading, $100 positions, Bregman optimization
 - **TA Live** (`run_ta_live.py`) - Live trading, $10 positions, ML optimization
 
-### Current Status (Last Updated: 2026-02-07)
-- Live Trader: RUNNING — $5 base bets, $70.12 bankroll, multi-RPC redeem
-- Paper Trader: RUNNING — $10 bets, skip-hour shadow tracking active
-- Strategy: TA + Bregman + Kelly + ATR + NYU Vol + ML Scoring + 200 EMA
+### Current Status (Last Updated: 2026-02-08)
+- Live Trader: RUNNING — $5 base bets, $93.27 bankroll, IH2P adaptations (Bond+DCA+Hedge), adaptive NYU
+- Paper Trader: RUNNING — $10 bets, $93.27 bankroll, skip-hour shadow tracking active
+- Strategy: TA + Bregman + Kelly + ATR + NYU Vol (adaptive) + ML Scoring + 200 EMA + CBC + IH2P
 - Markets: BTC/ETH/SOL 15-minute Up/Down via Polymarket API (`tag_slug=15M`)
 - Position sizing: $3-$8, quarter-Kelly, Bayesian hourly multiplier (0.5x-1.5x)
 - Skip hours: {0, 1, 8, 22, 23} UTC — shadow-tracked for re-evaluation

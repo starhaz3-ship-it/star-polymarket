@@ -83,6 +83,7 @@ class CopyTrader:
         "Trim-Trowel": "0xcb3143ee858e14d0b3fe40ffeaea78416e646b02",  # 620 trades, $630K portfolio
         "tbs8t": "0x4bd74aef0ee5f1ec0718890f55c15f047e28373e",  # 82 markets, $1.15M portfolio
         "Square-Guy": "0x1979ae6b7e6534de9c4539d0c205e582ca637c9d",  # $198K PnL, 3,166 markets, $28.3M volume
+        "IH2P": "0x4ee29e4e7d4c380babeae5e22e5c02400c2246e1",  # $341K PnL, 12,379 markets, $20.5M volume, $264K portfolio
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]

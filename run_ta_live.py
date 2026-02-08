@@ -345,7 +345,7 @@ class TALiveTrader:
     MIN_POSITION_SIZE = 5.0    # Floor $5 (was $3)
     MAX_POSITION_SIZE = 8.0    # Cap $8
 
-    def __init__(self, dry_run: bool = False, bankroll: float = 70.12):
+    def __init__(self, dry_run: bool = False, bankroll: float = 93.27):
         self.dry_run = dry_run
         self.generator = TASignalGenerator()
         self.bregman = BregmanOptimizer(bankroll=bankroll)
@@ -387,6 +387,9 @@ class TALiveTrader:
             h: {"wins": 0, "losses": 0, "pnl": 0.0} for h in range(24)
         }
 
+        # === IH2P ADAPTATIONS STATE ===
+        self.pending_topups: Dict[str, dict] = {}  # DCA top-up orders waiting for next scan
+
         # === SHADOW TRADE TRACKER ===
         # Records trades blocked by ATR filter + counterfactual trend bias sizing
         # Used to ML-evaluate whether these filters should stay or be removed
@@ -394,6 +397,10 @@ class TALiveTrader:
         self.shadow_stats = {
             "atr_blocked": 0, "atr_blocked_wins": 0, "atr_blocked_losses": 0, "atr_blocked_pnl": 0.0,
             "trend_bias_trades": 0, "trend_bias_actual_pnl": 0.0, "trend_bias_full_pnl": 0.0,
+            # IH2P feature tracking
+            "bond_trades": 0, "bond_wins": 0, "bond_losses": 0, "bond_pnl": 0.0,
+            "dca_topups": 0, "dca_topup_pnl": 0.0,
+            "hedge_trades": 0, "hedge_wins": 0, "hedge_losses": 0, "hedge_pnl": 0.0,
         }
 
         # Executor for live trading
@@ -442,7 +449,19 @@ class TALiveTrader:
 
                 # Load shadow trade state
                 self.shadow_trades = data.get("shadow_trades", {})
-                self.shadow_stats = data.get("shadow_stats", self.shadow_stats)
+                saved_stats = data.get("shadow_stats", {})
+                # Merge saved stats into defaults (preserves new keys)
+                for k, v in saved_stats.items():
+                    self.shadow_stats[k] = v
+
+                # Restore IH2P feature flags from saved state
+                ih2p = data.get("ih2p_features", {})
+                if "bond_enabled" in ih2p:
+                    self.BOND_MODE_ENABLED = ih2p["bond_enabled"]
+                if "dca_enabled" in ih2p:
+                    self.DCA_ENABLED = ih2p["dca_enabled"]
+                if "hedge_enabled" in ih2p:
+                    self.HEDGE_ENABLED = ih2p["hedge_enabled"]
 
                 # Load hourly stats
                 saved_hourly = data.get("hourly_stats", {})
@@ -565,6 +584,11 @@ class TALiveTrader:
             "shadow_trades": self.shadow_trades,
             "shadow_stats": self.shadow_stats,
             "hourly_stats": self.hourly_stats,
+            "ih2p_features": {
+                "bond_enabled": self.BOND_MODE_ENABLED,
+                "dca_enabled": self.DCA_ENABLED,
+                "hedge_enabled": self.HEDGE_ENABLED,
+            },
         }
         # Working file (can be reset)
         with open(self.OUTPUT_FILE, 'w') as f:
@@ -1190,6 +1214,17 @@ class TALiveTrader:
     MAX_SLIPPAGE = 0.03          # Keep tight for live execution
     MAX_CONCURRENT_POSITIONS = 1 # V3.5: Max 1 — single best signal only (multi-asset was -$207)
 
+    # === IH2P ADAPTATIONS (ML auto-revoke tracked) ===
+    BOND_MODE_ENABLED = True      # Buy obvious side at $0.85+ for small guaranteed wins
+    BOND_MIN_CONFIDENCE = 0.85    # Model must be 85%+ confident
+    BOND_MIN_PRICE = 0.85         # Entry price must be $0.85+
+    DCA_ENABLED = True            # Split position 60/40, top up on next scan
+    DCA_INITIAL_RATIO = 0.60      # First entry: 60% of position
+    DCA_TOPUP_RATIO = 0.40        # Second entry: 40% (next scan, same or better price)
+    HEDGE_ENABLED = True          # Small $1.50 bet on opposite side when cheap (<$0.15)
+    HEDGE_MAX_PRICE = 0.15        # Only hedge if opposite side <= $0.15
+    HEDGE_SIZE = 1.50             # $1.50 hedge bet
+
     # Entry window - match paper
     MIN_TIME_REMAINING = 5.0     # V3.4: 2-5min = 47% WR; 5-12min = 83% WR (96 paper trades)
     MAX_TIME_REMAINING = 15.0    # Match paper (was 14.0)
@@ -1282,6 +1317,9 @@ class TALiveTrader:
 
         if not asset_data:
             return None
+
+        # Process pending DCA top-ups from previous cycle
+        await self._process_dca_topups(asset_data)
 
         # Summary of markets found
         total_markets = sum(len(d["markets"]) for d in asset_data.values())
@@ -1384,6 +1422,20 @@ class TALiveTrader:
                     print(f"  [{asset}] Action is {signal.action}, not ENTER")
                     continue
 
+                # === BOND MODE (IH2P): High-prob side at $0.85+ ===
+                is_bond_trade = False
+                if self.BOND_MODE_ENABLED and signal.action == "ENTER":
+                    # Check if either side qualifies for bond mode
+                    if signal.side == "UP" and signal.model_up >= self.BOND_MIN_CONFIDENCE and up_price >= self.BOND_MIN_PRICE:
+                        is_bond_trade = True
+                    elif signal.side == "DOWN" and signal.model_down >= self.BOND_MIN_CONFIDENCE and down_price >= self.BOND_MIN_PRICE:
+                        is_bond_trade = True
+
+                    if is_bond_trade:
+                        print(f"  [{asset}] BOND MODE: {signal.side} @ ${up_price if signal.side == 'UP' else down_price:.2f} | Model: {signal.model_up if signal.side == 'UP' else signal.model_down:.0%}")
+                        # Bond mode skips V3.3 price/confidence filters below
+                        # but still goes through risk checks, KL, ML scoring
+
                 # === V3.3: SIDE-SPECIFIC FILTERS WITH TREND + DEATH ZONE + BREAK-EVEN AWARE ===
                 skip_reason = None
                 momentum = self._get_price_momentum(candles, lookback=5)
@@ -1443,11 +1495,12 @@ class TALiveTrader:
                         elif down_price >= 0.30 and momentum > self.DOWN_MIN_MOMENTUM_DROP:
                             skip_reason = f"DOWN_momentum_not_falling_{momentum:.3%}"
 
-                if skip_reason:
+                if skip_reason and not is_bond_trade:
                     print(f"  [{asset}] V3.3 filter: {skip_reason}")
                     continue
 
                 # === EDGE FILTER (with low-edge circuit breaker) ===
+                # Bond mode skips edge filter (high-price entries have small edge by design)
                 best_edge = signal.edge_up if signal.side == "UP" else signal.edge_down
                 # If 3 low-edge trades failed in a row, lock out low-edge for 2 hours
                 low_edge_locked = (self.low_edge_lockout_until and
@@ -1456,7 +1509,7 @@ class TALiveTrader:
                     edge_floor = self.LOW_EDGE_THRESHOLD  # 0.30
                 else:
                     edge_floor = self.MIN_EDGE  # 0.30 (V3.5: raised from 0.25)
-                if best_edge is not None and best_edge < edge_floor:
+                if best_edge is not None and best_edge < edge_floor and not is_bond_trade:
                     lock_tag = " [LOCKOUT]" if low_edge_locked else ""
                     print(f"  [{asset}] Edge too small: {best_edge:.1%} < {edge_floor:.0%}{lock_tag}")
                     continue
@@ -1476,12 +1529,14 @@ class TALiveTrader:
                     if atr_high:
                         print(f"  [{asset}] ATR HIGH (ratio={atr_ratio:.1f}x) - proceeding (filter disabled, tagging for backtest)")
 
-                # === NYU TWO-PARAMETER VOLATILITY FILTER (V3.3) ===
+                # === NYU TWO-PARAMETER VOLATILITY FILTER (V3.3, adaptive V3.6) ===
                 if self.use_nyu_model:
                     entry_price_nyu = up_price if signal.side == "UP" else down_price
                     nyu_result = self.nyu_model.calculate_volatility(entry_price_nyu, time_left)
-                    if nyu_result.edge_score < 0.15:
-                        print(f"  [{asset}] NYU filter: edge={nyu_result.edge_score:.2f}<0.15 (vol={nyu_result.volatility_regime})")
+                    # Adaptive threshold: high vol = more opportunity, relax gate
+                    nyu_threshold = {"low": 0.15, "medium": 0.10, "high": 0.05}.get(nyu_result.volatility_regime, 0.15)
+                    if nyu_result.edge_score < nyu_threshold:
+                        print(f"  [{asset}] NYU filter: edge={nyu_result.edge_score:.2f}<{nyu_threshold} (vol={nyu_result.volatility_regime})")
                         continue
                     if nyu_result.recommended_action == "TRADE":
                         print(f"  [{asset}] NYU TRADE: edge={nyu_result.edge_score:.2f}, vol={nyu_result.instantaneous_volatility:.3f}")
@@ -1525,7 +1580,7 @@ class TALiveTrader:
                             print(f"[RISK] Exposure limit: ${open_exposure:.2f} >= ${self.MAX_TOTAL_EXPOSURE}")
                             continue
 
-                        open_count = sum(1 for t in self.trades.values() if t.status == "open")
+                        open_count = sum(1 for t in self.trades.values() if t.status == "open" and not t.features.get("_is_hedge"))
                         if open_count >= self.MAX_CONCURRENT_POSITIONS:
                             continue
 
@@ -1578,20 +1633,42 @@ class TALiveTrader:
                         hour_mult = self._get_hour_multiplier(datetime.now(timezone.utc).hour)
                         hour_tag = f", Hour={hour_mult}x" if hour_mult != 1.0 else ""
 
+                        # Bond mode: force minimum size (high entry price = small profit per share)
+                        if is_bond_trade:
+                            position_size = self.MIN_POSITION_SIZE
+                            hour_tag += ", BOND=$" + str(self.MIN_POSITION_SIZE)
+
                         # Low-edge trades: force minimum size ($3)
                         if is_low_edge:
                             position_size = self.MIN_POSITION_SIZE  # $3
                             hour_tag += ", LOW-EDGE=$3"
 
-                        print(f"[SIZE] {asset} ${position_size:.2f} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, {trend_tag}{hour_tag})")
+                        # === DCA SPLIT: Execute 60% now, queue 40% for next scan ===
+                        if self.DCA_ENABLED and not is_bond_trade and position_size > self.MIN_POSITION_SIZE:
+                            initial_size = round(position_size * self.DCA_INITIAL_RATIO, 2)
+                            topup_size = round(position_size * self.DCA_TOPUP_RATIO, 2)
+                            initial_size = max(self.MIN_POSITION_SIZE, initial_size)
+                        else:
+                            initial_size = position_size
+                            topup_size = 0
+
+                        print(f"[SIZE] {asset} ${initial_size:.2f}{f' (+${topup_size:.2f} DCA pending)' if topup_size > 0 else ''} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, {trend_tag}{hour_tag})")
 
                         success, order_result = await self.execute_trade(
-                            market, signal.side, position_size, entry_price
+                            market, signal.side, initial_size, entry_price
                         )
 
                         if not success:
                             print(f"[LIVE] {asset} {signal.side} @ ${entry_price:.4f} FAILED: {order_result} - NOT recorded")
                             continue
+
+                        # Build feature dict with IH2P tags
+                        trade_features = {**asdict(features), "_full_size": full_size, "_with_trend": with_trend, "_atr_ratio": atr_ratio, "_atr_high": atr_high}
+                        if is_bond_trade:
+                            trade_features["_bond_mode"] = True
+                        if topup_size > 0:
+                            trade_features["_dca_initial"] = initial_size
+                            trade_features["_dca_pending"] = topup_size
 
                         new_trade = LiveTrade(
                             trade_id=trade_key,
@@ -1600,22 +1677,67 @@ class TALiveTrader:
                             side=signal.side,
                             entry_price=entry_price,
                             entry_time=datetime.now(timezone.utc).isoformat(),
-                            size_usd=position_size,
+                            size_usd=initial_size,
                             signal_strength=signal.strength.value,
                             edge_at_entry=edge if edge else 0,
                             kl_divergence=bregman_signal.kl_divergence,
                             kelly_fraction=bregman_signal.kelly_fraction,
-                            features={**asdict(features), "_full_size": full_size, "_with_trend": with_trend, "_atr_ratio": atr_ratio, "_atr_high": atr_high},
+                            features=trade_features,
                             order_id=order_result,
                             execution_error=None,
                             status="open",
                         )
                         self.trades[trade_key] = new_trade
                         self.recently_traded_markets.add(market_id)  # Prevent duplicate orders
+
+                        # === DCA: Queue top-up for next scan ===
+                        if topup_size > 0:
+                            self.pending_topups[trade_key] = {
+                                "market": market, "market_id": market_id, "asset": asset,
+                                "side": signal.side, "size": topup_size,
+                                "max_price": entry_price,
+                                "created": datetime.now(timezone.utc).isoformat(),
+                            }
+                            print(f"[DCA] Queued ${topup_size:.2f} topup for {asset} {signal.side} (max ${entry_price:.3f})")
+
                         # Track trend bias counterfactual
                         if not with_trend:
                             self.shadow_stats["trend_bias_trades"] += 1
-                        print(f"[LIVE] [{asset}] {signal.side} @ ${entry_price:.4f} | Size: ${position_size:.2f} | Edge: {edge:.1%} | Model: {signal.model_up:.0%} UP | ML: {ml_score:.2f} | FILLED")
+
+                        # === HEDGE: Place small opposite-side bet if cheap ===
+                        if self.HEDGE_ENABLED and not is_bond_trade:
+                            opp_price = down_price if signal.side == "UP" else up_price
+                            if opp_price is not None and 0.01 < opp_price <= self.HEDGE_MAX_PRICE:
+                                opp_side = "DOWN" if signal.side == "UP" else "UP"
+                                hedge_success, hedge_order = await self.execute_trade(
+                                    market, opp_side, self.HEDGE_SIZE, opp_price
+                                )
+                                if hedge_success:
+                                    hedge_key = f"{market_id}_{opp_side}_hedge"
+                                    hedge_trade = LiveTrade(
+                                        trade_id=hedge_key,
+                                        market_id=market_id,
+                                        market_title=f"[{asset}] HEDGE {opp_side} {question[:60]}",
+                                        side=opp_side,
+                                        entry_price=opp_price,
+                                        entry_time=datetime.now(timezone.utc).isoformat(),
+                                        size_usd=self.HEDGE_SIZE,
+                                        signal_strength="HEDGE",
+                                        edge_at_entry=0,
+                                        kl_divergence=0,
+                                        kelly_fraction=0,
+                                        features={"_is_hedge": True, "_primary_trade": trade_key},
+                                        order_id=hedge_order,
+                                        execution_error=None,
+                                        status="open",
+                                    )
+                                    self.trades[hedge_key] = hedge_trade
+                                    self.shadow_stats["hedge_trades"] += 1
+                                    print(f"[HEDGE] {opp_side} @ ${opp_price:.3f} | ${self.HEDGE_SIZE:.2f} | Opposite-side insurance")
+                                else:
+                                    print(f"[HEDGE] Failed: {hedge_order}")
+
+                        print(f"[LIVE] [{asset}] {signal.side} @ ${entry_price:.4f} | Size: ${initial_size:.2f} | Edge: {edge:.1%} | Model: {signal.model_up:.0%} UP | ML: {ml_score:.2f} | FILLED{' [BOND]' if is_bond_trade else ''}")
                     break  # One trade per asset per cycle
 
             # Check ALL markets for resolution (not just eligible ones)
@@ -1645,28 +1767,32 @@ class TALiveTrader:
 
                             self.total_pnl += open_trade.pnl
                             won = open_trade.pnl > 0
+                            is_hedge = open_trade.features.get("_is_hedge", False)
                             was_low_edge = open_trade.edge_at_entry < self.LOW_EDGE_THRESHOLD
-                            if won:
-                                self.wins += 1
-                                self.consecutive_wins += 1
-                                self.consecutive_losses = 0
-                                self.momentum_pause_until = None  # Win clears pause
-                                if was_low_edge:
-                                    self.low_edge_consecutive_losses = 0
-                            else:
-                                self.losses += 1
-                                self.consecutive_losses += 1
-                                self.consecutive_wins = 0
-                                # MOMENTUM PAUSE: 2 consecutive losses → pause 30 min
-                                if self.consecutive_losses >= 2:
-                                    self.momentum_pause_until = datetime.now(timezone.utc) + timedelta(minutes=30)
-                                    print(f"[MOMENTUM PAUSE] {self.consecutive_losses} consecutive losses — pausing until {self.momentum_pause_until.strftime('%H:%M UTC')}")
-                                if was_low_edge:
-                                    self.low_edge_consecutive_losses += 1
-                                    if self.low_edge_consecutive_losses >= 3:
-                                        self.low_edge_lockout_until = datetime.now(timezone.utc) + timedelta(hours=2)
-                                        print(f"[CIRCUIT BREAKER] 3 low-edge losses — edge floor back to 30% until {self.low_edge_lockout_until.strftime('%H:%M UTC')}")
+
+                            # Hedges don't affect win/loss streaks or momentum pause
+                            if not is_hedge:
+                                if won:
+                                    self.wins += 1
+                                    self.consecutive_wins += 1
+                                    self.consecutive_losses = 0
+                                    self.momentum_pause_until = None  # Win clears pause
+                                    if was_low_edge:
                                         self.low_edge_consecutive_losses = 0
+                                else:
+                                    self.losses += 1
+                                    self.consecutive_losses += 1
+                                    self.consecutive_wins = 0
+                                    # MOMENTUM PAUSE: 2 consecutive losses → pause 30 min
+                                    if self.consecutive_losses >= 2:
+                                        self.momentum_pause_until = datetime.now(timezone.utc) + timedelta(minutes=30)
+                                        print(f"[MOMENTUM PAUSE] {self.consecutive_losses} consecutive losses — pausing until {self.momentum_pause_until.strftime('%H:%M UTC')}")
+                                    if was_low_edge:
+                                        self.low_edge_consecutive_losses += 1
+                                        if self.low_edge_consecutive_losses >= 3:
+                                            self.low_edge_lockout_until = datetime.now(timezone.utc) + timedelta(hours=2)
+                                            print(f"[CIRCUIT BREAKER] 3 low-edge losses — edge floor back to 30% until {self.low_edge_lockout_until.strftime('%H:%M UTC')}")
+                                            self.low_edge_consecutive_losses = 0
 
                             # === UPDATE HOURLY STATS ===
                             try:
@@ -1707,6 +1833,40 @@ class TALiveTrader:
                                 full_pnl = full_exit - full_size
                                 self.shadow_stats["trend_bias_actual_pnl"] += open_trade.pnl
                                 self.shadow_stats["trend_bias_full_pnl"] += full_pnl
+
+                            # === IH2P FEATURE PNL TRACKING ===
+                            ss = self.shadow_stats
+                            if open_trade.features.get("_bond_mode"):
+                                ss["bond_trades"] += 1
+                                ss["bond_pnl"] += open_trade.pnl
+                                if won:
+                                    ss["bond_wins"] += 1
+                                else:
+                                    ss["bond_losses"] += 1
+                                print(f"[BOND] {'WIN' if won else 'LOSS'} ${open_trade.pnl:+.2f} | Total: {ss['bond_trades']} trades, ${ss['bond_pnl']:+.2f}")
+                            if open_trade.features.get("_is_hedge"):
+                                ss["hedge_pnl"] += open_trade.pnl
+                                if won:
+                                    ss["hedge_wins"] += 1
+                                else:
+                                    ss["hedge_losses"] += 1
+                                print(f"[HEDGE] {'WIN' if won else 'LOSS'} ${open_trade.pnl:+.2f} | Total: {ss['hedge_trades']} trades, ${ss['hedge_pnl']:+.2f}")
+                            if open_trade.features.get("_dca_topup"):
+                                # Attribute PnL of the DCA portion only
+                                topup_size = open_trade.features["_dca_topup"]
+                                topup_price = open_trade.features.get("_dca_topup_price", open_trade.entry_price)
+                                if res_price >= 0.95:
+                                    topup_exit = topup_size / topup_price
+                                elif res_price <= 0.05:
+                                    topup_exit = 0
+                                else:
+                                    topup_exit = (topup_size / topup_price) * res_price
+                                dca_pnl = topup_exit - topup_size
+                                ss["dca_topup_pnl"] += dca_pnl
+                                print(f"[DCA] Topup PnL: ${dca_pnl:+.2f} | Total DCA PnL: ${ss['dca_topup_pnl']:+.2f}")
+
+                            # ML auto-revoke check
+                            self._check_feature_revoke()
 
                     # === RESOLVE SHADOW TRADES on this market ===
                     for skey, shadow in list(self.shadow_trades.items()):
@@ -1857,6 +2017,95 @@ class TALiveTrader:
         self._save()
         return main_signal
 
+    def _check_feature_revoke(self):
+        """ML auto-revoke: disable IH2P features if they're net-negative after enough trades."""
+        ss = self.shadow_stats
+
+        # Bond mode: after 10 trades, disable if WR < 60% or net PnL < 0
+        if self.BOND_MODE_ENABLED and ss["bond_trades"] >= 10:
+            bond_wr = ss["bond_wins"] / max(1, ss["bond_trades"]) * 100
+            if bond_wr < 60 or ss["bond_pnl"] < 0:
+                self.BOND_MODE_ENABLED = False
+                print(f"[ML-REVOKE] Bond mode DISABLED (WR={bond_wr:.0f}%, PnL=${ss['bond_pnl']:+.2f} after {ss['bond_trades']} trades)")
+
+        # DCA: after 10 topups, disable if topup portion PnL < 0
+        if self.DCA_ENABLED and ss["dca_topups"] >= 10:
+            if ss["dca_topup_pnl"] < 0:
+                self.DCA_ENABLED = False
+                print(f"[ML-REVOKE] DCA topups DISABLED (topup PnL=${ss['dca_topup_pnl']:+.2f} after {ss['dca_topups']} topups)")
+
+        # Hedge: after 8 trades, disable if PnL < -$3
+        if self.HEDGE_ENABLED and ss["hedge_trades"] >= 8:
+            if ss["hedge_pnl"] < -3.0:
+                self.HEDGE_ENABLED = False
+                print(f"[ML-REVOKE] Hedges DISABLED (PnL=${ss['hedge_pnl']:+.2f} after {ss['hedge_trades']} trades)")
+
+    async def _process_dca_topups(self, asset_data: Dict):
+        """Execute pending DCA top-up orders if price is same or better."""
+        if not self.DCA_ENABLED or not self.pending_topups:
+            return
+
+        now = datetime.now(timezone.utc)
+        for key, topup in list(self.pending_topups.items()):
+            # Expire old topups (> 2 min)
+            created = datetime.fromisoformat(topup["created"])
+            if (now - created).total_seconds() > 120:
+                print(f"[DCA] Topup expired for {key[:30]} (>2min)")
+                del self.pending_topups[key]
+                continue
+
+            # Check if the primary trade is still open
+            if key not in self.trades or self.trades[key].status != "open":
+                print(f"[DCA] Trade already closed, discarding topup for {key[:30]}")
+                del self.pending_topups[key]
+                continue
+
+            # Get current price for this market
+            asset = topup["asset"]
+            if asset not in asset_data:
+                continue
+
+            current_price = None
+            for mkt in asset_data[asset].get("markets", []):
+                mkt_id = mkt.get("conditionId", mkt.get("condition_id", ""))
+                if mkt_id == topup["market_id"]:
+                    outcomes = mkt.get("outcomes", [])
+                    prices = mkt.get("outcomePrices", [])
+                    if isinstance(outcomes, str):
+                        outcomes = json.loads(outcomes)
+                    if isinstance(prices, str):
+                        prices = json.loads(prices)
+                    for i, outcome in enumerate(outcomes):
+                        if str(outcome).upper() == topup["side"] and i < len(prices):
+                            current_price = float(prices[i])
+                            break
+                    break
+
+            if current_price is None:
+                continue
+
+            # Only top up if price is same or better (cheaper)
+            if current_price > topup["max_price"]:
+                print(f"[DCA] Price worse ({current_price:.3f} > {topup['max_price']:.3f}), skipping topup")
+                continue
+
+            # Execute the top-up
+            topup_size = topup["size"]
+            success, order_result = await self.execute_trade(
+                topup["market"], topup["side"], topup_size, current_price
+            )
+            if success:
+                # Update the primary trade's size
+                self.trades[key].size_usd += topup_size
+                self.trades[key].features["_dca_topup"] = topup_size
+                self.trades[key].features["_dca_topup_price"] = current_price
+                self.shadow_stats["dca_topups"] += 1
+                print(f"[DCA] Topup +${topup_size:.2f} @ ${current_price:.3f} for {key[:30]} | Total: ${self.trades[key].size_usd:.2f}")
+            else:
+                print(f"[DCA] Topup failed for {key[:30]}: {order_result}")
+
+            del self.pending_topups[key]
+
     def print_update(self, signal):
         """Print status update."""
         now = datetime.now(timezone.utc)
@@ -1950,6 +2199,18 @@ class TALiveTrader:
         cur_h = now.hour
         cur_mult = self._get_hour_multiplier(cur_h)
         print(f"  Current: UTC {cur_h} -> {cur_mult}x multiplier")
+
+        # IH2P Adaptations status
+        ss = self.shadow_stats
+        print(f"\nIH2P ADAPTATIONS:")
+        bond_status = "ENABLED" if self.BOND_MODE_ENABLED else "DISABLED (ML-revoked)"
+        bond_wr = ss["bond_wins"] / max(1, ss["bond_trades"]) * 100 if ss["bond_trades"] > 0 else 0
+        print(f"  Bond Mode: {bond_status} | {ss['bond_trades']} trades ({ss['bond_wins']}W/{ss['bond_losses']}L, {bond_wr:.0f}% WR, ${ss['bond_pnl']:+.2f})")
+        dca_status = "ENABLED" if self.DCA_ENABLED else "DISABLED (ML-revoked)"
+        print(f"  DCA Topup: {dca_status} | {ss['dca_topups']} topups (${ss['dca_topup_pnl']:+.2f})")
+        hedge_status = "ENABLED" if self.HEDGE_ENABLED else "DISABLED (ML-revoked)"
+        hedge_wr = ss["hedge_wins"] / max(1, ss["hedge_trades"]) * 100 if ss["hedge_trades"] > 0 else 0
+        print(f"  Hedge:     {hedge_status} | {ss['hedge_trades']} trades ({ss['hedge_wins']}W/{ss['hedge_losses']}L, {hedge_wr:.0f}% WR, ${ss['hedge_pnl']:+.2f})")
 
         print(f"\nOPEN TRADES ({len(open_trades)}):")
         for t in open_trades[:5]:

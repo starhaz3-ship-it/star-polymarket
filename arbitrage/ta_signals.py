@@ -134,6 +134,9 @@ class TASignal:
     ema_slow: Optional[float] = None  # EMA(20)
     ema_cross: str = "NEUTRAL"        # GOLDEN / DEATH / NEUTRAL
 
+    # CBC Flip (Candle Body Confirmation)
+    cbc_flip: str = "NONE"            # BULLISH / BEARISH / NONE
+
     # Regime
     regime: MarketRegime = MarketRegime.CHOP
     regime_reason: str = ""
@@ -628,6 +631,28 @@ class TASignalGenerator:
         else:
             return ema_fast, ema_slow, "NEUTRAL"
 
+    def compute_cbc_flip(self, candles: List[Candle]) -> str:
+        """
+        Candle Body Confirmation (CBC) Flip.
+        From StarBacktest research: "ALL CBC strategies profitable, non-CBC lose money"
+
+        BULLISH: current close > previous candle high (price broke above)
+        BEARISH: current close < previous candle low (price broke below)
+        NONE: no confirmation (close within previous range)
+
+        Backtest: CBC-only filter raised WR from 63.4% to 70.5% on 101 trades.
+        Used as scoring boost: +3 confirm, -2 contradict, 0 neutral.
+        """
+        if len(candles) < 2:
+            return "NONE"
+        curr = candles[-1]
+        prev = candles[-2]
+        if curr.close > prev.high:
+            return "BULLISH"
+        elif curr.close < prev.low:
+            return "BEARISH"
+        return "NONE"
+
     def detect_regime(
         self,
         price: float,
@@ -700,7 +725,8 @@ class TASignalGenerator:
         failed_vwap_reclaim: bool = False,
         squeeze: Optional[TTMSqueezeResult] = None,
         order_flow: Optional[OrderFlowData] = None,
-        ema_cross: str = "NEUTRAL"
+        ema_cross: str = "NEUTRAL",
+        cbc_flip: str = "NONE"
     ) -> DirectionScore:
         """Calculate direction score based on TA indicators + order flow."""
         up = 1
@@ -825,6 +851,18 @@ class TASignalGenerator:
         elif ema_cross == "DEATH":
             down += 1
             breakdown["ema_cross"] = "death cross (+1 DOWN)"
+
+        # CBC Flip (Candle Body Confirmation) - scoring boost
+        # Backtest: CBC raised WR 63.4% -> 70.5%, PnL/trade $7.71 -> $10.27
+        # +3 when CBC confirms direction, -2 when contradicts
+        if cbc_flip == "BULLISH":
+            up += 3
+            down = max(1, down - 2)  # Penalize DOWN when bullish CBC
+            breakdown["cbc"] = "BULLISH flip (close > prev high, +3 UP, -2 DOWN)"
+        elif cbc_flip == "BEARISH":
+            down += 3
+            up = max(1, up - 2)  # Penalize UP when bearish CBC
+            breakdown["cbc"] = "BEARISH flip (close < prev low, +3 DOWN, -2 UP)"
 
         raw_up = up / (up + down)
 
@@ -1034,6 +1072,9 @@ class TASignalGenerator:
                 mid_price=current_price
             )
 
+        # CBC Flip (Candle Body Confirmation)
+        signal.cbc_flip = self.compute_cbc_flip(candles)
+
         # Heiken Ashi
         ha_candles = self.compute_heiken_ashi(candles)
         if ha_candles:
@@ -1069,7 +1110,7 @@ class TASignalGenerator:
             volume_avg=avg_volume
         )
 
-        # Score direction (including order flow if available)
+        # Score direction (including order flow + CBC)
         signal.direction = self.score_direction(
             price=current_price,
             vwap=signal.vwap,
@@ -1082,7 +1123,8 @@ class TASignalGenerator:
             failed_vwap_reclaim=failed_vwap_reclaim,
             squeeze=signal.squeeze,
             order_flow=signal.order_flow,
-            ema_cross=signal.ema_cross
+            ema_cross=signal.ema_cross,
+            cbc_flip=signal.cbc_flip
         )
 
         # Apply time awareness
@@ -1140,6 +1182,7 @@ class TASignalGenerator:
             mom_dir = "rising" if signal.squeeze.momentum_rising else "falling"
             lines.append(f"Squeeze: {sq_status} | Mom: {signal.squeeze.momentum:.1f} ({mom_dir})")
 
+        lines.append(f"CBC Flip: {signal.cbc_flip}")
         lines.append(f"Heiken: {signal.heiken_color or 'N/A'} x{signal.heiken_count}")
         lines.append(f"Regime: {signal.regime.value} ({signal.regime_reason})")
 
