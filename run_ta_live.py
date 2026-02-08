@@ -1424,33 +1424,19 @@ class TALiveTrader:
                     print(f"  [{asset}] Edge too small: {best_edge:.1%} < {edge_floor:.0%}")
                     continue
 
-                # === ATR VOLATILITY FILTER (with shadow tracking) ===
-                # Blocks trades during wild price action to protect execution quality
-                # Shadow-tracks blocked trades to ML-evaluate if filter helps
-                atr_blocked = False
-                if self._is_volatile_atr(candles, period=14, multiplier=1.5):
-                    atr_blocked = True
-                    entry_price_shadow = up_price if signal.side == "UP" else down_price
-                    shadow_key = f"shadow_atr_{market_id}_{signal.side}"
-                    if shadow_key not in self.shadow_trades:
-                        self.shadow_trades[shadow_key] = {
-                            "trade_key": shadow_key, "market_id": market_id,
-                            "market_title": question[:80], "asset": asset,
-                            "side": signal.side, "entry_price": entry_price_shadow,
-                            "entry_time": datetime.now(timezone.utc).isoformat(),
-                            "size_usd": self.BASE_POSITION_SIZE,
-                            "filter_reason": "atr_volatility",
-                            "atr_ratio": 0.0,  # filled below
-                            "status": "open", "exit_price": None, "pnl": 0.0,
-                        }
-                        # Calculate ATR ratio for ML features
-                        atr_val = self._compute_atr(candles[:-3], 14)
-                        recent_ranges = [c.high - c.low for c in candles[-3:]]
-                        avg_recent = sum(recent_ranges) / len(recent_ranges) if recent_ranges else 0
-                        self.shadow_trades[shadow_key]["atr_ratio"] = round(avg_recent / atr_val, 2) if atr_val > 0 else 0
-                        self.shadow_stats["atr_blocked"] += 1
-                        print(f"  [{asset}] ATR BLOCKED (shadow #{self.shadow_stats['atr_blocked']}): {signal.side} @ ${entry_price_shadow:.3f} | ATR ratio={self.shadow_trades[shadow_key]['atr_ratio']:.1f}x")
-                    continue
+                # === ATR VOLATILITY TAG (filter REMOVED - was blocking 100% winners) ===
+                # Shadow data showed 7/7 blocked trades were winners (+$29.41 missed)
+                # Now tags trades with atr_ratio for ongoing backtesting
+                atr_high = False
+                atr_ratio = 0.0
+                atr_val = self._compute_atr(candles[:-3], 14)
+                if atr_val > 0:
+                    recent_ranges = [c.high - c.low for c in candles[-3:]]
+                    avg_recent = sum(recent_ranges) / len(recent_ranges) if recent_ranges else 0
+                    atr_ratio = round(avg_recent / atr_val, 2)
+                    atr_high = atr_ratio > 1.5
+                    if atr_high:
+                        print(f"  [{asset}] ATR HIGH (ratio={atr_ratio:.1f}x) - proceeding (filter disabled, tagging for backtest)")
 
                 # === NYU TWO-PARAMETER VOLATILITY FILTER (V3.3) ===
                 if self.use_nyu_model:
@@ -1570,7 +1556,7 @@ class TALiveTrader:
                             edge_at_entry=edge if edge else 0,
                             kl_divergence=bregman_signal.kl_divergence,
                             kelly_fraction=bregman_signal.kelly_fraction,
-                            features={**asdict(features), "_full_size": full_size, "_with_trend": with_trend},
+                            features={**asdict(features), "_full_size": full_size, "_with_trend": with_trend, "_atr_ratio": atr_ratio, "_atr_high": atr_high},
                             order_id=order_result,
                             execution_error=None,
                             status="open",
