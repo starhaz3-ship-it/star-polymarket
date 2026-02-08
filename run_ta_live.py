@@ -574,6 +574,9 @@ class TALiveTrader:
             if self.ARCHIVE_FILE.exists():
                 with open(self.ARCHIVE_FILE, 'r') as f:
                     archive = json.load(f)
+                # Normalize: if archive is a plain list, convert to dict format
+                if isinstance(archive, list):
+                    archive = {'trades': archive, 'daily_snapshots': []}
             else:
                 archive = {'trades': [], 'daily_snapshots': []}
 
