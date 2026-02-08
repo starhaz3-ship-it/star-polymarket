@@ -243,8 +243,42 @@ def _get_polygon_w3():
     return None
 
 
+def _send_redeem_batch(w3, factory, account, key, batch, batch_shares):
+    """Send a batch of redemption calls in a single transaction. Returns count claimed."""
+    try:
+        time.sleep(5)
+        nonce = w3.eth.get_transaction_count(account.address)
+        time.sleep(5)
+        gas_price = w3.eth.gas_price
+        # More gas for batched calls: 200k per redemption
+        gas_limit = min(200000 * len(batch), 8000000)
+        txn = factory.functions.proxy(batch).build_transaction({
+            "from": account.address, "nonce": nonce,
+            "gasPrice": min(gas_price * 2, w3.to_wei(100, "gwei")),
+            "gas": gas_limit,
+        })
+        signed = w3.eth.account.sign_transaction(txn, key)
+        time.sleep(5)
+        tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+        print(f"[REDEEM] Batch TX sent: {len(batch)} positions ({batch_shares:.0f} shares) | tx={tx_hash.hex()[:16]}...")
+        # Wait for confirmation
+        time.sleep(20)
+        new_nonce = w3.eth.get_transaction_count(account.address, "latest")
+        if new_nonce > nonce:
+            print(f"[REDEEM] Batch CONFIRMED: {len(batch)} positions redeemed")
+            return len(batch)
+        else:
+            print(f"[REDEEM] Batch pending (will confirm later)")
+            return 0
+    except Exception as e:
+        print(f"[REDEEM] Batch error: {str(e)[:80]}")
+        time.sleep(15)
+        return 0
+
+
 def auto_redeem_winnings():
-    """Auto-redeem resolved winning positions to USDC. Reports every claim."""
+    """Auto-redeem resolved WINNING positions to USDC. Skips losers to save gas.
+    Batches up to 10 redemptions per transaction for efficiency."""
     try:
         from web3 import Web3
         from dotenv import load_dotenv
@@ -265,9 +299,13 @@ def auto_redeem_winnings():
         if not redeemable:
             return
 
-        total_val = sum(float(p.get("currentValue", 0) or 0) for p in redeemable)
-        if total_val <= 0:
+        # Only redeem WINNERS (curPrice >= 0.95). Losers return $0 = waste of gas.
+        winners = [p for p in redeemable if float(p.get("curPrice", 0) or 0) >= 0.95]
+        if not winners:
             return
+
+        total_shares = sum(float(p.get("size", 0) or 0) for p in winners)
+        print(f"[REDEEM] Found {len(winners)} winning positions ({total_shares:.0f} shares, ~${total_shares:.2f} USDC)")
 
         w3 = _get_polygon_w3()
         if not w3:
@@ -299,63 +337,58 @@ def auto_redeem_winnings():
         ctf = w3.eth.contract(address=Web3.to_checksum_address(CTF), abi=ctf_abi)
         factory = w3.eth.contract(address=Web3.to_checksum_address(FACTORY), abi=factory_abi)
 
-        # Check for stuck nonces first - unstick if needed
+        # Check for stuck nonces - wait up to 30s
         time.sleep(2)
         confirmed_nonce = w3.eth.get_transaction_count(account.address, "latest")
         time.sleep(2)
         pending_nonce = w3.eth.get_transaction_count(account.address, "pending")
         if pending_nonce > confirmed_nonce:
-            print(f"[REDEEM] Stuck nonce detected ({pending_nonce - confirmed_nonce} pending) - skipping until clear")
-            return
+            print(f"[REDEEM] {pending_nonce - confirmed_nonce} pending TX - waiting 30s...")
+            time.sleep(30)
+            confirmed_nonce = w3.eth.get_transaction_count(account.address, "latest")
+            pending_nonce = w3.eth.get_transaction_count(account.address, "pending")
+            if pending_nonce > confirmed_nonce:
+                print(f"[REDEEM] Still stuck - skipping this cycle")
+                return
 
-        claimed = 0
+        # Deduplicate by conditionId and batch up to 10 per transaction
         done = set()
-        for p in redeemable:
+        batch = []
+        batch_shares = 0
+        claimed_total = 0
+        BATCH_SIZE = 10
+
+        for p in winners:
             cid = p.get("conditionId", "")
-            val = float(p.get("currentValue", 0) or 0)
-            if not cid or cid in done or val <= 0:
+            shares = float(p.get("size", 0) or 0)
+            if not cid or cid in done or shares <= 0:
                 continue
             done.add(cid)
-            title = p.get("title", "")[:40]
-            outcome = p.get("outcome", "")
-            try:
-                redeem_data = ctf.encode_abi("redeemPositions", args=[
-                    Web3.to_checksum_address(USDC), bytes(32),
-                    Web3.to_bytes(hexstr=cid), [1, 2],
-                ])
-                proxy_txn = (Web3.to_checksum_address(CTF), 1, Web3.to_bytes(hexstr=redeem_data), 0)
-                time.sleep(5)  # Rate limit between RPC calls
-                nonce = w3.eth.get_transaction_count(account.address)
-                time.sleep(5)
-                gas_price = w3.eth.gas_price
-                txn = factory.functions.proxy([proxy_txn]).build_transaction({
-                    "from": account.address, "nonce": nonce,
-                    "gasPrice": min(gas_price * 2, w3.to_wei(100, "gwei")), "gas": 300000,
-                })
-                signed = w3.eth.account.sign_transaction(txn, key)
-                time.sleep(5)
-                tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
-                # Fire-and-forget: don't wait_for_receipt (causes rate limiting)
-                # Just check nonce increment after a delay
-                time.sleep(20)
-                new_nonce = w3.eth.get_transaction_count(account.address, "latest")
-                if new_nonce > nonce:
-                    claimed += 1
-                    print(f"[REDEEM] Claimed ${val:.2f} {outcome} | {title}")
-                else:
-                    print(f"[REDEEM] TX sent for ${val:.2f} {outcome} (pending) | {title}")
-                time.sleep(10)  # Cooldown between redeems
-            except Exception as e:
-                err_msg = str(e)[:60]
-                if "already known" in err_msg:
-                    print(f"[REDEEM] ${val:.2f} already pending | {title}")
-                else:
-                    print(f"[REDEEM] Error on ${val:.2f}: {err_msg}")
-                time.sleep(15)
-                continue
 
-        if claimed:
-            print(f"[REDEEM] Auto-claimed {claimed} winning positions (${total_val:.2f} total)")
+            redeem_data = ctf.encode_abi("redeemPositions", args=[
+                Web3.to_checksum_address(USDC), bytes(32),
+                Web3.to_bytes(hexstr=cid), [1, 2],
+            ])
+            proxy_txn = (Web3.to_checksum_address(CTF), 1, Web3.to_bytes(hexstr=redeem_data), 0)
+            batch.append(proxy_txn)
+            batch_shares += shares
+
+            if len(batch) >= BATCH_SIZE:
+                # Send batch
+                claimed = _send_redeem_batch(w3, factory, account, key, batch, batch_shares)
+                claimed_total += claimed
+                batch = []
+                batch_shares = 0
+
+        # Send remaining batch
+        if batch:
+            claimed = _send_redeem_batch(w3, factory, account, key, batch, batch_shares)
+            claimed_total += claimed
+
+        if claimed_total:
+            print(f"[REDEEM] Claimed {claimed_total} positions (~${total_shares:.2f} USDC)")
+        else:
+            print(f"[REDEEM] No claims succeeded this cycle")
 
         # Check remaining POL balance for gas
         try:
@@ -897,7 +930,7 @@ class TALiveTrader:
         if not self.executor or not self.executor._initialized:
             return False, "executor_not_ready"
         try:
-            from py_clob_client.clob_types import OrderArgs, OrderType
+            from py_clob_client.clob_types import OrderArgs, OrderType, BalanceAllowanceParams, AssetType
             from py_clob_client.order_builder.constants import SELL
 
             token_ids = market.get("clobTokenIds", "[]")
@@ -914,6 +947,14 @@ class TALiveTrader:
                     break
             if not token_id:
                 return False, "token_not_found"
+
+            # Approve conditional token for selling (required by CLOB)
+            try:
+                self.executor.client.update_balance_allowance(
+                    BalanceAllowanceParams(asset_type=AssetType.CONDITIONAL, token_id=token_id)
+                )
+            except Exception as e:
+                print(f"[SELL] Allowance update warning: {e}")
 
             order_args = OrderArgs(
                 price=price,
