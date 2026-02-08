@@ -340,10 +340,10 @@ class TALiveTrader:
     """Live trades based on TA + Bregman signals with ML optimization."""
 
     OUTPUT_FILE = Path(__file__).parent / "ta_live_results.json"
-    # Position sizing: $5 base, hourly ML scales 0.5x-1.5x ($3-$8)
+    # Position sizing: $5 base, max $8 (V3.5 reduced from $3-$8)
     BASE_POSITION_SIZE = 5.0   # Standard bet
-    MIN_POSITION_SIZE = 3.0    # Floor $3 (CLOB minimum)
-    MAX_POSITION_SIZE = 8.0    # Cap $8 (hourly ML + Kelly can push here)
+    MIN_POSITION_SIZE = 5.0    # Floor $5 (was $3)
+    MAX_POSITION_SIZE = 8.0    # Cap $8
 
     def __init__(self, dry_run: bool = False, bankroll: float = 70.12):
         self.dry_run = dry_run
@@ -597,19 +597,23 @@ class TALiveTrader:
             print(f"[Archive] Error: {e}")
 
     # Multi-asset configuration
+    # V3.5: ETH removed from live (1W/12L, 8% WR, -$70.81 overnight)
+    # ETH still paper-tracked via SHADOW_ASSETS for re-evaluation
     ASSETS = {
         "BTC": {
             "symbol": "BTCUSDT",
             "keywords": ["bitcoin", "btc"],
         },
-        "ETH": {
-            "symbol": "ETHUSDT",
-            "keywords": ["ethereum", "eth"],
-        },
-        # XRP removed: 46.9% WR, -$4.69 PnL - worst performing asset
         "SOL": {
             "symbol": "SOLUSDT",
             "keywords": ["solana", "sol"],
+        },
+    }
+    # Shadow-only assets: fetched + signals generated + logged, but NEVER executed
+    SHADOW_ASSETS = {
+        "ETH": {
+            "symbol": "ETHUSDT",
+            "keywords": ["ethereum", "eth"],
         },
     }
 
@@ -621,10 +625,12 @@ class TALiveTrader:
     TREND_BIAS_WEAK = 0.30     # Capital % for counter-trend trades (30% less)
 
     # Trading hours filter (UTC) - skip low-WR hours
-    # Whale-validated: 0=12.7%, 21=20.5%, 23=25.2% WR (terrible)
-    # Backtested: 6-8=40-44%, 14-15=30-34%, 19-20=28-34%
-    # Removed 16 (whale WR 39.4% - decent)
-    SKIP_HOURS_UTC = {0, 1, 8, 22, 23}  # Opened US/EU overlap (UTC 15-17,19,20) + UTC 3 (proven profitable)
+    # V3.5: Expanded from {0,1,8,22,23} based on overnight massacre:
+    #   08h: 0W/4L (-$15.38), 10h: 0W/2L (-$13.10), 11h: 0W/2L (-$9.44)
+    #   12h: 0W/7L (-$51.94), 13h: 0W/1L (-$6.72), 15h: 0W/2L (-$14.12)
+    #   20h: 0W/2L (-$8.78)
+    # Shadow-tracked on paper account for re-evaluation
+    SKIP_HOURS_UTC = {0, 1, 8, 10, 11, 12, 13, 15, 20, 22, 23}
 
     def _ema(self, candles, period: int) -> float:
         """Calculate EMA from candle close prices."""
@@ -778,12 +784,15 @@ class TALiveTrader:
         return atr_short < atr_long
 
     async def fetch_data(self):
-        """Fetch candles and markets for all assets."""
+        """Fetch candles and markets for all assets (including shadow assets)."""
         asset_data = {}  # {asset: (candles, price, markets)}
+
+        # Merge live + shadow assets for data fetching
+        all_assets = {**self.ASSETS, **self.SHADOW_ASSETS}
 
         async with httpx.AsyncClient(timeout=15) as client:
             # Fetch candles + prices for all assets from Binance
-            for asset, cfg in self.ASSETS.items():
+            for asset, cfg in all_assets.items():
                 try:
                     r = await client.get(
                         "https://api.binance.com/api/v3/klines",
@@ -821,7 +830,7 @@ class TALiveTrader:
                         title = event.get("title", "").lower()
                         # Match event to asset
                         matched_asset = None
-                        for asset, cfg in self.ASSETS.items():
+                        for asset, cfg in all_assets.items():
                             if any(kw in title for kw in cfg["keywords"]):
                                 matched_asset = asset
                                 break
@@ -1149,7 +1158,7 @@ class TALiveTrader:
 
     # Conviction thresholds - matched to paper tuner (tune #35)
     MIN_MODEL_CONFIDENCE = 0.56  # Match paper tuner
-    MIN_EDGE = 0.25              # Lowered from 0.30 — min size for 0.25-0.30, auto-revert if 3 fail
+    MIN_EDGE = 0.30              # V3.5: Raised back from 0.25 — overnight showed 25% wasn't enough
     LOW_EDGE_THRESHOLD = 0.30    # Trades below this get minimum size
     MAX_ENTRY_PRICE = 0.55       # Match paper (was 0.45)
     MIN_KL_DIVERGENCE = 0.15     # V3.4: KL<0.15 = 36% WR vs 67% above (96 paper trades)
@@ -1171,9 +1180,9 @@ class TALiveTrader:
 
     # Risk management - matched to paper volumes
     MAX_DAILY_LOSS = 30.0        # Same as paper
-    MAX_TOTAL_EXPOSURE = 100.0   # Relaxed - paper trades 3 assets x $10-20
+    MAX_TOTAL_EXPOSURE = 50.0    # V3.5: Tightened (was 100) — max 1 trade per window
     MAX_SLIPPAGE = 0.03          # Keep tight for live execution
-    MAX_CONCURRENT_POSITIONS = 6 # Relaxed - paper trades BTC+ETH+SOL simultaneously
+    MAX_CONCURRENT_POSITIONS = 2 # V3.5: Max 2 (was 6) — stop triple-stacking correlated bets
 
     # Entry window - match paper
     MIN_TIME_REMAINING = 5.0     # V3.4: 2-5min = 47% WR; 5-12min = 83% WR (96 paper trades)
@@ -1257,13 +1266,8 @@ class TALiveTrader:
         is_skip_hour = current_hour in self.SKIP_HOURS_UTC
         if is_skip_hour:
             open_count = sum(1 for t in self.trades.values() if t.status == "open")
-            # Feb 7-10 exception: allow $4 high-conviction trades during skip hours
-            today = datetime.now(timezone.utc).date()
-            skip_hour_exception = today <= date(2026, 2, 10)
             if open_count > 0:
                 print(f"[SKIP] Hour {current_hour:02d} UTC - resolving {open_count} open trades...")
-            elif skip_hour_exception:
-                print(f"[SKIP] Hour {current_hour:02d} UTC - scanning for $4 high-conviction trades...")
             else:
                 print(f"[SKIP] Hour {current_hour:02d} UTC is in skip list - resting")
                 return None
@@ -1283,8 +1287,9 @@ class TALiveTrader:
         self.signals_count += 1
         main_signal = None
 
-        # Process each asset
+        # Process each asset (live + shadow)
         for asset, data in asset_data.items():
+            is_shadow_asset = asset in self.SHADOW_ASSETS
             candles = data["candles"]
             price = data["price"]
             markets = data["markets"]
@@ -1328,8 +1333,7 @@ class TALiveTrader:
 
             # Try all eligible markets (nearest first) — near-expiry markets may already be heavily priced
             for time_left, market, up_price, down_price in eligible_markets:
-                # Skip hour: break unless Feb 7-8 exception is active (checked above)
-                if is_skip_hour and not skip_hour_exception:
+                if is_skip_hour:
                     break
                 market_id = market.get("conditionId", "")
                 question = market.get("question", "")
@@ -1443,9 +1447,9 @@ class TALiveTrader:
                 low_edge_locked = (self.low_edge_lockout_until and
                                    datetime.now(timezone.utc) < self.low_edge_lockout_until)
                 if low_edge_locked:
-                    edge_floor = 0.15 if is_skip_hour else self.LOW_EDGE_THRESHOLD  # 0.30
+                    edge_floor = self.LOW_EDGE_THRESHOLD  # 0.30
                 else:
-                    edge_floor = 0.15 if is_skip_hour else self.MIN_EDGE  # 0.25
+                    edge_floor = self.MIN_EDGE  # 0.30 (V3.5: raised from 0.25)
                 if best_edge is not None and best_edge < edge_floor:
                     lock_tag = " [LOCKOUT]" if low_edge_locked else ""
                     print(f"  [{asset}] Edge too small: {best_edge:.1%} < {edge_floor:.0%}{lock_tag}")
@@ -1478,6 +1482,19 @@ class TALiveTrader:
 
                 if signal.action == "ENTER" and signal.side and trade_key:
                     if trade_key not in self.trades:
+                        # SHADOW ASSET: log signal but never execute (V3.5)
+                        if is_shadow_asset:
+                            entry_price = up_price if signal.side == "UP" else down_price
+                            edge = signal.edge_up if signal.side == "UP" else signal.edge_down
+                            print(f"  [{asset}] SHADOW: {signal.side} @ ${entry_price:.3f} edge={edge:.1%} (paper-only, not executed)")
+                            shadow_key = f"shadow_{market_id}_{signal.side}"
+                            self.shadow_trades[shadow_key] = {
+                                "asset": asset, "side": signal.side, "entry_price": entry_price,
+                                "entry_time": datetime.now(timezone.utc).isoformat(),
+                                "market_title": f"[{asset}] {question[:75]}",
+                                "edge": edge, "status": "open", "reason": "shadow_asset",
+                            }
+                            continue
                         # DUPLICATE PROTECTION - skip if we already traded this market this cycle
                         if market_id in self.recently_traded_markets:
                             continue
@@ -1508,9 +1525,9 @@ class TALiveTrader:
                             market_no_price=down_price
                         )
 
-                        # === KL DIVERGENCE FILTER (V3.4, skipped during skip hours) ===
+                        # === KL DIVERGENCE FILTER (V3.4) ===
                         # KL < 0.15 = 36% WR (model agrees with market = no edge)
-                        if not is_skip_hour and bregman_signal.kl_divergence < self.MIN_KL_DIVERGENCE:
+                        if bregman_signal.kl_divergence < self.MIN_KL_DIVERGENCE:
                             print(f"  [{asset}] KL too low: {bregman_signal.kl_divergence:.3f} < {self.MIN_KL_DIVERGENCE}")
                             continue
 
@@ -1523,15 +1540,6 @@ class TALiveTrader:
                             self.ml_rejections += 1
                             print(f"[ML] {asset} Rejected: {signal.side} score={ml_score:.2f} < {min_score:.2f}")
                             continue
-
-                        # === SKIP HOUR $3 TRADES (Feb 7-8 temp, loosened) ===
-                        # Relaxed gate: edge>=15%, conf>=55%, price<=$0.45
-                        if is_skip_hour:
-                            model_conf = signal.model_up if signal.side == "UP" else signal.model_down
-                            if best_edge < 0.15 or model_conf < 0.55 or entry_price > 0.45:
-                                print(f"  [{asset}] SKIP-HR: edge={best_edge:.0%} conf={model_conf:.0%} ${entry_price:.2f} (need 15%+/55%+/<$0.45)")
-                                continue
-                            print(f"  [{asset}] SKIP-HR $3 TRADE: edge={best_edge:.0%} conf={model_conf:.0%} ${entry_price:.2f}")
 
                         position_size = self.calculate_position_size(
                             edge=edge if edge else 0.10,
@@ -1561,11 +1569,6 @@ class TALiveTrader:
                         if is_low_edge:
                             position_size = self.MIN_POSITION_SIZE  # $3
                             hour_tag += ", LOW-EDGE=$3"
-
-                        # Skip hour: cap at $4
-                        if is_skip_hour:
-                            position_size = min(position_size, 4.0)
-                            hour_tag = ", SKIP-HR=$4"
 
                         print(f"[SIZE] {asset} ${position_size:.2f} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, {trend_tag}{hour_tag})")
 
@@ -1941,12 +1944,11 @@ class TALiveTrader:
         print("=" * 70)
         print(f"Position Size: ${self.BASE_POSITION_SIZE} base (${self.MIN_POSITION_SIZE}-${self.MAX_POSITION_SIZE} Kelly-scaled)")
         print(f"ML Optimization: ENABLED")
-        print(f"Assets: {', '.join(self.ASSETS.keys())}")
-        print(f"PAPER-MATCHED: All settings copied 1:1 from paper tuner (tune #35)")
-        print(f"SHADOW TRACKING: ATR filter + trend bias tracked for ML removal evaluation")
+        print(f"Live Assets: {', '.join(self.ASSETS.keys())} | Shadow: {', '.join(self.SHADOW_ASSETS.keys())}")
+        print(f"V3.5: ETH shadow-only | Max {self.MAX_CONCURRENT_POSITIONS} concurrent | Edge>={self.MIN_EDGE:.0%} | 11 skip hours")
+        print(f"SHADOW TRACKING: ETH paper-tracked + skip hours for re-evaluation")
         print(f"HOURLY ML SIZING: Bayesian WR per hour -> reduce bad hours, boost good (after 10 trades)")
         print(f"Filters: Edge>={self.MIN_EDGE:.0%} | Conf>={self.MIN_MODEL_CONFIDENCE:.0%} | KL>={self.MIN_KL_DIVERGENCE} | ATR(14)x1.5 | NYU>0.15")
-        print(f"V3.4: Death zone $0.40-0.45 | DOWN<$0.15=BLOCK | 5min entry floor | KL filter | Dynamic UP max")
         print(f"UP: Dynamic max price (70%->$0.42, 80%->$0.48, 85%->$0.55) | Scaled conf for cheap entries")
         print(f"DOWN: Death zone $0.40-0.45=SKIP | Break-even conf for cheap | Momentum confirm >{self.DOWN_MIN_MOMENTUM_DROP}")
         print(f"NYU model: edge_score>0.15 (avoid 50% zone)")
