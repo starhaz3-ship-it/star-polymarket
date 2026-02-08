@@ -11,7 +11,7 @@ import time
 import os
 import math
 import numpy as np
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 from pathlib import Path
 from dataclasses import dataclass, asdict, field
 from typing import Dict, List, Optional, Tuple
@@ -435,6 +435,10 @@ class TALiveTrader:
         self.consecutive_wins = 0
         self.consecutive_losses = 0
         self.start_time = datetime.now(timezone.utc).isoformat()
+
+        # Low-edge circuit breaker: 3 consecutive low-edge losses → revert to 0.30 for 2 hours
+        self.low_edge_consecutive_losses = 0
+        self.low_edge_lockout_until = None  # datetime when lockout expires
 
         # Duplicate order protection - track markets we've traded this cycle
         self.recently_traded_markets: set = set()
@@ -1130,7 +1134,8 @@ class TALiveTrader:
 
     # Conviction thresholds - matched to paper tuner (tune #35)
     MIN_MODEL_CONFIDENCE = 0.56  # Match paper tuner
-    MIN_EDGE = 0.30              # V3.4: edge<0.30 = 36% WR (96 paper trades)
+    MIN_EDGE = 0.25              # Lowered from 0.30 — min size for 0.25-0.30, auto-revert if 3 fail
+    LOW_EDGE_THRESHOLD = 0.30    # Trades below this get minimum size
     MAX_ENTRY_PRICE = 0.55       # Match paper (was 0.45)
     MIN_KL_DIVERGENCE = 0.15     # V3.4: KL<0.15 = 36% WR vs 67% above (96 paper trades)
 
@@ -1417,12 +1422,20 @@ class TALiveTrader:
                     print(f"  [{asset}] V3.3 filter: {skip_reason}")
                     continue
 
-                # === EDGE FILTER (relaxed during skip hours) ===
+                # === EDGE FILTER (with low-edge circuit breaker) ===
                 best_edge = signal.edge_up if signal.side == "UP" else signal.edge_down
-                edge_floor = 0.15 if is_skip_hour else self.MIN_EDGE
+                # If 3 low-edge trades failed in a row, lock out low-edge for 2 hours
+                low_edge_locked = (self.low_edge_lockout_until and
+                                   datetime.now(timezone.utc) < self.low_edge_lockout_until)
+                if low_edge_locked:
+                    edge_floor = 0.15 if is_skip_hour else self.LOW_EDGE_THRESHOLD  # 0.30
+                else:
+                    edge_floor = 0.15 if is_skip_hour else self.MIN_EDGE  # 0.25
                 if best_edge is not None and best_edge < edge_floor:
-                    print(f"  [{asset}] Edge too small: {best_edge:.1%} < {edge_floor:.0%}")
+                    lock_tag = " [LOCKOUT]" if low_edge_locked else ""
+                    print(f"  [{asset}] Edge too small: {best_edge:.1%} < {edge_floor:.0%}{lock_tag}")
                     continue
+                is_low_edge = best_edge is not None and best_edge < self.LOW_EDGE_THRESHOLD
 
                 # === ATR VOLATILITY TAG (filter REMOVED - was blocking 100% winners) ===
                 # Shadow data showed 7/7 blocked trades were winners (+$29.41 missed)
@@ -1529,9 +1542,14 @@ class TALiveTrader:
                         hour_mult = self._get_hour_multiplier(datetime.now(timezone.utc).hour)
                         hour_tag = f", Hour={hour_mult}x" if hour_mult != 1.0 else ""
 
+                        # Low-edge trades: force minimum size ($3)
+                        if is_low_edge:
+                            position_size = self.MIN_POSITION_SIZE  # $3
+                            hour_tag += ", LOW-EDGE=$3"
+
                         # Skip hour: cap at $4
                         if is_skip_hour:
-                            position_size = 4.0
+                            position_size = min(position_size, 4.0)
                             hour_tag = ", SKIP-HR=$4"
 
                         print(f"[SIZE] {asset} ${position_size:.2f} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, {trend_tag}{hour_tag})")
@@ -1596,14 +1614,23 @@ class TALiveTrader:
 
                             self.total_pnl += open_trade.pnl
                             won = open_trade.pnl > 0
+                            was_low_edge = open_trade.edge_at_entry < self.LOW_EDGE_THRESHOLD
                             if won:
                                 self.wins += 1
                                 self.consecutive_wins += 1
                                 self.consecutive_losses = 0
+                                if was_low_edge:
+                                    self.low_edge_consecutive_losses = 0
                             else:
                                 self.losses += 1
                                 self.consecutive_losses += 1
                                 self.consecutive_wins = 0
+                                if was_low_edge:
+                                    self.low_edge_consecutive_losses += 1
+                                    if self.low_edge_consecutive_losses >= 3:
+                                        self.low_edge_lockout_until = datetime.now(timezone.utc) + timedelta(hours=2)
+                                        print(f"[CIRCUIT BREAKER] 3 low-edge losses — edge floor back to 30% until {self.low_edge_lockout_until.strftime('%H:%M UTC')}")
+                                        self.low_edge_consecutive_losses = 0
 
                             # === UPDATE HOURLY STATS ===
                             try:
@@ -1718,14 +1745,23 @@ class TALiveTrader:
 
                             self.total_pnl += open_trade.pnl
                             won = open_trade.pnl > 0
+                            was_low_edge = open_trade.edge_at_entry < self.LOW_EDGE_THRESHOLD
                             if won:
                                 self.wins += 1
                                 self.consecutive_wins += 1
                                 self.consecutive_losses = 0
+                                if was_low_edge:
+                                    self.low_edge_consecutive_losses = 0
                             else:
                                 self.losses += 1
                                 self.consecutive_losses += 1
                                 self.consecutive_wins = 0
+                                if was_low_edge:
+                                    self.low_edge_consecutive_losses += 1
+                                    if self.low_edge_consecutive_losses >= 3:
+                                        self.low_edge_lockout_until = datetime.now(timezone.utc) + timedelta(hours=2)
+                                        print(f"[CIRCUIT BREAKER] 3 low-edge losses — edge floor back to 30% until {self.low_edge_lockout_until.strftime('%H:%M UTC')}")
+                                        self.low_edge_consecutive_losses = 0
 
                             self.bankroll = max(self.initial_bankroll * 0.5, self.bankroll + open_trade.pnl)
                             self.ml.update_weights(open_trade.features, won)
