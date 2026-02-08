@@ -367,6 +367,10 @@ class TALiveTrader:
         self.low_edge_consecutive_losses = 0
         self.low_edge_lockout_until = None  # datetime when lockout expires
 
+        # V3.5 MOMENTUM PAUSE: After 2 consecutive losses, pause 30 min
+        # Data: After 2 losses WR=29.7% vs After 2 wins WR=63.8% (279 trades)
+        self.momentum_pause_until = None  # datetime when pause expires
+
         # Duplicate order protection - track markets we've traded this cycle
         self.recently_traded_markets: set = set()
 
@@ -513,6 +517,8 @@ class TALiveTrader:
                             self.losses += 1
                             self.consecutive_losses += 1
                             self.consecutive_wins = 0
+                            if self.consecutive_losses >= 2:
+                                self.momentum_pause_until = datetime.now(timezone.utc) + timedelta(minutes=30)
                         self.bankroll = max(self.initial_bankroll * 0.5, self.bankroll + trade.pnl)
                         self.ml.update_weights(trade.features, won)
 
@@ -1180,9 +1186,9 @@ class TALiveTrader:
 
     # Risk management - matched to paper volumes
     MAX_DAILY_LOSS = 30.0        # Same as paper
-    MAX_TOTAL_EXPOSURE = 50.0    # V3.5: Tightened (was 100) — max 1 trade per window
+    MAX_TOTAL_EXPOSURE = 50.0    # V3.5: Tightened (was 100)
     MAX_SLIPPAGE = 0.03          # Keep tight for live execution
-    MAX_CONCURRENT_POSITIONS = 2 # V3.5: Max 2 (was 6) — stop triple-stacking correlated bets
+    MAX_CONCURRENT_POSITIONS = 1 # V3.5: Max 1 — single best signal only (multi-asset was -$207)
 
     # Entry window - match paper
     MIN_TIME_REMAINING = 5.0     # V3.4: 2-5min = 47% WR; 5-12min = 83% WR (96 paper trades)
@@ -1502,6 +1508,13 @@ class TALiveTrader:
                         opposite_key = f"{market_id}_{'DOWN' if signal.side == 'UP' else 'UP'}"
                         if opposite_key in self.trades and self.trades[opposite_key].status == "open":
                             continue
+                        # === MOMENTUM PAUSE (V3.5) ===
+                        # After 2 consecutive losses, WR drops to 29.7%. Pause 30 min.
+                        if self.momentum_pause_until and datetime.now(timezone.utc) < self.momentum_pause_until:
+                            remaining = (self.momentum_pause_until - datetime.now(timezone.utc)).total_seconds() / 60
+                            print(f"  [{asset}] MOMENTUM PAUSE: {remaining:.0f}min left (2 consecutive losses)")
+                            break  # Break out of this asset's markets entirely
+
                         # === RISK CHECKS ===
                         if self.total_pnl <= -self.MAX_DAILY_LOSS:
                             print(f"[RISK] Daily loss limit hit: ${self.total_pnl:.2f} - stopping")
@@ -1637,12 +1650,17 @@ class TALiveTrader:
                                 self.wins += 1
                                 self.consecutive_wins += 1
                                 self.consecutive_losses = 0
+                                self.momentum_pause_until = None  # Win clears pause
                                 if was_low_edge:
                                     self.low_edge_consecutive_losses = 0
                             else:
                                 self.losses += 1
                                 self.consecutive_losses += 1
                                 self.consecutive_wins = 0
+                                # MOMENTUM PAUSE: 2 consecutive losses → pause 30 min
+                                if self.consecutive_losses >= 2:
+                                    self.momentum_pause_until = datetime.now(timezone.utc) + timedelta(minutes=30)
+                                    print(f"[MOMENTUM PAUSE] {self.consecutive_losses} consecutive losses — pausing until {self.momentum_pause_until.strftime('%H:%M UTC')}")
                                 if was_low_edge:
                                     self.low_edge_consecutive_losses += 1
                                     if self.low_edge_consecutive_losses >= 3:
@@ -1774,6 +1792,9 @@ class TALiveTrader:
                                 self.losses += 1
                                 self.consecutive_losses += 1
                                 self.consecutive_wins = 0
+                                if self.consecutive_losses >= 2:
+                                    self.momentum_pause_until = datetime.now(timezone.utc) + timedelta(minutes=30)
+                                    print(f"[MOMENTUM PAUSE] {self.consecutive_losses} consecutive losses — pausing until {self.momentum_pause_until.strftime('%H:%M UTC')}")
                                 if was_low_edge:
                                     self.low_edge_consecutive_losses += 1
                                     if self.low_edge_consecutive_losses >= 3:
