@@ -340,13 +340,16 @@ class TALiveTrader:
     """Live trades based on TA + Bregman signals with ML optimization."""
 
     OUTPUT_FILE = Path(__file__).parent / "ta_live_results.json"
-    # Position sizing: $5 base, max $8 (V3.5 reduced from $3-$8)
-    BASE_POSITION_SIZE = 5.0   # Standard bet
-    MIN_POSITION_SIZE = 5.0    # Floor $5 (was $3)
-    MAX_POSITION_SIZE = 10.0   # V3.6: Raised to $10 (was $8) — sweet spot entries justify more
-    SWEET_SPOT_BOOST = 1.3     # V3.6: 30% size boost for $0.15-$0.35 entries (69% WR, +$11/trade)
+    PID_FILE = Path(__file__).parent / "ta_live.pid"
 
-    def __init__(self, dry_run: bool = False, bankroll: float = 93.27):
+    # === HARD BET LIMITS (2026-02-08: $5-$8 ONLY, NO EXCEPTIONS) ===
+    # Rebuilding capital for 2 days. No boosts, no DCA stacking, no overrides.
+    HARD_MAX_BET = 8.0         # ABSOLUTE CEILING — nothing can exceed this
+    BASE_POSITION_SIZE = 5.0   # Standard bet
+    MIN_POSITION_SIZE = 5.0    # Floor $5
+    MAX_POSITION_SIZE = 8.0    # Hard cap $8 — was $10, caused $21 bets with ghost processes
+
+    def __init__(self, dry_run: bool = False, bankroll: float = 45.67):
         self.dry_run = dry_run
         self.generator = TASignalGenerator()
         self.bregman = BregmanOptimizer(bankroll=bankroll)
@@ -925,6 +928,12 @@ class TALiveTrader:
         if not self.executor or not self.executor._initialized:
             return False, "executor_not_ready"
 
+        # === HARD_MAX_BET FINAL SAFETY NET ===
+        # No matter what upstream code calculates, this is the absolute ceiling.
+        if size > self.HARD_MAX_BET:
+            print(f"[SAFETY] Size ${size:.2f} exceeds HARD_MAX_BET ${self.HARD_MAX_BET}. Clamped.")
+            size = self.HARD_MAX_BET
+
         try:
             from py_clob_client.clob_types import OrderArgs, OrderType
             from py_clob_client.order_builder.constants import BUY
@@ -948,6 +957,25 @@ class TALiveTrader:
             if not token_id:
                 return False, "token_not_found"
 
+            # === ACCOUNT-LEVEL POSITION CHECK ===
+            # Query existing positions on this market to prevent overlap from ghost instances.
+            condition_id = market.get("conditionId", "")
+            if condition_id and hasattr(self.executor, 'client'):
+                try:
+                    existing = self.executor.client.get_positions(
+                        params={"condition_id": condition_id}
+                    ) if hasattr(self.executor.client, 'get_positions') else []
+                    if existing:
+                        for pos in existing:
+                            pos_size = float(pos.get("size", 0))
+                            if pos_size > 0:
+                                print(f"[OVERLAP] Already have position on this market ({pos_size} shares). SKIPPING.")
+                                return False, "position_already_exists"
+                except Exception as e:
+                    # Non-fatal: proceed if check fails, but log it
+                    if "404" not in str(e) and "not found" not in str(e).lower():
+                        print(f"[OVERLAP-CHECK] Warning: {e}")
+
             # 15-min markets have thin order books (asks at $0.97-$0.99 only).
             # Place limit orders at the outcomePrices mid price and let them fill.
             # MAX_ENTRY_PRICE check is already applied in conviction filters.
@@ -958,6 +986,13 @@ class TALiveTrader:
             if shares < 5:
                 shares = 5  # Force minimum 5 shares (CLOB requirement)
 
+            # FINAL cost check: shares * price must not exceed HARD_MAX_BET
+            actual_cost = shares * price
+            if actual_cost > self.HARD_MAX_BET + 0.50:  # Small tolerance for rounding
+                shares = math.floor(self.HARD_MAX_BET / price)
+                actual_cost = shares * price
+                print(f"[SAFETY] Reduced to {shares} shares (${actual_cost:.2f}) to stay under ${self.HARD_MAX_BET}")
+
             order_args = OrderArgs(
                 price=price,
                 size=float(shares),
@@ -965,7 +1000,6 @@ class TALiveTrader:
                 token_id=token_id,
             )
 
-            actual_cost = shares * price
             print(f"[LIVE] Placing {side} order: {shares} shares @ ${price} = ${actual_cost:.2f}")
 
             signed_order = self.executor.client.create_order(order_args)
@@ -1218,14 +1252,16 @@ class TALiveTrader:
     MAX_SLIPPAGE = 0.03          # Keep tight for live execution
     MAX_CONCURRENT_POSITIONS = 1 # V3.5: Max 1 — single best signal only (multi-asset was -$207)
 
-    # === IH2P ADAPTATIONS (ML auto-revoke tracked) ===
-    BOND_MODE_ENABLED = True      # Buy obvious side at $0.85+ for small guaranteed wins
+    # === IH2P ADAPTATIONS (ALL DISABLED — capital rebuild mode) ===
+    # DCA caused double-betting ($6.80 + $3.78 topup = $10.58 per market).
+    # With 7 ghost processes, each one doing DCA = $21+ per market. NEVER AGAIN.
+    BOND_MODE_ENABLED = False     # DISABLED: Rebuild capital first
     BOND_MIN_CONFIDENCE = 0.85    # Model must be 85%+ confident
     BOND_MIN_PRICE = 0.85         # Entry price must be $0.85+
-    DCA_ENABLED = True            # Split position 60/40, top up on next scan
+    DCA_ENABLED = False           # DISABLED: No DCA stacking during capital rebuild
     DCA_INITIAL_RATIO = 0.60      # First entry: 60% of position
     DCA_TOPUP_RATIO = 0.40        # Second entry: 40% (next scan, same or better price)
-    HEDGE_ENABLED = True          # Small $1.50 bet on opposite side when cheap (<$0.15)
+    HEDGE_ENABLED = False         # DISABLED: No hedges during capital rebuild
     HEDGE_MAX_PRICE = 0.15        # Only hedge if opposite side <= $0.15
     HEDGE_SIZE = 1.50             # $1.50 hedge bet
 
@@ -1300,8 +1336,8 @@ class TALiveTrader:
         if hour_mult != 1.0:
             size *= hour_mult
 
-        # Hard clamp
-        size = max(self.MIN_POSITION_SIZE, min(self.MAX_POSITION_SIZE, size))
+        # Hard clamp — HARD_MAX_BET is the absolute ceiling
+        size = max(self.MIN_POSITION_SIZE, min(self.HARD_MAX_BET, size))
         return round(size, 2)
 
     async def run_cycle(self):
@@ -1603,10 +1639,11 @@ class TALiveTrader:
                             market_no_price=down_price
                         )
 
-                        # === KL DIVERGENCE FILTER (V3.4) ===
-                        # KL < 0.15 = 36% WR (model agrees with market = no edge)
-                        if bregman_signal.kl_divergence < self.MIN_KL_DIVERGENCE:
-                            print(f"  [{asset}] KL too low: {bregman_signal.kl_divergence:.3f} < {self.MIN_KL_DIVERGENCE}")
+                        # === KL DIVERGENCE FILTER (V3.8: raised from 0.15 to 0.20) ===
+                        # KL < 0.20 = 33-50% WR (103 paper trades). KL 0.20-0.50 = 68-81% WR.
+                        kl_floor = 0.20  # V3.8: Data shows <0.20 is coin-flip territory
+                        if bregman_signal.kl_divergence < kl_floor:
+                            print(f"  [{asset}] KL too low: {bregman_signal.kl_divergence:.3f} < {kl_floor}")
                             continue
 
                         features = self.ml.extract_features(signal, bregman_signal, candles)
@@ -1617,6 +1654,49 @@ class TALiveTrader:
                         if ml_score < min_score:
                             self.ml_rejections += 1
                             print(f"[ML] {asset} Rejected: {signal.side} score={ml_score:.2f} < {min_score:.2f}")
+                            continue
+
+                        # === V3.8 DATA-DRIVEN FILTERS (103 paper + 6 live trades) ===
+
+                        # 1. MODEL CONFIDENCE HARD FLOOR
+                        # The 0.128 confidence trade lost $6.54. Without it, session goes from -$3.94 to +$2.60.
+                        # Paper: edge 20-30% = 26.7% WR. Edge 30-50% = 73-79% WR.
+                        raw_conf = signal.model_up if signal.side == "UP" else signal.model_down
+                        if raw_conf < 0.55:
+                            print(f"  [{asset}] V3.8: Raw confidence too low: {raw_conf:.1%} < 55%")
+                            continue
+
+                        # 2. VWAP ALIGNMENT FILTER
+                        # All 3 live winners had negative VWAP distance. All 3 losers had positive.
+                        # For DOWN trades: price below VWAP (negative distance) confirms bearish.
+                        # For UP trades: price at or above VWAP confirms bullish.
+                        vwap_dist = features.vwap_distance
+                        if signal.side == "DOWN" and vwap_dist > 0.15:
+                            # Betting DOWN but price is well ABOVE VWAP = fighting the trend
+                            print(f"  [{asset}] V3.8: VWAP misalign DOWN (vwap_dist={vwap_dist:+.3f} > +0.15)")
+                            continue
+                        if signal.side == "UP" and vwap_dist < -0.15:
+                            # Betting UP but price is well BELOW VWAP = fighting the trend
+                            print(f"  [{asset}] V3.8: VWAP misalign UP (vwap_dist={vwap_dist:+.3f} < -0.15)")
+                            continue
+
+                        # 3. HEIKEN ASHI CONTRADICTION VETO
+                        # Trade 6 bet UP with 3 bearish Heiken candles → lost.
+                        # If Heiken strongly contradicts signal direction (3+ candles), skip.
+                        ha_bullish = features.heiken_bullish
+                        ha_count = features.heiken_count
+                        if signal.side == "UP" and not ha_bullish and ha_count >= 3:
+                            print(f"  [{asset}] V3.8: Heiken contradiction (UP vs {ha_count} bearish candles)")
+                            continue
+                        if signal.side == "DOWN" and ha_bullish and ha_count >= 3:
+                            print(f"  [{asset}] V3.8: Heiken contradiction (DOWN vs {ha_count} bullish candles)")
+                            continue
+
+                        # 4. ATR VOLATILITY GATE
+                        # Both live trades with ATR ratio > 1.0 lost. High vol = unpredictable.
+                        # Require higher confidence in volatile markets.
+                        if atr_ratio > 1.2 and raw_conf < 0.65:
+                            print(f"  [{asset}] V3.8: High vol (ATR={atr_ratio:.1f}x) needs conf>65%, got {raw_conf:.1%}")
                             continue
 
                         position_size = self.calculate_position_size(
@@ -1640,10 +1720,8 @@ class TALiveTrader:
                         else:
                             trend_tag = f"WITH({trend})"
 
-                        # === V3.6: Sweet spot boost — $0.15-$0.35 entries = 69% WR ===
-                        if 0.15 <= entry_price <= 0.35 and not is_low_edge:
-                            position_size = round(position_size * self.SWEET_SPOT_BOOST, 2)
-                            position_size = min(self.MAX_POSITION_SIZE, position_size)
+                        # === SWEET SPOT BOOST DISABLED — capital rebuild mode ===
+                        # Was: 1.3x for $0.15-$0.35 entries. Disabled to enforce $5-$8 hard cap.
 
                         hour_mult = self._get_hour_multiplier(datetime.now(timezone.utc).hour)
                         hour_tag = f", Hour={hour_mult}x" if hour_mult != 1.0 else ""
@@ -1653,19 +1731,30 @@ class TALiveTrader:
                             position_size = self.MIN_POSITION_SIZE
                             hour_tag += ", BOND=$" + str(self.MIN_POSITION_SIZE)
 
-                        # Low-edge trades: force minimum size ($3)
+                        # Low-edge trades: force minimum size ($5)
                         if is_low_edge:
-                            position_size = self.MIN_POSITION_SIZE  # $3
-                            hour_tag += ", LOW-EDGE=$3"
+                            position_size = self.MIN_POSITION_SIZE
+                            hour_tag += ", LOW-EDGE=$5"
+
+                        # === HARD_MAX_BET ENFORCEMENT — ABSOLUTE CEILING ===
+                        # Nothing can exceed $8. Not DCA, not boost, not anything.
+                        position_size = min(position_size, self.HARD_MAX_BET)
+                        position_size = max(self.MIN_POSITION_SIZE, position_size)
 
                         # === DCA SPLIT: Execute 60% now, queue 40% for next scan ===
                         if self.DCA_ENABLED and not is_bond_trade and position_size > self.MIN_POSITION_SIZE:
                             initial_size = round(position_size * self.DCA_INITIAL_RATIO, 2)
                             topup_size = round(position_size * self.DCA_TOPUP_RATIO, 2)
                             initial_size = max(self.MIN_POSITION_SIZE, initial_size)
+                            # Even with DCA, total cannot exceed HARD_MAX_BET
+                            if initial_size + topup_size > self.HARD_MAX_BET:
+                                topup_size = max(0, round(self.HARD_MAX_BET - initial_size, 2))
                         else:
                             initial_size = position_size
                             topup_size = 0
+
+                        # FINAL SAFETY: initial_size alone must not exceed HARD_MAX_BET
+                        initial_size = min(initial_size, self.HARD_MAX_BET)
 
                         print(f"[SIZE] {asset} ${initial_size:.2f}{f' (+${topup_size:.2f} DCA pending)' if topup_size > 0 else ''} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, {trend_tag}{hour_tag})")
 
@@ -2239,11 +2328,13 @@ class TALiveTrader:
         mode = "LIVE" if not self.dry_run else "DRY RUN"
         print(f"TA + BREGMAN + ML {mode} TRADER - Multi-Asset 15-Minute Markets")
         print("=" * 70)
-        print(f"Position Size: ${self.BASE_POSITION_SIZE} base (${self.MIN_POSITION_SIZE}-${self.MAX_POSITION_SIZE} Kelly-scaled)")
+        print(f"HARD BET LIMITS: ${self.MIN_POSITION_SIZE}-${self.HARD_MAX_BET} (ABSOLUTE CEILING, NO EXCEPTIONS)")
+        print(f"PID LOCK: ENABLED — prevents ghost double-instances")
+        print(f"OVERLAP CHECK: ENABLED — queries account before every trade")
+        print(f"IH2P: ALL DISABLED (Bond/DCA/Hedge off during capital rebuild)")
         print(f"ML Optimization: ENABLED")
         print(f"Live Assets: {', '.join(self.ASSETS.keys())} | Shadow: {', '.join(self.SHADOW_ASSETS.keys())}")
-        print(f"V3.5: ETH shadow-only | Max {self.MAX_CONCURRENT_POSITIONS} concurrent | Edge>={self.MIN_EDGE:.0%} | 11 skip hours")
-        print(f"SHADOW TRACKING: ETH paper-tracked + skip hours for re-evaluation")
+        print(f"Max {self.MAX_CONCURRENT_POSITIONS} concurrent | Edge>={self.MIN_EDGE:.0%}")
         print(f"HOURLY ML SIZING: Bayesian WR per hour -> reduce bad hours, boost good (after 10 trades)")
         print(f"Filters: Edge>={self.MIN_EDGE:.0%} | Conf>={self.MIN_MODEL_CONFIDENCE:.0%} | KL>={self.MIN_KL_DIVERGENCE} | ATR(14)x1.5 | NYU>0.15")
         print(f"UP: Dynamic max price (70%->$0.42, 80%->$0.48, 85%->$0.55) | Scaled conf for cheap entries")
@@ -2295,11 +2386,71 @@ class TALiveTrader:
         print(f"Results saved to: {self.OUTPUT_FILE}")
 
 
+def _is_pid_alive(pid: int) -> bool:
+    """Check if a process is alive (Windows-compatible)."""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ['tasklist', '/FI', f'PID eq {pid}', '/NH'],
+            capture_output=True, text=True, timeout=5
+        )
+        # tasklist output contains the PID number if process exists
+        return str(pid) in result.stdout
+    except Exception:
+        # Fallback to os.kill
+        try:
+            os.kill(pid, 0)
+            return True
+        except OSError:
+            return False
+
+
+def acquire_pid_lock():
+    """Prevent multiple live trader instances. Dies if another is running."""
+    pid_file = Path(__file__).parent / "ta_live.pid"
+    if pid_file.exists():
+        try:
+            old_pid = int(pid_file.read_text().strip())
+            if old_pid == os.getpid():
+                pass  # It's us, re-acquiring
+            elif _is_pid_alive(old_pid):
+                print(f"[FATAL] Another live trader is already running (PID {old_pid})")
+                print(f"[FATAL] Kill it first: taskkill /F /PID {old_pid}")
+                print(f"[FATAL] Or delete {pid_file} if the process is dead")
+                sys.exit(1)
+            else:
+                print(f"[PID] Stale lock (PID {old_pid} dead) — taking over")
+        except (ValueError, IOError):
+            pass  # Corrupt file, overwrite
+    # Write our PID
+    pid_file.write_text(str(os.getpid()))
+    print(f"[PID] Lock acquired (PID {os.getpid()}) — {pid_file}")
+    return pid_file
+
+
+def release_pid_lock():
+    """Release PID lock on exit."""
+    pid_file = Path(__file__).parent / "ta_live.pid"
+    try:
+        if pid_file.exists():
+            stored_pid = int(pid_file.read_text().strip())
+            if stored_pid == os.getpid():
+                pid_file.unlink()
+                print(f"[PID] Lock released")
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
     import argparse
+    import atexit
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true", help="Paper trade only")
     args = parser.parse_args()
+
+    # === PID LOCK: Prevent ghost double-instances ===
+    pid_file = acquire_pid_lock()
+    atexit.register(release_pid_lock)
 
     trader = TALiveTrader(dry_run=args.dry_run)
     asyncio.run(trader.run())

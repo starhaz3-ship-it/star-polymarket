@@ -733,23 +733,23 @@ class TASignalGenerator:
         down = 1
         breakdown = {}
 
-        # Price vs VWAP
+        # Price vs VWAP (V3.8: reduced from +2 to +1 — was double-counting with slope)
         if price is not None and vwap is not None:
             if price > vwap:
-                up += 2
-                breakdown["vwap_position"] = "above (+2 UP)"
+                up += 1
+                breakdown["vwap_position"] = "above (+1 UP)"
             elif price < vwap:
-                down += 2
-                breakdown["vwap_position"] = "below (+2 DOWN)"
+                down += 1
+                breakdown["vwap_position"] = "below (+1 DOWN)"
 
-        # VWAP slope
+        # VWAP slope (V3.8: reduced from +2 to +1 — correlated with VWAP position)
         if vwap_slope is not None:
             if vwap_slope > 0:
-                up += 2
-                breakdown["vwap_slope"] = "positive (+2 UP)"
+                up += 1
+                breakdown["vwap_slope"] = "positive (+1 UP)"
             elif vwap_slope < 0:
-                down += 2
-                breakdown["vwap_slope"] = "negative (+2 DOWN)"
+                down += 1
+                breakdown["vwap_slope"] = "negative (+1 DOWN)"
 
         # RSI with slope
         if rsi is not None and rsi_slope is not None:
@@ -775,27 +775,27 @@ class TASignalGenerator:
                     down += 2
                     breakdown["macd_hist"] = "expanding red (+2 DOWN)"
 
-            # MACD line direction
+            # MACD line direction (V3.8: removed — always agrees with histogram = double-counting)
+            # Was: +1 for same direction as histogram. Now tracked in breakdown only.
             if macd.macd_line > 0:
-                up += 1
-                breakdown["macd_line"] = "positive (+1 UP)"
+                breakdown["macd_line"] = "positive (tracked, not scored)"
             elif macd.macd_line < 0:
-                down += 1
-                breakdown["macd_line"] = "negative (+1 DOWN)"
+                breakdown["macd_line"] = "negative (tracked, not scored)"
 
-        # Heiken Ashi
+        # Heiken Ashi (V3.8: boosted from +1 to +2 — live data shows HA contradiction = guaranteed loss)
         if heiken_color is not None and heiken_count >= 2:
+            ha_pts = min(2, 1 + (heiken_count >= 3))  # +1 for 2 candles, +2 for 3+
             if heiken_color == "green":
-                up += 1
-                breakdown["heiken"] = f"green x{heiken_count} (+1 UP)"
+                up += ha_pts
+                breakdown["heiken"] = f"green x{heiken_count} (+{ha_pts} UP)"
             elif heiken_color == "red":
-                down += 1
-                breakdown["heiken"] = f"red x{heiken_count} (+1 DOWN)"
+                down += ha_pts
+                breakdown["heiken"] = f"red x{heiken_count} (+{ha_pts} DOWN)"
 
-        # Failed VWAP reclaim (strong bearish signal)
+        # Failed VWAP reclaim (bearish signal — V3.8: reduced +3→+2, no UP equivalent creates DOWN bias)
         if failed_vwap_reclaim:
-            down += 3
-            breakdown["failed_reclaim"] = "failed VWAP reclaim (+3 DOWN)"
+            down += 2
+            breakdown["failed_reclaim"] = "failed VWAP reclaim (+2 DOWN)"
 
         # TTM Squeeze (volatility compression before breakout)
         # When squeeze fires (BB exits KC), momentum direction is key
