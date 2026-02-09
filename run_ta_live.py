@@ -524,6 +524,13 @@ class TALiveTrader:
                 # V3.11: Restore per-asset consecutive loss tracker
                 self.asset_consecutive_losses = data.get("asset_consecutive_losses", {})
 
+                # V3.13: Restore DOWN expensive ML tracking
+                down_ml = data.get("down_expensive_ml", {})
+                self.DOWN_EXPENSIVE_TRADES = down_ml.get("trades", 0)
+                self.DOWN_EXPENSIVE_WINS = down_ml.get("wins", 0)
+                self.DOWN_EXPENSIVE_LOSSES = down_ml.get("losses", 0)
+                self.DOWN_EXPENSIVE_PNL = down_ml.get("pnl", 0.0)
+
                 shadow_open = sum(1 for s in self.shadow_trades.values() if s.get("status") == "open")
                 print(f"[Live] Loaded {len(self.trades)} trades + {len(self.shadow_trades)} shadow ({shadow_open} open)")
             except Exception as e:
@@ -592,7 +599,12 @@ class TALiveTrader:
                             self.consecutive_wins = 0
                             if self.consecutive_losses >= 2:
                                 self.momentum_pause_until = datetime.now(timezone.utc) + timedelta(minutes=30)
-                        self.bankroll = max(self.initial_bankroll * 0.5, self.bankroll + trade.pnl)
+                        # V3.12c: Sync bankroll from CLOB (fixes double-counting)
+                        clob_startup = self._sync_clob_balance()
+                        if clob_startup >= 0:
+                            self.bankroll = clob_startup
+                        else:
+                            self.bankroll = max(self.initial_bankroll * 0.5, self.bankroll + trade.pnl)
                         self.ml.update_weights(trade.features, won)
 
                         # V3.11: Per-asset consecutive loss tracking on startup resolution
@@ -605,6 +617,15 @@ class TALiveTrader:
 
                         result = "WIN" if won else "LOSS"
                         print(f"  [{result}] {trade.side} ${trade.pnl:+.2f} | {trade.market_title[:50]}")
+                        # V3.13: ML auto-tighten tracking for expensive DOWN trades
+                        if trade.side == "DOWN" and trade.entry_price > 0.45:
+                            self.DOWN_EXPENSIVE_TRADES += 1
+                            self.DOWN_EXPENSIVE_PNL += trade.pnl
+                            if won:
+                                self.DOWN_EXPENSIVE_WINS += 1
+                            else:
+                                self.DOWN_EXPENSIVE_LOSSES += 1
+                            print(f"  [ML-TRACK] DOWN>${0.45}: {self.DOWN_EXPENSIVE_WINS}W/{self.DOWN_EXPENSIVE_LOSSES}L PnL=${self.DOWN_EXPENSIVE_PNL:+.2f}")
                     else:
                         trade.status = "closed"
                         trade.pnl = 0.0
@@ -653,6 +674,12 @@ class TALiveTrader:
                 "hedge_enabled": self.HEDGE_ENABLED,
             },
             "asset_consecutive_losses": self.asset_consecutive_losses,
+            "down_expensive_ml": {
+                "trades": self.DOWN_EXPENSIVE_TRADES,
+                "wins": self.DOWN_EXPENSIVE_WINS,
+                "losses": self.DOWN_EXPENSIVE_LOSSES,
+                "pnl": round(self.DOWN_EXPENSIVE_PNL, 2),
+            },
         }
         # Working file (can be reset)
         with open(self.OUTPUT_FILE, 'w') as f:
@@ -745,12 +772,47 @@ class TALiveTrader:
         return ema
 
     def _get_trend_bias(self, candles, price: float) -> str:
-        """Determine trend direction using 200 EMA on 1-min candles (=200 min lookback)."""
+        """V3.13: Dual-timeframe trend — 200 EMA for macro + 30-min slope for active moves.
+        Old: 200 EMA only → missed BTC -1% dump, said BULLISH while falling knife.
+        Fix: If price dropped >0.3% in last 30 candles, override to BEARISH."""
         ema200 = self._ema(candles, 200)
-        if price < ema200:
-            return "BEARISH"  # Below 200 EMA -> favor DOWN
+        macro_bull = price >= ema200
+
+        # Short-term momentum: 30-candle (30 min) price change
+        if len(candles) >= 30:
+            price_30m_ago = candles[-30].close
+            short_change = (price - price_30m_ago) / price_30m_ago if price_30m_ago else 0
         else:
-            return "BULLISH"  # Above 200 EMA -> favor UP
+            short_change = 0
+
+        # Override: active selloff beats lagging EMA
+        if macro_bull and short_change < -0.003:
+            return "FALLING"  # Was BULLISH on EMA but price actively dropping >0.3%
+        elif not macro_bull and short_change > 0.003:
+            return "RISING"   # Was BEARISH on EMA but price actively rising >0.3%
+        elif price < ema200:
+            return "BEARISH"
+        else:
+            return "BULLISH"
+
+    def _check_mtf_confirmation(self, candles, signal_side: str) -> bool:
+        """V3.13 ML: Multi-timeframe confirmation. Paper: 0W/3L when TFs disagree.
+        Returns True if short and long TF agree on direction."""
+        if len(candles) < 60:
+            return True  # Not enough data, assume agree
+        short_candles = candles[-30:]
+        long_candles = candles[-120:] if len(candles) >= 120 else candles
+
+        short_closes = [c.close for c in short_candles]
+        short_slope = (short_closes[-1] - short_closes[0]) / short_closes[0] if short_closes[0] else 0
+
+        long_closes = [c.close for c in long_candles]
+        long_slope = (long_closes[-1] - long_closes[0]) / long_closes[0] if long_closes[0] else 0
+
+        if signal_side == "UP":
+            return not (short_slope < -0.001 and long_slope < -0.001)
+        else:
+            return not (short_slope > 0.001 and long_slope > 0.001)
 
     def _get_price_momentum(self, candles: List, lookback: int = 5) -> float:
         """Calculate recent price momentum (% change over lookback candles)."""
@@ -1076,10 +1138,11 @@ class TALiveTrader:
             if not success:
                 return False, response.get("errorMsg", "unknown_error")
 
-            # GTC placed — now wait up to 60s for fill, then cancel if unfilled
+            # GTC placed — wait up to 90s for fill, then cancel if unfilled
+            # V3.12c: Extended from 60s (10+20+30) to 90s (15+30+45) for thin books
             print(f"[LIVE] GTC order placed: {order_id[:20]}... waiting for fill...")
             import time as _time
-            for wait_sec in [10, 20, 30]:
+            for wait_sec in [15, 30, 45]:
                 _time.sleep(wait_sec)
                 try:
                     order_status = self.executor.client.get_order(order_id)
@@ -1090,10 +1153,10 @@ class TALiveTrader:
                         return True, order_id
                 except Exception:
                     pass
-            # Not filled after 60s — cancel to prevent hanging
+            # Not filled after 90s — cancel to prevent hanging
             try:
                 self.executor.client.cancel(order_id)
-                print(f"[LIVE] Order CANCELLED after 60s (no fill at ${price})")
+                print(f"[LIVE] Order CANCELLED after 90s (no fill at ${price})")
             except Exception:
                 pass
             return False, "timeout_no_fill"
@@ -1226,7 +1289,12 @@ class TALiveTrader:
                     self.wins += 1
                     self.consecutive_wins += 1
                     self.consecutive_losses = 0
-                    self.bankroll = max(self.initial_bankroll * 0.5, self.bankroll + pnl)
+                    # V3.12c: Sync bankroll from CLOB (fixes double-counting)
+                    clob_early = self._sync_clob_balance()
+                    if clob_early >= 0:
+                        self.bankroll = clob_early
+                    else:
+                        self.bankroll = max(self.initial_bankroll * 0.5, self.bankroll + pnl)
                     self.ml.update_weights(trade.features, True)
 
                     # Update hourly stats
@@ -1240,6 +1308,12 @@ class TALiveTrader:
                         pass
 
                     print(f"[EARLY WIN] {trade.side} PnL: ${pnl:+.2f} ({profit_ratio:.0%} of max) | Bankroll: ${self.bankroll:.2f} | {trade.market_title[:40]}...")
+                    # V3.13: ML auto-tighten tracking for expensive DOWN trades
+                    if trade.side == "DOWN" and trade.entry_price > 0.45:
+                        self.DOWN_EXPENSIVE_TRADES += 1
+                        self.DOWN_EXPENSIVE_PNL += pnl
+                        self.DOWN_EXPENSIVE_WINS += 1
+                        print(f"  [ML-TRACK] DOWN>${0.45}: {self.DOWN_EXPENSIVE_WINS}W/{self.DOWN_EXPENSIVE_LOSSES}L PnL=${self.DOWN_EXPENSIVE_PNL:+.2f}")
 
                     # Auto-redeem
                     if not self.dry_run:
@@ -1311,6 +1385,11 @@ class TALiveTrader:
     MIN_EDGE = 0.25              # V3.12: Shadow 4W/0L 100%WR blocked at 0.30. 0.25 balances selectivity+fills.
     LOW_EDGE_THRESHOLD = 0.25    # V3.12: Match MIN_EDGE
     MAX_ENTRY_PRICE = 0.45       # V3.6: $0.45-0.55 = 50% WR coin flip, cut it
+    DOWN_MAX_PRICE = 0.65        # V3.13: Dynamic DOWN cap — model confidence unlocks higher prices
+    DOWN_EXPENSIVE_TRADES = 0    # ML auto-tighten: count trades where DOWN > $0.45
+    DOWN_EXPENSIVE_WINS = 0      # ML auto-tighten: wins where DOWN > $0.45
+    DOWN_EXPENSIVE_LOSSES = 0    # ML auto-tighten: losses where DOWN > $0.45
+    DOWN_EXPENSIVE_PNL = 0.0     # ML auto-tighten: cumulative PnL for DOWN > $0.45
     MIN_ENTRY_PRICE = 0.15       # V3.6: <$0.15 = 16.7% WR, -$40 loss — hard floor
     MIN_KL_DIVERGENCE = 0.08     # V3.12: Shadow 7W/1L 88%WR blocked at 0.15. Loosened.
 
@@ -1543,7 +1622,7 @@ class TALiveTrader:
                 # Require with-trend OR entry > $0.50 for BTC DOWN.
                 if asset == "BTC" and signal.side == "DOWN":
                     btc_trend = self._get_trend_bias(candles, price)
-                    if btc_trend == "BULLISH" and down_price < 0.50:
+                    if btc_trend in ("BULLISH", "RISING") and down_price < 0.50:
                         print(f"  [{asset}] V3.9: BTC DOWN contrarian (trend=BULLISH, price=${down_price:.2f}<$0.50)")
                         self._record_filter_shadow(asset, signal.side, down_price, market_id, question, "v39_btc_down_contrarian")
                         continue
@@ -1624,9 +1703,9 @@ class TALiveTrader:
                     # DEATH ZONE: $0.40-0.45 = 14% WR, -$321 PnL. NEVER trade here. (V3.3)
                     if 0.40 <= down_price < 0.45:
                         skip_reason = f"DOWN_DEATH_ZONE_{down_price:.2f}_(14%WR)"
-                    # V3.4: Block ALL DOWN < $0.15 — 0% WR in 96 paper trades (3 trades, 3 total losses)
-                    elif down_price < 0.15:
-                        skip_reason = f"DOWN_ultra_cheap_{down_price:.2f}_(0%WR)"
+                    # V3.13 ML: Block ALL DOWN < $0.35 — paper 0W/4L (-$34.95). Cheap DOWN is a trap.
+                    elif down_price < 0.35:
+                        skip_reason = f"DOWN_cheap_{down_price:.2f}_(0W4L_block)"
                     else:
                         # Break-even aware confidence for DOWN (V3.3)
                         down_conf_req = self.MIN_MODEL_CONFIDENCE
@@ -1641,10 +1720,25 @@ class TALiveTrader:
 
                         if signal.model_down < down_conf_req:
                             skip_reason = f"DOWN_conf_{signal.model_down:.0%}<{down_conf_req:.0%}"
-                        elif down_price > self.MAX_ENTRY_PRICE:
-                            skip_reason = f"DOWN_price_{down_price:.2f}>{self.MAX_ENTRY_PRICE}"
+                        else:
+                            # V3.13: Dynamic DOWN max price — confidence unlocks higher prices
+                            # Same pattern as UP dynamic pricing. ML auto-tightens if expensive DOWNs lose.
+                            effective_down_max = self.MAX_ENTRY_PRICE  # $0.45 base
+                            if self.DOWN_EXPENSIVE_TRADES >= 5 and self.DOWN_EXPENSIVE_PNL < -3.0:
+                                # ML AUTO-TIGHTEN: expensive DOWN trades are losing, revert to $0.45
+                                effective_down_max = 0.45
+                                print(f"  [{asset}] ML-TIGHTEN: DOWN>${0.45} has {self.DOWN_EXPENSIVE_WINS}W/{self.DOWN_EXPENSIVE_LOSSES}L, PnL=${self.DOWN_EXPENSIVE_PNL:+.2f} — capped at $0.45")
+                            elif signal.model_down >= 0.85:
+                                effective_down_max = max(effective_down_max, self.DOWN_MAX_PRICE)  # $0.65
+                            elif signal.model_down >= 0.75:
+                                effective_down_max = max(effective_down_max, 0.58)
+                            elif signal.model_down >= 0.65:
+                                effective_down_max = max(effective_down_max, 0.52)
+
+                            if down_price > effective_down_max:
+                                skip_reason = f"DOWN_price_{down_price:.2f}>{effective_down_max:.2f}"
                         # Momentum confirmation only for non-cheap entries
-                        elif down_price >= 0.30 and momentum > self.DOWN_MIN_MOMENTUM_DROP:
+                        if not skip_reason and down_price >= 0.30 and momentum > self.DOWN_MIN_MOMENTUM_DROP:
                             skip_reason = f"DOWN_momentum_not_falling_{momentum:.3%}"
 
                 if skip_reason and not is_bond_trade:
@@ -1735,6 +1829,11 @@ class TALiveTrader:
                             print(f"  [{asset}] MOMENTUM PAUSE: {remaining:.0f}min left (2 consecutive losses)")
                             break  # Break out of this asset's markets entirely
 
+                        # === V3.13 ML: MULTI-TIMEFRAME BLOCK (paper: 0W/3L when disagree) ===
+                        if not self._check_mtf_confirmation(candles, signal.side):
+                            print(f"  [{asset}] MTF BLOCK: short+long TFs disagree with {signal.side} → SKIP")
+                            continue
+
                         # === RISK CHECKS ===
                         if self.total_pnl <= -self.MAX_DAILY_LOSS:
                             print(f"[RISK] Daily loss limit hit: ${self.total_pnl:.2f} - stopping")
@@ -1750,10 +1849,16 @@ class TALiveTrader:
                             continue
 
                         mid_price = up_price if signal.side == "UP" else down_price
-                        # Offset toward ask by 3 cents to cross the spread for FAK fills
-                        # Paper fills at mid instantly; live needs to cross the spread
-                        # 12 consecutive FOK failures at +$0.01 proved it wasn't enough
-                        entry_price = round(mid_price + 0.03, 2)
+                        # V3.12c: Aggressive spread crossing — +$0.05 offset
+                        entry_price = round(mid_price + 0.05, 2)
+
+                        # === V3.13: HARD CAP on actual entry price after spread offset ===
+                        # CSV proof: entries <$0.50 = 100% WR today, $0.533 entry = LOSS
+                        # The +$0.05 offset pushes mid $0.48 → entry $0.53 = death zone
+                        MAX_ACTUAL_ENTRY = 0.52  # Hard ceiling on what we'll actually pay
+                        if entry_price > MAX_ACTUAL_ENTRY and not is_bond_trade:
+                            print(f"  [{asset}] Entry too expensive after spread: ${entry_price:.2f} > ${MAX_ACTUAL_ENTRY} (mid=${mid_price:.2f}+$0.05)")
+                            continue
 
                         # === V3.6: Hard floor — entries <$0.15 are 16.7% WR losers ===
                         if entry_price < self.MIN_ENTRY_PRICE and not is_bond_trade:
@@ -1847,8 +1952,17 @@ class TALiveTrader:
                         # 200 EMA trend: counter-trend trades get 85% size (softer than old 30%)
                         # Track what full-size would have earned for ML evaluation
                         trend = self._get_trend_bias(candles, price)
-                        with_trend = (trend == "BEARISH" and signal.side == "DOWN") or \
-                                     (trend == "BULLISH" and signal.side == "UP")
+                        # V3.13: FALLING/RISING = active momentum override, HARD BLOCK counter-trend
+                        # Old bug: 200 EMA said BULLISH while BTC dumped -1% → tried to go UP
+                        if trend == "FALLING" and signal.side == "UP":
+                            print(f"  [{asset}] FALLING KNIFE BLOCK: price dropping >0.3% in 30min, refusing UP")
+                            continue
+                        if trend == "RISING" and signal.side == "DOWN":
+                            print(f"  [{asset}] RISING BLOCK: price rising >0.3% in 30min, refusing DOWN")
+                            continue
+
+                        with_trend = (trend in ("BEARISH", "FALLING") and signal.side == "DOWN") or \
+                                     (trend in ("BULLISH", "RISING") and signal.side == "UP")
                         full_size = position_size  # What we'd bet without trend bias
                         if not with_trend:
                             position_size = round(position_size * 0.85, 2)  # Softer: 85% (was 43%)
@@ -2067,8 +2181,14 @@ class TALiveTrader:
                             except Exception:
                                 pass
 
-                            # Compound: update bankroll with PnL
-                            self.bankroll = max(self.initial_bankroll * 0.5, self.bankroll + open_trade.pnl)
+                            # V3.12c: Sync bankroll from CLOB after resolution (fixes double-counting)
+                            # Old: bankroll += pnl, but CLOB sync ALSO adjusts -> double-counted
+                            clob_after = self._sync_clob_balance()
+                            if clob_after >= 0:
+                                self.bankroll = clob_after
+                            else:
+                                # Fallback if CLOB query fails
+                                self.bankroll = max(self.initial_bankroll * 0.5, self.bankroll + open_trade.pnl)
 
                             # Update ML
                             self.ml.update_weights(open_trade.features, won)
@@ -2076,6 +2196,15 @@ class TALiveTrader:
                             hour_mult = self._get_hour_multiplier(datetime.now(timezone.utc).hour)
                             result = "WIN" if won else "LOSS"
                             print(f"[{result}] {open_trade.side} PnL: ${open_trade.pnl:+.2f} | Size: ${open_trade.size_usd:.2f} | Bankroll: ${self.bankroll:.2f} | HourMult: {hour_mult}x | {open_trade.market_title[:40]}...")
+                            # V3.13: ML auto-tighten tracking for expensive DOWN trades
+                            if open_trade.side == "DOWN" and open_trade.entry_price > 0.45:
+                                self.DOWN_EXPENSIVE_TRADES += 1
+                                self.DOWN_EXPENSIVE_PNL += open_trade.pnl
+                                if won:
+                                    self.DOWN_EXPENSIVE_WINS += 1
+                                else:
+                                    self.DOWN_EXPENSIVE_LOSSES += 1
+                                print(f"  [ML-TRACK] DOWN>${0.45}: {self.DOWN_EXPENSIVE_WINS}W/{self.DOWN_EXPENSIVE_LOSSES}L PnL=${self.DOWN_EXPENSIVE_PNL:+.2f}")
 
                             # Auto-redeem winnings after each win
                             if won and not self.dry_run:
@@ -2233,7 +2362,12 @@ class TALiveTrader:
                                         print(f"[CIRCUIT BREAKER] 3 low-edge losses — edge floor back to 30% until {self.low_edge_lockout_until.strftime('%H:%M UTC')}")
                                         self.low_edge_consecutive_losses = 0
 
-                            self.bankroll = max(self.initial_bankroll * 0.5, self.bankroll + open_trade.pnl)
+                            # V3.12c: Sync bankroll from CLOB (fixes double-counting)
+                            clob_after2 = self._sync_clob_balance()
+                            if clob_after2 >= 0:
+                                self.bankroll = clob_after2
+                            else:
+                                self.bankroll = max(self.initial_bankroll * 0.5, self.bankroll + open_trade.pnl)
                             self.ml.update_weights(open_trade.features, won)
 
                             # V3.11: Per-asset consecutive loss tracking
@@ -2250,6 +2384,15 @@ class TALiveTrader:
 
                             result = "WIN" if won else "LOSS"
                             print(f"[{result}] {open_trade.side} PnL: ${open_trade.pnl:+.2f} | Size: ${open_trade.size_usd:.2f} | Bankroll: ${self.bankroll:.2f} | {open_trade.market_title[:40]}...")
+                            # V3.13: ML auto-tighten tracking for expensive DOWN trades
+                            if open_trade.side == "DOWN" and open_trade.entry_price > 0.45:
+                                self.DOWN_EXPENSIVE_TRADES += 1
+                                self.DOWN_EXPENSIVE_PNL += open_trade.pnl
+                                if won:
+                                    self.DOWN_EXPENSIVE_WINS += 1
+                                else:
+                                    self.DOWN_EXPENSIVE_LOSSES += 1
+                                print(f"  [ML-TRACK] DOWN>${0.45}: {self.DOWN_EXPENSIVE_WINS}W/{self.DOWN_EXPENSIVE_LOSSES}L PnL=${self.DOWN_EXPENSIVE_PNL:+.2f}")
 
                             # Auto-redeem winnings after each win
                             if won and not self.dry_run:

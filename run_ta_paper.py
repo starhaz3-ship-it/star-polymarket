@@ -1348,9 +1348,9 @@ class TAPaperTrader:
                 # DEATH ZONE: $0.40-0.45 = 14% WR, -$321 PnL. NEVER trade here.
                 if 0.40 <= down_price < 0.45:
                     skip_reason = f"DOWN_DEATH_ZONE_{down_price:.2f}_(14%WR)"
-                # V3.4: Block ALL DOWN < $0.15 — 0% WR in 96 paper trades (3 trades, 3 total losses)
-                elif down_price < 0.15:
-                    skip_reason = f"DOWN_ultra_cheap_{down_price:.2f}_(0%WR)"
+                # V3.5b ML: Block ALL DOWN < $0.35 — 0W/4L (-$34.95) in paper. Cheap DOWN is a trap.
+                elif down_price < 0.35:
+                    skip_reason = f"DOWN_cheap_{down_price:.2f}_(0W4L_block)"
                 else:
                     down_conf_req = self.DOWN_MIN_CONFIDENCE
                     # Break-even aware confidence: at price P, need P prob to break even
@@ -1406,18 +1406,27 @@ class TAPaperTrader:
                 edge = max(signal.edge_up or 0, signal.edge_down or 0)
                 print(f"[Skip] {question[:35]}... | UP:{up_price:.2f} DOWN:{down_price:.2f} | Edge:{edge:.1%} | {signal.reason}")
 
-            # === V3.5: MULTI-TIMEFRAME CONFIRMATION GATE (Feature 3) ===
+            # === V3.5b: MULTI-TIMEFRAME CONFIRMATION GATE (Feature 3) ===
+            # ML finding: MTF disagree = 0W/3L (-$17.23). HARD BLOCK, not just penalty.
             if signal.action == "ENTER" and signal.side and not mtf_agrees and self.MTF_ENABLED:
-                print(f"[V3.5 MTF] {asset} {signal.side} — short/long TFs disagree, applying {self.MTF_PENALTY:.0%}x penalty")
-                # Don't skip, just penalize size later (tracked via mtf_agrees flag)
+                print(f"[V3.5b MTF BLOCK] {asset} {signal.side} — short/long TFs disagree → SKIP (was 0W/3L)")
+                signal.action = "NO_TRADE"
+                signal.reason = "mtf_disagree_block"
 
             # Collect candidate if signal passes all filters
             if signal.action == "ENTER" and signal.side and trade_key:
                 if trade_key not in self.trades:
                     mid_price = up_price if signal.side == "UP" else down_price
                     # Simulate realistic fill: offset +$0.03 toward ask to match live spread
-                    # Order books show zero mid-price liquidity — actual fills cost more
                     entry_price = round(mid_price + 0.03, 2)
+
+                    # V3.13: Hard cap on actual entry after spread offset
+                    # CSV proof: entries <$0.50 = 100% WR, $0.53+ = losses
+                    MAX_ACTUAL_ENTRY = 0.52
+                    if entry_price > MAX_ACTUAL_ENTRY:
+                        print(f"[V3.13] {asset} {signal.side} entry ${entry_price:.2f} > ${MAX_ACTUAL_ENTRY} after spread — SKIP")
+                        continue
+
                     edge = signal.edge_up if signal.side == "UP" else signal.edge_down
 
                     # Bregman divergence optimization + Frank-Wolfe profit guarantee
