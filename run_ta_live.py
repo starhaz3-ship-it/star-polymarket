@@ -353,7 +353,7 @@ class TALiveTrader:
     MIN_POSITION_SIZE = 5.0    # Floor $5
     MAX_POSITION_SIZE = 5.0    # Hard cap $5 — same as floor. Every trade = $5.
 
-    def __init__(self, dry_run: bool = False, bankroll: float = 1.68):
+    def __init__(self, dry_run: bool = False, bankroll: float = 74.48):
         self.dry_run = dry_run
         self.generator = TASignalGenerator()
         self.bregman = BregmanOptimizer(bankroll=bankroll)
@@ -1068,7 +1068,7 @@ class TALiveTrader:
             print(f"[LIVE] Placing {side} order: {shares} shares @ ${price} = ${actual_cost:.2f}")
 
             signed_order = self.executor.client.create_order(order_args)
-            response = self.executor.client.post_order(signed_order, OrderType.FAK)
+            response = self.executor.client.post_order(signed_order, OrderType.GTC)
 
             success = response.get("success", False)
             order_id = response.get("orderID", "")
@@ -1076,9 +1076,27 @@ class TALiveTrader:
             if not success:
                 return False, response.get("errorMsg", "unknown_error")
 
-            # FAK: Fill-And-Kill — fills what it can at limit, cancels remainder. No hanging orders.
-            print(f"[LIVE] Order filled: {order_id[:20]}...")
-            return True, order_id
+            # GTC placed — now wait up to 60s for fill, then cancel if unfilled
+            print(f"[LIVE] GTC order placed: {order_id[:20]}... waiting for fill...")
+            import time as _time
+            for wait_sec in [10, 20, 30]:
+                _time.sleep(wait_sec)
+                try:
+                    order_status = self.executor.client.get_order(order_id)
+                    status = order_status.get("status", "") if isinstance(order_status, dict) else ""
+                    size_matched = float(order_status.get("size_matched", 0)) if isinstance(order_status, dict) else 0
+                    if status == "MATCHED" or size_matched >= shares * 0.5:
+                        print(f"[LIVE] Order FILLED ({size_matched:.0f}/{shares} shares)")
+                        return True, order_id
+                except Exception:
+                    pass
+            # Not filled after 60s — cancel to prevent hanging
+            try:
+                self.executor.client.cancel(order_id)
+                print(f"[LIVE] Order CANCELLED after 60s (no fill at ${price})")
+            except Exception:
+                pass
+            return False, "timeout_no_fill"
 
         except Exception as e:
             return False, str(e)
@@ -1124,7 +1142,7 @@ class TALiveTrader:
             )
             print(f"[SELL] Placing {side} sell: {shares} shares @ ${price:.4f}")
             signed_order = self.executor.client.create_order(order_args)
-            response = self.executor.client.post_order(signed_order, OrderType.FAK)
+            response = self.executor.client.post_order(signed_order, OrderType.GTC)
             success = response.get("success", False)
             order_id = response.get("orderID", "")
             if not success:
