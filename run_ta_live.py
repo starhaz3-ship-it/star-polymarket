@@ -2580,8 +2580,9 @@ class TALiveTrader:
                     try:
                         claimed = auto_redeem_winnings()
                         if claimed and claimed > 0:
-                            self.bankroll += claimed
-                            print(f"[BANKROLL] +${claimed:.2f} redeemed -> ${self.bankroll:.2f}")
+                            # V3.10: Do NOT add to bankroll — PnL already counted on resolution
+                            # Adding here was double-counting ($45.82 → $63.96 bug)
+                            print(f"[REDEEM] Claimed ${claimed:.2f} (bankroll unchanged at ${self.bankroll:.2f} — PnL already tracked)")
                             self._save()
                     except Exception as e:
                         if "No winning" not in str(e):
