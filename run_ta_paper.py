@@ -1283,7 +1283,7 @@ class TAPaperTrader:
                             continue
                         mkt_time, mkt, mkt_up, mkt_down = nearest_per_asset[sig_asset]
                         mkt_id = mkt.get("conditionId", "")
-                        pred_key = f"hydra_{hsig.name}_{sig_asset}_{mkt_id}"
+                        pred_key = f"hydra_{hsig.name}_{sig_asset}_{hsig.direction}_{mkt_id}"
                         if pred_key in self.hydra_pending:
                             continue
                         # Record shadow prediction
@@ -1919,6 +1919,18 @@ class TAPaperTrader:
                 except Exception:
                     pass
 
+        # === HYDRA PENDING CLEANUP ===
+        # Remove resolved/expired entries older than 1 hour to prevent memory bloat
+        cleanup_cutoff = now - timedelta(hours=1)
+        for pkey in [k for k, v in self.hydra_pending.items()
+                     if v.get("status") in ("resolved", "expired")]:
+            try:
+                entry_dt = datetime.fromisoformat(self.hydra_pending[pkey]["entry_time"])
+                if entry_dt < cleanup_cutoff:
+                    del self.hydra_pending[pkey]
+            except Exception:
+                del self.hydra_pending[pkey]
+
         # === SKIP HOUR SHADOW RESOLUTION ===
         # Resolve open shadow trades from skip hours (runs every cycle)
         for skey, shadow in list(self.skip_hour_shadows.items()):
@@ -2163,15 +2175,18 @@ class TAPaperTrader:
                 result = "CORRECT" if correct else "WRONG"
                 print(f"[HYDRA {result}] {strat_name} {pred['asset']} {direction} | Shadow: ${shadow_pnl:+.2f} | Running: {q['predictions']}T {wr:.0f}%WR ${q['pnl']:+.2f}")
 
-                # Auto-promote after threshold
-                if q["predictions"] >= self.HYDRA_MIN_TRADES and q["status"] == "QUARANTINE":
+                # Continuous promotion/demotion (re-evaluate every 5 trades after threshold)
+                if q["predictions"] >= self.HYDRA_MIN_TRADES and q["predictions"] % 5 == 0:
                     wr_frac = q["correct"] / q["predictions"]
+                    old_status = q["status"]
                     if wr_frac >= self.HYDRA_PROMOTE_WR and q["pnl"] > 0:
                         q["status"] = "PROMOTED"
-                        print(f"[HYDRA PROMOTE] {strat_name} -> PROMOTED! ({q['predictions']}T {wr:.0f}%WR ${q['pnl']:+.2f})")
+                        if old_status != "PROMOTED":
+                            print(f"[HYDRA PROMOTE] {strat_name} -> PROMOTED! ({q['predictions']}T {wr:.0f}%WR ${q['pnl']:+.2f})")
                     else:
                         q["status"] = "DEMOTED"
-                        print(f"[HYDRA DEMOTE] {strat_name} -> DEMOTED ({q['predictions']}T {wr:.0f}%WR ${q['pnl']:+.2f})")
+                        if old_status != "DEMOTED":
+                            print(f"[HYDRA DEMOTE] {strat_name} -> DEMOTED ({q['predictions']}T {wr:.0f}%WR ${q['pnl']:+.2f})")
 
     def print_update(self, signal):
         """Print 10-minute update."""

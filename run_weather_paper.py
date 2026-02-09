@@ -610,8 +610,9 @@ class WeatherArbitrageTrader:
                 event_title = market.get("_event_title", "")
                 condition_id = market.get("conditionId", "")
 
-                # Skip if we already have a trade on this market
-                if any(t.condition_id == condition_id and t.status == "open"
+                # Skip if we already have ANY trade on this market (open OR closed)
+                # Bug fix: checking only "open" caused rebuy loops on same market
+                if any(t.condition_id == condition_id
                        for t in self.trades.values()):
                     continue
 
@@ -626,13 +627,23 @@ class WeatherArbitrageTrader:
                 target_date = parsed["target_date"]
                 is_celsius = parsed["is_celsius"]
 
+                # Skip markets for dates that have already passed
+                # Bug fix: bot was buying already-resolved past-day markets
+                if target_date:
+                    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+                    if target_date < today_str:
+                        continue
+
                 # Get market price (YES side = probability this bucket hits)
                 market_price = self._get_market_price(market)
                 if market_price is None:
                     continue
 
-                # Entry filter: only buy cheap buckets
+                # Entry filter: only buy cheap buckets, but not TOO cheap
+                # Markets at $0.01 or below are likely resolved/dead
                 if market_price >= self.ENTRY_THRESHOLD:
+                    continue
+                if market_price <= 0.01:
                     continue
 
                 # Get forecast for this location + date
@@ -741,7 +752,9 @@ class WeatherArbitrageTrader:
             is_closed = market.get("closed", False)
 
             # Resolution check
-            if is_closed or current_price >= 0.95 or current_price <= 0.05:
+            # Bug fix: removed current_price <= 0.05 — cheap price doesn't mean resolved,
+            # it just means unlikely. Only resolve on is_closed or price >= 0.95 (confirmed win).
+            if is_closed or current_price >= 0.95:
                 trade.exit_price = current_price
                 trade.exit_time = datetime.now(timezone.utc).isoformat()
                 trade.status = "closed"
@@ -752,13 +765,13 @@ class WeatherArbitrageTrader:
                     trade.pnl = shares * 1.0 - trade.size_usd
                     trade.exit_reason = "resolved_win"
                     self.wins += 1
-                elif current_price <= 0.05:
-                    # LOSS - bucket was wrong
+                elif is_closed and current_price <= 0.10:
+                    # LOSS - market closed AND price near zero = wrong bucket
                     trade.pnl = -trade.size_usd
                     trade.exit_reason = "resolved_loss"
                     self.losses += 1
                 else:
-                    # Partial resolution
+                    # Market closed at intermediate price
                     shares = trade.size_usd / trade.entry_price
                     trade.pnl = shares * current_price - trade.size_usd
                     trade.exit_reason = "resolved_partial"

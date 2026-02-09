@@ -363,6 +363,8 @@ class TALiveTrader:
         self.clob_balance = None  # Actual CLOB USDC balance (synced periodically)
         self.asset_consecutive_losses: Dict[str, int] = {}  # Per-asset loss tracker
         self.ASSET_MAX_CONSECUTIVE_LOSSES = 3  # Stop trading asset after N consecutive losses
+        self.asset_cooldown_start: Dict[str, str] = {}  # ISO timestamp when cooldown began
+        self.ASSET_COOLDOWN_MINUTES = 30  # Time-based expiry to prevent permanent lockout
 
         self.trades: Dict[str, LiveTrade] = {}
         self.total_pnl = 0.0
@@ -523,6 +525,7 @@ class TALiveTrader:
 
                 # V3.11: Restore per-asset consecutive loss tracker
                 self.asset_consecutive_losses = data.get("asset_consecutive_losses", {})
+                self.asset_cooldown_start = data.get("asset_cooldown_start", {})
 
                 # V3.13: Restore DOWN expensive ML tracking
                 down_ml = data.get("down_expensive_ml", {})
@@ -612,8 +615,13 @@ class TALiveTrader:
                             ta = trade.market_title[1:trade.market_title.index("]")]
                             if won:
                                 self.asset_consecutive_losses[ta] = 0
+                                if ta in self.asset_cooldown_start:
+                                    del self.asset_cooldown_start[ta]
                             else:
                                 self.asset_consecutive_losses[ta] = self.asset_consecutive_losses.get(ta, 0) + 1
+                                acl_s = self.asset_consecutive_losses[ta]
+                                if acl_s >= self.ASSET_MAX_CONSECUTIVE_LOSSES and ta not in self.asset_cooldown_start:
+                                    self.asset_cooldown_start[ta] = datetime.now(timezone.utc).isoformat()
 
                         result = "WIN" if won else "LOSS"
                         print(f"  [{result}] {trade.side} ${trade.pnl:+.2f} | {trade.market_title[:50]}")
@@ -674,6 +682,7 @@ class TALiveTrader:
                 "hedge_enabled": self.HEDGE_ENABLED,
             },
             "asset_consecutive_losses": self.asset_consecutive_losses,
+            "asset_cooldown_start": self.asset_cooldown_start,
             "down_expensive_ml": {
                 "trades": self.DOWN_EXPENSIVE_TRADES,
                 "wins": self.DOWN_EXPENSIVE_WINS,
@@ -1827,10 +1836,30 @@ class TALiveTrader:
                             continue
                         # === V3.11: PER-ASSET CONSECUTIVE LOSS BLOCK ===
                         # Stop trading an asset after 3 consecutive losses (prevents SOL DOWN repeat bleed)
+                        # Bug fix: Added time-based expiry to prevent permanent deadlock
                         asset_losses = self.asset_consecutive_losses.get(asset, 0)
                         if asset_losses >= self.ASSET_MAX_CONSECUTIVE_LOSSES:
-                            print(f"  [{asset}] ASSET COOLDOWN: {asset_losses} consecutive losses — blocking new trades")
-                            break  # Skip all remaining markets for this asset
+                            # Check if cooldown has expired (30 min)
+                            cooldown_start = self.asset_cooldown_start.get(asset)
+                            expired = False
+                            if cooldown_start:
+                                try:
+                                    start_dt = datetime.fromisoformat(cooldown_start)
+                                    age_min = (datetime.now(timezone.utc) - start_dt).total_seconds() / 60
+                                    if age_min >= self.ASSET_COOLDOWN_MINUTES:
+                                        expired = True
+                                        self.asset_consecutive_losses[asset] = 0
+                                        del self.asset_cooldown_start[asset]
+                                        print(f"  [{asset}] COOLDOWN EXPIRED after {age_min:.0f}min — allowing trades again")
+                                except Exception:
+                                    expired = True  # Can't parse = assume expired
+                                    self.asset_consecutive_losses[asset] = 0
+                            else:
+                                # First time hitting cooldown — record start time
+                                self.asset_cooldown_start[asset] = datetime.now(timezone.utc).isoformat()
+                            if not expired:
+                                print(f"  [{asset}] ASSET COOLDOWN: {asset_losses} consecutive losses — blocking new trades")
+                                break  # Skip all remaining markets for this asset
 
                         # === MOMENTUM PAUSE (V3.5) ===
                         # After 2 consecutive losses, WR drops to 29.7%. Pause 30 min.
@@ -2193,11 +2222,17 @@ class TALiveTrader:
                             if trade_asset and not is_hedge:
                                 if won:
                                     self.asset_consecutive_losses[trade_asset] = 0
+                                    # Clear cooldown timer on win
+                                    if trade_asset in self.asset_cooldown_start:
+                                        del self.asset_cooldown_start[trade_asset]
                                 else:
                                     self.asset_consecutive_losses[trade_asset] = self.asset_consecutive_losses.get(trade_asset, 0) + 1
                                     acl = self.asset_consecutive_losses[trade_asset]
                                     if acl >= self.ASSET_MAX_CONSECUTIVE_LOSSES:
-                                        print(f"[ASSET COOLDOWN] {trade_asset}: {acl} consecutive losses — blocking new trades until next win")
+                                        # Record cooldown start time for time-based expiry
+                                        if trade_asset not in self.asset_cooldown_start:
+                                            self.asset_cooldown_start[trade_asset] = datetime.now(timezone.utc).isoformat()
+                                        print(f"[ASSET COOLDOWN] {trade_asset}: {acl} consecutive losses — blocking new trades (30min expiry)")
 
                             # === UPDATE HOURLY STATS ===
                             try:
@@ -2404,11 +2439,15 @@ class TALiveTrader:
                                 if not is_hedge:
                                     if won:
                                         self.asset_consecutive_losses[ta2] = 0
+                                        if ta2 in self.asset_cooldown_start:
+                                            del self.asset_cooldown_start[ta2]
                                     else:
                                         self.asset_consecutive_losses[ta2] = self.asset_consecutive_losses.get(ta2, 0) + 1
                                         acl2 = self.asset_consecutive_losses[ta2]
                                         if acl2 >= self.ASSET_MAX_CONSECUTIVE_LOSSES:
-                                            print(f"[ASSET COOLDOWN] {ta2}: {acl2} consecutive losses — blocking new trades until next win")
+                                            if ta2 not in self.asset_cooldown_start:
+                                                self.asset_cooldown_start[ta2] = datetime.now(timezone.utc).isoformat()
+                                            print(f"[ASSET COOLDOWN] {ta2}: {acl2} consecutive losses — blocking new trades (30min expiry)")
 
                             result = "WIN" if won else "LOSS"
                             print(f"[{result}] {open_trade.side} PnL: ${open_trade.pnl:+.2f} | Size: ${open_trade.size_usd:.2f} | Bankroll: ${self.bankroll:.2f} | {open_trade.market_title[:40]}...")
