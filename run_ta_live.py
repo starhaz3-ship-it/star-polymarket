@@ -711,7 +711,7 @@ class TALiveTrader:
     SHADOW_ASSETS = {}
     # ETH-specific constraints (V3.9)
     ETH_UP_ONLY = True  # Only allow UP trades on ETH (70% WR vs 47% DOWN)
-    ETH_MAX_PRICE = 0.45  # V3.10: Shadow showed 4W/2L (67%WR, +$6.68) at >0.40 — loosened
+    ETH_MAX_PRICE = 0.55  # V3.12: Shadow 13W/7L 65%WR blocked at 0.45. Paper 39 ETH trades=61.5%WR
     # SOL DOWN constraint (V3.10): Paper data shows SOL_DOWN = 50% WR (coin flip)
     # Require higher edge for SOL DOWN trades (edge >= 0.35 lifts to ~71% WR per paper analysis)
     SOL_DOWN_MIN_EDGE = 0.35
@@ -1068,7 +1068,7 @@ class TALiveTrader:
             print(f"[LIVE] Placing {side} order: {shares} shares @ ${price} = ${actual_cost:.2f}")
 
             signed_order = self.executor.client.create_order(order_args)
-            response = self.executor.client.post_order(signed_order, OrderType.FOK)
+            response = self.executor.client.post_order(signed_order, OrderType.FAK)
 
             success = response.get("success", False)
             order_id = response.get("orderID", "")
@@ -1076,7 +1076,7 @@ class TALiveTrader:
             if not success:
                 return False, response.get("errorMsg", "unknown_error")
 
-            # FOK: Fill-Or-Kill — either fills immediately or cancels. No hanging orders.
+            # FAK: Fill-And-Kill — fills what it can at limit, cancels remainder. No hanging orders.
             print(f"[LIVE] Order filled: {order_id[:20]}...")
             return True, order_id
 
@@ -1124,7 +1124,7 @@ class TALiveTrader:
             )
             print(f"[SELL] Placing {side} sell: {shares} shares @ ${price:.4f}")
             signed_order = self.executor.client.create_order(order_args)
-            response = self.executor.client.post_order(signed_order, OrderType.FOK)
+            response = self.executor.client.post_order(signed_order, OrderType.FAK)
             success = response.get("success", False)
             order_id = response.get("orderID", "")
             if not success:
@@ -1290,11 +1290,11 @@ class TALiveTrader:
 
     # Conviction thresholds - V3.11: MATCHED TO PAPER PROVEN SETTINGS (66.4% WR, +$996)
     MIN_MODEL_CONFIDENCE = 0.55  # Paper DOWN_MIN_CONFIDENCE=0.55 (DOWN check uses this)
-    MIN_EDGE = 0.30              # V3.11: Back to 0.30 — paper proves this works. 0.22 was too loose.
-    LOW_EDGE_THRESHOLD = 0.30    # V3.11: Match MIN_EDGE — no "low edge" tier anymore
+    MIN_EDGE = 0.25              # V3.12: Shadow 4W/0L 100%WR blocked at 0.30. 0.25 balances selectivity+fills.
+    LOW_EDGE_THRESHOLD = 0.25    # V3.12: Match MIN_EDGE
     MAX_ENTRY_PRICE = 0.45       # V3.6: $0.45-0.55 = 50% WR coin flip, cut it
     MIN_ENTRY_PRICE = 0.15       # V3.6: <$0.15 = 16.7% WR, -$40 loss — hard floor
-    MIN_KL_DIVERGENCE = 0.15     # V3.4: KL<0.15 = 36% WR vs 67% above (96 paper trades)
+    MIN_KL_DIVERGENCE = 0.08     # V3.12: Shadow 7W/1L 88%WR blocked at 0.15. Loosened.
 
     # Paper trades both sides successfully (UP 81% WR in paper)
     DOWN_ONLY_MODE = False       # Disabled - match paper
@@ -1306,7 +1306,7 @@ class TALiveTrader:
 
     # UP trade settings - V3.11: MATCHED TO PAPER (UP_MIN_CONFIDENCE=0.65 in paper)
     UP_MIN_CONFIDENCE = 0.65     # V3.11: Paper proven. Was 0.56, too loose.
-    UP_MIN_EDGE = 0.30           # V3.11: Match paper MIN_EDGE. Was 0.20, too loose.
+    UP_MIN_EDGE = 0.25           # V3.12: Match new MIN_EDGE
     UP_RSI_MIN = 45              # Relaxed to match paper (was 60)
     CANDLE_LOOKBACK = 120        # V3.6b: Was 15 — killed MACD(35), TTM(25), EMA Cross(20), RSI slope. Now all 9 indicators active.
     DOWN_MIN_MOMENTUM_DROP = 0.001  # Match paper tuner (was -0.002, more permissive)
@@ -1670,7 +1670,7 @@ class TALiveTrader:
                     nyu_result = self.nyu_model.calculate_volatility(entry_price_nyu, time_left)
                     # Adaptive threshold: high vol = more opportunity, relax gate
                     # V3.10: Shadow data showed 7/7 blocked = winners (+$21.99 missed). Loosened all tiers.
-                    nyu_threshold = {"low": 0.10, "medium": 0.05, "high": 0.02}.get(nyu_result.volatility_regime, 0.10)
+                    nyu_threshold = {"low": 0.05, "medium": 0.02, "high": 0.01}.get(nyu_result.volatility_regime, 0.05)
                     if nyu_result.edge_score < nyu_threshold:
                         print(f"  [{asset}] NYU filter: edge={nyu_result.edge_score:.2f}<{nyu_threshold} (vol={nyu_result.volatility_regime})")
                         self._record_filter_shadow(asset, signal.side, entry_price_nyu, market_id, question, "nyu_vol")
@@ -1729,9 +1729,10 @@ class TALiveTrader:
                             continue
 
                         mid_price = up_price if signal.side == "UP" else down_price
-                        # Offset toward ask by 1 cent to improve FOK fill rate
+                        # Offset toward ask by 3 cents to cross the spread for FAK fills
                         # Paper fills at mid instantly; live needs to cross the spread
-                        entry_price = round(mid_price + 0.01, 2)
+                        # 12 consecutive FOK failures at +$0.01 proved it wasn't enough
+                        entry_price = round(mid_price + 0.03, 2)
 
                         # === V3.6: Hard floor — entries <$0.15 are 16.7% WR losers ===
                         if entry_price < self.MIN_ENTRY_PRICE and not is_bond_trade:
@@ -1781,14 +1782,14 @@ class TALiveTrader:
                         # For DOWN trades: price below VWAP (negative distance) confirms bearish.
                         # For UP trades: price at or above VWAP confirms bullish.
                         vwap_dist = features.vwap_distance
-                        if signal.side == "DOWN" and vwap_dist > 0.15:
+                        if signal.side == "DOWN" and vwap_dist > 0.25:
                             # Betting DOWN but price is well ABOVE VWAP = fighting the trend
-                            print(f"  [{asset}] V3.8: VWAP misalign DOWN (vwap_dist={vwap_dist:+.3f} > +0.15)")
+                            print(f"  [{asset}] V3.8: VWAP misalign DOWN (vwap_dist={vwap_dist:+.3f} > +0.25)")
                             self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_vwap")
                             continue
-                        if signal.side == "UP" and vwap_dist < -0.15:
+                        if signal.side == "UP" and vwap_dist < -0.25:
                             # Betting UP but price is well BELOW VWAP = fighting the trend
-                            print(f"  [{asset}] V3.8: VWAP misalign UP (vwap_dist={vwap_dist:+.3f} < -0.15)")
+                            print(f"  [{asset}] V3.8: VWAP misalign UP (vwap_dist={vwap_dist:+.3f} < -0.25)")
                             self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_vwap")
                             continue
 
