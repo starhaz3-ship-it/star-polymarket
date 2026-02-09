@@ -490,4 +490,9 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    from pid_lock import acquire_pid_lock, release_pid_lock
+    acquire_pid_lock("daily_king")
+    try:
+        asyncio.run(main())
+    finally:
+        release_pid_lock("daily_king")

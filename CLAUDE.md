@@ -12,33 +12,37 @@
 
 ### Quick Start Commands
 ```bash
-# TA Paper Trader - paper trading with $100 positions
-python run_ta_paper.py
+# TA Paper Trader V3.5 - systematic features + ML optimization
+python -u run_ta_paper.py
 
-# TA Live Trader - live trading with $10 positions (needs POLYMARKET_PASSWORD)
-python run_ta_live.py
+# Weather Paper Trader - NOAA forecast arbitrage
+python -u run_weather_paper.py
+
+# TA Live Trader - $5 flat bets (CURRENTLY OFF - needs POLYMARKET_PASSWORD)
+python -u run_ta_live.py
 
 # Check paper results
 cat ta_paper_results.json | python -m json.tool
+cat weather_paper_results.json | python -m json.tool
 ```
 
 ### System Names
-- **TA Paper** (`run_ta_paper.py`) - Paper trading, $100 positions, Bregman optimization
-- **TA Live** (`run_ta_live.py`) - Live trading, $10 positions, ML optimization
+- **TA Paper** (`run_ta_paper.py`) - Paper trading V3.5, systematic features, ML optimization
+- **TA Live** (`run_ta_live.py`) - Live trading V3.12b, $5 flat bets (CURRENTLY OFF)
+- **Weather Paper** (`run_weather_paper.py`) - NOAA forecast vs Polymarket temperature arbitrage
+- **Whale Watcher** (`run_whale_watcher.py`) - 39 whale wallets tracked (incl. 2 weather whales)
 
-### Current Status (Last Updated: 2026-02-08)
-- Live Trader: **V3.10** RUNNING — $5-$8 HARD MAX, ~$46 bankroll, capital rebuild mode
-- Paper Trader: RUNNING — $10 bets, 110 trades, 66.4% WR, +$1005 PnL
-- Strategy: TA + Bregman + Kelly + ATR + NYU Vol (adaptive) + ML Scoring + 200 EMA + CBC
-- Markets: BTC/SOL/ETH live (ETH UP only) | 15-minute Up/Down via Polymarket API (`tag_slug=15M`)
-- Position sizing: $5-$8 HARD_MAX_BET (triple-enforced), quarter-Kelly, Bayesian hourly multiplier
-- **PID lock**: Prevents ghost double-instances (7 ghosts caused $21 stacking bug)
-- **IH2P**: ALL DISABLED during capital rebuild (Bond/DCA/Hedge off)
-- V3.10 filters: conf>=55%, KL>=0.20, edge>=22%, NYU loosened, ETH $0.45 cap, shadow-tracking active
-- **Auto-evolution**: filter_stats shadow tracking + _auto_evolve() every 30 min
-- Skip hours: {1, 8, 14, 15} UTC
-- Auto-redeem: Multi-RPC fallback + bankroll auto-sync on claim
-- **Capital rebuild**: From ~$46 after ghost process losses. Target: $100+
+### Current Status (Last Updated: 2026-02-09)
+- **Live Trader: OFF** — Shut down due to zero mid-price liquidity on 15-min order books
+- Paper Trader: **V3.5** RUNNING — Systematic trading features, 5 new ML-tunable features
+- Weather Trader: **v1.0** RUNNING — NOAA forecast arbitrage on temperature markets
+- Strategy: TA + Bregman + Kelly + NYU Vol + ML + Systematic V3.5 (overnight/invvol/MTF/volspike/volregime)
+- Markets: BTC/SOL/ETH paper (15-min Up/Down) + Weather (daily temperature)
+- **PID locks**: All traders locked via shared `pid_lock.py` (ta_paper, weather_paper, whale_watcher, daily_king, ta_live)
+- **V3.5 Features**: BTC overnight seasonality, inverse vol sizing, multi-TF confirmation, volume spike filter, vol regime routing
+- **Realistic paper fills**: +$0.03 spread offset (order books show zero mid-price liquidity)
+- Skip hours: {0, 1, 8} UTC (reopened 22,23 for overnight seasonality)
+- **Account**: ~$74 live (not trading), paper only until Monday liquidity check
 
 ### Standing Orders
 - **AUTO-TUNE**: Continuously analyze trade data and auto-adjust settings for max profit, then win rate. Don't ask - just optimize. Log changes made.
@@ -59,15 +63,17 @@ cat ta_paper_results.json | python -m json.tool
 - **2026-02-21**: Revisit TREND_FOLLOW strategy (blacklisted, 14% WR live — 2-week cooling-off).
 
 ### Key Files
-- `run_ta_paper.py` - Paper trading runner
-- `run_ta_live.py` - Live trading with ML
-- `run_ta_experiment.py` - 6-strategy experimental lab (paper)
-- `run_daily_king.py` - Daily Up/Down trader (kingofcoinflips strategy, PAPER until $200+ profit)
+- `run_ta_paper.py` - Paper trading runner V3.5
+- `run_ta_live.py` - Live trading V3.12b (currently off)
+- `run_weather_paper.py` - Weather arbitrage paper trader
+- `run_daily_king.py` - Daily Up/Down trader (kingofcoinflips strategy)
+- `pid_lock.py` - Shared PID lock utility (prevents duplicate instances)
 - `ta_paper_results.json` - Paper trade history
 - `ta_live_results.json` - Live trade history
-- `daily_king_results.json` - Daily king paper trade history
+- `weather_paper_results.json` - Weather paper trade history
 - `arbitrage/ta_signals.py` - TA signal generator
 - `arbitrage/bregman_optimizer.py` - Bregman divergence optimizer
+- `arbitrage/copy_trader.py` - Whale wallet list (39 wallets)
 
 ### Growth Plan
 - **Phase 1** (current): 15-minute markets, $3 bets, prove 75%+ WR

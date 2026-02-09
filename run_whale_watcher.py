@@ -349,7 +349,11 @@ async def main():
 
 
 if __name__ == "__main__":
+    from pid_lock import acquire_pid_lock, release_pid_lock
+    acquire_pid_lock("whale_watcher")
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         log("Whale watcher stopped.")
+    finally:
+        release_pid_lock("whale_watcher")

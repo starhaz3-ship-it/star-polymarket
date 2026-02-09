@@ -44,6 +44,34 @@ class MLTunerState:
     min_edge: float = 0.30
     down_momentum_threshold: float = -0.002
 
+    # === Systematic Trading Features (V3.5) ===
+    # Feature 1: BTC Overnight Seasonality (22-23 UTC = positive bias)
+    overnight_btc_boost: float = 0.05  # Confidence boost for BTC UP during 22-23 UTC
+    overnight_enabled: bool = True
+
+    # Feature 2: Inverse Volatility Sizing (baseline_atr / current_atr)
+    invvol_enabled: bool = True
+    invvol_clamp_low: float = 0.5   # Min size multiplier
+    invvol_clamp_high: float = 2.0  # Max size multiplier
+
+    # Feature 3: Multi-Timeframe Confirmation
+    mtf_enabled: bool = True
+    mtf_short_window: int = 30      # Short TF: last 30 candles (30 min)
+    mtf_long_window: int = 120      # Long TF: last 120 candles (2 hours)
+    mtf_penalty: float = 0.5        # Size multiplier when TFs disagree
+
+    # Feature 4: Volume Spike Filter
+    volspike_enabled: bool = True
+    volspike_threshold: float = 1.5  # Volume must be > 1.5x average for MR boost
+    volspike_boost: float = 1.2      # Size boost when volume spike confirms signal
+    volspike_low_penalty: float = 0.7  # Size penalty when volume is very low (<0.5x avg)
+
+    # Feature 5: Volatility Regime Routing
+    volregime_enabled: bool = True
+    volregime_high_mr_boost: float = 0.05   # Confidence boost for MR in high vol
+    volregime_low_trend_boost: float = 0.03  # Confidence boost for trend in low vol
+    volregime_mismatch_penalty: float = 0.5  # Size mult when strategy mismatches regime
+
     # Performance tracking
     tune_count: int = 0
     last_tune_time: str = ""
@@ -381,6 +409,21 @@ class MLAutoTuner:
             "down_min_confidence": self.state.down_min_confidence,
             "min_edge": self.state.min_edge,
             "down_momentum_threshold": self.state.down_momentum_threshold,
+            # Systematic Trading Features (V3.5)
+            "overnight_btc_boost": self.state.overnight_btc_boost,
+            "overnight_enabled": self.state.overnight_enabled,
+            "invvol_enabled": self.state.invvol_enabled,
+            "invvol_clamp_low": self.state.invvol_clamp_low,
+            "invvol_clamp_high": self.state.invvol_clamp_high,
+            "mtf_enabled": self.state.mtf_enabled,
+            "mtf_penalty": self.state.mtf_penalty,
+            "volspike_enabled": self.state.volspike_enabled,
+            "volspike_threshold": self.state.volspike_threshold,
+            "volspike_boost": self.state.volspike_boost,
+            "volregime_enabled": self.state.volregime_enabled,
+            "volregime_high_mr_boost": self.state.volregime_high_mr_boost,
+            "volregime_low_trend_boost": self.state.volregime_low_trend_boost,
+            "volregime_mismatch_penalty": self.state.volregime_mismatch_penalty,
         }
 
 
@@ -435,7 +478,7 @@ class TAPaperTrader:
     # REMOVED from skip (profitable): 6(56%WR +$108), 8(67%WR +$218), 10(67%WR +$74), 14(60%WR +$414)
     # ADDED to skip (losing): 1(40%WR -$21), 3(45%WR -$128), 16(25%WR -$236), 17(33%WR -$133), 22(33%WR -$23)
     # Best hours: 2(78%WR), 4(56%WR), 13(62%WR), 18(57%WR), 21(100%WR)
-    SKIP_HOURS_UTC = {0, 1, 8, 22, 23}  # Opened US/EU overlap (UTC 15-17,19,20) + UTC 3 (proven profitable)
+    SKIP_HOURS_UTC = {0, 1, 8}  # V3.5: Reopened 22,23 UTC (BTC overnight seasonality positive bias)
 
     def __init__(self, bankroll: float = 93.27):
         self.generator = TASignalGenerator()
@@ -504,6 +547,38 @@ class TAPaperTrader:
             h: {"wins": 0, "losses": 0, "pnl": 0.0} for h in range(24)
         }
 
+        # === SYSTEMATIC TRADING FEATURES V3.5 ===
+        # Feature tracking for ML auto-revoke
+        self.systematic_stats = {
+            "overnight": {"trades": 0, "wins": 0, "losses": 0, "pnl": 0.0},
+            "invvol": {"total_scale": 0.0, "trades_scaled": 0},
+            "mtf_agree": {"trades": 0, "wins": 0, "losses": 0, "pnl": 0.0},
+            "mtf_disagree": {"trades": 0, "wins": 0, "losses": 0, "pnl": 0.0},
+            "volspike": {"trades": 0, "wins": 0, "losses": 0, "pnl": 0.0},
+            "volspike_normal": {"trades": 0, "wins": 0, "losses": 0, "pnl": 0.0},
+            "volregime_match": {"trades": 0, "wins": 0, "losses": 0, "pnl": 0.0},
+            "volregime_mismatch": {"trades": 0, "wins": 0, "losses": 0, "pnl": 0.0},
+        }
+        # Per-trade feature tags (stored on trade for resolution tracking)
+        self._trade_features: Dict[str, dict] = {}  # {trade_key: {overnight, mtf_agree, volspike, ...}}
+
+        # Feature config (ML-tunable)
+        self.OVERNIGHT_HOURS = {22, 23}  # UTC hours with BTC UP seasonality
+        self.OVERNIGHT_BTC_BOOST = 0.05
+        self.OVERNIGHT_ENABLED = True
+        self.INVVOL_ENABLED = True
+        self.INVVOL_CLAMP = (0.5, 2.0)
+        self.MTF_ENABLED = True
+        self.MTF_PENALTY = 0.5
+        self.VOLSPIKE_ENABLED = True
+        self.VOLSPIKE_THRESHOLD = 1.5
+        self.VOLSPIKE_BOOST = 1.2
+        self.VOLSPIKE_LOW_PENALTY = 0.7
+        self.VOLREGIME_ENABLED = True
+        self.VOLREGIME_HIGH_MR_BOOST = 0.05
+        self.VOLREGIME_LOW_TREND_BOOST = 0.03
+        self.VOLREGIME_MISMATCH_PENALTY = 0.5
+
         self._load()
         self._apply_tuned_params()  # Apply ML-tuned parameters on startup
 
@@ -531,6 +606,182 @@ class TAPaperTrader:
             mult = 1.0
         return round(mult, 2)
 
+    # === SYSTEMATIC TRADING FEATURE HELPERS (V3.5) ===
+
+    def _calc_atr(self, candles, period: int = 14) -> float:
+        """Calculate Average True Range from candles."""
+        if len(candles) < period + 1:
+            return 0.0
+        trs = []
+        for i in range(1, len(candles)):
+            high = candles[i].high
+            low = candles[i].low
+            prev_close = candles[i - 1].close
+            tr = max(high - low, abs(high - prev_close), abs(low - prev_close))
+            trs.append(tr)
+        if len(trs) < period:
+            return sum(trs) / len(trs) if trs else 0.0
+        return sum(trs[-period:]) / period
+
+    def _check_overnight_seasonality(self, hour: int, asset: str, side: str) -> float:
+        """Feature 1: BTC overnight seasonality boost.
+        Returns confidence boost (0 if not applicable)."""
+        if not self.OVERNIGHT_ENABLED:
+            return 0.0
+        if hour in self.OVERNIGHT_HOURS and asset == "BTC" and side == "UP":
+            return self.OVERNIGHT_BTC_BOOST
+        return 0.0
+
+    def _calc_inverse_vol_scale(self, candles) -> float:
+        """Feature 2: Inverse volatility position sizing.
+        Returns size multiplier based on baseline_atr / current_atr."""
+        if not self.INVVOL_ENABLED or len(candles) < 60:
+            return 1.0
+        baseline_atr = self._calc_atr(candles[-120:], 60) if len(candles) >= 120 else self._calc_atr(candles, len(candles) - 1)
+        current_atr = self._calc_atr(candles[-20:], 14)
+        if current_atr <= 0 or baseline_atr <= 0:
+            return 1.0
+        ratio = baseline_atr / current_atr
+        return max(self.INVVOL_CLAMP[0], min(self.INVVOL_CLAMP[1], ratio))
+
+    def _check_mtf_confirmation(self, candles, signal_side: str) -> bool:
+        """Feature 3: Multi-timeframe confirmation.
+        Returns True if short and long TF agree on direction."""
+        if not self.MTF_ENABLED or len(candles) < 60:
+            return True  # Not enough data, assume agree
+        short_candles = candles[-30:]
+        long_candles = candles[-120:] if len(candles) >= 120 else candles
+
+        # Short-term trend: slope of last 30 closes
+        short_closes = [c.close for c in short_candles]
+        short_slope = (short_closes[-1] - short_closes[0]) / short_closes[0] if short_closes[0] else 0
+
+        # Long-term trend: slope of full lookback closes
+        long_closes = [c.close for c in long_candles]
+        long_slope = (long_closes[-1] - long_closes[0]) / long_closes[0] if long_closes[0] else 0
+
+        # Direction agreement
+        if signal_side == "UP":
+            # UP signal needs at least one TF trending up (not both down)
+            return not (short_slope < -0.001 and long_slope < -0.001)
+        else:
+            # DOWN signal needs at least one TF trending down (not both up)
+            return not (short_slope > 0.001 and long_slope > 0.001)
+
+    def _check_volume_spike(self, candles) -> str:
+        """Feature 4: Volume spike detection.
+        Returns 'spike' if volume > threshold*avg, 'low' if <0.5x avg, 'normal' otherwise."""
+        if not self.VOLSPIKE_ENABLED or len(candles) < 30:
+            return "normal"
+        recent_vols = [c.volume for c in candles[-5:]]
+        avg_vols = [c.volume for c in candles[-60:]] if len(candles) >= 60 else [c.volume for c in candles]
+        recent_avg = sum(recent_vols) / len(recent_vols) if recent_vols else 0
+        overall_avg = sum(avg_vols) / len(avg_vols) if avg_vols else 0
+        if overall_avg <= 0:
+            return "normal"
+        ratio = recent_avg / overall_avg
+        if ratio >= self.VOLSPIKE_THRESHOLD:
+            return "spike"
+        elif ratio < 0.5:
+            return "low"
+        return "normal"
+
+    def _get_vol_regime(self, candles) -> str:
+        """Feature 5: Volatility regime detection for routing.
+        Returns 'high', 'low', or 'normal'."""
+        if not self.VOLREGIME_ENABLED or len(candles) < 60:
+            return "normal"
+        current_atr = self._calc_atr(candles[-20:], 14)
+        baseline_atr = self._calc_atr(candles[-120:], 60) if len(candles) >= 120 else self._calc_atr(candles, len(candles) - 1)
+        if baseline_atr <= 0:
+            return "normal"
+        ratio = current_atr / baseline_atr
+        if ratio > 1.3:
+            return "high"
+        elif ratio < 0.8:
+            return "low"
+        return "normal"
+
+    def _get_volregime_boost(self, vol_regime: str, regime_value: str) -> float:
+        """Feature 5: Confidence boost based on vol regime + strategy type match.
+        Mean-reversion = range_bound regime, Trend = trend_up/trend_down regime.
+        Returns confidence boost (can be negative for mismatch)."""
+        if not self.VOLREGIME_ENABLED:
+            return 0.0
+        is_mr = regime_value == "range_bound"
+        is_trend = regime_value in ("trend_up", "trend_down")
+        if vol_regime == "high" and is_mr:
+            return self.VOLREGIME_HIGH_MR_BOOST  # High vol + MR = good
+        elif vol_regime == "low" and is_trend:
+            return self.VOLREGIME_LOW_TREND_BOOST  # Low vol + trend = good
+        elif vol_regime == "high" and is_trend:
+            return -0.02  # High vol + trend = risky (whipsaws)
+        elif vol_regime == "low" and is_mr:
+            return -0.02  # Low vol + MR = no movement to revert
+        return 0.0
+
+    def _update_systematic_stats(self, trade_key: str, won: bool, pnl: float):
+        """Update systematic feature stats when a trade resolves."""
+        feats = self._trade_features.get(trade_key, {})
+        if not feats:
+            return
+        if feats.get("overnight"):
+            bucket = self.systematic_stats["overnight"]
+            bucket["trades"] += 1
+            bucket["wins" if won else "losses"] += 1
+            bucket["pnl"] += pnl
+        if feats.get("mtf_agree") is not None:
+            key = "mtf_agree" if feats["mtf_agree"] else "mtf_disagree"
+            bucket = self.systematic_stats[key]
+            bucket["trades"] += 1
+            bucket["wins" if won else "losses"] += 1
+            bucket["pnl"] += pnl
+        if feats.get("volspike"):
+            key = "volspike" if feats["volspike"] == "spike" else "volspike_normal"
+            bucket = self.systematic_stats[key]
+            bucket["trades"] += 1
+            bucket["wins" if won else "losses"] += 1
+            bucket["pnl"] += pnl
+        if feats.get("volregime_match") is not None:
+            key = "volregime_match" if feats["volregime_match"] else "volregime_mismatch"
+            bucket = self.systematic_stats[key]
+            bucket["trades"] += 1
+            bucket["wins" if won else "losses"] += 1
+            bucket["pnl"] += pnl
+
+    def _check_feature_revoke(self):
+        """ML Auto-Revoke: disable features that are net-negative after threshold trades."""
+        # Overnight: revoke after 10 trades if WR < 45% or PnL < 0
+        ov = self.systematic_stats["overnight"]
+        if ov["trades"] >= 10 and self.OVERNIGHT_ENABLED:
+            wr = ov["wins"] / max(1, ov["trades"])
+            if wr < 0.45 or ov["pnl"] < 0:
+                self.OVERNIGHT_ENABLED = False
+                print(f"[ML-REVOKE] Overnight disabled (WR={wr:.0%}, PnL=${ov['pnl']:+.2f})")
+        # MTF: revoke if disagree trades actually outperform agree trades (filter is hurting)
+        ma = self.systematic_stats["mtf_agree"]
+        md = self.systematic_stats["mtf_disagree"]
+        if ma["trades"] >= 8 and md["trades"] >= 5 and self.MTF_ENABLED:
+            agree_wr = ma["wins"] / max(1, ma["trades"])
+            disagree_wr = md["wins"] / max(1, md["trades"])
+            if disagree_wr > agree_wr + 0.10:  # Disagree beats agree by 10%+
+                self.MTF_ENABLED = False
+                print(f"[ML-REVOKE] MTF disabled (agree WR={agree_wr:.0%} < disagree WR={disagree_wr:.0%})")
+        # VolSpike: revoke if spike trades underperform normal
+        vs = self.systematic_stats["volspike"]
+        vn = self.systematic_stats["volspike_normal"]
+        if vs["trades"] >= 8 and self.VOLSPIKE_ENABLED:
+            if vs["pnl"] < -3.0:
+                self.VOLSPIKE_ENABLED = False
+                print(f"[ML-REVOKE] VolSpike disabled (PnL=${vs['pnl']:+.2f})")
+        # VolRegime: revoke if matched regime trades don't beat mismatched
+        vrm = self.systematic_stats["volregime_match"]
+        vrmm = self.systematic_stats["volregime_mismatch"]
+        if vrm["trades"] >= 8 and vrmm["trades"] >= 5 and self.VOLREGIME_ENABLED:
+            if vrmm["pnl"] > vrm["pnl"] + 2.0:
+                self.VOLREGIME_ENABLED = False
+                print(f"[ML-REVOKE] VolRegime disabled (match PnL=${vrm['pnl']:+.2f} < mismatch PnL=${vrmm['pnl']:+.2f})")
+
     def _apply_tuned_params(self):
         """Apply ML-tuned parameters to trading thresholds."""
         params = self.ml_tuner.get_current_params()
@@ -540,7 +791,22 @@ class TAPaperTrader:
         self.DOWN_MIN_CONFIDENCE = params["down_min_confidence"]
         self.MIN_EDGE = max(params["min_edge"], 0.30)  # V3.4: floor at 0.30
         self.DOWN_MIN_MOMENTUM_DROP = params["down_momentum_threshold"]
+        # Systematic Trading Features V3.5
+        self.OVERNIGHT_BTC_BOOST = params.get("overnight_btc_boost", 0.05)
+        self.OVERNIGHT_ENABLED = params.get("overnight_enabled", True)
+        self.INVVOL_ENABLED = params.get("invvol_enabled", True)
+        self.INVVOL_CLAMP = (params.get("invvol_clamp_low", 0.5), params.get("invvol_clamp_high", 2.0))
+        self.MTF_ENABLED = params.get("mtf_enabled", True)
+        self.MTF_PENALTY = params.get("mtf_penalty", 0.5)
+        self.VOLSPIKE_ENABLED = params.get("volspike_enabled", True)
+        self.VOLSPIKE_THRESHOLD = params.get("volspike_threshold", 1.5)
+        self.VOLSPIKE_BOOST = params.get("volspike_boost", 1.2)
+        self.VOLREGIME_ENABLED = params.get("volregime_enabled", True)
+        self.VOLREGIME_HIGH_MR_BOOST = params.get("volregime_high_mr_boost", 0.05)
+        self.VOLREGIME_LOW_TREND_BOOST = params.get("volregime_low_trend_boost", 0.03)
+        self.VOLREGIME_MISMATCH_PENALTY = params.get("volregime_mismatch_penalty", 0.5)
         print(f"[ML] Applied tuned params: UP<${self.UP_MAX_PRICE}@{self.UP_MIN_CONFIDENCE:.0%} | DOWN<${self.DOWN_MAX_PRICE}@{self.DOWN_MIN_CONFIDENCE:.0%} | Edge>{self.MIN_EDGE:.0%}")
+        print(f"[V3.5] Overnight:{self.OVERNIGHT_ENABLED} InvVol:{self.INVVOL_ENABLED} MTF:{self.MTF_ENABLED} VolSpike:{self.VOLSPIKE_ENABLED} VolRegime:{self.VOLREGIME_ENABLED}")
 
     def _load(self):
         if self.OUTPUT_FILE.exists():
@@ -569,6 +835,12 @@ class TAPaperTrader:
                     h = int(h_str)
                     if h in self.skip_hour_stats:
                         self.skip_hour_stats[h] = stats
+                # Load systematic feature stats (V3.5)
+                saved_sys = data.get("systematic_stats", {})
+                for key in self.systematic_stats:
+                    if key in saved_sys:
+                        self.systematic_stats[key] = saved_sys[key]
+                self._trade_features = data.get("trade_features", {})
                 arb_open = sum(1 for a in self.arb_trades.values() if a.get("status") == "open")
                 print(f"Loaded {len(self.trades)} trades + {len(self.arb_trades)} arb trades ({arb_open} open) from previous session")
             except Exception as e:
@@ -588,6 +860,8 @@ class TAPaperTrader:
             "hourly_stats": self.hourly_stats,
             "skip_hour_shadows": self.skip_hour_shadows,
             "skip_hour_stats": self.skip_hour_stats,
+            "systematic_stats": self.systematic_stats,
+            "trade_features": self._trade_features,
         }
         with open(self.OUTPUT_FILE, 'w') as f:
             json.dump(data, f, indent=2)
@@ -998,6 +1272,33 @@ class TAPaperTrader:
 
             trade_key = f"{market_id}_{signal.side}" if signal.side else None
 
+            # === V3.5 SYSTEMATIC FEATURE CALCULATIONS ===
+            current_hour = datetime.now(timezone.utc).hour
+
+            # Feature 1: BTC Overnight Seasonality — boost model confidence
+            overnight_boost = self._check_overnight_seasonality(current_hour, asset, signal.side or "")
+            if overnight_boost > 0 and signal.side == "UP":
+                signal.model_up = min(0.95, signal.model_up + overnight_boost)
+                print(f"[V3.5 OVERNIGHT] BTC UP boost +{overnight_boost:.0%} -> model_up={signal.model_up:.0%}")
+
+            # Feature 3: Multi-Timeframe Confirmation (pre-compute for later)
+            mtf_agrees = self._check_mtf_confirmation(asset_candles, signal.side or "UP")
+
+            # Feature 4: Volume Spike (pre-compute for later)
+            vol_spike_status = self._check_volume_spike(asset_candles)
+
+            # Feature 5: Vol Regime Routing — boost/penalize confidence
+            vol_regime = self._get_vol_regime(asset_candles)
+            regime_value = signal.regime.value if hasattr(signal, 'regime') and signal.regime else "range_bound"
+            volregime_boost = self._get_volregime_boost(vol_regime, regime_value)
+            if volregime_boost != 0 and signal.side:
+                if signal.side == "UP":
+                    signal.model_up = max(0.01, min(0.99, signal.model_up + volregime_boost))
+                else:
+                    signal.model_down = max(0.01, min(0.99, signal.model_down + volregime_boost))
+                if abs(volregime_boost) > 0.01:
+                    print(f"[V3.5 VOLREGIME] {vol_regime} vol + {regime_value} -> boost {volregime_boost:+.0%}")
+
             # === DUPLICATE PROTECTION ===
             # One trade per market per cycle - NO exceptions
             if market_id in self.traded_markets_this_cycle:
@@ -1101,6 +1402,11 @@ class TAPaperTrader:
             if signal.action != "ENTER":
                 edge = max(signal.edge_up or 0, signal.edge_down or 0)
                 print(f"[Skip] {question[:35]}... | UP:{up_price:.2f} DOWN:{down_price:.2f} | Edge:{edge:.1%} | {signal.reason}")
+
+            # === V3.5: MULTI-TIMEFRAME CONFIRMATION GATE (Feature 3) ===
+            if signal.action == "ENTER" and signal.side and not mtf_agrees and self.MTF_ENABLED:
+                print(f"[V3.5 MTF] {asset} {signal.side} — short/long TFs disagree, applying {self.MTF_PENALTY:.0%}x penalty")
+                # Don't skip, just penalize size later (tracked via mtf_agrees flag)
 
             # Collect candidate if signal passes all filters
             if signal.action == "ENTER" and signal.side and trade_key:
@@ -1212,7 +1518,53 @@ class TAPaperTrader:
                     hour_mult = self._get_hour_multiplier(datetime.now(timezone.utc).hour)
                     if hour_mult != 1.0:
                         individual_size *= hour_mult
+
+                    # === V3.5 SYSTEMATIC SIZING ADJUSTMENTS ===
+                    v35_mults = []
+
+                    # Feature 2: Inverse Volatility Sizing
+                    invvol_scale = self._calc_inverse_vol_scale(asset_candles)
+                    if invvol_scale != 1.0:
+                        individual_size *= invvol_scale
+                        v35_mults.append(f"InvVol:{invvol_scale:.2f}x")
+                        self.systematic_stats["invvol"]["total_scale"] += invvol_scale
+                        self.systematic_stats["invvol"]["trades_scaled"] += 1
+
+                    # Feature 3: MTF Disagreement Penalty
+                    if not mtf_agrees and self.MTF_ENABLED:
+                        individual_size *= self.MTF_PENALTY
+                        v35_mults.append(f"MTF:{self.MTF_PENALTY:.0%}")
+
+                    # Feature 4: Volume Spike Boost/Penalty
+                    if vol_spike_status == "spike":
+                        individual_size *= self.VOLSPIKE_BOOST
+                        v35_mults.append(f"VolSpike:{self.VOLSPIKE_BOOST:.1f}x")
+                    elif vol_spike_status == "low":
+                        individual_size *= self.VOLSPIKE_LOW_PENALTY
+                        v35_mults.append(f"VolLow:{self.VOLSPIKE_LOW_PENALTY:.1f}x")
+
+                    # Feature 5: Vol Regime Mismatch Penalty (confidence already boosted above)
+                    volregime_match = (vol_regime == "high" and regime_value == "range_bound") or \
+                                     (vol_regime == "low" and regime_value in ("trend_up", "trend_down")) or \
+                                     vol_regime == "normal"
+                    if not volregime_match and self.VOLREGIME_ENABLED:
+                        individual_size *= self.VOLREGIME_MISMATCH_PENALTY
+                        v35_mults.append(f"VolMismatch:{self.VOLREGIME_MISMATCH_PENALTY:.0%}")
+
+                    if v35_mults:
+                        print(f"[V3.5] {' | '.join(v35_mults)} -> size=${individual_size:.2f}")
+
                     individual_size = max(5.0, individual_size)
+
+                    # Build feature tags for this trade (for resolution tracking)
+                    trade_feature_tags = {
+                        "overnight": overnight_boost > 0,
+                        "mtf_agree": mtf_agrees,
+                        "volspike": vol_spike_status,
+                        "volregime_match": volregime_match,
+                        "vol_regime": vol_regime,
+                        "invvol_scale": round(invvol_scale, 2),
+                    }
 
                     # Collect candidate for multi-Kelly allocation
                     trade_candidates.append({
@@ -1227,6 +1579,7 @@ class TAPaperTrader:
                         'market_numeric_id': market_numeric_id,
                         'time_left': time_left, 'up_price': up_price,
                         'down_price': down_price,
+                        'feature_tags': trade_feature_tags,
                     })
 
             # Check for resolved markets
@@ -1265,6 +1618,10 @@ class TAPaperTrader:
                             self.hourly_stats[entry_hour]["pnl"] += trade.pnl
                         except Exception:
                             pass
+
+                        # === V3.5: UPDATE SYSTEMATIC FEATURE STATS ===
+                        self._update_systematic_stats(tid, won, trade.pnl)
+                        self._check_feature_revoke()
 
                         hour_mult = self._get_hour_multiplier(datetime.now(timezone.utc).hour)
                         result = "WIN" if won else "LOSS"
@@ -1332,6 +1689,10 @@ class TAPaperTrader:
                             self.hourly_stats[eh]["pnl"] += trade.pnl
                         except Exception:
                             pass
+                        # V3.5: Update systematic feature stats
+                        self._update_systematic_stats(tid, won2, trade.pnl)
+                        self._check_feature_revoke()
+
                         result = "WIN" if won2 else "LOSS"
                         print(f"[{result}] {trade.side} PnL: ${trade.pnl:+.2f} | Day: ${self.daily_pnl:+.2f} | {trade.market_title[:35]}...")
 
@@ -1430,6 +1791,10 @@ class TAPaperTrader:
                                     self.hourly_stats[eh3]["pnl"] += open_trade.pnl
                                 except Exception:
                                     pass
+                                # V3.5: Update systematic feature stats
+                                self._update_systematic_stats(tid, won3, open_trade.pnl)
+                                self._check_feature_revoke()
+
                                 result = "WIN" if won3 else "LOSS"
                                 print(f"[{result}] (expired) {open_trade.side} PnL: ${open_trade.pnl:+.2f} | Day: ${self.daily_pnl:+.2f} | {open_trade.market_title[:30]}...")
                     await asyncio.sleep(0.5)  # Rate limit between resolved market lookups
@@ -1612,6 +1977,10 @@ class TAPaperTrader:
                 self.trades[cand['trade_key']] = trade
                 self.traded_markets_this_cycle.add(cand['market_id'])
 
+                # Save V3.5 feature tags for this trade
+                if 'feature_tags' in cand:
+                    self._trade_features[cand['trade_key']] = cand['feature_tags']
+
                 momentum_str = f"Mom:{cand['momentum']:+.2%}" if cand['momentum'] else ""
                 nyu_info = ""
                 if self.use_nyu_model:
@@ -1756,6 +2125,40 @@ class TAPaperTrader:
         else:
             print("  No skip-hour shadow data yet — collecting...")
 
+        # V3.5 Systematic Trading Features
+        print(f"\nSYSTEMATIC FEATURES V3.5:")
+        # Overnight
+        ov = self.systematic_stats["overnight"]
+        ov_wr = ov["wins"] / max(1, ov["trades"]) * 100 if ov["trades"] else 0
+        ov_status = "ON" if self.OVERNIGHT_ENABLED else "REVOKED"
+        print(f"  Overnight BTC UP: {ov_status} | {ov['trades']}T {ov_wr:.0f}%WR ${ov['pnl']:+.2f} | Boost: +{self.OVERNIGHT_BTC_BOOST:.0%}")
+        # InvVol
+        iv = self.systematic_stats["invvol"]
+        iv_avg = iv["total_scale"] / max(1, iv["trades_scaled"])
+        iv_status = "ON" if self.INVVOL_ENABLED else "REVOKED"
+        print(f"  Inverse Vol Size: {iv_status} | {iv['trades_scaled']}T scaled | Avg scale: {iv_avg:.2f}x | Clamp: [{self.INVVOL_CLAMP[0]:.1f}, {self.INVVOL_CLAMP[1]:.1f}]")
+        # MTF
+        ma = self.systematic_stats["mtf_agree"]
+        md = self.systematic_stats["mtf_disagree"]
+        ma_wr = ma["wins"] / max(1, ma["trades"]) * 100 if ma["trades"] else 0
+        md_wr = md["wins"] / max(1, md["trades"]) * 100 if md["trades"] else 0
+        mtf_status = "ON" if self.MTF_ENABLED else "REVOKED"
+        print(f"  MTF Confirm:  {mtf_status} | Agree: {ma['trades']}T {ma_wr:.0f}%WR ${ma['pnl']:+.2f} | Disagree: {md['trades']}T {md_wr:.0f}%WR ${md['pnl']:+.2f}")
+        # VolSpike
+        vs = self.systematic_stats["volspike"]
+        vn = self.systematic_stats["volspike_normal"]
+        vs_wr = vs["wins"] / max(1, vs["trades"]) * 100 if vs["trades"] else 0
+        vn_wr = vn["wins"] / max(1, vn["trades"]) * 100 if vn["trades"] else 0
+        volspike_status = "ON" if self.VOLSPIKE_ENABLED else "REVOKED"
+        print(f"  Vol Spike:    {volspike_status} | Spike: {vs['trades']}T {vs_wr:.0f}%WR ${vs['pnl']:+.2f} | Normal: {vn['trades']}T {vn_wr:.0f}%WR ${vn['pnl']:+.2f}")
+        # VolRegime
+        vrm = self.systematic_stats["volregime_match"]
+        vrmm = self.systematic_stats["volregime_mismatch"]
+        vrm_wr = vrm["wins"] / max(1, vrm["trades"]) * 100 if vrm["trades"] else 0
+        vrmm_wr = vrmm["wins"] / max(1, vrmm["trades"]) * 100 if vrmm["trades"] else 0
+        volreg_status = "ON" if self.VOLREGIME_ENABLED else "REVOKED"
+        print(f"  Vol Regime:   {volreg_status} | Match: {vrm['trades']}T {vrm_wr:.0f}%WR ${vrm['pnl']:+.2f} | Mismatch: {vrmm['trades']}T {vrmm_wr:.0f}%WR ${vrmm['pnl']:+.2f}")
+
         # Open trades
         print(f"\nOPEN TRADES ({len(open_trades)}):")
         for t in open_trades[:5]:
@@ -1805,9 +2208,9 @@ class TAPaperTrader:
     async def run(self):
         """Main loop with 10-minute updates."""
         print("=" * 70)
-        print("TA + BREGMAN PAPER TRADER V3.4 - META-LABELING UPGRADE")
+        print("TA + BREGMAN PAPER TRADER V3.5 - SYSTEMATIC TRADING FEATURES")
         print("=" * 70)
-        print("Strategy: Momentum + ML ensemble + Meta-Label filter/sizing")
+        print("Strategy: Momentum + ML ensemble + Meta-Label + Systematic V3.5")
         print("ML V3 Engine: LightGBM + XGBoost (online learning enabled)")
         ml_status = self.ml_engine.get_status()
         print(f"  Training samples: {ml_status['training_samples']} | Trained: {ml_status['is_trained']}")
@@ -1831,6 +2234,13 @@ class TAPaperTrader:
         print(f"ARBITRAGE SCANNER: {arb_status}")
         print(f"  Threshold: ${self.ARB_THRESHOLD} | Fee: {self.ARB_FEE_RATE:.0%} | Size: ${self.ARB_POSITION_SIZE}")
         print(f"  Arb history: {self.arb_stats['wins']}W/{self.arb_stats['losses']}L | PnL: ${self.arb_stats['total_pnl']:+.2f}")
+        print()
+        print("SYSTEMATIC V3.5 FEATURES (ML Auto-Revoke):")
+        print(f"  1. BTC Overnight Seasonality: {'ON' if self.OVERNIGHT_ENABLED else 'OFF'} (22-23 UTC +{self.OVERNIGHT_BTC_BOOST:.0%} BTC UP)")
+        print(f"  2. Inverse Vol Sizing: {'ON' if self.INVVOL_ENABLED else 'OFF'} (clamp [{self.INVVOL_CLAMP[0]:.1f}, {self.INVVOL_CLAMP[1]:.1f}])")
+        print(f"  3. Multi-TF Confirm: {'ON' if self.MTF_ENABLED else 'OFF'} (disagree penalty: {self.MTF_PENALTY:.0%}x)")
+        print(f"  4. Volume Spike: {'ON' if self.VOLSPIKE_ENABLED else 'OFF'} (threshold: {self.VOLSPIKE_THRESHOLD:.1f}x, boost: {self.VOLSPIKE_BOOST:.1f}x)")
+        print(f"  5. Vol Regime Route: {'ON' if self.VOLREGIME_ENABLED else 'OFF'} (high+MR: +{self.VOLREGIME_HIGH_MR_BOOST:.0%}, low+trend: +{self.VOLREGIME_LOW_TREND_BOOST:.0%})")
         print()
         print("Scan: 2min | Update: 10min | ML Tune: 30min")
         print("=" * 70)
@@ -1876,5 +2286,10 @@ class TAPaperTrader:
 
 
 if __name__ == "__main__":
-    trader = TAPaperTrader()
-    asyncio.run(trader.run())
+    from pid_lock import acquire_pid_lock, release_pid_lock
+    acquire_pid_lock("ta_paper")
+    try:
+        trader = TAPaperTrader()
+        asyncio.run(trader.run())
+    finally:
+        release_pid_lock("ta_paper")
