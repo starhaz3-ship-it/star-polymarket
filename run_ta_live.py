@@ -444,7 +444,9 @@ class TALiveTrader:
         if self.dry_run or not self.executor or not self.executor._initialized:
             return -1
         try:
-            balance_data = self.executor.client.get_balance_allowance()
+            from py_clob_client.clob_types import BalanceAllowanceParams, AssetType
+            params = BalanceAllowanceParams(asset_type=AssetType.COLLATERAL)
+            balance_data = self.executor.client.get_balance_allowance(params)
             if balance_data and isinstance(balance_data, dict):
                 raw = float(balance_data.get("balance", 0))
                 # CLOB returns balance in USDC atomic units (6 decimals) or as decimal
