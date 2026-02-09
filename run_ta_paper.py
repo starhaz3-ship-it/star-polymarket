@@ -478,7 +478,8 @@ class TAPaperTrader:
     # REMOVED from skip (profitable): 6(56%WR +$108), 8(67%WR +$218), 10(67%WR +$74), 14(60%WR +$414)
     # ADDED to skip (losing): 1(40%WR -$21), 3(45%WR -$128), 16(25%WR -$236), 17(33%WR -$133), 22(33%WR -$23)
     # Best hours: 2(78%WR), 4(56%WR), 13(62%WR), 18(57%WR), 21(100%WR)
-    SKIP_HOURS_UTC = {0, 1, 5, 8}  # V3.5b: Added 5 (0W/3L=-$45, 100% loss rate). Kept 22,23 open for overnight.
+    # V3.14: CSV 326 trades — hours 5,6,8,9,10,12,14,16 = 14.2% WR, -$499
+    SKIP_HOURS_UTC = {5, 6, 8, 9, 10, 12, 14, 16}
 
     def __init__(self, bankroll: float = 93.27):
         self.generator = TASignalGenerator()
@@ -1042,7 +1043,7 @@ class TAPaperTrader:
     MIN_KL_DIVERGENCE = 0.15     # V3.4: KL<0.15 = 36% WR vs 67% above (96 paper trades)
     MIN_TIME_REMAINING = 5.0     # V3.4: 2-5min = 47% WR; 5-12min = 83% WR (96 paper trades)
     MAX_ENTRY_PRICE = 0.45       # V3.6: $0.45-0.55 = 50% WR coin flip, cut it
-    MIN_ENTRY_PRICE = 0.15       # V3.6: <$0.15 = 16.7% WR, -$40 loss — hard floor
+    MIN_ENTRY_PRICE = 0.25       # V3.14: CSV <$0.25 = 13.3% WR, -$71 loss. Raised from $0.15.
     CANDLE_LOOKBACK = 120        # V3.6b: Was 15 — killed MACD(35), TTM(25), EMA Cross(20), RSI slope. Now all 9 indicators active.
 
     def _get_price_momentum(self, candles: List, lookback: int = 5) -> float:
@@ -1215,7 +1216,7 @@ class TAPaperTrader:
             time_left = self.get_time_remaining(market)
             if up_price is None or down_price is None:
                 continue
-            if time_left > 15 or time_left < self.MIN_TIME_REMAINING:
+            if time_left > 9 or time_left < self.MIN_TIME_REMAINING:  # V3.14: Narrowed from 15 to 9 min (71% vs 47% WR)
                 continue
             eligible_markets.append((time_left, market, up_price, down_price))
 

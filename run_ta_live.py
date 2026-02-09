@@ -739,6 +739,7 @@ class TALiveTrader:
     # ETH-specific constraints (V3.9)
     ETH_UP_ONLY = True  # Only allow UP trades on ETH (70% WR vs 47% DOWN)
     ETH_MAX_PRICE = 0.55  # V3.12: Shadow 13W/7L 65%WR blocked at 0.45. Paper 39 ETH trades=61.5%WR
+    ETH_MIN_CONFIDENCE = 0.70  # V3.14: ETH=29.4% WR in CSV (worst asset). Require 70%+ model conf.
     # SOL DOWN constraint (V3.10): Paper data shows SOL_DOWN = 50% WR (coin flip)
     # Require higher edge for SOL DOWN trades (edge >= 0.35 lifts to ~71% WR per paper analysis)
     SOL_DOWN_MIN_EDGE = 0.35
@@ -758,7 +759,9 @@ class TALiveTrader:
     # Shadow-tracked on paper account for re-evaluation
     # V3.6: Reopened UTC 10-13 (73-80% WR in paper, +$222 from 34 trades)
     # Only skip: UTC 1 (no data), UTC 8 (20% WR), UTC 14 (33% WR), UTC 15 (no data)
-    SKIP_HOURS_UTC = {0, 1, 5, 8, 22, 23}  # V3.12c: Added 5 (0W/3L=-$45 in paper V3.5). Live keeps 22,23 skipped.
+    # V3.14: CSV analysis of 326 settled trades — hours 5,6,8,9,10,12,14,16 = 14.2% WR, -$499
+    # Reopened 0,22,23 (50%+ WR in CSV). Added 6,9,10,12,14,16 (death hours).
+    SKIP_HOURS_UTC = {5, 6, 8, 9, 10, 12, 14, 16}
 
     def _ema(self, candles, period: int) -> float:
         """Calculate EMA from candle close prices."""
@@ -1390,7 +1393,7 @@ class TALiveTrader:
     DOWN_EXPENSIVE_WINS = 0      # ML auto-tighten: wins where DOWN > $0.45
     DOWN_EXPENSIVE_LOSSES = 0    # ML auto-tighten: losses where DOWN > $0.45
     DOWN_EXPENSIVE_PNL = 0.0     # ML auto-tighten: cumulative PnL for DOWN > $0.45
-    MIN_ENTRY_PRICE = 0.15       # V3.6: <$0.15 = 16.7% WR, -$40 loss — hard floor
+    MIN_ENTRY_PRICE = 0.25       # V3.14: CSV <$0.25 = 13.3% WR, -$71 loss. Raised from $0.15.
     MIN_KL_DIVERGENCE = 0.08     # V3.12: Shadow 7W/1L 88%WR blocked at 0.15. Loosened.
 
     # Paper trades both sides successfully (UP 81% WR in paper)
@@ -1429,7 +1432,7 @@ class TALiveTrader:
 
     # Entry window - match paper
     MIN_TIME_REMAINING = 5.0     # V3.4: 2-5min = 47% WR; 5-12min = 83% WR (96 paper trades)
-    MAX_TIME_REMAINING = 15.0    # Match paper (was 14.0)
+    MAX_TIME_REMAINING = 9.0     # V3.14: CSV 326 trades: <9min=71% WR vs >9min=47% WR. Enter LATER.
 
     # Kelly position sizing - CONSERVATIVE: slow churn, protect capital
     KELLY_FRACTION = 0.25        # Quarter-Kelly for safety
@@ -1618,6 +1621,13 @@ class TALiveTrader:
                     print(f"  [{asset}] V3.9: ETH UP price ${up_price:.2f} > ${self.ETH_MAX_PRICE} cap")
                     self._record_filter_shadow(asset, signal.side, up_price, market_id, question, "v39_eth_price")
                     continue
+                # V3.14: ETH = worst asset (29.4% WR in 326 CSV trades). Require higher confidence.
+                if asset == "ETH":
+                    eth_conf = signal.model_up if signal.side == "UP" else signal.model_down
+                    if eth_conf < self.ETH_MIN_CONFIDENCE:
+                        print(f"  [{asset}] V3.14: ETH needs {self.ETH_MIN_CONFIDENCE:.0%} conf, got {eth_conf:.0%} (29.4% WR overall)")
+                        self._record_filter_shadow(asset, signal.side, up_price if signal.side == "UP" else down_price, market_id, question, "v314_eth_conf")
+                        continue
                 # BTC DOWN contrarian: both live BTC DOWN losses were against uptrend.
                 # Require with-trend OR entry > $0.50 for BTC DOWN.
                 if asset == "BTC" and signal.side == "DOWN":
@@ -1918,11 +1928,14 @@ class TALiveTrader:
                             self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_confidence")
                             continue
 
-                        # 2. VWAP ALIGNMENT FILTER
-                        # All 3 live winners had negative VWAP distance. All 3 losers had positive.
-                        # For DOWN trades: price below VWAP (negative distance) confirms bearish.
-                        # For UP trades: price at or above VWAP confirms bullish.
+                        # 2. VWAP ALIGNMENT + DISTANCE FILTER
+                        # V3.14: CSV 29 bot trades: VWAP dist<=0.30 = 65% WR, >0.30 = 50% WR
+                        # Hard cap on absolute VWAP distance + directional alignment check
                         vwap_dist = features.vwap_distance
+                        if abs(vwap_dist) > 0.30:
+                            print(f"  [{asset}] V3.14: VWAP too far: {vwap_dist:+.3f} (max 0.30) - price dislocated from fair value")
+                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v314_vwap_dist")
+                            continue
                         if signal.side == "DOWN" and vwap_dist > 0.25:
                             # Betting DOWN but price is well ABOVE VWAP = fighting the trend
                             print(f"  [{asset}] V3.8: VWAP misalign DOWN (vwap_dist={vwap_dist:+.3f} > +0.25)")
