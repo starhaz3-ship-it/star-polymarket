@@ -729,7 +729,7 @@ class TALiveTrader:
     # Shadow-tracked on paper account for re-evaluation
     # V3.6: Reopened UTC 10-13 (73-80% WR in paper, +$222 from 34 trades)
     # Only skip: UTC 1 (no data), UTC 8 (20% WR), UTC 14 (33% WR), UTC 15 (no data)
-    SKIP_HOURS_UTC = {1, 8, 13, 14, 15}  # V3.10: Added 13 (43% WR in paper, 7 trades)
+    SKIP_HOURS_UTC = {0, 1, 8, 22, 23}  # V3.11: Match paper proven settings exactly
 
     def _ema(self, candles, period: int) -> float:
         """Calculate EMA from candle close prices."""
@@ -1286,10 +1286,10 @@ class TALiveTrader:
             print(f"[VERIFY] Error checking fill: {e}")
             return False
 
-    # Conviction thresholds - matched to paper tuner (tune #35)
-    MIN_MODEL_CONFIDENCE = 0.56  # Match paper tuner
-    MIN_EDGE = 0.22              # V3.10: Shadow data showed 0.30 blocking 100% winners (+$5.04 missed)
-    LOW_EDGE_THRESHOLD = 0.25    # Trades below this get minimum size
+    # Conviction thresholds - V3.11: MATCHED TO PAPER PROVEN SETTINGS (66.4% WR, +$996)
+    MIN_MODEL_CONFIDENCE = 0.55  # Paper DOWN_MIN_CONFIDENCE=0.55 (DOWN check uses this)
+    MIN_EDGE = 0.30              # V3.11: Back to 0.30 — paper proves this works. 0.22 was too loose.
+    LOW_EDGE_THRESHOLD = 0.30    # V3.11: Match MIN_EDGE — no "low edge" tier anymore
     MAX_ENTRY_PRICE = 0.45       # V3.6: $0.45-0.55 = 50% WR coin flip, cut it
     MIN_ENTRY_PRICE = 0.15       # V3.6: <$0.15 = 16.7% WR, -$40 loss — hard floor
     MIN_KL_DIVERGENCE = 0.15     # V3.4: KL<0.15 = 36% WR vs 67% above (96 paper trades)
@@ -1302,9 +1302,9 @@ class TALiveTrader:
     UP_ENABLE_MIN_WR = 0.65
     UP_ENABLE_MIN_PNL = 10.0
 
-    # UP trade settings - match paper tuner
-    UP_MIN_CONFIDENCE = 0.56     # Match paper tuner (was 0.75)
-    UP_MIN_EDGE = 0.20           # Match paper (was 0.40)
+    # UP trade settings - V3.11: MATCHED TO PAPER (UP_MIN_CONFIDENCE=0.65 in paper)
+    UP_MIN_CONFIDENCE = 0.65     # V3.11: Paper proven. Was 0.56, too loose.
+    UP_MIN_EDGE = 0.30           # V3.11: Match paper MIN_EDGE. Was 0.20, too loose.
     UP_RSI_MIN = 45              # Relaxed to match paper (was 60)
     CANDLE_LOOKBACK = 120        # V3.6b: Was 15 — killed MACD(35), TTM(25), EMA Cross(20), RSI slope. Now all 9 indicators active.
     DOWN_MIN_MOMENTUM_DROP = 0.001  # Match paper tuner (was -0.002, more permissive)
