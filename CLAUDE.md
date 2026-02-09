@@ -8,6 +8,14 @@
 - **NEVER** launch copy traders (`run_copy_live.py`, `run_copy_k9Q2.py`) without Star's explicit consent
 - Only auto-launch: `run_ta_live.py`, `run_ta_paper.py`, `run_whale_watcher.py`
 
+## DO NOT KILL THESE PROCESSES
+**Another Claude Code window is managing these Python processes. DO NOT kill them.**
+- **TA Live Trader** (`run_ta_live.py`) — PID in `ta_live.pid` — LIVE TRADING with real money
+- **TA Paper Trader** (`run_ta_paper.py`) — PID in `ta_paper.pid` — paper trading
+- **Weather Paper Trader** (`run_weather_paper.py`) — PID in `weather_paper.pid`
+- Check PID files before killing ANY Python process in this project
+- If you need to restart a trader, read the PID file first and only kill that specific PID
+
 ## TA Trading Suite (Primary)
 
 ### Quick Start Commands

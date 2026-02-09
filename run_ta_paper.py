@@ -32,6 +32,14 @@ from arbitrage.ml_engine_v3 import get_ml_engine, MLFeatures, AdvancedMLEngine
 from arbitrage.nyu_volatility import NYUVolatilityModel, calculate_nyu_volatility
 from arbitrage.meta_labeler import get_meta_labeler, MetaLabeler
 
+# Hydra strategy quarantine system (V3.14)
+try:
+    from hydra_strategies import scan_strategies, get_strategy_consensus, StrategySignal
+    HYDRA_AVAILABLE = True
+except ImportError:
+    HYDRA_AVAILABLE = False
+    print("[HYDRA] hydra_strategies.py not found - strategy quarantine disabled")
+
 
 @dataclass
 class MLTunerState:
@@ -580,6 +588,23 @@ class TAPaperTrader:
         self.VOLREGIME_LOW_TREND_BOOST = 0.03
         self.VOLREGIME_MISMATCH_PENALTY = 0.5
 
+        # === HYDRA STRATEGY QUARANTINE (V3.14) ===
+        # Shadow-tracks 10 Hydra strategies adapted from Hyperliquid
+        # Each strategy makes directional predictions that are tracked but NOT traded
+        # After 20+ predictions, evaluate WR to decide promotion to live scoring
+        self.HYDRA_STRATEGIES = [
+            "TRENDLINE_BREAK", "MFI_DIVERGENCE", "CONNORS_RSI", "MULTI_SMA_TREND",
+            "ALIGNMENT", "DC03_KALMAN_ADX", "CONSEC_CANDLE_REVERSAL",
+            "SHORT_TERM_REVERSAL", "FVG_RETEST", "RETURN_ASYMMETRY",
+        ]
+        self.hydra_quarantine: Dict[str, dict] = {
+            name: {"predictions": 0, "correct": 0, "wrong": 0, "pnl": 0.0, "status": "QUARANTINE"}
+            for name in self.HYDRA_STRATEGIES
+        }
+        self.hydra_pending: Dict[str, dict] = {}  # {pred_key: {strategy, asset, direction, market_id, entry_time, ...}}
+        self.HYDRA_MIN_TRADES = 20  # Min predictions before evaluation
+        self.HYDRA_PROMOTE_WR = 0.55  # 55% WR to promote
+
         self._load()
         self._apply_tuned_params()  # Apply ML-tuned parameters on startup
 
@@ -842,8 +867,15 @@ class TAPaperTrader:
                     if key in saved_sys:
                         self.systematic_stats[key] = saved_sys[key]
                 self._trade_features = data.get("trade_features", {})
+                # Load hydra quarantine state (V3.14)
+                saved_hydra = data.get("hydra_quarantine", {})
+                for strat in self.hydra_quarantine:
+                    if strat in saved_hydra:
+                        self.hydra_quarantine[strat] = saved_hydra[strat]
+                self.hydra_pending = data.get("hydra_pending", {})
                 arb_open = sum(1 for a in self.arb_trades.values() if a.get("status") == "open")
-                print(f"Loaded {len(self.trades)} trades + {len(self.arb_trades)} arb trades ({arb_open} open) from previous session")
+                hydra_total = sum(q["predictions"] for q in self.hydra_quarantine.values())
+                print(f"Loaded {len(self.trades)} trades + {len(self.arb_trades)} arb trades ({arb_open} open) + {hydra_total} hydra predictions from previous session")
             except Exception as e:
                 print(f"Error loading state: {e}")
 
@@ -863,6 +895,8 @@ class TAPaperTrader:
             "skip_hour_stats": self.skip_hour_stats,
             "systematic_stats": self.systematic_stats,
             "trade_features": self._trade_features,
+            "hydra_quarantine": self.hydra_quarantine,
+            "hydra_pending": self.hydra_pending,
         }
         with open(self.OUTPUT_FILE, 'w') as f:
             json.dump(data, f, indent=2)
@@ -1233,6 +1267,44 @@ class TAPaperTrader:
             asset = market.get("_asset", "BTC")
             if asset not in nearest_per_asset:
                 nearest_per_asset[asset] = (time_left, market, up_price, down_price)
+
+        # === HYDRA STRATEGY QUARANTINE SCAN (V3.14) ===
+        # Run 10 adapted Hyperliquid strategies on each asset's candle data
+        # Record shadow predictions for quarantine evaluation
+        if HYDRA_AVAILABLE and hasattr(self, '_asset_data'):
+            try:
+                hydra_signals = scan_strategies(
+                    {asset: data.get("candles", []) for asset, data in self._asset_data.items()}
+                )
+                if hydra_signals:
+                    for hsig in hydra_signals:
+                        sig_asset = hsig.asset
+                        if not sig_asset or sig_asset not in nearest_per_asset:
+                            continue
+                        mkt_time, mkt, mkt_up, mkt_down = nearest_per_asset[sig_asset]
+                        mkt_id = mkt.get("conditionId", "")
+                        pred_key = f"hydra_{hsig.name}_{sig_asset}_{mkt_id}"
+                        if pred_key in self.hydra_pending:
+                            continue
+                        # Record shadow prediction
+                        self.hydra_pending[pred_key] = {
+                            "strategy": hsig.name,
+                            "asset": sig_asset,
+                            "direction": hsig.direction,
+                            "confidence": hsig.confidence,
+                            "details": hsig.details,
+                            "market_id": mkt_id,
+                            "market_numeric_id": mkt.get("id"),
+                            "market_title": mkt.get("question", "")[:80],
+                            "up_price": mkt_up,
+                            "down_price": mkt_down,
+                            "entry_time": datetime.now(timezone.utc).isoformat(),
+                            "time_left": mkt_time,
+                            "status": "open",
+                        }
+                        print(f"[HYDRA] {hsig.name} -> {sig_asset} {hsig.direction} (conf={hsig.confidence:.0%}) | {hsig.details}")
+            except Exception as e:
+                print(f"[HYDRA] Scan error: {e}")
 
         # === ARBITRAGE SCAN ===
         # Check ALL eligible markets for both-sides arb (UP + DOWN < $0.97)
@@ -1714,6 +1786,9 @@ class TAPaperTrader:
                     if arb["status"] == "open" and arb.get("condition_id") == mkt_id:
                         self._resolve_arb_trade(arb, up_p, down_p)
 
+                # Resolve hydra strategy predictions on this market
+                self._resolve_hydra_predictions(mkt_id, up_p, down_p)
+
         # === ARB EXPIRY RESOLUTION ===
         # Check open arb trades older than 16 minutes via Gamma API
         now = datetime.now(timezone.utc)
@@ -1813,6 +1888,36 @@ class TAPaperTrader:
                     await asyncio.sleep(0.5)  # Rate limit between resolved market lookups
                 except Exception as e:
                     print(f"[Expiry] Error resolving {tid[:20]}: {e}")
+
+        # === HYDRA STALE PREDICTION RESOLUTION ===
+        # Resolve hydra predictions older than 16 minutes via Gamma API
+        for pkey, pred in list(self.hydra_pending.items()):
+            if pred.get("status") != "open":
+                continue
+            try:
+                entry_dt = datetime.fromisoformat(pred["entry_time"])
+            except Exception:
+                continue
+            age_minutes = (now - entry_dt).total_seconds() / 60
+            if age_minutes > 16:
+                nid = pred.get("market_numeric_id")
+                if not nid:
+                    pred["status"] = "expired"
+                    continue
+                try:
+                    async with httpx.AsyncClient(timeout=10) as client:
+                        r = await client.get(
+                            f"https://gamma-api.polymarket.com/markets/{nid}",
+                            headers={"User-Agent": "Mozilla/5.0"}
+                        )
+                        if r.status_code == 200:
+                            rm = r.json()
+                            up_p, down_p = self.get_market_prices(rm)
+                            if up_p is not None and down_p is not None:
+                                self._resolve_hydra_predictions(pred["market_id"], up_p, down_p)
+                    await asyncio.sleep(0.3)
+                except Exception:
+                    pass
 
         # === SKIP HOUR SHADOW RESOLUTION ===
         # Resolve open shadow trades from skip hours (runs every cycle)
@@ -2012,6 +2117,62 @@ class TAPaperTrader:
         self._save()
         return main_signal
 
+    def _resolve_hydra_predictions(self, market_id: str, up_price: float, down_price: float):
+        """Resolve hydra strategy shadow predictions for a settled market."""
+        for pkey, pred in list(self.hydra_pending.items()):
+            if pred.get("status") != "open":
+                continue
+            if pred.get("market_id") != market_id:
+                continue
+
+            direction = pred["direction"]
+            strat_name = pred["strategy"]
+
+            # Determine if prediction was correct
+            if direction == "UP":
+                correct = up_price >= 0.95  # UP won
+            else:
+                correct = down_price >= 0.95  # DOWN won (up_price <= 0.05)
+
+            # If neither side has resolved clearly, check relative movement
+            if up_price < 0.95 and down_price < 0.95:
+                # Market still ambiguous - skip for now
+                continue
+
+            # Calculate shadow PnL (as if we bet $10 at entry)
+            entry_p = pred.get("up_price" if direction == "UP" else "down_price", 0.50)
+            if entry_p <= 0:
+                entry_p = 0.50
+            shadow_pnl = (10.0 / entry_p) - 10.0 if correct else -10.0
+
+            pred["status"] = "resolved"
+            pred["correct"] = correct
+            pred["shadow_pnl"] = shadow_pnl
+
+            # Update quarantine stats
+            if strat_name in self.hydra_quarantine:
+                q = self.hydra_quarantine[strat_name]
+                q["predictions"] += 1
+                if correct:
+                    q["correct"] += 1
+                else:
+                    q["wrong"] += 1
+                q["pnl"] += shadow_pnl
+
+                wr = q["correct"] / max(1, q["predictions"]) * 100
+                result = "CORRECT" if correct else "WRONG"
+                print(f"[HYDRA {result}] {strat_name} {pred['asset']} {direction} | Shadow: ${shadow_pnl:+.2f} | Running: {q['predictions']}T {wr:.0f}%WR ${q['pnl']:+.2f}")
+
+                # Auto-promote after threshold
+                if q["predictions"] >= self.HYDRA_MIN_TRADES and q["status"] == "QUARANTINE":
+                    wr_frac = q["correct"] / q["predictions"]
+                    if wr_frac >= self.HYDRA_PROMOTE_WR and q["pnl"] > 0:
+                        q["status"] = "PROMOTED"
+                        print(f"[HYDRA PROMOTE] {strat_name} -> PROMOTED! ({q['predictions']}T {wr:.0f}%WR ${q['pnl']:+.2f})")
+                    else:
+                        q["status"] = "DEMOTED"
+                        print(f"[HYDRA DEMOTE] {strat_name} -> DEMOTED ({q['predictions']}T {wr:.0f}%WR ${q['pnl']:+.2f})")
+
     def print_update(self, signal):
         """Print 10-minute update."""
         now = datetime.now(timezone.utc)
@@ -2172,6 +2333,20 @@ class TAPaperTrader:
         volreg_status = "ON" if self.VOLREGIME_ENABLED else "REVOKED"
         print(f"  Vol Regime:   {volreg_status} | Match: {vrm['trades']}T {vrm_wr:.0f}%WR ${vrm['pnl']:+.2f} | Mismatch: {vrmm['trades']}T {vrmm_wr:.0f}%WR ${vrmm['pnl']:+.2f}")
 
+        # Hydra Strategy Quarantine (V3.14)
+        hydra_open = sum(1 for p in self.hydra_pending.values() if p.get("status") == "open")
+        hydra_total = sum(q["predictions"] for q in self.hydra_quarantine.values())
+        print(f"\nHYDRA STRATEGY QUARANTINE (10 strategies, {hydra_total} predictions, {hydra_open} pending):")
+        for name in self.HYDRA_STRATEGIES:
+            q = self.hydra_quarantine[name]
+            n = q["predictions"]
+            if n == 0:
+                print(f"  {name:25s} {q['status']:12s} | 0 predictions (waiting...)")
+            else:
+                wr = q["correct"] / n * 100
+                progress = f"{n}/{self.HYDRA_MIN_TRADES}" if q["status"] == "QUARANTINE" else f"{n}T"
+                print(f"  {name:25s} {q['status']:12s} | {progress} {wr:.0f}%WR ${q['pnl']:+.2f}")
+
         # Open trades
         print(f"\nOPEN TRADES ({len(open_trades)}):")
         for t in open_trades[:5]:
@@ -2254,6 +2429,14 @@ class TAPaperTrader:
         print(f"  3. Multi-TF Confirm: {'ON' if self.MTF_ENABLED else 'OFF'} (disagree penalty: {self.MTF_PENALTY:.0%}x)")
         print(f"  4. Volume Spike: {'ON' if self.VOLSPIKE_ENABLED else 'OFF'} (threshold: {self.VOLSPIKE_THRESHOLD:.1f}x, boost: {self.VOLSPIKE_BOOST:.1f}x)")
         print(f"  5. Vol Regime Route: {'ON' if self.VOLREGIME_ENABLED else 'OFF'} (high+MR: +{self.VOLREGIME_HIGH_MR_BOOST:.0%}, low+trend: +{self.VOLREGIME_LOW_TREND_BOOST:.0%})")
+        print()
+        hydra_status = "ENABLED" if HYDRA_AVAILABLE else "DISABLED"
+        hydra_total = sum(q["predictions"] for q in self.hydra_quarantine.values())
+        promoted = [n for n, q in self.hydra_quarantine.items() if q["status"] == "PROMOTED"]
+        print(f"HYDRA STRATEGY QUARANTINE: {hydra_status} (10 strategies, {hydra_total} predictions)")
+        print(f"  Promotion threshold: {self.HYDRA_MIN_TRADES} trades @ {self.HYDRA_PROMOTE_WR:.0%} WR + positive PnL")
+        if promoted:
+            print(f"  PROMOTED: {', '.join(promoted)}")
         print()
         print("Scan: 2min | Update: 10min | ML Tune: 30min")
         print("=" * 70)
