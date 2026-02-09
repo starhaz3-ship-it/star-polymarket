@@ -1728,7 +1728,10 @@ class TALiveTrader:
                         if open_count >= self.MAX_CONCURRENT_POSITIONS:
                             continue
 
-                        entry_price = up_price if signal.side == "UP" else down_price
+                        mid_price = up_price if signal.side == "UP" else down_price
+                        # Offset toward ask by 1 cent to improve FOK fill rate
+                        # Paper fills at mid instantly; live needs to cross the spread
+                        entry_price = round(mid_price + 0.01, 2)
 
                         # === V3.6: Hard floor — entries <$0.15 are 16.7% WR losers ===
                         if entry_price < self.MIN_ENTRY_PRICE and not is_bond_trade:
