@@ -346,14 +346,14 @@ class TALiveTrader:
     OUTPUT_FILE = Path(__file__).parent / "ta_live_results.json"
     PID_FILE = Path(__file__).parent / "ta_live.pid"
 
-    # === HARD BET LIMITS (V3.11: $5 FLAT — MINIMUM ONLY, 7-DAY LOCKDOWN) ===
-    # User mandate: minimal bet size, no stacking, 1 entry only. Prove it works.
-    HARD_MAX_BET = 5.0         # ABSOLUTE CEILING — $5 flat, no exceptions for 7 days
-    BASE_POSITION_SIZE = 5.0   # Standard bet
-    MIN_POSITION_SIZE = 5.0    # Floor $5
-    MAX_POSITION_SIZE = 5.0    # Hard cap $5 — same as floor. Every trade = $5.
+    # === HARD BET LIMITS (V3.12c: $3 FLAT — ULTRA CONSERVATIVE RESTART) ===
+    # Restarting live after liquidity shutdown. Minimal size, prove fills work.
+    HARD_MAX_BET = 3.0         # ABSOLUTE CEILING — $3 flat, no exceptions
+    BASE_POSITION_SIZE = 3.0   # Standard bet
+    MIN_POSITION_SIZE = 3.0    # Floor $3
+    MAX_POSITION_SIZE = 3.0    # Hard cap $3 — same as floor. Every trade = $3.
 
-    def __init__(self, dry_run: bool = False, bankroll: float = 74.48):
+    def __init__(self, dry_run: bool = False, bankroll: float = 73.14):
         self.dry_run = dry_run
         self.generator = TASignalGenerator()
         self.bregman = BregmanOptimizer(bankroll=bankroll)
@@ -731,7 +731,7 @@ class TALiveTrader:
     # Shadow-tracked on paper account for re-evaluation
     # V3.6: Reopened UTC 10-13 (73-80% WR in paper, +$222 from 34 trades)
     # Only skip: UTC 1 (no data), UTC 8 (20% WR), UTC 14 (33% WR), UTC 15 (no data)
-    SKIP_HOURS_UTC = {0, 1, 8, 22, 23}  # V3.11: Match paper proven settings exactly
+    SKIP_HOURS_UTC = {0, 1, 5, 8, 22, 23}  # V3.12c: Added 5 (0W/3L=-$45 in paper V3.5). Live keeps 22,23 skipped.
 
     def _ema(self, candles, period: int) -> float:
         """Calculate EMA from candle close prices."""
@@ -1589,8 +1589,11 @@ class TALiveTrader:
                 momentum = self._get_price_momentum(candles, lookback=5)
 
                 if signal.side == "UP":
+                    # V3.5b: Block ALL UP < $0.20 — paper showed -$20 on SOL UP@$0.21
+                    if up_price < 0.20:
+                        skip_reason = f"UP_ultra_cheap_{up_price:.2f}_(V3.5b_block)"
                     # TREND FILTER: Don't take ultra-cheap UP (<$0.15) during downtrends
-                    if up_price < 0.15 and hasattr(signal, 'regime') and signal.regime.value == 'trend_down':
+                    elif up_price < 0.15 and hasattr(signal, 'regime') and signal.regime.value == 'trend_down':
                         skip_reason = f"UP_cheap_contrarian_{up_price:.2f}_in_downtrend"
                     else:
                         # Scaled confidence for cheap UP prices (V3.3)
@@ -2681,12 +2684,12 @@ class TALiveTrader:
         # Cancel ALL pending GTC orders from previous sessions to prevent stacking
         self._cancel_all_pending_orders()
 
-        # Sync bankroll with actual CLOB balance
+        # Sync bankroll with actual CLOB balance — ALWAYS trust CLOB
         clob_bal = self._sync_clob_balance()
         if clob_bal >= 0:
             drift = abs(clob_bal - self.bankroll)
-            if drift > 5:
-                print(f"[BALANCE] WARNING: CLOB ${clob_bal:.2f} vs tracked ${self.bankroll:.2f} (drift ${drift:.2f})")
+            if drift > 1:  # V3.12c: Tightened from $5 to $1 — CLOB is truth
+                print(f"[BALANCE] CLOB ${clob_bal:.2f} vs tracked ${self.bankroll:.2f} (drift ${drift:.2f})")
                 print(f"[BALANCE] Syncing bankroll to CLOB reality: ${self.bankroll:.2f} -> ${clob_bal:.2f}")
                 self.bankroll = clob_bal
                 self._save()
@@ -2718,10 +2721,10 @@ class TALiveTrader:
                             print(f"[REDEEM] Error: {e}")
                     last_redeem_check = now
 
-                # V3.11: Periodic CLOB balance sync (every 5 min)
-                if not self.dry_run and now - last_balance_sync >= 300:
+                # V3.12c: CLOB balance sync every 2 min (was 5 min), $1 threshold (was $10)
+                if not self.dry_run and now - last_balance_sync >= 120:
                     clob_bal = self._sync_clob_balance()
-                    if clob_bal >= 0 and abs(clob_bal - self.bankroll) > 10:
+                    if clob_bal >= 0 and abs(clob_bal - self.bankroll) > 1:
                         print(f"[BALANCE] Drift detected: CLOB ${clob_bal:.2f} vs tracked ${self.bankroll:.2f}")
                         self.bankroll = clob_bal
                         self._save()

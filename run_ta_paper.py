@@ -478,7 +478,7 @@ class TAPaperTrader:
     # REMOVED from skip (profitable): 6(56%WR +$108), 8(67%WR +$218), 10(67%WR +$74), 14(60%WR +$414)
     # ADDED to skip (losing): 1(40%WR -$21), 3(45%WR -$128), 16(25%WR -$236), 17(33%WR -$133), 22(33%WR -$23)
     # Best hours: 2(78%WR), 4(56%WR), 13(62%WR), 18(57%WR), 21(100%WR)
-    SKIP_HOURS_UTC = {0, 1, 8}  # V3.5: Reopened 22,23 UTC (BTC overnight seasonality positive bias)
+    SKIP_HOURS_UTC = {0, 1, 5, 8}  # V3.5b: Added 5 (0W/3L=-$45, 100% loss rate). Kept 22,23 open for overnight.
 
     def __init__(self, bankroll: float = 93.27):
         self.generator = TASignalGenerator()
@@ -1315,8 +1315,11 @@ class TAPaperTrader:
 
             # 1. ASYMMETRIC CONFIDENCE with PRICE + CONFIDENCE + TREND AWARENESS
             if signal.side == "UP":
+                # V3.5b: Block ALL UP < $0.20 — SOL UP@$0.21 lost -$20 (worst single loss)
+                if up_price < 0.20:
+                    skip_reason = f"UP_ultra_cheap_{up_price:.2f}_(V3.5b_block)"
                 # TREND FILTER: Don't take ultra-cheap UP (<$0.15) during downtrends
-                if up_price < 0.15 and hasattr(signal, 'regime') and signal.regime.value == 'trend_down':
+                elif up_price < 0.15 and hasattr(signal, 'regime') and signal.regime.value == 'trend_down':
                     skip_reason = f"UP_cheap_contrarian_{up_price:.2f}_in_downtrend"
                 else:
                     up_conf_req = self.UP_MIN_CONFIDENCE
