@@ -346,14 +346,14 @@ class TALiveTrader:
     OUTPUT_FILE = Path(__file__).parent / "ta_live_results.json"
     PID_FILE = Path(__file__).parent / "ta_live.pid"
 
-    # === HARD BET LIMITS (2026-02-08: $5-$8 ONLY, NO EXCEPTIONS) ===
-    # Rebuilding capital for 2 days. No boosts, no DCA stacking, no overrides.
-    HARD_MAX_BET = 8.0         # ABSOLUTE CEILING — nothing can exceed this
+    # === HARD BET LIMITS (V3.11: $5 FLAT — MINIMUM ONLY, 7-DAY LOCKDOWN) ===
+    # User mandate: minimal bet size, no stacking, 1 entry only. Prove it works.
+    HARD_MAX_BET = 5.0         # ABSOLUTE CEILING — $5 flat, no exceptions for 7 days
     BASE_POSITION_SIZE = 5.0   # Standard bet
     MIN_POSITION_SIZE = 5.0    # Floor $5
-    MAX_POSITION_SIZE = 8.0    # Hard cap $8 — was $10, caused $21 bets with ghost processes
+    MAX_POSITION_SIZE = 5.0    # Hard cap $5 — same as floor. Every trade = $5.
 
-    def __init__(self, dry_run: bool = False, bankroll: float = 45.82):
+    def __init__(self, dry_run: bool = False, bankroll: float = 1.68):
         self.dry_run = dry_run
         self.generator = TASignalGenerator()
         self.bregman = BregmanOptimizer(bankroll=bankroll)
