@@ -1105,7 +1105,10 @@ class TAPaperTrader:
             # Collect candidate if signal passes all filters
             if signal.action == "ENTER" and signal.side and trade_key:
                 if trade_key not in self.trades:
-                    entry_price = up_price if signal.side == "UP" else down_price
+                    mid_price = up_price if signal.side == "UP" else down_price
+                    # Simulate realistic fill: offset +$0.03 toward ask to match live spread
+                    # Order books show zero mid-price liquidity — actual fills cost more
+                    entry_price = round(mid_price + 0.03, 2)
                     edge = signal.edge_up if signal.side == "UP" else signal.edge_down
 
                     # Bregman divergence optimization + Frank-Wolfe profit guarantee
