@@ -360,6 +360,9 @@ class TALiveTrader:
         self.ml = MLOptimizer()
         self.initial_bankroll = bankroll
         self.bankroll = bankroll
+        self.clob_balance = None  # Actual CLOB USDC balance (synced periodically)
+        self.asset_consecutive_losses: Dict[str, int] = {}  # Per-asset loss tracker
+        self.ASSET_MAX_CONSECUTIVE_LOSSES = 3  # Stop trading asset after N consecutive losses
 
         self.trades: Dict[str, LiveTrade] = {}
         self.total_pnl = 0.0
@@ -436,6 +439,38 @@ class TALiveTrader:
             print(f"[Live] Executor error: {e} - DRY RUN MODE")
             self.dry_run = True
 
+    def _sync_clob_balance(self) -> float:
+        """Query actual USDC balance from Polymarket CLOB. Returns balance or -1 on error."""
+        if self.dry_run or not self.executor or not self.executor._initialized:
+            return -1
+        try:
+            balance_data = self.executor.client.get_balance_allowance()
+            if balance_data and isinstance(balance_data, dict):
+                raw = float(balance_data.get("balance", 0))
+                # CLOB returns balance in USDC atomic units (6 decimals) or as decimal
+                usdc = raw / 1e6 if raw > 1000 else raw
+                self.clob_balance = usdc
+                return usdc
+        except Exception as e:
+            print(f"[BALANCE] Error querying CLOB: {e}")
+        return -1
+
+    def _cancel_all_pending_orders(self):
+        """Cancel all pending GTC orders on startup to prevent ghost order stacking."""
+        if self.dry_run or not self.executor or not self.executor._initialized:
+            return
+        try:
+            orders = self.executor.get_open_orders()
+            if orders:
+                count = len(orders) if isinstance(orders, list) else 0
+                print(f"[STARTUP] Found {count} pending GTC order(s) — cancelling ALL to prevent stacking")
+                self.executor.client.cancel_all()
+                print(f"[STARTUP] All pending orders cancelled successfully")
+            else:
+                print(f"[STARTUP] No pending GTC orders found")
+        except Exception as e:
+            print(f"[STARTUP] Error cancelling orders: {e}")
+
     def _load(self):
         """Load previous state."""
         if self.OUTPUT_FILE.exists():
@@ -483,6 +518,9 @@ class TALiveTrader:
                     h = int(h_str)
                     if h in self.hourly_stats:
                         self.hourly_stats[h] = stats
+
+                # V3.11: Restore per-asset consecutive loss tracker
+                self.asset_consecutive_losses = data.get("asset_consecutive_losses", {})
 
                 shadow_open = sum(1 for s in self.shadow_trades.values() if s.get("status") == "open")
                 print(f"[Live] Loaded {len(self.trades)} trades + {len(self.shadow_trades)} shadow ({shadow_open} open)")
@@ -555,6 +593,14 @@ class TALiveTrader:
                         self.bankroll = max(self.initial_bankroll * 0.5, self.bankroll + trade.pnl)
                         self.ml.update_weights(trade.features, won)
 
+                        # V3.11: Per-asset consecutive loss tracking on startup resolution
+                        if trade.market_title.startswith("["):
+                            ta = trade.market_title[1:trade.market_title.index("]")]
+                            if won:
+                                self.asset_consecutive_losses[ta] = 0
+                            else:
+                                self.asset_consecutive_losses[ta] = self.asset_consecutive_losses.get(ta, 0) + 1
+
                         result = "WIN" if won else "LOSS"
                         print(f"  [{result}] {trade.side} ${trade.pnl:+.2f} | {trade.market_title[:50]}")
                     else:
@@ -604,6 +650,7 @@ class TALiveTrader:
                 "dca_enabled": self.DCA_ENABLED,
                 "hedge_enabled": self.HEDGE_ENABLED,
             },
+            "asset_consecutive_losses": self.asset_consecutive_losses,
         }
         # Working file (can be reset)
         with open(self.OUTPUT_FILE, 'w') as f:
@@ -1651,6 +1698,13 @@ class TALiveTrader:
                         opposite_key = f"{market_id}_{'DOWN' if signal.side == 'UP' else 'UP'}"
                         if opposite_key in self.trades and self.trades[opposite_key].status == "open":
                             continue
+                        # === V3.11: PER-ASSET CONSECUTIVE LOSS BLOCK ===
+                        # Stop trading an asset after 3 consecutive losses (prevents SOL DOWN repeat bleed)
+                        asset_losses = self.asset_consecutive_losses.get(asset, 0)
+                        if asset_losses >= self.ASSET_MAX_CONSECUTIVE_LOSSES:
+                            print(f"  [{asset}] ASSET COOLDOWN: {asset_losses} consecutive losses — blocking new trades")
+                            break  # Skip all remaining markets for this asset
+
                         # === MOMENTUM PAUSE (V3.5) ===
                         # After 2 consecutive losses, WR drops to 29.7%. Pause 30 min.
                         if self.momentum_pause_until and datetime.now(timezone.utc) < self.momentum_pause_until:
@@ -1812,6 +1866,14 @@ class TALiveTrader:
                         # FINAL SAFETY: initial_size alone must not exceed HARD_MAX_BET
                         initial_size = min(initial_size, self.HARD_MAX_BET)
 
+                        # === V3.11: BANKROLL GUARD — don't trade if we can't afford it ===
+                        if self.clob_balance is not None and self.clob_balance < initial_size:
+                            print(f"[GUARD] Insufficient CLOB balance: ${self.clob_balance:.2f} < ${initial_size:.2f} — skipping")
+                            continue
+                        if self.bankroll < initial_size:
+                            print(f"[GUARD] Insufficient bankroll: ${self.bankroll:.2f} < ${initial_size:.2f} — skipping")
+                            continue
+
                         print(f"[SIZE] {asset} ${initial_size:.2f}{f' (+${topup_size:.2f} DCA pending)' if topup_size > 0 else ''} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, {trend_tag}{hour_tag})")
 
                         success, order_result = await self.execute_trade(
@@ -1953,6 +2015,20 @@ class TALiveTrader:
                                             self.low_edge_lockout_until = datetime.now(timezone.utc) + timedelta(hours=2)
                                             print(f"[CIRCUIT BREAKER] 3 low-edge losses — edge floor back to 30% until {self.low_edge_lockout_until.strftime('%H:%M UTC')}")
                                             self.low_edge_consecutive_losses = 0
+
+                            # === V3.11: PER-ASSET CONSECUTIVE LOSS TRACKER ===
+                            # Extract asset from market_title (format: "[BTC] ..." or "[SOL] ...")
+                            trade_asset = None
+                            if open_trade.market_title.startswith("["):
+                                trade_asset = open_trade.market_title[1:open_trade.market_title.index("]")]
+                            if trade_asset and not is_hedge:
+                                if won:
+                                    self.asset_consecutive_losses[trade_asset] = 0
+                                else:
+                                    self.asset_consecutive_losses[trade_asset] = self.asset_consecutive_losses.get(trade_asset, 0) + 1
+                                    acl = self.asset_consecutive_losses[trade_asset]
+                                    if acl >= self.ASSET_MAX_CONSECUTIVE_LOSSES:
+                                        print(f"[ASSET COOLDOWN] {trade_asset}: {acl} consecutive losses — blocking new trades until next win")
 
                             # === UPDATE HOURLY STATS ===
                             try:
@@ -2132,6 +2208,18 @@ class TALiveTrader:
 
                             self.bankroll = max(self.initial_bankroll * 0.5, self.bankroll + open_trade.pnl)
                             self.ml.update_weights(open_trade.features, won)
+
+                            # V3.11: Per-asset consecutive loss tracking
+                            if open_trade.market_title.startswith("["):
+                                ta2 = open_trade.market_title[1:open_trade.market_title.index("]")]
+                                if not is_hedge:
+                                    if won:
+                                        self.asset_consecutive_losses[ta2] = 0
+                                    else:
+                                        self.asset_consecutive_losses[ta2] = self.asset_consecutive_losses.get(ta2, 0) + 1
+                                        acl2 = self.asset_consecutive_losses[ta2]
+                                        if acl2 >= self.ASSET_MAX_CONSECUTIVE_LOSSES:
+                                            print(f"[ASSET COOLDOWN] {ta2}: {acl2} consecutive losses — blocking new trades until next win")
 
                             result = "WIN" if won else "LOSS"
                             print(f"[{result}] {open_trade.side} PnL: ${open_trade.pnl:+.2f} | Size: ${open_trade.size_usd:.2f} | Bankroll: ${self.bankroll:.2f} | {open_trade.market_title[:40]}...")
@@ -2565,9 +2653,26 @@ class TALiveTrader:
         print(f"Scan interval: 30 seconds (+ auto-redeem every 30s)")
         print("=" * 70)
 
+        # === V3.11: GHOST ORDER CLEANUP + BALANCE SYNC ===
+        # Cancel ALL pending GTC orders from previous sessions to prevent stacking
+        self._cancel_all_pending_orders()
+
+        # Sync bankroll with actual CLOB balance
+        clob_bal = self._sync_clob_balance()
+        if clob_bal >= 0:
+            drift = abs(clob_bal - self.bankroll)
+            if drift > 5:
+                print(f"[BALANCE] WARNING: CLOB ${clob_bal:.2f} vs tracked ${self.bankroll:.2f} (drift ${drift:.2f})")
+                print(f"[BALANCE] Syncing bankroll to CLOB reality: ${self.bankroll:.2f} -> ${clob_bal:.2f}")
+                self.bankroll = clob_bal
+                self._save()
+            else:
+                print(f"[BALANCE] CLOB ${clob_bal:.2f} matches tracked ${self.bankroll:.2f} (drift ${drift:.2f})")
+
         last_update = 0
         last_redeem_check = 0
         last_evolve_check = 0
+        last_balance_sync = time.time()  # V3.11: periodic balance sync
         cycle = 0
 
         while True:
@@ -2588,6 +2693,15 @@ class TALiveTrader:
                         if "No winning" not in str(e):
                             print(f"[REDEEM] Error: {e}")
                     last_redeem_check = now
+
+                # V3.11: Periodic CLOB balance sync (every 5 min)
+                if not self.dry_run and now - last_balance_sync >= 300:
+                    clob_bal = self._sync_clob_balance()
+                    if clob_bal >= 0 and abs(clob_bal - self.bankroll) > 10:
+                        print(f"[BALANCE] Drift detected: CLOB ${clob_bal:.2f} vs tracked ${self.bankroll:.2f}")
+                        self.bankroll = clob_bal
+                        self._save()
+                    last_balance_sync = now
 
                 signal = await self.run_cycle()
 
