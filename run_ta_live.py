@@ -1068,7 +1068,7 @@ class TALiveTrader:
             print(f"[LIVE] Placing {side} order: {shares} shares @ ${price} = ${actual_cost:.2f}")
 
             signed_order = self.executor.client.create_order(order_args)
-            response = self.executor.client.post_order(signed_order, OrderType.GTC)
+            response = self.executor.client.post_order(signed_order, OrderType.FOK)
 
             success = response.get("success", False)
             order_id = response.get("orderID", "")
@@ -1076,8 +1076,8 @@ class TALiveTrader:
             if not success:
                 return False, response.get("errorMsg", "unknown_error")
 
-            # GTC order placed successfully — it will fill when matched
-            print(f"[LIVE] Order placed: {order_id[:20]}...")
+            # FOK: Fill-Or-Kill — either fills immediately or cancels. No hanging orders.
+            print(f"[LIVE] Order filled: {order_id[:20]}...")
             return True, order_id
 
         except Exception as e:
@@ -1124,7 +1124,7 @@ class TALiveTrader:
             )
             print(f"[SELL] Placing {side} sell: {shares} shares @ ${price:.4f}")
             signed_order = self.executor.client.create_order(order_args)
-            response = self.executor.client.post_order(signed_order, OrderType.GTC)
+            response = self.executor.client.post_order(signed_order, OrderType.FOK)
             success = response.get("success", False)
             order_id = response.get("orderID", "")
             if not success:
