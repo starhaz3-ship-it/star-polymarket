@@ -1831,7 +1831,7 @@ class TALiveTrader:
 
                         # === V3.13 ML: MULTI-TIMEFRAME BLOCK (paper: 0W/3L when disagree) ===
                         if not self._check_mtf_confirmation(candles, signal.side):
-                            print(f"  [{asset}] MTF BLOCK: short+long TFs disagree with {signal.side} → SKIP")
+                            print(f"  [{asset}] MTF BLOCK: short+long TFs disagree with {signal.side} - SKIP")
                             continue
 
                         # === RISK CHECKS ===
@@ -1847,6 +1847,21 @@ class TALiveTrader:
                         open_count = sum(1 for t in self.trades.values() if t.status == "open" and not t.features.get("_is_hedge"))
                         if open_count >= self.MAX_CONCURRENT_POSITIONS:
                             continue
+
+                        # V3.13: CLOB position check — catch ghost positions from dead processes
+                        # The internal trade dict only knows about THIS instance's trades.
+                        # Dead bot instances may have filled orders we don't know about.
+                        try:
+                            clob_positions = self.executor.get_positions()
+                            if clob_positions:
+                                active_positions = [p for p in clob_positions if float(p.get("size", 0)) > 0]
+                                if active_positions:
+                                    total_clob_value = sum(float(p.get("size", 0)) * float(p.get("avgPrice", 0)) for p in active_positions)
+                                    if total_clob_value > self.HARD_MAX_BET * 1.5:
+                                        print(f"  [GHOST CHECK] CLOB has ${total_clob_value:.2f} in positions (>{self.HARD_MAX_BET * 1.5:.2f}) — blocking new trades until resolved")
+                                        break
+                        except Exception:
+                            pass  # Don't block trading on API errors
 
                         mid_price = up_price if signal.side == "UP" else down_price
                         # V3.12c: Aggressive spread crossing — +$0.05 offset
