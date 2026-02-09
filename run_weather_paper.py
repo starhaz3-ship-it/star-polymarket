@@ -129,16 +129,16 @@ class WeatherArbitrageTrader:
     MAX_POSITION = 5.00         # Max $5 per trade
     MIN_POSITION = 2.00         # Min $2 per trade
     MAX_TRADES_PER_RUN = 5      # Max new trades per scan cycle
-    MIN_EDGE = 0.30             # NOAA prob must exceed market price by 30%+
-    MIN_NOAA_PROBABILITY = 0.50 # NOAA must give >50% chance for this bucket
+    MIN_EDGE = 0.10             # NOAA prob must exceed market price by 10%+ (was 30%, too strict for narrow buckets)
+    MIN_NOAA_PROBABILITY = 0.10 # NOAA must give >10% chance for this bucket (was 50%, impossible for 1-degree buckets)
     SCAN_INTERVAL = 120         # Scan every 2 minutes
     MAX_OPEN_TRADES = 10        # Max concurrent open positions
 
     # === NOAA FORECAST SETTINGS ===
     # Temperature probability is estimated from forecast range
     # NOAA gives point forecast; we model uncertainty as +/- spread
-    FORECAST_SPREAD_F = 5       # +/- 5F uncertainty around NOAA point forecast
-    FORECAST_SPREAD_C = 3       # +/- 3C for Celsius markets
+    FORECAST_SPREAD_F = 8       # +/- 8F uncertainty around NOAA point forecast (was 5, too tight)
+    FORECAST_SPREAD_C = 5       # +/- 5C for Celsius markets (was 3, too tight)
 
     def __init__(self):
         self.trades: Dict[str, WeatherTrade] = {}
@@ -346,55 +346,92 @@ class WeatherArbitrageTrader:
             return None
 
         # Parse temperature bucket
-        # Pattern: "be XX F or below" / "be between XX and YY F" / "be XX F or above"
+        # Polymarket formats:
+        #   "be 52°F or higher" / "be 27°F or below" / "be between 68-69°F"
+        #   "be 9°C" (exact) / "be -7°C" (negative) / "be 5°C or higher"
+        #   Old: "be 27F or below" / "between 28 and 33F"
         temp_bucket = None
         bucket_low = None
         bucket_high = None
+        is_celsius = False
 
-        # "XX F or below" or "XX degrees F or below" or "XX?F or below"
-        m = re.search(r'(\d+)\s*(?:degrees?\s*)?(?:f|fahrenheit)\s+or\s+below', q)
+        # Normalize: remove degree symbol, handle °F/°C
+        qn = q.replace('°', ' ').replace('º', ' ')
+
+        # --- FAHRENHEIT PATTERNS ---
+        # "XX F or below/lower"
+        m = re.search(r'(-?\d+)\s*(?:degrees?\s*)?f(?:ahrenheit)?\s+or\s+(?:below|lower)', qn)
         if m:
             bucket_high = int(m.group(1))
-            bucket_low = -999  # No lower bound
+            bucket_low = -999
             temp_bucket = f"{bucket_high}F_or_below"
 
-        # "between XX and YY F"
+        # "between XX-YY F" or "between XX and YY F"
         if not m:
-            m = re.search(r'between\s+(\d+)\s+and\s+(\d+)\s*(?:degrees?\s*)?(?:f|fahrenheit)', q)
+            m = re.search(r'between\s+(-?\d+)\s*[-–]\s*(-?\d+)\s*(?:degrees?\s*)?f', qn)
+            if not m:
+                m = re.search(r'between\s+(-?\d+)\s+and\s+(-?\d+)\s*(?:degrees?\s*)?f', qn)
             if m:
                 bucket_low = int(m.group(1))
                 bucket_high = int(m.group(2))
                 temp_bucket = f"{bucket_low}-{bucket_high}F"
 
-        # "XX F or above" or "XX degrees F or above"
+        # "XX F or above/higher"
         if not m:
-            m = re.search(r'(\d+)\s*(?:degrees?\s*)?(?:f|fahrenheit)\s+or\s+above', q)
+            m = re.search(r'(-?\d+)\s*(?:degrees?\s*)?f(?:ahrenheit)?\s+or\s+(?:above|higher)', qn)
             if m:
                 bucket_low = int(m.group(1))
-                bucket_high = 999  # No upper bound
+                bucket_high = 999
                 temp_bucket = f"{bucket_low}F_or_above"
 
-        # Also try Celsius patterns
+        # --- CELSIUS PATTERNS ---
+        # "XX C or below/lower"
         if not m:
-            m = re.search(r'(\d+)\s*(?:degrees?\s*)?(?:c|celsius)\s+or\s+below', q)
+            m = re.search(r'(-?\d+)\s*(?:degrees?\s*)?c(?:elsius)?\s+or\s+(?:below|lower)', qn)
             if m:
                 bucket_high = int(m.group(1))
                 bucket_low = -999
                 temp_bucket = f"{bucket_high}C_or_below"
+                is_celsius = True
 
+        # "between XX-YY C" or "between XX and YY C"
         if not m:
-            m = re.search(r'between\s+(\d+)\s+and\s+(\d+)\s*(?:degrees?\s*)?(?:c|celsius)', q)
+            m = re.search(r'between\s+(-?\d+)\s*[-–]\s*(-?\d+)\s*(?:degrees?\s*)?c', qn)
+            if not m:
+                m = re.search(r'between\s+(-?\d+)\s+and\s+(-?\d+)\s*(?:degrees?\s*)?c', qn)
             if m:
                 bucket_low = int(m.group(1))
                 bucket_high = int(m.group(2))
                 temp_bucket = f"{bucket_low}-{bucket_high}C"
+                is_celsius = True
 
+        # "XX C or above/higher"
         if not m:
-            m = re.search(r'(\d+)\s*(?:degrees?\s*)?(?:c|celsius)\s+or\s+above', q)
+            m = re.search(r'(-?\d+)\s*(?:degrees?\s*)?c(?:elsius)?\s+or\s+(?:above|higher)', qn)
             if m:
                 bucket_low = int(m.group(1))
                 bucket_high = 999
                 temp_bucket = f"{bucket_low}C_or_above"
+                is_celsius = True
+
+        # Exact single Celsius: "be 9 C" or "be -7 C" (1-degree bucket)
+        if not m:
+            m = re.search(r'be\s+(-?\d+)\s*(?:degrees?\s*)?c\b', qn)
+            if m:
+                val = int(m.group(1))
+                bucket_low = val
+                bucket_high = val + 1  # 1-degree bucket: 9°C means [9, 10)
+                temp_bucket = f"{val}C"
+                is_celsius = True
+
+        # Exact single Fahrenheit: "be 52 F" (1-degree bucket)
+        if not m:
+            m = re.search(r'be\s+(-?\d+)\s*(?:degrees?\s*)?f\b', qn)
+            if m:
+                val = int(m.group(1))
+                bucket_low = val
+                bucket_high = val + 1
+                temp_bucket = f"{val}F"
 
         if not temp_bucket:
             return None
@@ -422,7 +459,9 @@ class WeatherArbitrageTrader:
                 except:
                     pass
 
-        is_celsius = "c" in temp_bucket.lower() and "f" not in temp_bucket.lower()
+        # is_celsius already set during pattern matching above
+        if not is_celsius:
+            is_celsius = "c" in temp_bucket.lower() and "f" not in temp_bucket.lower()
 
         return {
             "location": matched_location,
@@ -474,13 +513,15 @@ class WeatherArbitrageTrader:
     async def fetch_weather_markets(self, client: httpx.AsyncClient) -> List[dict]:
         """Fetch active temperature markets from Polymarket."""
         try:
+            # tag_slug=weather contains all temperature markets
+            # (tag_slug=temperature returns empty — wrong tag)
             r = await client.get(
                 f"{self.GAMMA_BASE}/events",
                 params={
-                    "tag_slug": "temperature",
+                    "tag_slug": "weather",
                     "active": "true",
                     "closed": "false",
-                    "limit": 50,
+                    "limit": 100,
                 },
                 headers={"User-Agent": "Mozilla/5.0"},
                 timeout=15
@@ -493,6 +534,9 @@ class WeatherArbitrageTrader:
             markets = []
             for event in events:
                 event_title = event.get("title", "")
+                # Only include "Highest temperature" events (skip general weather)
+                if "temperature" not in event_title.lower() and "highest" not in event_title.lower():
+                    continue
                 for m in event.get("markets", []):
                     if m.get("closed"):
                         continue
@@ -601,14 +645,26 @@ class WeatherArbitrageTrader:
                 if forecast_high is None:
                     continue
 
+                # Convert Celsius bucket bounds to Fahrenheit for comparison
+                # (forecasts are stored in Fahrenheit)
+                calc_low = bucket_low
+                calc_high = bucket_high
+                if is_celsius:
+                    calc_low = bucket_low * 9 / 5 + 32 if bucket_low > -999 else -999
+                    calc_high = bucket_high * 9 / 5 + 32 if bucket_high < 999 else 999
+
                 # Calculate probability
-                spread = self.FORECAST_SPREAD_C if is_celsius else self.FORECAST_SPREAD_F
+                spread = self.FORECAST_SPREAD_C * 9 / 5 if is_celsius else self.FORECAST_SPREAD_F
                 noaa_prob = self._calculate_bucket_probability(
-                    forecast_high, bucket_low, bucket_high, spread
+                    forecast_high, calc_low, calc_high, spread
                 )
 
                 # Edge = NOAA probability - market price
                 edge = noaa_prob - market_price
+
+                # Log interesting cheap markets (first scan only for debug)
+                if self.scan_count <= 3 and market_price < 0.10:
+                    print(f"  [EVAL] {location} {parsed['temp_bucket']} | Mkt: ${market_price:.3f} NOAA: {noaa_prob:.1%} Edge: {edge:.1%} | Fcst: {forecast_high}")
 
                 # Trade filter
                 if noaa_prob < self.MIN_NOAA_PROBABILITY:

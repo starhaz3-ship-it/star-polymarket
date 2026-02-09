@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-08T21:42:49.466657+00:00",
-  "last_updated": "2026-02-09T22:38:39.309962+00:00",
+  "last_updated": "2026-02-09T22:57:49.640388+00:00",
   "dry_run": false,
   "trades": {
     "0xefb50b4d430aa8e42ccb0a77b6729b31b0c0f7d4f40ae1e60f642f2868d0e560_UP": {
@@ -1257,7 +1257,7 @@
   "total_pnl": 14.489875520058078,
   "wins": 12,
   "losses": 9,
-  "signals_count": 1289,
+  "signals_count": 1322,
   "ml_rejections": 0,
   "consecutive_wins": 0,
   "consecutive_losses": 1,
@@ -4319,9 +4319,12 @@
       "market_id": "0x7e468ccc88ab8d50e292aba76f4754516709f05e8d74b10b28819d3f998b98fb",
       "market_title": "[BTC] Bitcoin Up or Down - February 9, 5:30PM-5:45PM ET",
       "size_usd": 5.0,
-      "status": "open",
+      "status": "closed",
       "reason": "filter_v33_conviction",
-      "filter_name": "v33_conviction"
+      "filter_name": "v33_conviction",
+      "pnl": 0.0,
+      "exit_price": 0.51,
+      "exit_time": "2026-02-09T22:52:32.054304+00:00"
     },
     "filter_0x843fd2ba46b0ad79c7ffccbc8389bf42b593d2bae05c585176f2fc70a5e09d4e_DOWN_v310_sol_down_edge": {
       "asset": "SOL",
@@ -4330,6 +4333,75 @@
       "entry_time": "2026-02-09T22:36:19.634707+00:00",
       "market_id": "0x843fd2ba46b0ad79c7ffccbc8389bf42b593d2bae05c585176f2fc70a5e09d4e",
       "market_title": "[SOL] Solana Up or Down - February 9, 5:30PM-5:45PM ET",
+      "size_usd": 5.0,
+      "status": "closed",
+      "reason": "filter_v310_sol_down_edge",
+      "filter_name": "v310_sol_down_edge",
+      "pnl": 0.0,
+      "exit_price": 0.505,
+      "exit_time": "2026-02-09T22:52:32.054304+00:00"
+    },
+    "filter_0x843fd2ba46b0ad79c7ffccbc8389bf42b593d2bae05c585176f2fc70a5e09d4e_UP_v33_conviction": {
+      "asset": "SOL",
+      "side": "UP",
+      "entry_price": 0.465,
+      "entry_time": "2026-02-09T22:39:13.639013+00:00",
+      "market_id": "0x843fd2ba46b0ad79c7ffccbc8389bf42b593d2bae05c585176f2fc70a5e09d4e",
+      "market_title": "[SOL] Solana Up or Down - February 9, 5:30PM-5:45PM ET",
+      "size_usd": 5.0,
+      "status": "closed",
+      "reason": "filter_v33_conviction",
+      "filter_name": "v33_conviction",
+      "pnl": 0.0,
+      "exit_price": 0.465,
+      "exit_time": "2026-02-09T22:55:28.340286+00:00"
+    },
+    "filter_0x06bd435aa0f1b89dc75961ce2d677bae6fe2950d97db18cf528c4e3739a4301a_UP_v314_eth_conf": {
+      "asset": "ETH",
+      "side": "UP",
+      "entry_price": 0.475,
+      "entry_time": "2026-02-09T22:39:13.640039+00:00",
+      "market_id": "0x06bd435aa0f1b89dc75961ce2d677bae6fe2950d97db18cf528c4e3739a4301a",
+      "market_title": "[ETH] Ethereum Up or Down - February 9, 5:30PM-5:45PM ET",
+      "size_usd": 5.0,
+      "status": "closed",
+      "reason": "filter_v314_eth_conf",
+      "filter_name": "v314_eth_conf",
+      "pnl": 0.0,
+      "exit_price": 0.475,
+      "exit_time": "2026-02-09T22:55:28.340286+00:00"
+    },
+    "filter_0xc809920da5099962e13a8f2108a26e42bd282945971180a33f25ca23f8ec5f83_DOWN_v33_conviction": {
+      "asset": "BTC",
+      "side": "DOWN",
+      "entry_price": 0.275,
+      "entry_time": "2026-02-09T22:51:21.376638+00:00",
+      "market_id": "0xc809920da5099962e13a8f2108a26e42bd282945971180a33f25ca23f8ec5f83",
+      "market_title": "[BTC] Bitcoin Up or Down - February 9, 5:45PM-6:00PM ET",
+      "size_usd": 5.0,
+      "status": "open",
+      "reason": "filter_v33_conviction",
+      "filter_name": "v33_conviction"
+    },
+    "filter_0x4bd405284a1928bcb47cb2b222cbb46dedec80035cf355814d3c63e427bffa26_DOWN_v33_conviction": {
+      "asset": "SOL",
+      "side": "DOWN",
+      "entry_price": 0.255,
+      "entry_time": "2026-02-09T22:51:21.390971+00:00",
+      "market_id": "0x4bd405284a1928bcb47cb2b222cbb46dedec80035cf355814d3c63e427bffa26",
+      "market_title": "[SOL] Solana Up or Down - February 9, 5:45PM-6:00PM ET",
+      "size_usd": 5.0,
+      "status": "open",
+      "reason": "filter_v33_conviction",
+      "filter_name": "v33_conviction"
+    },
+    "filter_0x4bd405284a1928bcb47cb2b222cbb46dedec80035cf355814d3c63e427bffa26_DOWN_v310_sol_down_edge": {
+      "asset": "SOL",
+      "side": "DOWN",
+      "entry_price": 0.635,
+      "entry_time": "2026-02-09T22:53:43.611960+00:00",
+      "market_id": "0x4bd405284a1928bcb47cb2b222cbb46dedec80035cf355814d3c63e427bffa26",
+      "market_title": "[SOL] Solana Up or Down - February 9, 5:45PM-6:00PM ET",
       "size_usd": 5.0,
       "status": "open",
       "reason": "filter_v310_sol_down_edge",
@@ -4363,7 +4435,7 @@
       "pnl": 23.404538420130745
     },
     "v33_conviction": {
-      "blocked": 163,
+      "blocked": 166,
       "wins": 84,
       "losses": 67,
       "pnl": 54.74882354605532
@@ -4387,7 +4459,7 @@
       "pnl": -2.1012307169601834
     },
     "v310_sol_down_edge": {
-      "blocked": 43,
+      "blocked": 44,
       "wins": 19,
       "losses": 18,
       "pnl": 0.695165615886161
@@ -4417,7 +4489,7 @@
       "pnl": 0.0
     },
     "v314_eth_conf": {
-      "blocked": 4,
+      "blocked": 5,
       "wins": 1,
       "losses": 1,
       "pnl": 4.523809523809524
