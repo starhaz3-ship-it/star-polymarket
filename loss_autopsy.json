@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "total_losses_analyzed": 13,
+  "total_losses_analyzed": 21,
   "reports": [
     {
       "timestamp": "2026-02-10T03:47:19.792026+00:00",
@@ -481,15 +481,244 @@
           "note": "edge_at_entry is 2.6 std devs above winning average"
         }
       ]
+    },
+    {
+      "timestamp": "2026-02-10T04:48:19.471404+00:00",
+      "trade_id": "0xfdff402155cb2ba057cc73e038864d97aa93eade3ebae2764b082133f13ec1a3_UP",
+      "asset": "BTC",
+      "side": "UP",
+      "entry_price": 0.54,
+      "exit_price": 0.015,
+      "pnl": -3.0,
+      "size_usd": 3.0,
+      "entry_hour": 4,
+      "triggers": [
+        {
+          "pattern": "UP_expensive",
+          "fix": "Tighten MAX_ENTRY_PRICE for UP trades",
+          "value": 0.54
+        },
+        {
+          "pattern": "counter_trend",
+          "fix": "Counter-trend trades have lower WR, reduce size or skip",
+          "value": false
+        }
+      ],
+      "diagnosis": "HIGH: Multiple danger patterns (UP_expensive, counter_trend)",
+      "recommendation": "[FIX #6] Counter-trend trades have lower WR, reduce size or skip (triggered 6x total)",
+      "severity": "HIGH"
+    },
+    {
+      "timestamp": "2026-02-10T07:18:04.341012+00:00",
+      "trade_id": "0x792ff12527bf6ce8afe3e02650396a9ce1c386f39650275b49a668ca837b039e_DOWN",
+      "asset": "BTC",
+      "side": "DOWN",
+      "entry_price": 0.57,
+      "exit_price": 0.235,
+      "pnl": -1.763157894736842,
+      "size_usd": 3.0,
+      "entry_hour": 7,
+      "triggers": [
+        {
+          "pattern": "low_edge",
+          "fix": "Edge < 30% = thin margin, raise MIN_EDGE",
+          "value": 0.29954259489583335
+        }
+      ],
+      "diagnosis": "MEDIUM: low_edge - Edge < 30% = thin margin, raise MIN_EDGE",
+      "recommendation": "[FIX #1] Edge < 30% = thin margin, raise MIN_EDGE (triggered 1x total)",
+      "severity": "MEDIUM"
+    },
+    {
+      "timestamp": "2026-02-10T07:33:31.137867+00:00",
+      "trade_id": "0x9478cb5c9a4c67e3a1fed5d9d697355e63431316fe73a3eeb67e947fd83e66c5_UP",
+      "asset": "BTC",
+      "side": "UP",
+      "entry_price": 0.54,
+      "exit_price": 0.5,
+      "pnl": -0.22222222222222232,
+      "size_usd": 3.0,
+      "entry_hour": 7,
+      "triggers": [
+        {
+          "pattern": "UP_expensive",
+          "fix": "Tighten MAX_ENTRY_PRICE for UP trades",
+          "value": 0.54
+        },
+        {
+          "pattern": "low_edge",
+          "fix": "Edge < 30% = thin margin, raise MIN_EDGE",
+          "value": 0.2880840396825396
+        }
+      ],
+      "diagnosis": "HIGH: Multiple danger patterns (UP_expensive, low_edge)",
+      "recommendation": "[FIX #5] Tighten MAX_ENTRY_PRICE for UP trades (triggered 5x total)",
+      "severity": "HIGH"
+    },
+    {
+      "timestamp": "2026-02-10T09:48:36.509939+00:00",
+      "trade_id": "0x8e6a37b82fd77b90d6c5beafbed036fea5c8ae616648eff3d5540e98b9c87087_UP",
+      "asset": "BTC",
+      "side": "UP",
+      "entry_price": 0.24,
+      "exit_price": 0.025,
+      "pnl": -3.0,
+      "size_usd": 3.0,
+      "entry_hour": 9,
+      "triggers": [],
+      "diagnosis": "No known pattern matched - novel loss type. Needs manual review.",
+      "recommendation": "",
+      "severity": "LOW",
+      "deviations_from_winners": [
+        {
+          "field": "kl_divergence",
+          "loss_value": 0.5873,
+          "win_average": 0.2907,
+          "z_score": 3.02,
+          "note": "kl_divergence is 3.0 std devs above winning average"
+        },
+        {
+          "field": "entry_price",
+          "loss_value": 0.24,
+          "win_average": 0.4857,
+          "z_score": -2.05,
+          "note": "entry_price is 2.1 std devs below winning average"
+        },
+        {
+          "field": "rsi",
+          "loss_value": 27.8314,
+          "win_average": 56.3821,
+          "z_score": -1.69,
+          "note": "rsi is 1.7 std devs below winning average"
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-02-10T10:03:06.621625+00:00",
+      "trade_id": "0xc2f3dff44d825518ea466949127fd2e945eb42db4d82a77db239c720014caa86_UP",
+      "asset": "SOL",
+      "side": "DOWN",
+      "entry_price": 0.94,
+      "exit_price": 0.935,
+      "pnl": -0.015957446808509967,
+      "size_usd": 3.0,
+      "entry_hour": 9,
+      "triggers": [
+        {
+          "pattern": "low_edge",
+          "fix": "Edge < 30% = thin margin, raise MIN_EDGE",
+          "value": -0.3169497526944445
+        }
+      ],
+      "diagnosis": "MEDIUM: low_edge - Edge < 30% = thin margin, raise MIN_EDGE",
+      "recommendation": "[FIX #3] Edge < 30% = thin margin, raise MIN_EDGE (triggered 3x total)",
+      "severity": "MEDIUM",
+      "deviations_from_winners": [
+        {
+          "field": "edge_at_entry",
+          "loss_value": -0.3169,
+          "win_average": 0.3389,
+          "z_score": -4.84,
+          "note": "edge_at_entry is 4.8 std devs below winning average"
+        },
+        {
+          "field": "entry_price",
+          "loss_value": 0.94,
+          "win_average": 0.4857,
+          "z_score": 3.79,
+          "note": "entry_price is 3.8 std devs above winning average"
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-02-10T14:03:13.488177+00:00",
+      "trade_id": "0xf8626ad7653b6aba2216d63973cc1cde60e32133ab576af77b251414e8bf74be_UP",
+      "asset": "SOL",
+      "side": "UP",
+      "entry_price": 0.48,
+      "exit_price": 0.355,
+      "pnl": -0.78125,
+      "size_usd": 3.0,
+      "entry_hour": 13,
+      "triggers": [
+        {
+          "pattern": "low_edge",
+          "fix": "Edge < 30% = thin margin, raise MIN_EDGE",
+          "value": 0.2361342309523809
+        }
+      ],
+      "diagnosis": "MEDIUM: low_edge - Edge < 30% = thin margin, raise MIN_EDGE",
+      "recommendation": "[FIX #4] Edge < 30% = thin margin, raise MIN_EDGE (triggered 4x total)",
+      "severity": "MEDIUM",
+      "deviations_from_winners": [
+        {
+          "field": "kl_divergence",
+          "loss_value": 0.1135,
+          "win_average": 0.2952,
+          "z_score": -1.78,
+          "note": "kl_divergence is 1.8 std devs below winning average"
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-02-10T15:33:14.466247+00:00",
+      "trade_id": "0x8b8aaf62221b78ea2f7ae4cea2e49d3211489cc4d4b384e255dd97bcb9b6abf2_DOWN",
+      "asset": "SOL",
+      "side": "DOWN",
+      "entry_price": 0.39,
+      "exit_price": 0.005,
+      "pnl": -3.0,
+      "size_usd": 3.0,
+      "entry_hour": 15,
+      "triggers": [],
+      "diagnosis": "No known pattern matched - novel loss type. Needs manual review.",
+      "recommendation": "",
+      "severity": "LOW",
+      "deviations_from_winners": [
+        {
+          "field": "kl_divergence",
+          "loss_value": 0.5748,
+          "win_average": 0.2914,
+          "z_score": 2.79,
+          "note": "kl_divergence is 2.8 std devs above winning average"
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-02-10T16:03:04.091044+00:00",
+      "trade_id": "0x014767a9ab2dcf41c6fd1ac564477c4778494cc9ea31886b5b456bea74a670da_UP",
+      "asset": "ETH",
+      "side": "UP",
+      "entry_price": 0.51,
+      "exit_price": 0.235,
+      "pnl": -1.6176470588235297,
+      "size_usd": 3.0,
+      "entry_hour": 15,
+      "triggers": [
+        {
+          "pattern": "UP_expensive",
+          "fix": "Tighten MAX_ENTRY_PRICE for UP trades",
+          "value": 0.51
+        },
+        {
+          "pattern": "VWAP_dislocated",
+          "fix": "VWAP distance > 0.50 = price far from fair value, avoid",
+          "value": 0.518273376573629
+        }
+      ],
+      "diagnosis": "HIGH: Multiple danger patterns (UP_expensive, VWAP_dislocated)",
+      "recommendation": "[FIX #7] VWAP distance > 0.50 = price far from fair value, avoid (triggered 7x total)",
+      "severity": "HIGH"
     }
   ],
   "pattern_counts": {
-    "counter_trend": 5,
+    "counter_trend": 6,
     "heiken_contradiction_UP": 1,
     "late_entry": 5,
-    "VWAP_dislocated": 6,
-    "UP_expensive": 3,
-    "RSI_extreme_UP": 1
+    "VWAP_dislocated": 7,
+    "UP_expensive": 6,
+    "RSI_extreme_UP": 1,
+    "low_edge": 4
   },
   "active_recommendations": [
     {
@@ -502,6 +731,20 @@
     {
       "pattern": "VWAP_dislocated",
       "fix": "VWAP distance > 0.50 = price far from fair value, avoid",
+      "occurrences": 3,
+      "severity": "URGENT",
+      "auto_fixable": true
+    },
+    {
+      "pattern": "UP_expensive",
+      "fix": "Tighten MAX_ENTRY_PRICE for UP trades",
+      "occurrences": 5,
+      "severity": "URGENT",
+      "auto_fixable": true
+    },
+    {
+      "pattern": "low_edge",
+      "fix": "Edge < 30% = thin margin, raise MIN_EDGE",
       "occurrences": 3,
       "severity": "URGENT",
       "auto_fixable": true
