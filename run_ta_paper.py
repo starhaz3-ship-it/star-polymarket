@@ -595,12 +595,20 @@ class TAPaperTrader:
         self.HYDRA_STRATEGIES = [
             "TRENDLINE_BREAK", "MFI_DIVERGENCE", "CONNORS_RSI", "MULTI_SMA_TREND",
             "ALIGNMENT", "DC03_KALMAN_ADX", "CONSEC_CANDLE_REVERSAL",
-            "SHORT_TERM_REVERSAL", "FVG_RETEST", "RETURN_ASYMMETRY",
+            "SHORT_TERM_REVERSAL", "FVG_RETEST",
         ]
+        # V3.14d: FILTERED stats (what we act on — with RSI veto, trend-beats-reversion, etc.)
         self.hydra_quarantine: Dict[str, dict] = {
             name: {"predictions": 0, "correct": 0, "wrong": 0, "pnl": 0.0, "status": "QUARANTINE"}
             for name in self.HYDRA_STRATEGIES
         }
+        # V3.14d: RAW stats (A/B comparison — ALL signals including filtered ones)
+        self.hydra_quarantine_raw: Dict[str, dict] = {
+            name: {"predictions": 0, "correct": 0, "wrong": 0, "pnl": 0.0}
+            for name in self.HYDRA_STRATEGIES
+        }
+        # V3.14d: Per-filter tracking (which filters save the most money)
+        self.hydra_filter_stats: Dict[str, dict] = {}  # {filter_name: {blocked: N, would_win: N, would_lose: N, saved_pnl: $}}
         self.hydra_pending: Dict[str, dict] = {}  # {pred_key: {strategy, asset, direction, market_id, entry_time, ...}}
         self.HYDRA_MIN_TRADES = 20  # Min predictions before evaluation
         self.HYDRA_PROMOTE_WR = 0.55  # 55% WR to promote
@@ -867,11 +875,16 @@ class TAPaperTrader:
                     if key in saved_sys:
                         self.systematic_stats[key] = saved_sys[key]
                 self._trade_features = data.get("trade_features", {})
-                # Load hydra quarantine state (V3.14)
+                # Load hydra quarantine state (V3.14d with A/B tracking)
                 saved_hydra = data.get("hydra_quarantine", {})
                 for strat in self.hydra_quarantine:
                     if strat in saved_hydra:
                         self.hydra_quarantine[strat] = saved_hydra[strat]
+                saved_hydra_raw = data.get("hydra_quarantine_raw", {})
+                for strat in self.hydra_quarantine_raw:
+                    if strat in saved_hydra_raw:
+                        self.hydra_quarantine_raw[strat] = saved_hydra_raw[strat]
+                self.hydra_filter_stats = data.get("hydra_filter_stats", {})
                 self.hydra_pending = data.get("hydra_pending", {})
                 arb_open = sum(1 for a in self.arb_trades.values() if a.get("status") == "open")
                 hydra_total = sum(q["predictions"] for q in self.hydra_quarantine.values())
@@ -896,6 +909,8 @@ class TAPaperTrader:
             "systematic_stats": self.systematic_stats,
             "trade_features": self._trade_features,
             "hydra_quarantine": self.hydra_quarantine,
+            "hydra_quarantine_raw": self.hydra_quarantine_raw,
+            "hydra_filter_stats": self.hydra_filter_stats,
             "hydra_pending": self.hydra_pending,
         }
         with open(self.OUTPUT_FILE, 'w') as f:
@@ -1286,7 +1301,7 @@ class TAPaperTrader:
                         pred_key = f"hydra_{hsig.name}_{sig_asset}_{hsig.direction}_{mkt_id}"
                         if pred_key in self.hydra_pending:
                             continue
-                        # Record shadow prediction
+                        # Record shadow prediction (both filtered and unfiltered for A/B)
                         self.hydra_pending[pred_key] = {
                             "strategy": hsig.name,
                             "asset": sig_asset,
@@ -1301,8 +1316,12 @@ class TAPaperTrader:
                             "entry_time": datetime.now(timezone.utc).isoformat(),
                             "time_left": mkt_time,
                             "status": "open",
+                            "filtered": hsig.filtered,
+                            "filter_reason": hsig.filter_reason,
                         }
-                        print(f"[HYDRA] {hsig.name} -> {sig_asset} {hsig.direction} (conf={hsig.confidence:.0%}) | {hsig.details}")
+                        tag = " [FILTERED]" if hsig.filtered else ""
+                        reason = f" ({hsig.filter_reason})" if hsig.filter_reason else ""
+                        print(f"[HYDRA] {hsig.name} -> {sig_asset} {hsig.direction} (conf={hsig.confidence:.0%}){tag}{reason} | {hsig.details}")
             except Exception as e:
                 print(f"[HYDRA] Scan error: {e}")
 
@@ -2130,7 +2149,8 @@ class TAPaperTrader:
         return main_signal
 
     def _resolve_hydra_predictions(self, market_id: str, up_price: float, down_price: float):
-        """Resolve hydra strategy shadow predictions for a settled market."""
+        """Resolve hydra strategy shadow predictions for a settled market.
+        V3.14d: A/B tracking — updates BOTH filtered (quarantine) and raw stats."""
         for pkey, pred in list(self.hydra_pending.items()):
             if pred.get("status") != "open":
                 continue
@@ -2139,16 +2159,16 @@ class TAPaperTrader:
 
             direction = pred["direction"]
             strat_name = pred["strategy"]
+            is_filtered = pred.get("filtered", False)
+            filter_reason = pred.get("filter_reason", "")
 
             # Determine if prediction was correct
             if direction == "UP":
-                correct = up_price >= 0.95  # UP won
+                correct = up_price >= 0.95
             else:
-                correct = down_price >= 0.95  # DOWN won (up_price <= 0.05)
+                correct = down_price >= 0.95
 
-            # If neither side has resolved clearly, check relative movement
             if up_price < 0.95 and down_price < 0.95:
-                # Market still ambiguous - skip for now
                 continue
 
             # Calculate shadow PnL (as if we bet $10 at entry)
@@ -2161,8 +2181,32 @@ class TAPaperTrader:
             pred["correct"] = correct
             pred["shadow_pnl"] = shadow_pnl
 
-            # Update quarantine stats
-            if strat_name in self.hydra_quarantine:
+            # === A/B TRACKING: Always update RAW stats (all signals) ===
+            if strat_name in self.hydra_quarantine_raw:
+                qr = self.hydra_quarantine_raw[strat_name]
+                qr["predictions"] += 1
+                if correct:
+                    qr["correct"] += 1
+                else:
+                    qr["wrong"] += 1
+                qr["pnl"] += shadow_pnl
+
+            # === Update per-filter tracking ===
+            if is_filtered and filter_reason:
+                fkey = filter_reason.split("(")[0]  # e.g. "RSI_UP_VETO"
+                if fkey not in self.hydra_filter_stats:
+                    self.hydra_filter_stats[fkey] = {"blocked": 0, "would_win": 0, "would_lose": 0, "saved_pnl": 0.0}
+                fs = self.hydra_filter_stats[fkey]
+                fs["blocked"] += 1
+                if correct:
+                    fs["would_win"] += 1
+                    fs["saved_pnl"] -= shadow_pnl  # Filter cost us a win (negative saved)
+                else:
+                    fs["would_lose"] += 1
+                    fs["saved_pnl"] += abs(shadow_pnl)  # Filter saved us from a loss
+
+            # === FILTERED stats: Only count non-filtered signals for promotion ===
+            if not is_filtered and strat_name in self.hydra_quarantine:
                 q = self.hydra_quarantine[strat_name]
                 q["predictions"] += 1
                 if correct:
@@ -2175,7 +2219,7 @@ class TAPaperTrader:
                 result = "CORRECT" if correct else "WRONG"
                 print(f"[HYDRA {result}] {strat_name} {pred['asset']} {direction} | Shadow: ${shadow_pnl:+.2f} | Running: {q['predictions']}T {wr:.0f}%WR ${q['pnl']:+.2f}")
 
-                # Continuous promotion/demotion (re-evaluate every 5 trades after threshold)
+                # Continuous promotion/demotion
                 if q["predictions"] >= self.HYDRA_MIN_TRADES and q["predictions"] % 5 == 0:
                     wr_frac = q["correct"] / q["predictions"]
                     old_status = q["status"]
@@ -2187,6 +2231,10 @@ class TAPaperTrader:
                         q["status"] = "DEMOTED"
                         if old_status != "DEMOTED":
                             print(f"[HYDRA DEMOTE] {strat_name} -> DEMOTED ({q['predictions']}T {wr:.0f}%WR ${q['pnl']:+.2f})")
+            elif is_filtered:
+                # Log filtered signal result for A/B visibility
+                result = "CORRECT" if correct else "WRONG"
+                print(f"[HYDRA {result}] {strat_name} {pred['asset']} {direction} [FILTERED:{filter_reason}] | Shadow: ${shadow_pnl:+.2f} (A/B only)")
 
     def print_update(self, signal):
         """Print 10-minute update."""
@@ -2348,19 +2396,36 @@ class TAPaperTrader:
         volreg_status = "ON" if self.VOLREGIME_ENABLED else "REVOKED"
         print(f"  Vol Regime:   {volreg_status} | Match: {vrm['trades']}T {vrm_wr:.0f}%WR ${vrm['pnl']:+.2f} | Mismatch: {vrmm['trades']}T {vrmm_wr:.0f}%WR ${vrmm['pnl']:+.2f}")
 
-        # Hydra Strategy Quarantine (V3.14)
+        # Hydra Strategy Quarantine (V3.14d A/B tracking)
         hydra_open = sum(1 for p in self.hydra_pending.values() if p.get("status") == "open")
-        hydra_total = sum(q["predictions"] for q in self.hydra_quarantine.values())
-        print(f"\nHYDRA STRATEGY QUARANTINE (10 strategies, {hydra_total} predictions, {hydra_open} pending):")
+        hydra_filtered_total = sum(q["predictions"] for q in self.hydra_quarantine.values())
+        hydra_raw_total = sum(q["predictions"] for q in self.hydra_quarantine_raw.values())
+        print(f"\nHYDRA STRATEGY QUARANTINE ({len(self.HYDRA_STRATEGIES)} strategies, {hydra_filtered_total} filtered / {hydra_raw_total} raw, {hydra_open} pending):")
+        print(f"  {'STRATEGY':25s} {'STATUS':12s} | {'FILTERED (acted on)':28s} | {'RAW (A/B comparison)':28s}")
         for name in self.HYDRA_STRATEGIES:
-            q = self.hydra_quarantine[name]
+            q = self.hydra_quarantine.get(name, {"predictions": 0, "correct": 0, "wrong": 0, "pnl": 0.0, "status": "QUARANTINE"})
+            qr = self.hydra_quarantine_raw.get(name, {"predictions": 0, "correct": 0, "wrong": 0, "pnl": 0.0})
             n = q["predictions"]
-            if n == 0:
-                print(f"  {name:25s} {q['status']:12s} | 0 predictions (waiting...)")
+            nr = qr["predictions"]
+            if n == 0 and nr == 0:
+                print(f"  {name:25s} {'QUARANTINE':12s} | 0 predictions (waiting...)")
             else:
-                wr = q["correct"] / n * 100
-                progress = f"{n}/{self.HYDRA_MIN_TRADES}" if q["status"] == "QUARANTINE" else f"{n}T"
-                print(f"  {name:25s} {q['status']:12s} | {progress} {wr:.0f}%WR ${q['pnl']:+.2f}")
+                # Filtered stats
+                wr = q["correct"] / n * 100 if n > 0 else 0
+                progress = f"{n}/{self.HYDRA_MIN_TRADES}" if q.get("status") == "QUARANTINE" else f"{n}T"
+                f_str = f"{progress} {wr:.0f}%WR ${q['pnl']:+.2f}" if n > 0 else "no signals pass"
+                # Raw stats
+                wr_r = qr["correct"] / nr * 100 if nr > 0 else 0
+                r_str = f"{nr}T {wr_r:.0f}%WR ${qr['pnl']:+.2f}" if nr > 0 else "-"
+                print(f"  {name:25s} {q.get('status', 'Q'):12s} | {f_str:28s} | {r_str:28s}")
+
+        # Filter effectiveness report
+        if self.hydra_filter_stats:
+            print(f"\n  FILTER A/B REPORT:")
+            for fname, fs in sorted(self.hydra_filter_stats.items()):
+                net = fs["saved_pnl"]
+                verdict = "SAVING $$$" if net > 0 else "COSTING $$$"
+                print(f"    {fname:25s} blocked={fs['blocked']} | would_win={fs['would_win']} would_lose={fs['would_lose']} | net=${net:+.2f} ({verdict})")
 
         # Open trades
         print(f"\nOPEN TRADES ({len(open_trades)}):")
@@ -2447,9 +2512,12 @@ class TAPaperTrader:
         print()
         hydra_status = "ENABLED" if HYDRA_AVAILABLE else "DISABLED"
         hydra_total = sum(q["predictions"] for q in self.hydra_quarantine.values())
+        hydra_raw_total = sum(q["predictions"] for q in self.hydra_quarantine_raw.values())
         promoted = [n for n, q in self.hydra_quarantine.items() if q["status"] == "PROMOTED"]
-        print(f"HYDRA STRATEGY QUARANTINE: {hydra_status} (10 strategies, {hydra_total} predictions)")
+        print(f"HYDRA STRATEGY QUARANTINE V3.14d: {hydra_status} ({len(self.HYDRA_STRATEGIES)} strategies, {hydra_total} filtered / {hydra_raw_total} raw)")
         print(f"  Promotion threshold: {self.HYDRA_MIN_TRADES} trades @ {self.HYDRA_PROMOTE_WR:.0%} WR + positive PnL")
+        print(f"  Filters: RSI>65 UP veto | TRENDLINE ema50+vol | Trend-beats-reversion conflict")
+        print(f"  A/B tracking: ENABLED (filtered vs unfiltered for ML comparison)")
         if promoted:
             print(f"  PROMOTED: {', '.join(promoted)}")
         print()

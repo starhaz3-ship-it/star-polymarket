@@ -8,10 +8,21 @@ Each strategy returns: (direction, confidence, strategy_name)
 - strategy_name: for tracking
 
 V3.14: Initial implementation — quarantine paper trading
+V3.14d: Fine-tuning from 37-trade analysis + A/B filter tracking
+  - RSI > 65 veto on UP (95% WR in 40-60 vs 57% when >60)
+  - TRENDLINE_BREAK: require below_ema50 + vol > 0.3
+  - Trend-beats-reversion conflict resolution
+  - Loosen MFI_DIVERGENCE + SHORT_TERM_REVERSAL thresholds
+  - Remove RETURN_ASYMMETRY (42% WR design, zero signals)
+  - All signals still emitted (filtered=True for blocked ones) for A/B comparison
 """
 import numpy as np
 from typing import List, Tuple, Optional, Dict
 from dataclasses import dataclass
+
+# Strategy classification for conflict resolution
+TREND_STRATEGIES = {"MULTI_SMA_TREND", "TRENDLINE_BREAK", "DC03_KALMAN_ADX"}
+REVERSION_STRATEGIES = {"CONNORS_RSI", "CONSEC_CANDLE_REVERSAL", "SHORT_TERM_REVERSAL", "MFI_DIVERGENCE"}
 
 
 @dataclass
@@ -21,6 +32,8 @@ class StrategySignal:
     confidence: float
     details: str = ""
     asset: str = ""  # "BTC", "ETH", "SOL"
+    filtered: bool = False  # True = signal would be blocked by filters (A/B tracking)
+    filter_reason: str = ""  # Why it was filtered
 
 
 def _ema(data: list, period: int) -> list:
@@ -279,7 +292,8 @@ def scan_strategies(candles_data: dict) -> List[StrategySignal]:
                 mfi_at_low2 = mfi_val
 
                 # Bullish divergence: lower price low + higher MFI low
-                if price_low2 < price_low1 and mfi_at_low2 > mfi_at_low1 and mfi_val < 35 and rsi_val < 45:
+                # V3.14d: Loosened from MFI<35/RSI<45 (zero signals in 1.5hr)
+                if price_low2 < price_low1 and mfi_at_low2 > mfi_at_low1 and mfi_val < 40 and rsi_val < 50:
                     conf = 0.75 + (0.03 if vol_ratio > 1.2 else 0) + (0.02 if rsi_val < 35 else 0)
                     signals.append(StrategySignal(
                         "MFI_DIVERGENCE", "UP", min(0.90, conf),
@@ -291,7 +305,8 @@ def scan_strategies(candles_data: dict) -> List[StrategySignal]:
                 price_hi2 = max(highs[-10:])
                 mfi_hi1 = _mfi(highs[:-10], lows[:-10], closes[:-10], volumes[:-10], 14) if len(closes) > 24 else 50
 
-                if price_hi2 > price_hi1 and mfi_val < mfi_hi1 and mfi_val > 65 and rsi_val > 55:
+                # V3.14d: Loosened from MFI>65/RSI>55
+                if price_hi2 > price_hi1 and mfi_val < mfi_hi1 and mfi_val > 60 and rsi_val > 50:
                     conf = 0.75 + (0.03 if vol_ratio > 1.2 else 0) + (0.02 if rsi_val > 65 else 0)
                     signals.append(StrategySignal(
                         "MFI_DIVERGENCE", "DOWN", min(0.90, conf),
@@ -499,15 +514,17 @@ def scan_strategies(candles_data: dict) -> List[StrategySignal]:
                 ret_60 = (closes[-1] - closes[-60]) / closes[-60] * 100
 
                 # Oversold reversal -> UP
-                if ret_60 < -1.0 and rsi_val < 35 and bb_pos < 0.2:
-                    conf = 0.73 + min(0.12, abs(ret_60 - (-1.0)) * 0.03)
+                # V3.14d: Loosened from -1.0%/RSI<35/BB<0.2 (zero signals)
+                if ret_60 < -0.5 and rsi_val < 40 and bb_pos < 0.25:
+                    conf = 0.73 + min(0.12, abs(ret_60 - (-0.5)) * 0.03)
                     signals.append(StrategySignal(
                         "SHORT_TERM_REVERSAL", "UP", min(0.90, conf),
                         f"1hr_ret={ret_60:.2f}% RSI={rsi_val:.0f} BB={bb_pos:.2f}"
                     ))
                 # Overbought reversal -> DOWN
-                elif ret_60 > 1.0 and rsi_val > 65 and bb_pos > 0.8:
-                    conf = 0.73 + min(0.12, (ret_60 - 1.0) * 0.03)
+                # V3.14d: Loosened from 1.0%/RSI>65/BB>0.8
+                elif ret_60 > 0.5 and rsi_val > 60 and bb_pos > 0.75:
+                    conf = 0.73 + min(0.12, (ret_60 - 0.5) * 0.03)
                     signals.append(StrategySignal(
                         "SHORT_TERM_REVERSAL", "DOWN", min(0.90, conf),
                         f"1hr_ret={ret_60:.2f}% RSI={rsi_val:.0f} BB={bb_pos:.2f}"
@@ -554,44 +571,73 @@ def scan_strategies(candles_data: dict) -> List[StrategySignal]:
         except Exception:
             pass
 
-        # ============================================================
-        # STRATEGY 10: RETURN_ASYMMETRY (skewness, 42% WR, prolific)
-        # ============================================================
-        try:
-            if len(closes) >= 100:
-                returns = [(closes[i] - closes[i-1]) / closes[i-1] for i in range(1, len(closes))]
-                recent = returns[-100:]
-                mean_r = np.mean(recent)
-                std_r = np.std(recent) if np.std(recent) > 0 else 0.0001
-                # Information Entropy asymmetry
-                pos_returns = [r for r in recent if r > 0]
-                neg_returns = [r for r in recent if r < 0]
-                avg_pos = np.mean(pos_returns) if pos_returns else 0
-                avg_neg = np.mean(neg_returns) if neg_returns else 0
-                ie = (avg_pos + avg_neg) / std_r if std_r > 0 else 0  # Asymmetry
-
-                # Left-tail heavy (ie < -0.3) + oversold -> UP reversal
-                if ie < -0.3 and rsi_val < 40 and bb_pos < 0.3:
-                    conf = 0.68 + min(0.10, abs(ie + 0.3) * 0.1)
-                    signals.append(StrategySignal(
-                        "RETURN_ASYMMETRY", "UP", min(0.85, conf),
-                        f"IE={ie:.2f} RSI={rsi_val:.0f} left_tail_heavy"
-                    ))
-                # Right-tail heavy (ie > 0.3) + overbought -> DOWN reversal
-                elif ie > 0.3 and rsi_val > 60 and bb_pos > 0.7:
-                    conf = 0.68 + min(0.10, (ie - 0.3) * 0.1)
-                    signals.append(StrategySignal(
-                        "RETURN_ASYMMETRY", "DOWN", min(0.85, conf),
-                        f"IE={ie:.2f} RSI={rsi_val:.0f} right_tail_heavy"
-                    ))
-        except Exception:
-            pass
+        # STRATEGY 10: RETURN_ASYMMETRY — REMOVED V3.14d
+        # 42% WR by design, zero signals in 1.5hr quarantine. Not worth monitoring.
 
         # Tag all signals from this asset
         for sig in signals[_sig_start:]:
             sig.asset = asset
 
+    # === V3.14d POST-PROCESSING FILTERS ===
+    # All signals are kept (for A/B tracking) but filtered ones are marked
+    _apply_filters(signals)
+
     return signals
+
+
+def _apply_filters(signals: List[StrategySignal]):
+    """Apply data-driven filters to signals. Marks filtered=True instead of removing.
+    This allows A/B comparison: filtered (what we act on) vs unfiltered (what would have happened)."""
+
+    # Build per-asset lookup for conflict detection
+    asset_signals: Dict[str, List[StrategySignal]] = {}
+    for s in signals:
+        asset_signals.setdefault(s.asset, []).append(s)
+
+    for sig in signals:
+        # --- FILTER 1: RSI > 65 veto on UP signals ---
+        # Data: RSI 40-60 = 95% WR (+$293), RSI > 60 = 57% WR (+$15)
+        # Every single loss was an UP signal with RSI > 65
+        if sig.direction == "UP" and "RSI=" in sig.details:
+            try:
+                rsi_str = sig.details.split("RSI=")[1].split()[0].rstrip(",")
+                rsi_v = float(rsi_str)
+                if rsi_v > 65:
+                    sig.filtered = True
+                    sig.filter_reason = f"RSI_UP_VETO(RSI={rsi_v:.0f}>65)"
+                    continue
+            except (ValueError, IndexError):
+                pass
+
+        # --- FILTER 2: TRENDLINE_BREAK requires below_ema50 + vol > 0.3 ---
+        # Data: 5/5 wins with below_ema50=True, loss had below_ema50=False + vol=0.2x
+        if sig.name == "TRENDLINE_BREAK":
+            if "below_ema50=False" in sig.details:
+                sig.filtered = True
+                sig.filter_reason = "TL_EMA50_FILTER(not_below_ema50)"
+                continue
+            try:
+                vol_str = sig.details.split("vol=")[1].split("x")[0]
+                vol_v = float(vol_str)
+                if vol_v < 0.3:
+                    sig.filtered = True
+                    sig.filter_reason = f"TL_VOL_FILTER(vol={vol_v:.1f}<0.3)"
+                    continue
+            except (ValueError, IndexError):
+                pass
+
+        # --- FILTER 3: Trend-beats-reversion conflict resolution ---
+        # Data: When trend vs reversion disagree, trend wins 100%
+        # If a trend strategy fires opposite direction on same asset, suppress reversion
+        if sig.name in REVERSION_STRATEGIES:
+            same_asset = asset_signals.get(sig.asset, [])
+            for other in same_asset:
+                if (other.name in TREND_STRATEGIES and
+                    other.direction != sig.direction and
+                    not other.filtered):
+                    sig.filtered = True
+                    sig.filter_reason = f"TREND_CONFLICT({other.name}_{other.direction}_overrides)"
+                    break
 
 
 def get_strategy_consensus(signals: List[StrategySignal], direction: str) -> Tuple[int, float, List[str]]:
