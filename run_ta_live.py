@@ -1771,48 +1771,46 @@ class TALiveTrader:
                         self._record_filter_shadow(asset, signal.side, down_price, market_id, question, "v310_sol_down_edge")
                         continue
 
+                # === BOND MODE CHECK (before conviction filters) ===
+                # V3.15c: Bond mode can force-enter when signal says NO_TRADE.
+                # Market price $0.85+ IS the conviction. Model just can't strongly disagree.
+                is_bond_trade = False
+                bond_override_side = None
+                if self.BOND_MODE_ENABLED:
+                    if up_price >= self.BOND_MIN_PRICE and signal.model_up >= self.BOND_MIN_CONFIDENCE:
+                        is_bond_trade = True
+                        if signal.side != "UP":
+                            bond_override_side = "UP"
+                            print(f"  [{asset}] BOND OVERRIDE: Market UP@${up_price:.2f} (model_up={signal.model_up:.0%}) — overriding {signal.action}/{signal.side}")
+                            signal.side = "UP"
+                            signal.action = "ENTER"
+                    elif down_price >= self.BOND_MIN_PRICE and signal.model_down >= self.BOND_MIN_CONFIDENCE:
+                        is_bond_trade = True
+                        if signal.side != "DOWN":
+                            bond_override_side = "DOWN"
+                            print(f"  [{asset}] BOND OVERRIDE: Market DOWN@${down_price:.2f} (model_down={signal.model_down:.0%}) — overriding {signal.action}/{signal.side}")
+                            signal.side = "DOWN"
+                            signal.action = "ENTER"
+
+                    if is_bond_trade:
+                        print(f"  [{asset}] BOND MODE: {signal.side} @ ${up_price if signal.side == 'UP' else down_price:.2f} | Model: {signal.model_up if signal.side == 'UP' else signal.model_down:.0%}")
+                    else:
+                        print(f"  [{asset}] Bond check: UP=${up_price:.2f} DOWN=${down_price:.2f} model_up={signal.model_up:.0%} model_down={signal.model_down:.0%} (need>=${self.BOND_MIN_PRICE}+>={self.BOND_MIN_CONFIDENCE:.0%})")
+
                 # === CONVICTION FILTERS (V3.3 PORT) ===
                 if not signal.side:
                     print(f"  [{asset}] No signal side (action={signal.action}) | mkt UP=${up_price:.2f} DOWN=${down_price:.2f} | {time_left:.1f}min | reason={signal.reason}")
                     continue
-                if signal.side == "UP" and signal.model_up < self.MIN_MODEL_CONFIDENCE:
+                if not is_bond_trade and signal.side == "UP" and signal.model_up < self.MIN_MODEL_CONFIDENCE:
                     print(f"  [{asset}] UP confidence too low: {signal.model_up:.1%} < {self.MIN_MODEL_CONFIDENCE:.0%}")
                     continue
-                if signal.side == "DOWN" and signal.model_down < self.MIN_MODEL_CONFIDENCE:
+                if not is_bond_trade and signal.side == "DOWN" and signal.model_down < self.MIN_MODEL_CONFIDENCE:
                     print(f"  [{asset}] DOWN confidence too low: {signal.model_down:.1%} < {self.MIN_MODEL_CONFIDENCE:.0%}")
                     continue
 
                 if signal.action != "ENTER":
                     print(f"  [{asset}] Action is {signal.action}, not ENTER")
                     continue
-
-                # === BOND MODE (IH2P): High-prob side at $0.85+ ===
-                # V3.15c: Bond mode can OVERRIDE signal side. Market price IS confidence.
-                # If UP is $0.93, we buy UP even if TA model picked DOWN (contrarian).
-                # Model just needs to not strongly disagree (>= 40% on the bond side).
-                is_bond_trade = False
-                bond_override_side = None
-                if self.BOND_MODE_ENABLED and signal.action == "ENTER":
-                    # Check BOTH sides — pick the one at $0.85+ where model doesn't disagree
-                    if up_price >= self.BOND_MIN_PRICE and signal.model_up >= self.BOND_MIN_CONFIDENCE:
-                        is_bond_trade = True
-                        if signal.side != "UP":
-                            bond_override_side = "UP"
-                            print(f"  [{asset}] BOND OVERRIDE: Market UP@${up_price:.2f} (model_up={signal.model_up:.0%}) — overriding signal side {signal.side}")
-                            signal.side = "UP"
-                    elif down_price >= self.BOND_MIN_PRICE and signal.model_down >= self.BOND_MIN_CONFIDENCE:
-                        is_bond_trade = True
-                        if signal.side != "DOWN":
-                            bond_override_side = "DOWN"
-                            print(f"  [{asset}] BOND OVERRIDE: Market DOWN@${down_price:.2f} (model_down={signal.model_down:.0%}) — overriding signal side {signal.side}")
-                            signal.side = "DOWN"
-
-                    if is_bond_trade:
-                        print(f"  [{asset}] BOND MODE: {signal.side} @ ${up_price if signal.side == 'UP' else down_price:.2f} | Model: {signal.model_up if signal.side == 'UP' else signal.model_down:.0%}")
-                        # Bond mode skips V3.3 price/confidence filters below
-                        # but still goes through risk checks, KL, ML scoring
-                    else:
-                        print(f"  [{asset}] Bond check: UP=${up_price:.2f} DOWN=${down_price:.2f} model_up={signal.model_up:.0%} model_down={signal.model_down:.0%} (need>=${self.BOND_MIN_PRICE}+>={self.BOND_MIN_CONFIDENCE:.0%})")
 
                 # === V3.3: SIDE-SPECIFIC FILTERS WITH TREND + DEATH ZONE + BREAK-EVEN AWARE ===
                 skip_reason = None
