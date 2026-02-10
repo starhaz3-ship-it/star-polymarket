@@ -66,6 +66,11 @@ class MLFeatures:
     market_edge: float = 0.0
     btc_1h_change: float = 0.0  # 1-hour BTC change
     btc_volatility: float = 0.0  # Recent volatility
+    # V3.17: GARCH + CEEMD features
+    garch_vol_forecast: float = 0.0   # GARCH(1,1) conditional vol forecast
+    garch_vol_regime: float = 0.5     # 0=LOW, 0.5=NORMAL, 1.0=HIGH
+    ceemd_trend_slope: float = 0.0    # CEEMD lowest-freq IMF trend slope
+    ceemd_noise_ratio: float = 0.5    # 0=pure trend, 1=pure noise
 
 
 @dataclass
@@ -153,6 +158,15 @@ class MLOptimizer:
                       for i in range(-30, 0)]
             features.btc_volatility = np.std(returns) * 100
 
+        return features
+
+    def enrich_with_quant_models(self, features: MLFeatures, garch: dict, ceemd: dict) -> MLFeatures:
+        """V3.17: Add GARCH + CEEMD features to MLFeatures for scoring."""
+        features.garch_vol_forecast = garch.get("forecast", 0.0)
+        regime_map = {"LOW": 0.0, "NORMAL": 0.5, "HIGH": 1.0, "UNKNOWN": 0.5}
+        features.garch_vol_regime = regime_map.get(garch.get("regime", "UNKNOWN"), 0.5)
+        features.ceemd_trend_slope = ceemd.get("trend_slope", 0.0)
+        features.ceemd_noise_ratio = ceemd.get("noise_ratio", 0.5)
         return features
 
     def score_trade(self, features: MLFeatures, side: str) -> float:
@@ -422,6 +436,12 @@ class TALiveTrader:
         # Records trades blocked by ATR filter + counterfactual trend bias sizing
         # Used to ML-evaluate whether these filters should stay or be removed
         self.shadow_trades: Dict[str, dict] = {}  # {trade_key: shadow_trade_dict}
+        # V3.17: GARCH + CEEMD caches
+        self._garch_cache = {"timestamp": 0, "result": None}
+        self._ceemd_cache = {"timestamp": 0, "result": None}
+        self._last_garch = {"forecast": 0.0, "regime": "UNKNOWN", "ratio": 1.0}
+        self._last_ceemd = {"trend_slope": 0.0, "noise_ratio": 0.5, "n_imfs": 0}
+
         self.shadow_stats = {
             "atr_blocked": 0, "atr_blocked_wins": 0, "atr_blocked_losses": 0, "atr_blocked_pnl": 0.0,
             "trend_bias_trades": 0, "trend_bias_actual_pnl": 0.0, "trend_bias_full_pnl": 0.0,
@@ -429,6 +449,14 @@ class TALiveTrader:
             "bond_trades": 0, "bond_wins": 0, "bond_losses": 0, "bond_pnl": 0.0,
             "dca_topups": 0, "dca_topup_pnl": 0.0,
             "hedge_trades": 0, "hedge_wins": 0, "hedge_losses": 0, "hedge_pnl": 0.0,
+            # V3.17: GARCH regime tracking
+            "garch_trades_low": 0, "garch_wins_low": 0,
+            "garch_trades_normal": 0, "garch_wins_normal": 0,
+            "garch_trades_high": 0, "garch_wins_high": 0,
+            # V3.17: CEEMD alignment tracking
+            "ceemd_aligned_trades": 0, "ceemd_aligned_wins": 0,
+            "ceemd_opposed_trades": 0, "ceemd_opposed_wins": 0,
+            "ceemd_noisy_blocked": 0, "ceemd_noisy_shadow_wins": 0,
         }
         # === FILTER REJECTION TRACKING (V3.9) ===
         # Every filter rejection creates a shadow trade to measure filter effectiveness
@@ -949,6 +977,89 @@ class TALiveTrader:
             atr = (atr * (period - 1) + tr) / period
         return atr
 
+    # === V3.17: GARCH(1,1) VOLATILITY FORECAST ===
+    def _compute_garch_vol(self, candles, lookback: int = 100) -> dict:
+        """GARCH(1,1) conditional variance forecast for vol regime detection.
+        Returns: {forecast: float, regime: str, ratio: float}
+        """
+        closes = [c.close for c in candles[-lookback:]]
+        if len(closes) < 50:
+            return {"forecast": 0.0, "regime": "UNKNOWN", "ratio": 1.0}
+
+        returns = np.diff(np.log(closes)) * 100  # log returns in %
+
+        try:
+            from arch import arch_model
+            model = arch_model(returns, vol='Garch', p=1, q=1, mean='Zero', rescale=False)
+            result = model.fit(disp='off', show_warning=False)
+            forecast = result.forecast(horizon=1)
+            cond_vol = float(np.sqrt(forecast.variance.values[-1, 0]))
+        except Exception:
+            cond_vol = float(np.std(returns[-20:]))
+
+        hist_vol = float(np.std(returns[-60:])) if len(returns) >= 60 else cond_vol
+        ratio = cond_vol / hist_vol if hist_vol > 0 else 1.0
+
+        if ratio < 0.7:
+            regime = "LOW"
+        elif ratio > 1.4:
+            regime = "HIGH"
+        else:
+            regime = "NORMAL"
+
+        return {"forecast": round(cond_vol, 4), "regime": regime, "ratio": round(ratio, 4)}
+
+    def _get_garch(self, candles):
+        """Cached GARCH computation (25s TTL)."""
+        now = time.time()
+        if now - self._garch_cache["timestamp"] < 25 and self._garch_cache["result"]:
+            return self._garch_cache["result"]
+        result = self._compute_garch_vol(candles)
+        self._garch_cache = {"timestamp": now, "result": result}
+        return result
+
+    # === V3.17: CEEMD TREND DECOMPOSITION ===
+    def _compute_ceemd_trend(self, candles, lookback: int = 100) -> dict:
+        """CEEMD trend extraction via lowest-frequency IMF.
+        Returns: {trend_slope: float, noise_ratio: float, n_imfs: int}
+        """
+        closes = np.array([c.close for c in candles[-lookback:]])
+        if len(closes) < 50:
+            return {"trend_slope": 0.0, "noise_ratio": 0.5, "n_imfs": 0}
+
+        try:
+            from PyEMD import CEEMDAN
+            ceemdan = CEEMDAN(trials=50, epsilon=0.05, ext_EMD=None)
+            ceemdan.noise_seed(42)
+            imfs = ceemdan.ceemdan(closes)
+
+            if len(imfs) < 2:
+                return {"trend_slope": 0.0, "noise_ratio": 0.5, "n_imfs": len(imfs)}
+
+            trend = imfs[-1]
+            trend_slope = (trend[-1] - trend[-10]) / closes[-1] if len(trend) >= 10 else 0.0
+
+            noise_energy = sum(np.var(imf) for imf in imfs[:-1])
+            total_energy = sum(np.var(imf) for imf in imfs)
+            noise_ratio = noise_energy / total_energy if total_energy > 0 else 0.5
+
+            return {
+                "trend_slope": round(float(trend_slope), 6),
+                "noise_ratio": round(float(noise_ratio), 4),
+                "n_imfs": len(imfs)
+            }
+        except Exception:
+            return {"trend_slope": 0.0, "noise_ratio": 0.5, "n_imfs": 0}
+
+    def _get_ceemd(self, candles):
+        """Cached CEEMD computation (25s TTL)."""
+        now = time.time()
+        if now - self._ceemd_cache["timestamp"] < 25 and self._ceemd_cache["result"]:
+            return self._ceemd_cache["result"]
+        result = self._compute_ceemd_trend(candles)
+        self._ceemd_cache = {"timestamp": now, "result": result}
+        return result
+
     def _is_volatile_atr(self, candles, period: int = 14, multiplier: float = 1.5) -> bool:
         """Check if recent price action is too volatile vs ATR.
         Returns True if avg range of last 3 bars > multiplier * ATR (skip trade).
@@ -1334,7 +1445,14 @@ class TALiveTrader:
 
         ML-adaptive: starts at 85% threshold, tracks outcomes to optimize.
         """
-        PROFIT_TAKE_PCT = 0.85  # Take profit at 85% of max possible gain
+        # V3.17: GARCH regime-adaptive take-profit
+        garch = self._last_garch
+        if garch["regime"] == "LOW":
+            PROFIT_TAKE_PCT = 0.80   # Take faster in low vol (smaller moves available)
+        elif garch["regime"] == "HIGH":
+            PROFIT_TAKE_PCT = 0.90   # Let winners run in high vol (bigger swings)
+        else:
+            PROFIT_TAKE_PCT = 0.85
 
         for tid, trade in list(self.trades.items()):
             if trade.status != "open":
@@ -1593,10 +1711,12 @@ class TALiveTrader:
         conviction = min(1.0, kelly_fraction * edge / 0.10)  # 0-1 score
         size += conviction * (self.MAX_POSITION_SIZE - self.BASE_POSITION_SIZE)
 
-        # Volatility damping: reduce in high vol
-        if volatility > 0.15:
-            vol_damper = max(0.7, 1.0 - (volatility - 0.15) * 2)
-            size *= vol_damper
+        # V3.17: GARCH-based vol regime damping (replaces static threshold)
+        garch = self._last_garch  # Use cached from latest cycle
+        if garch["regime"] == "HIGH":
+            size *= 0.70   # Reduce in expanding vol
+        elif garch["regime"] == "LOW":
+            size *= 1.15   # Boost in contracting vol (trend continuation)
 
         # Losing streak protection: drop to minimum
         if self.consecutive_losses >= 2:
@@ -1687,6 +1807,11 @@ class TALiveTrader:
             await self.check_early_exit(markets)
 
             recent_candles = candles[-self.CANDLE_LOOKBACK:]
+
+            # V3.17: Compute GARCH + CEEMD for this asset's candles (cached 25s)
+            if asset == "BTC":  # Primary asset drives regime
+                self._last_garch = self._get_garch(candles)
+                self._last_ceemd = self._get_ceemd(candles)
 
             # Generate main signal for display (use BTC as primary)
             if asset == "BTC":
@@ -2074,6 +2199,7 @@ class TALiveTrader:
                             continue
 
                         features = self.ml.extract_features(signal, bregman_signal, candles)
+                        features = self.ml.enrich_with_quant_models(features, self._last_garch, self._last_ceemd)
 
                         ml_score = self.ml.score_trade(features, signal.side)
                         min_score = self.ml.get_min_score_threshold()
@@ -2128,13 +2254,29 @@ class TALiveTrader:
                                 self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_heiken")
                                 continue
 
-                        # 4. ATR VOLATILITY GATE
-                        # Both live trades with ATR ratio > 1.0 lost. High vol = unpredictable.
-                        # Require higher confidence in volatile markets.
-                        if atr_ratio > 1.2 and raw_conf < 0.65 and not is_bond_trade:
-                            print(f"  [{asset}] V3.8: High vol (ATR={atr_ratio:.1f}x) needs conf>65%, got {raw_conf:.1%}")
-                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_atr_vol")
+                        # 4. GARCH VOLATILITY GATE (V3.17: replaces ATR ratio)
+                        # GARCH regime-aware: HIGH vol + low confidence = skip
+                        garch = self._last_garch
+                        if garch["regime"] == "HIGH" and raw_conf < 0.65 and not is_bond_trade:
+                            print(f"  [{asset}] V3.17: GARCH HIGH vol (ratio={garch['ratio']:.2f}) needs conf>65%, got {raw_conf:.1%}")
+                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v317_garch_vol")
                             continue
+
+                        # 5. CEEMD NOISE FILTER (V3.17)
+                        # Block trades when market is too noisy (high-freq IMFs dominate)
+                        ceemd = self._last_ceemd
+                        ceemd_aligned = False
+                        if ceemd["n_imfs"] > 0:
+                            if signal.side == "UP" and ceemd["trend_slope"] > 0.001:
+                                ceemd_aligned = True
+                            elif signal.side == "DOWN" and ceemd["trend_slope"] < -0.001:
+                                ceemd_aligned = True
+
+                            if ceemd["noise_ratio"] > 0.85 and not is_bond_trade:
+                                print(f"  [{asset}] V3.17: CEEMD noisy market (noise={ceemd['noise_ratio']:.2f}, {ceemd['n_imfs']} IMFs)")
+                                self.shadow_stats["ceemd_noisy_blocked"] += 1
+                                self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v317_ceemd_noise")
+                                continue
 
                         # === V3.15b: HYDRA PROBATION BOOST ===
                         # Check how many promoted strategies agree with this direction
@@ -2248,6 +2390,12 @@ class TALiveTrader:
                         if topup_size > 0:
                             trade_features["_dca_initial"] = initial_size
                             trade_features["_dca_pending"] = topup_size
+                        # V3.17: Tag with GARCH regime + CEEMD alignment
+                        trade_features["_garch_regime"] = garch["regime"]
+                        trade_features["_garch_ratio"] = garch["ratio"]
+                        trade_features["_ceemd_aligned"] = ceemd_aligned
+                        trade_features["_ceemd_trend_slope"] = ceemd["trend_slope"]
+                        trade_features["_ceemd_noise_ratio"] = ceemd["noise_ratio"]
 
                         new_trade = LiveTrade(
                             trade_id=trade_key,
@@ -2492,6 +2640,22 @@ class TALiveTrader:
                                 else:
                                     ss["bond_losses"] += 1
                                 print(f"[BOND] {'WIN' if won else 'LOSS'} ${open_trade.pnl:+.2f} | Total: {ss['bond_trades']} trades, ${ss['bond_pnl']:+.2f}")
+                            # V3.17: GARCH regime tracking
+                            g_regime = open_trade.features.get("_garch_regime", "UNKNOWN")
+                            if g_regime in ("LOW", "NORMAL", "HIGH"):
+                                ss[f"garch_trades_{g_regime.lower()}"] += 1
+                                if won:
+                                    ss[f"garch_wins_{g_regime.lower()}"] += 1
+                            # V3.17: CEEMD alignment tracking
+                            if open_trade.features.get("_ceemd_aligned"):
+                                ss["ceemd_aligned_trades"] += 1
+                                if won:
+                                    ss["ceemd_aligned_wins"] += 1
+                            elif open_trade.features.get("_ceemd_aligned") is False:
+                                ss["ceemd_opposed_trades"] += 1
+                                if won:
+                                    ss["ceemd_opposed_wins"] += 1
+
                             if open_trade.features.get("_is_hedge"):
                                 ss["hedge_pnl"] += open_trade.pnl
                                 if won:
@@ -3170,6 +3334,32 @@ class TALiveTrader:
         hedge_status = "ENABLED" if self.HEDGE_ENABLED else "DISABLED (ML-revoked)"
         hedge_wr = ss["hedge_wins"] / max(1, ss["hedge_trades"]) * 100 if ss["hedge_trades"] > 0 else 0
         print(f"  Hedge:     {hedge_status} | {ss['hedge_trades']} trades ({ss['hedge_wins']}W/{ss['hedge_losses']}L, {hedge_wr:.0f}% WR, ${ss['hedge_pnl']:+.2f})")
+
+        # V3.17: GARCH + CEEMD quant models status
+        g = self._last_garch
+        c = self._last_ceemd
+        garch_damper = {
+            "HIGH": "0.70x", "LOW": "1.15x", "NORMAL": "1.00x"
+        }.get(g["regime"], "?")
+        garch_tp = {"LOW": "0.80", "HIGH": "0.90", "NORMAL": "0.85"}.get(g["regime"], "0.85")
+        trend_dir = "UP" if c["trend_slope"] > 0 else "DOWN" if c["trend_slope"] < 0 else "FLAT"
+        print(f"\nQUANT MODELS (V3.17):")
+        print(f"  GARCH: {g['regime']} vol (ratio={g['ratio']:.2f}, forecast={g['forecast']:.4f}%) | Damper: {garch_damper} | TP: {garch_tp}")
+        print(f"  CEEMD: slope={c['trend_slope']:+.6f} ({trend_dir}) | noise={c['noise_ratio']:.2f} | {c['n_imfs']} IMFs")
+        # GARCH per-regime WR
+        for regime in ("low", "normal", "high"):
+            rt = ss.get(f"garch_trades_{regime}", 0)
+            rw = ss.get(f"garch_wins_{regime}", 0)
+            if rt > 0:
+                print(f"    {regime.upper()}: {rt}T ({rw}W, {rw/rt*100:.0f}% WR)")
+        # CEEMD alignment WR
+        ca = ss.get("ceemd_aligned_trades", 0)
+        caw = ss.get("ceemd_aligned_wins", 0)
+        co = ss.get("ceemd_opposed_trades", 0)
+        cow = ss.get("ceemd_opposed_wins", 0)
+        cb = ss.get("ceemd_noisy_blocked", 0)
+        if ca + co > 0:
+            print(f"    Aligned: {ca}T ({caw}W, {caw/max(1,ca)*100:.0f}% WR) | Opposed: {co}T ({cow}W, {cow/max(1,co)*100:.0f}% WR) | Noisy blocked: {cb}")
 
         print(f"\nOPEN TRADES ({len(open_trades)}):")
         for t in open_trades[:5]:
