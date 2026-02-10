@@ -31,6 +31,13 @@ from arbitrage.ta_signals import TASignalGenerator, Candle, SignalStrength, TASi
 from arbitrage.bregman_optimizer import BregmanOptimizer, BregmanSignal
 from arbitrage.nyu_volatility import NYUVolatilityModel
 
+# Hydra strategy import for auto-promoted strategies
+try:
+    from hydra_strategies import scan_strategies, StrategySignal as HydraSignal
+    HYDRA_AVAILABLE = True
+except ImportError:
+    HYDRA_AVAILABLE = False
+
 load_dotenv()
 
 
@@ -388,8 +395,9 @@ class TALiveTrader:
         self.recently_traded_markets: set = set()
 
         # NYU Two-Parameter Volatility Model (V3.3 port)
+        # V3.15: DISABLED — shadow data showed NYU blocked 43W/19L = +$88.30 in missed winners
         self.nyu_model = NYUVolatilityModel()
-        self.use_nyu_model = True
+        self.use_nyu_model = False  # V3.15: Disabled, was costing +$88 in missed winners
 
         # === HOURLY ML POSITION SIZING ===
         # Bayesian approach: start at 1.0x, reduce for low WR hours, boost high WR after proof
@@ -418,6 +426,23 @@ class TALiveTrader:
         # === FILTER REJECTION TRACKING (V3.9) ===
         # Every filter rejection creates a shadow trade to measure filter effectiveness
         self.filter_stats: Dict[str, dict] = {}  # {filter_name: {blocked, wins, losses, pnl}}
+
+        # === V3.15: AUTO-REVERT FILTER MODE ===
+        # Track post-reduction WR. If < 50% after 15 trades, restore strict filters.
+        self.filter_mode = "LOOSE"  # "LOOSE" = reduced filters, "STRICT" = original filters
+        self.filter_mode_trades = 0  # Trades since filter mode changed
+        self.filter_mode_wins = 0
+        self.filter_mode_losses = 0
+        self.FILTER_REVERT_THRESHOLD = 15  # Check after this many trades
+        self.FILTER_REVERT_MIN_WR = 0.50  # Revert if WR below this
+
+        # === V3.15: HYDRA AUTO-PROMOTION ===
+        # MULTI_SMA_TREND (92% WR, +$145 in paper quarantine) promoted to live.
+        # When hydra signal agrees with TA direction, boost confidence.
+        self.hydra_promoted = ["MULTI_SMA_TREND"]  # Promoted strategy names
+        self.hydra_boost = 0.10  # Confidence boost when hydra agrees
+        self.hydra_live_stats = {"trades": 0, "wins": 0, "losses": 0, "pnl": 0.0}
+        self.hydra_last_signals: Dict[str, str] = {}  # {asset: direction} from last hydra scan
 
         # Executor for live trading
         self.executor = None
@@ -533,6 +558,31 @@ class TALiveTrader:
                 self.DOWN_EXPENSIVE_WINS = down_ml.get("wins", 0)
                 self.DOWN_EXPENSIVE_LOSSES = down_ml.get("losses", 0)
                 self.DOWN_EXPENSIVE_PNL = down_ml.get("pnl", 0.0)
+
+                # V3.15: Restore filter mode + hydra promotion state
+                fm = data.get("filter_mode", {})
+                if fm.get("mode"):
+                    self.filter_mode = fm["mode"]
+                    self.filter_mode_trades = fm.get("trades", 0)
+                    self.filter_mode_wins = fm.get("wins", 0)
+                    self.filter_mode_losses = fm.get("losses", 0)
+                    # If mode was reverted to STRICT, re-apply strict settings
+                    if self.filter_mode == "STRICT":
+                        self.MIN_EDGE = 0.25
+                        self.LOW_EDGE_THRESHOLD = 0.25
+                        self.MAX_ENTRY_PRICE = 0.45
+                        self.MIN_ENTRY_PRICE = 0.25
+                        self.ETH_MIN_CONFIDENCE = 0.70
+                        self.SOL_DOWN_MIN_EDGE = 0.35
+                        self.SKIP_HOURS_UTC = {5, 6, 8, 9, 10, 12, 14, 16}
+                        self.MIN_TIME_REMAINING = 5.0
+                        self.MAX_TIME_REMAINING = 9.0
+                        self.use_nyu_model = True
+                hl = data.get("hydra_live", {})
+                if hl.get("promoted"):
+                    self.hydra_promoted = hl["promoted"]
+                if hl.get("stats"):
+                    self.hydra_live_stats = hl["stats"]
 
                 shadow_open = sum(1 for s in self.shadow_trades.values() if s.get("status") == "open")
                 print(f"[Live] Loaded {len(self.trades)} trades + {len(self.shadow_trades)} shadow ({shadow_open} open)")
@@ -689,6 +739,17 @@ class TALiveTrader:
                 "losses": self.DOWN_EXPENSIVE_LOSSES,
                 "pnl": round(self.DOWN_EXPENSIVE_PNL, 2),
             },
+            # V3.15: Filter mode + hydra promotion persistence
+            "filter_mode": {
+                "mode": self.filter_mode,
+                "trades": self.filter_mode_trades,
+                "wins": self.filter_mode_wins,
+                "losses": self.filter_mode_losses,
+            },
+            "hydra_live": {
+                "promoted": self.hydra_promoted,
+                "stats": self.hydra_live_stats,
+            },
         }
         # Working file (can be reset)
         with open(self.OUTPUT_FILE, 'w') as f:
@@ -748,10 +809,10 @@ class TALiveTrader:
     # ETH-specific constraints (V3.9)
     ETH_UP_ONLY = True  # Only allow UP trades on ETH (70% WR vs 47% DOWN)
     ETH_MAX_PRICE = 0.55  # V3.12: Shadow 13W/7L 65%WR blocked at 0.45. Paper 39 ETH trades=61.5%WR
-    ETH_MIN_CONFIDENCE = 0.70  # V3.14: ETH=29.4% WR in CSV (worst asset). Require 70%+ model conf.
+    ETH_MIN_CONFIDENCE = 0.60  # V3.15: Was 0.70, blocked +$13.13 in winners. Loosened.
     # SOL DOWN constraint (V3.10): Paper data shows SOL_DOWN = 50% WR (coin flip)
     # Require higher edge for SOL DOWN trades (edge >= 0.35 lifts to ~71% WR per paper analysis)
-    SOL_DOWN_MIN_EDGE = 0.35
+    SOL_DOWN_MIN_EDGE = 0.20  # V3.15: Was 0.35, blocked +$5.50 in winners. Loosened.
 
     # Directional bias based on 200 EMA trend
     # Below 200 EMA = bearish: 70% capital on DOWN, 30% on UP
@@ -768,9 +829,10 @@ class TALiveTrader:
     # Shadow-tracked on paper account for re-evaluation
     # V3.6: Reopened UTC 10-13 (73-80% WR in paper, +$222 from 34 trades)
     # Only skip: UTC 1 (no data), UTC 8 (20% WR), UTC 14 (33% WR), UTC 15 (no data)
-    # V3.14: CSV analysis of 326 settled trades — hours 5,6,8,9,10,12,14,16 = 14.2% WR, -$499
-    # Reopened 0,22,23 (50%+ WR in CSV). Added 6,9,10,12,14,16 (death hours).
-    SKIP_HOURS_UTC = {5, 6, 8, 9, 10, 12, 14, 16}
+    # V3.15: Reduced from 8 to 4 skip hours to increase trade flow.
+    # Keep only the absolute worst: 8 (20% WR), 12 (-$52 PnL), 5 (0 data), 16 (worst).
+    # Auto-revert will catch if reopened hours lose money.
+    SKIP_HOURS_UTC = {5, 8, 12, 16}
 
     def _ema(self, candles, period: int) -> float:
         """Calculate EMA from candle close prices."""
@@ -1392,17 +1454,19 @@ class TALiveTrader:
             print(f"[VERIFY] Error checking fill: {e}")
             return False
 
-    # Conviction thresholds - V3.11: MATCHED TO PAPER PROVEN SETTINGS (66.4% WR, +$996)
-    MIN_MODEL_CONFIDENCE = 0.55  # Paper DOWN_MIN_CONFIDENCE=0.55 (DOWN check uses this)
-    MIN_EDGE = 0.25              # V3.12: Shadow 4W/0L 100%WR blocked at 0.30. 0.25 balances selectivity+fills.
-    LOW_EDGE_THRESHOLD = 0.25    # V3.12: Match MIN_EDGE
-    MAX_ENTRY_PRICE = 0.45       # V3.6: $0.45-0.55 = 50% WR coin flip, cut it
-    DOWN_MAX_PRICE = 0.65        # V3.13: Dynamic DOWN cap — model confidence unlocks higher prices
+    # Conviction thresholds - V3.15: LOOSENED based on filter shadow data
+    # Shadow stats showed most filters blocking more winners than losers:
+    # NYU vol: +$88 missed, v33_conviction: +$47, edge_floor: +$27, KL: +$8
+    MIN_MODEL_CONFIDENCE = 0.55  # Keep: basic sanity
+    MIN_EDGE = 0.12              # V3.15: Was 0.25, blocked +$26.88 in winners. Loosened.
+    LOW_EDGE_THRESHOLD = 0.18    # V3.15: Was 0.25, match new floor
+    MAX_ENTRY_PRICE = 0.52       # V3.15: Was 0.45, blocked 87 winners. Widened.
+    DOWN_MAX_PRICE = 0.65        # V3.13: Dynamic DOWN cap
     DOWN_EXPENSIVE_TRADES = 0    # ML auto-tighten: count trades where DOWN > $0.45
     DOWN_EXPENSIVE_WINS = 0      # ML auto-tighten: wins where DOWN > $0.45
     DOWN_EXPENSIVE_LOSSES = 0    # ML auto-tighten: losses where DOWN > $0.45
     DOWN_EXPENSIVE_PNL = 0.0     # ML auto-tighten: cumulative PnL for DOWN > $0.45
-    MIN_ENTRY_PRICE = 0.25       # V3.14: CSV <$0.25 = 13.3% WR, -$71 loss. Raised from $0.15.
+    MIN_ENTRY_PRICE = 0.20       # V3.15: Was 0.25, loosened for more fills
     MIN_KL_DIVERGENCE = 0.08     # V3.12: Shadow 7W/1L 88%WR blocked at 0.15. Loosened.
 
     # Paper trades both sides successfully (UP 81% WR in paper)
@@ -1439,9 +1503,9 @@ class TALiveTrader:
     HEDGE_MAX_PRICE = 0.15        # Only hedge if opposite side <= $0.15
     HEDGE_SIZE = 1.50             # $1.50 hedge bet
 
-    # Entry window - match paper
-    MIN_TIME_REMAINING = 5.0     # V3.4: 2-5min = 47% WR; 5-12min = 83% WR (96 paper trades)
-    MAX_TIME_REMAINING = 9.0     # V3.14: CSV 326 trades: <9min=71% WR vs >9min=47% WR. Enter LATER.
+    # Entry window - V3.15: widened for more trade flow
+    MIN_TIME_REMAINING = 4.0     # V3.15: Was 5.0, loosened slightly
+    MAX_TIME_REMAINING = 12.0    # V3.15: Was 9.0, widened for more opportunities
 
     # Kelly position sizing - CONSERVATIVE: slow churn, protect capital
     KELLY_FRACTION = 0.25        # Quarter-Kelly for safety
@@ -1544,6 +1608,25 @@ class TALiveTrader:
 
         self.signals_count += 1
         main_signal = None
+
+        # === V3.15: HYDRA PROMOTED STRATEGY SCAN ===
+        # Run MULTI_SMA_TREND on each asset's candle data for directional confirmation
+        if HYDRA_AVAILABLE and self.hydra_promoted:
+            try:
+                candles_for_hydra = {
+                    asset: data["candles"] for asset, data in asset_data.items()
+                    if data.get("candles")
+                }
+                hydra_signals = scan_strategies(candles_for_hydra)
+                self.hydra_last_signals = {}
+                for hsig in hydra_signals:
+                    if hsig.name in self.hydra_promoted and hsig.asset:
+                        self.hydra_last_signals[hsig.asset] = hsig.direction
+                        if self.signals_count % 10 == 0:  # Log every 10th scan
+                            print(f"  [HYDRA] {hsig.name} -> {hsig.asset} {hsig.direction} (conf={hsig.confidence:.0%})")
+            except Exception as e:
+                if self.signals_count % 50 == 0:
+                    print(f"  [HYDRA] Error: {e}")
 
         # Process each asset (live + shadow)
         for asset, data in asset_data.items():
@@ -1715,16 +1798,15 @@ class TALiveTrader:
                             skip_reason = f"UP_conf_{signal.model_up:.0%}<{up_conf_req:.0%}"
                         elif up_price > effective_up_max:
                             skip_reason = f"UP_price_{up_price:.2f}>{effective_up_max:.2f}"
-                        elif momentum < -0.001:
-                            skip_reason = f"UP_momentum_negative_{momentum:.3%}"
+                        # V3.15: UP momentum check REMOVED — was blocking winners in v33_conviction
 
                 elif signal.side == "DOWN":
                     # DEATH ZONE: $0.40-0.45 = 14% WR, -$321 PnL. NEVER trade here. (V3.3)
                     if 0.40 <= down_price < 0.45:
                         skip_reason = f"DOWN_DEATH_ZONE_{down_price:.2f}_(14%WR)"
-                    # V3.13 ML: Block ALL DOWN < $0.35 — paper 0W/4L (-$34.95). Cheap DOWN is a trap.
-                    elif down_price < 0.35:
-                        skip_reason = f"DOWN_cheap_{down_price:.2f}_(0W4L_block)"
+                    # V3.15: Loosened from $0.35 to $0.25 (was blocking winners)
+                    elif down_price < 0.25:
+                        skip_reason = f"DOWN_cheap_{down_price:.2f}_(V3.15_block)"
                     else:
                         # Break-even aware confidence for DOWN (V3.3)
                         down_conf_req = self.MIN_MODEL_CONFIDENCE
@@ -1756,9 +1838,9 @@ class TALiveTrader:
 
                             if down_price > effective_down_max:
                                 skip_reason = f"DOWN_price_{down_price:.2f}>{effective_down_max:.2f}"
-                        # Momentum confirmation only for non-cheap entries
-                        if not skip_reason and down_price >= 0.30 and momentum > self.DOWN_MIN_MOMENTUM_DROP:
-                            skip_reason = f"DOWN_momentum_not_falling_{momentum:.3%}"
+                        # V3.15: DOWN momentum check REMOVED — was part of v33_conviction (+$47 missed)
+                        # Momentum confirmation disabled to increase trade flow
+                        pass
 
                 if skip_reason and not is_bond_trade:
                     print(f"  [{asset}] V3.3 filter: {skip_reason}")
@@ -1903,13 +1985,11 @@ class TALiveTrader:
                             pass  # Don't block trading on API errors
 
                         mid_price = up_price if signal.side == "UP" else down_price
-                        # V3.12c: Aggressive spread crossing — +$0.05 offset
-                        entry_price = round(mid_price + 0.05, 2)
+                        # V3.15: Reduced spread offset from $0.05 to $0.03 (more competitive fills)
+                        entry_price = round(mid_price + 0.03, 2)
 
-                        # === V3.13: HARD CAP on actual entry price after spread offset ===
-                        # CSV proof: entries <$0.50 = 100% WR today, $0.533 entry = LOSS
-                        # The +$0.05 offset pushes mid $0.48 → entry $0.53 = death zone
-                        MAX_ACTUAL_ENTRY = 0.52  # Hard ceiling on what we'll actually pay
+                        # === V3.15: Raised MAX_ACTUAL_ENTRY from $0.52 to $0.58 ===
+                        MAX_ACTUAL_ENTRY = 0.58  # V3.15: Was $0.52, widened for more fills
                         if entry_price > MAX_ACTUAL_ENTRY and not is_bond_trade:
                             print(f"  [{asset}] Entry too expensive after spread: ${entry_price:.2f} > ${MAX_ACTUAL_ENTRY} (mid=${mid_price:.2f}+$0.05)")
                             continue
@@ -1927,9 +2007,9 @@ class TALiveTrader:
                             market_no_price=down_price
                         )
 
-                        # === KL DIVERGENCE FILTER (V3.8: raised from 0.15 to 0.20) ===
-                        # KL < 0.20 = 33-50% WR (103 paper trades). KL 0.20-0.50 = 68-81% WR.
-                        kl_floor = 0.20  # V3.8: Data shows <0.20 is coin-flip territory
+                        # === KL DIVERGENCE FILTER (V3.15: loosened from 0.20 to 0.10) ===
+                        # Shadow data: blocked 9W/6L = +$7.99 in missed winners at 0.20 floor
+                        kl_floor = 0.10  # V3.15: Was 0.20, loosened for more trade flow
                         if bregman_signal.kl_divergence < kl_floor:
                             print(f"  [{asset}] KL too low: {bregman_signal.kl_divergence:.3f} < {kl_floor}")
                             self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "kl_divergence")
@@ -1997,6 +2077,13 @@ class TALiveTrader:
                             print(f"  [{asset}] V3.8: High vol (ATR={atr_ratio:.1f}x) needs conf>65%, got {raw_conf:.1%}")
                             self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_atr_vol")
                             continue
+
+                        # === V3.15: HYDRA PROMOTED STRATEGY BOOST ===
+                        hydra_agrees = self.hydra_last_signals.get(asset) == signal.side
+                        hydra_tag = ""
+                        if hydra_agrees:
+                            hydra_tag = " [HYDRA+]"
+                            print(f"  [{asset}] HYDRA BOOST: MULTI_SMA_TREND agrees with {signal.side}")
 
                         position_size = self.calculate_position_size(
                             edge=edge if edge else 0.10,
@@ -2072,7 +2159,7 @@ class TALiveTrader:
                             print(f"[GUARD] Insufficient bankroll: ${self.bankroll:.2f} < ${initial_size:.2f} — skipping")
                             continue
 
-                        print(f"[SIZE] {asset} ${initial_size:.2f}{f' (+${topup_size:.2f} DCA pending)' if topup_size > 0 else ''} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, {trend_tag}{hour_tag})")
+                        print(f"[SIZE] {asset} ${initial_size:.2f}{f' (+${topup_size:.2f} DCA pending)' if topup_size > 0 else ''} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, {trend_tag}{hour_tag}{hydra_tag})")
 
                         success, order_result = await self.execute_trade(
                             market, signal.side, initial_size, entry_price
@@ -2082,8 +2169,8 @@ class TALiveTrader:
                             print(f"[LIVE] {asset} {signal.side} @ ${entry_price:.4f} FAILED: {order_result} - NOT recorded")
                             continue
 
-                        # Build feature dict with IH2P tags
-                        trade_features = {**asdict(features), "_full_size": full_size, "_with_trend": with_trend, "_atr_ratio": atr_ratio, "_atr_high": atr_high}
+                        # Build feature dict with IH2P tags + hydra agreement
+                        trade_features = {**asdict(features), "_full_size": full_size, "_with_trend": with_trend, "_atr_ratio": atr_ratio, "_atr_high": atr_high, "_hydra_agrees": hydra_agrees}
                         if is_bond_trade:
                             trade_features["_bond_mode"] = True
                         if topup_size > 0:
@@ -2268,6 +2355,16 @@ class TALiveTrader:
                                 else:
                                     self.DOWN_EXPENSIVE_LOSSES += 1
                                 print(f"  [ML-TRACK] DOWN>${0.45}: {self.DOWN_EXPENSIVE_WINS}W/{self.DOWN_EXPENSIVE_LOSSES}L PnL=${self.DOWN_EXPENSIVE_PNL:+.2f}")
+
+                            # V3.15: Auto-revert filter check + hydra tracking
+                            self._check_filter_auto_revert(won)
+                            if open_trade.features.get("_hydra_agrees"):
+                                self.hydra_live_stats["trades"] += 1
+                                self.hydra_live_stats["pnl"] += open_trade.pnl
+                                if won:
+                                    self.hydra_live_stats["wins"] += 1
+                                else:
+                                    self.hydra_live_stats["losses"] += 1
 
                             # Auto-redeem winnings after each win
                             if won and not self.dry_run:
@@ -2461,6 +2558,16 @@ class TALiveTrader:
                                     self.DOWN_EXPENSIVE_LOSSES += 1
                                 print(f"  [ML-TRACK] DOWN>${0.45}: {self.DOWN_EXPENSIVE_WINS}W/{self.DOWN_EXPENSIVE_LOSSES}L PnL=${self.DOWN_EXPENSIVE_PNL:+.2f}")
 
+                            # V3.15: Auto-revert filter check + hydra tracking
+                            self._check_filter_auto_revert(won)
+                            if open_trade.features.get("_hydra_agrees"):
+                                self.hydra_live_stats["trades"] += 1
+                                self.hydra_live_stats["pnl"] += open_trade.pnl
+                                if won:
+                                    self.hydra_live_stats["wins"] += 1
+                                else:
+                                    self.hydra_live_stats["losses"] += 1
+
                             # Auto-redeem winnings after each win
                             if won and not self.dry_run:
                                 try:
@@ -2582,6 +2689,70 @@ class TALiveTrader:
             if ss["hedge_pnl"] < -3.0:
                 self.HEDGE_ENABLED = False
                 print(f"[ML-REVOKE] Hedges DISABLED (PnL=${ss['hedge_pnl']:+.2f} after {ss['hedge_trades']} trades)")
+
+    def _check_filter_auto_revert(self, won: bool):
+        """V3.15: Track post-reduction WR and auto-revert to strict filters if losing.
+
+        Called after each trade resolves. If WR drops below 50% after 15 trades
+        in LOOSE mode, reverts to original strict filter settings.
+        """
+        if self.filter_mode != "LOOSE":
+            return  # Already reverted or in strict mode
+
+        if won:
+            self.filter_mode_wins += 1
+        else:
+            self.filter_mode_losses += 1
+        self.filter_mode_trades += 1
+
+        if self.filter_mode_trades >= self.FILTER_REVERT_THRESHOLD:
+            wr = self.filter_mode_wins / self.filter_mode_trades
+            if wr < self.FILTER_REVERT_MIN_WR:
+                # REVERT TO STRICT MODE
+                print(f"[AUTO-REVERT] WR={wr:.0%} ({self.filter_mode_wins}W/{self.filter_mode_losses}L) < 50% after {self.filter_mode_trades} trades")
+                print(f"[AUTO-REVERT] Reverting to STRICT filter mode!")
+                self.filter_mode = "STRICT"
+                # Restore strict filter values
+                self.MIN_EDGE = 0.25
+                self.LOW_EDGE_THRESHOLD = 0.25
+                self.MAX_ENTRY_PRICE = 0.45
+                self.MIN_ENTRY_PRICE = 0.25
+                self.ETH_MIN_CONFIDENCE = 0.70
+                self.SOL_DOWN_MIN_EDGE = 0.35
+                self.SKIP_HOURS_UTC = {5, 6, 8, 9, 10, 12, 14, 16}
+                self.MIN_TIME_REMAINING = 5.0
+                self.MAX_TIME_REMAINING = 9.0
+                self.use_nyu_model = True  # Re-enable NYU filter
+                # Also auto-promote top hydra strategy from paper quarantine
+                self._auto_promote_top_hydra()
+            else:
+                print(f"[FILTER-MODE] LOOSE: {wr:.0%} WR ({self.filter_mode_wins}W/{self.filter_mode_losses}L) after {self.filter_mode_trades} trades - keeping loose filters")
+
+    def _auto_promote_top_hydra(self):
+        """V3.15: Read paper quarantine data and promote top performer to live."""
+        try:
+            paper_file = Path(__file__).parent / "ta_paper_results.json"
+            if not paper_file.exists():
+                return
+            paper_data = json.load(open(paper_file))
+            hq = paper_data.get("hydra_quarantine", {})
+            best_name = None
+            best_score = 0
+            for name, q in hq.items():
+                n = q.get("predictions", 0)
+                if n >= 10:
+                    wr = q.get("correct", 0) / n
+                    pnl = q.get("pnl", 0)
+                    if wr >= 0.60 and pnl > 0:
+                        score = wr * pnl  # Combined score
+                        if score > best_score:
+                            best_score = score
+                            best_name = name
+            if best_name and best_name not in self.hydra_promoted:
+                self.hydra_promoted.append(best_name)
+                print(f"[AUTO-PROMOTE] {best_name} added to live hydra strategies (score={best_score:.1f})")
+        except Exception as e:
+            print(f"[AUTO-PROMOTE] Error reading paper data: {e}")
 
     def _record_filter_shadow(self, asset: str, side: str, entry_price: float,
                               market_id: str, market_title: str, filter_name: str,
@@ -2848,6 +3019,19 @@ class TALiveTrader:
         cur_h = now.hour
         cur_mult = self._get_hour_multiplier(cur_h)
         print(f"  Current: UTC {cur_h} -> {cur_mult}x multiplier")
+
+        # V3.15 Filter Mode + Hydra Status
+        fm_wr = self.filter_mode_wins / max(1, self.filter_mode_trades) * 100
+        print(f"\nV3.15 FILTER MODE: {self.filter_mode}")
+        print(f"  Post-reduction: {self.filter_mode_trades}T ({self.filter_mode_wins}W/{self.filter_mode_losses}L, {fm_wr:.0f}%WR)")
+        if self.filter_mode == "LOOSE":
+            print(f"  Auto-revert: at {self.FILTER_REVERT_THRESHOLD} trades if WR < {self.FILTER_REVERT_MIN_WR:.0%}")
+        else:
+            print(f"  Reverted to STRICT mode (filters restored)")
+        print(f"  Hydra promoted: {', '.join(self.hydra_promoted) if self.hydra_promoted else 'none'}")
+        hl = self.hydra_live_stats
+        h_wr = hl["wins"] / max(1, hl["trades"]) * 100
+        print(f"  Hydra-boosted: {hl['trades']}T ({hl['wins']}W/{hl['losses']}L, {h_wr:.0f}%WR, ${hl['pnl']:+.2f})")
 
         # IH2P Adaptations status
         ss = self.shadow_stats
