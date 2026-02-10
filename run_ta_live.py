@@ -462,6 +462,12 @@ class TALiveTrader:
         # Every filter rejection creates a shadow trade to measure filter effectiveness
         self.filter_stats: Dict[str, dict] = {}  # {filter_name: {blocked, wins, losses, pnl}}
 
+        # === V3.18: ML-TUNABLE FILTER THRESHOLDS ===
+        # Auto-evolve adjusts these at runtime based on shadow trade data
+        self.ml_vwap_abs_cap = 0.80    # V3.18: Was 0.50 hardcoded
+        self.ml_vwap_dir_cap = 0.40    # V3.18: Was 0.25 hardcoded
+        self.ml_kl_floor = 0.03        # V3.18: Was 0.10 hardcoded
+
         # === V3.15: AUTO-REVERT FILTER MODE ===
         # Track post-reduction WR. If < 50% after 15 trades, restore strict filters.
         self.filter_mode = "LOOSE"  # "LOOSE" = reduced filters, "STRICT" = original filters
@@ -575,6 +581,19 @@ class TALiveTrader:
 
                 # Load filter rejection stats (V3.9)
                 self.filter_stats = data.get("filter_stats", {})
+                # V3.18: Reset stale shadow stats for loosened/disabled filters (clean slate)
+                for fname in ["edge_floor", "kl_divergence", "nyu_vol", "v38_vwap", "v39_eth_price", "v314_vwap_dist"]:
+                    if fname in self.filter_stats:
+                        self.filter_stats[fname] = {"blocked": 0, "wins": 0, "losses": 0, "pnl": 0.0}
+
+                # V3.18: Restore ML-tuned filter thresholds
+                ml_t = data.get("ml_thresholds", {})
+                if ml_t:
+                    self.ml_vwap_abs_cap = ml_t.get("vwap_abs_cap", self.ml_vwap_abs_cap)
+                    self.ml_vwap_dir_cap = ml_t.get("vwap_dir_cap", self.ml_vwap_dir_cap)
+                    self.ml_kl_floor = ml_t.get("kl_floor", self.ml_kl_floor)
+                    self.ETH_MAX_PRICE = ml_t.get("eth_max_price", self.ETH_MAX_PRICE)
+                    print(f"[ML] Restored thresholds: VWAP_abs={self.ml_vwap_abs_cap:.2f}, VWAP_dir={self.ml_vwap_dir_cap:.2f}, KL={self.ml_kl_floor:.3f}, ETH_max={self.ETH_MAX_PRICE:.2f}")
 
                 # Restore IH2P feature flags from saved state
                 # V3.15c: Only restore ML-revoked flags, don't override class-level re-enable
@@ -812,6 +831,13 @@ class TALiveTrader:
                 "promoted": self.hydra_promoted,
                 "per_strategy": self.hydra_live_stats,
             },
+            # V3.18: ML-tunable filter thresholds (auto-evolve adjusts these)
+            "ml_thresholds": {
+                "vwap_abs_cap": self.ml_vwap_abs_cap,
+                "vwap_dir_cap": self.ml_vwap_dir_cap,
+                "kl_floor": self.ml_kl_floor,
+                "eth_max_price": self.ETH_MAX_PRICE,
+            },
         }
         # Working file (can be reset)
         with open(self.OUTPUT_FILE, 'w') as f:
@@ -870,7 +896,7 @@ class TALiveTrader:
     SHADOW_ASSETS = {}
     # ETH-specific constraints (V3.9)
     ETH_UP_ONLY = True  # Only allow UP trades on ETH (70% WR vs 47% DOWN)
-    ETH_MAX_PRICE = 0.55  # V3.12: Shadow 13W/7L 65%WR blocked at 0.45. Paper 39 ETH trades=61.5%WR
+    ETH_MAX_PRICE = 0.70  # V3.18: Was 0.55, shadow 23W/10L 70% WR blocked (+$24.97 missed)
     ETH_MIN_CONFIDENCE = 0.70  # V3.16: Restored to 0.70. ETH is -$3.87 live (50% WR, only loser asset).
     # SOL DOWN constraint (V3.10): Paper data shows SOL_DOWN = 50% WR (coin flip)
     # Require higher edge for SOL DOWN trades (edge >= 0.35 lifts to ~71% WR per paper analysis)
@@ -2042,10 +2068,11 @@ class TALiveTrader:
                     edge_floor = self.MIN_EDGE  # 0.30 (V3.5: raised from 0.25)
                 if best_edge is not None and best_edge < edge_floor and not is_bond_trade:
                     lock_tag = " [LOCKOUT]" if low_edge_locked else ""
-                    print(f"  [{asset}] Edge too small: {best_edge:.1%} < {edge_floor:.0%}{lock_tag}")
+                    print(f"  [{asset}] Edge low (tag-only): {best_edge:.1%} < {edge_floor:.0%}{lock_tag}")
+                    # V3.18: Converted to tag-only — shadow showed 7/7 blocked = winners (+$22.29)
                     ep = up_price if signal.side == "UP" else down_price
                     self._record_filter_shadow(asset, signal.side, ep, market_id, question, "edge_floor")
-                    continue
+                    # continue  # REMOVED V3.18 — no longer blocks
                 is_low_edge = best_edge is not None and best_edge < self.LOW_EDGE_THRESHOLD
 
                 # === ATR VOLATILITY TAG (filter REMOVED - was blocking 100% winners) ===
@@ -2192,9 +2219,8 @@ class TALiveTrader:
                         # === KL DIVERGENCE FILTER (V3.15: loosened from 0.20 to 0.10) ===
                         # Shadow data: blocked 9W/6L = +$7.99 in missed winners at 0.20 floor
                         # V3.15c: Bond trades skip KL (price near certainty = naturally low KL)
-                        kl_floor = 0.10  # V3.15: Was 0.20, loosened for more trade flow
-                        if bregman_signal.kl_divergence < kl_floor and not is_bond_trade:
-                            print(f"  [{asset}] KL too low: {bregman_signal.kl_divergence:.3f} < {kl_floor}")
+                        if bregman_signal.kl_divergence < self.ml_kl_floor and not is_bond_trade:  # V3.18: ML-tunable
+                            print(f"  [{asset}] KL too low: {bregman_signal.kl_divergence:.3f} < {self.ml_kl_floor}")
                             self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "kl_divergence")
                             continue
 
@@ -2226,16 +2252,16 @@ class TALiveTrader:
                         # Hard cap on absolute VWAP distance + directional alignment check
                         vwap_dist = features.vwap_distance
                         if not is_bond_trade:  # V3.15c: Bond trades skip VWAP filters (price-is-confidence)
-                            if abs(vwap_dist) > 0.50:  # V3.16: Was 0.30, shadow showed 70% WR on blocked trades (+$46 missed)
-                                print(f"  [{asset}] V3.16: VWAP too far: {vwap_dist:+.3f} (max 0.50) - price dislocated from fair value")
+                            if abs(vwap_dist) > self.ml_vwap_abs_cap:  # V3.18: ML-tunable (was 0.50)
+                                print(f"  [{asset}] V3.18: VWAP too far: {vwap_dist:+.3f} (max {self.ml_vwap_abs_cap:.2f})")
                                 self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v314_vwap_dist")
                                 continue
-                            if signal.side == "DOWN" and vwap_dist > 0.25:
-                                print(f"  [{asset}] V3.8: VWAP misalign DOWN (vwap_dist={vwap_dist:+.3f} > +0.25)")
+                            if signal.side == "DOWN" and vwap_dist > self.ml_vwap_dir_cap:  # V3.18: ML-tunable
+                                print(f"  [{asset}] V3.18: VWAP misalign DOWN (vwap_dist={vwap_dist:+.3f} > +{self.ml_vwap_dir_cap:.2f})")
                                 self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_vwap")
                                 continue
-                            if signal.side == "UP" and vwap_dist < -0.25:
-                                print(f"  [{asset}] V3.8: VWAP misalign UP (vwap_dist={vwap_dist:+.3f} < -0.25)")
+                            if signal.side == "UP" and vwap_dist < -self.ml_vwap_dir_cap:  # V3.18: ML-tunable
+                                print(f"  [{asset}] V3.18: VWAP misalign UP (vwap_dist={vwap_dist:+.3f} < -{self.ml_vwap_dir_cap:.2f})")
                                 self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_vwap")
                                 continue
 
@@ -3084,12 +3110,58 @@ class TALiveTrader:
             fwr = fs["wins"] / resolved * 100
 
             if fwr > 65 and fs["pnl"] > 5.0:
-                # This filter is blocking profitable trades — flag for loosening
-                changes.append(f"[EVOLVE] WARNING: {fname} blocking {fwr:.0f}% winners (${fs['pnl']:+.2f} missed). CONSIDER LOOSENING.")
+                # V3.18: ML AUTO-ADJUST — actually loosen hurting filters
+                adjusted = False
+                if fname == "v314_vwap_dist":
+                    old = self.ml_vwap_abs_cap
+                    self.ml_vwap_abs_cap = min(old + 0.10, 1.50)
+                    changes.append(f"[ML-EVOLVE] {fname}: vwap_abs_cap {old:.2f} -> {self.ml_vwap_abs_cap:.2f}")
+                    adjusted = True
+                elif fname == "v38_vwap":
+                    old = self.ml_vwap_dir_cap
+                    self.ml_vwap_dir_cap = min(old + 0.05, 0.80)
+                    changes.append(f"[ML-EVOLVE] {fname}: vwap_dir_cap {old:.2f} -> {self.ml_vwap_dir_cap:.2f}")
+                    adjusted = True
+                elif fname == "kl_divergence":
+                    old = self.ml_kl_floor
+                    self.ml_kl_floor = max(old - 0.01, 0.01)
+                    changes.append(f"[ML-EVOLVE] {fname}: kl_floor {old:.3f} -> {self.ml_kl_floor:.3f}")
+                    adjusted = True
+                elif fname == "v39_eth_price":
+                    old = self.ETH_MAX_PRICE
+                    self.ETH_MAX_PRICE = min(old + 0.05, 0.85)
+                    changes.append(f"[ML-EVOLVE] {fname}: ETH_MAX_PRICE {old:.2f} -> {self.ETH_MAX_PRICE:.2f}")
+                    adjusted = True
+                elif fname == "edge_floor":
+                    changes.append(f"[ML-EVOLVE] {fname}: Already tag-only (V3.18)")
+                else:
+                    changes.append(f"[EVOLVE] WARNING: {fname} blocking {fwr:.0f}% winners (${fs['pnl']:+.2f} missed). No auto-fix mapped.")
+                # Reset stats after adjustment for clean re-evaluation
+                if adjusted:
+                    self.filter_stats[fname] = {"blocked": 0, "wins": 0, "losses": 0, "pnl": 0.0}
 
             elif fwr < 30:
-                # Filter is doing great — blocking mostly losers
-                changes.append(f"[EVOLVE] {fname} EFFECTIVE: blocking {100-fwr:.0f}% losers. KEEP.")
+                # V3.18: ML AUTO-TIGHTEN — filter is working great, tighten if very loose
+                tightened = False
+                if fname == "v314_vwap_dist" and self.ml_vwap_abs_cap > 0.50:
+                    old = self.ml_vwap_abs_cap
+                    self.ml_vwap_abs_cap = max(old - 0.10, 0.40)
+                    changes.append(f"[ML-EVOLVE] {fname}: TIGHTENED vwap_abs_cap {old:.2f} -> {self.ml_vwap_abs_cap:.2f}")
+                    tightened = True
+                elif fname == "v38_vwap" and self.ml_vwap_dir_cap > 0.30:
+                    old = self.ml_vwap_dir_cap
+                    self.ml_vwap_dir_cap = max(old - 0.05, 0.20)
+                    changes.append(f"[ML-EVOLVE] {fname}: TIGHTENED vwap_dir_cap {old:.2f} -> {self.ml_vwap_dir_cap:.2f}")
+                    tightened = True
+                elif fname == "kl_divergence" and self.ml_kl_floor < 0.10:
+                    old = self.ml_kl_floor
+                    self.ml_kl_floor = min(old + 0.01, 0.15)
+                    changes.append(f"[ML-EVOLVE] {fname}: TIGHTENED kl_floor {old:.3f} -> {self.ml_kl_floor:.3f}")
+                    tightened = True
+                else:
+                    changes.append(f"[EVOLVE] {fname} EFFECTIVE: blocking {100-fwr:.0f}% losers. KEEP.")
+                if tightened:
+                    self.filter_stats[fname] = {"blocked": 0, "wins": 0, "losses": 0, "pnl": 0.0}
 
         # 2. HOURLY PERFORMANCE: Auto-add/remove skip hours
         for h in range(24):
@@ -3306,6 +3378,11 @@ class TALiveTrader:
         cur_h = now.hour
         cur_mult = self._get_hour_multiplier(cur_h)
         print(f"  Current: UTC {cur_h} -> {cur_mult}x multiplier")
+
+        # V3.18 ML-Tunable Thresholds
+        print(f"\nML FILTER THRESHOLDS (V3.18 auto-evolve):")
+        print(f"  VWAP abs_cap: {self.ml_vwap_abs_cap:.2f} | VWAP dir_cap: {self.ml_vwap_dir_cap:.2f} | KL floor: {self.ml_kl_floor:.3f} | ETH max: {self.ETH_MAX_PRICE:.2f}")
+        print(f"  edge_floor: TAG-ONLY (disabled V3.18)")
 
         # V3.15 Filter Mode + Hydra Status
         fm_wr = self.filter_mode_wins / max(1, self.filter_mode_trades) * 100
