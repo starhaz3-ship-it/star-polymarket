@@ -38,6 +38,13 @@ try:
 except ImportError:
     HYDRA_AVAILABLE = False
 
+# Loss forensics engine for automated post-loss analysis
+try:
+    from loss_forensics import ForensicsEngine
+    FORENSICS_AVAILABLE = True
+except ImportError:
+    FORENSICS_AVAILABLE = False
+
 load_dotenv()
 
 
@@ -449,6 +456,9 @@ class TALiveTrader:
             for name in self.hydra_promoted
         }
         self.hydra_last_signals: Dict[str, dict] = {}  # {asset: {strategy: direction}}
+
+        # V3.15b: Loss forensics engine (@sharbel's "why did this lose?" loop)
+        self.forensics = ForensicsEngine() if FORENSICS_AVAILABLE else None
 
         # Executor for live trading
         self.executor = None
@@ -2382,6 +2392,13 @@ class TALiveTrader:
                             self._check_filter_auto_revert(won)
                             self._track_hydra_result(open_trade, won)
 
+                            # V3.15b: Post-loss forensics (@sharbel's "why did this lose?" loop)
+                            if not won and self.forensics:
+                                try:
+                                    self.forensics.analyze_loss(asdict(open_trade), {k: asdict(t) for k, t in self.trades.items() if t.status == "closed"})
+                                except Exception as e:
+                                    print(f"  [FORENSICS] Error: {e}")
+
                             # Auto-redeem winnings after each win
                             if won and not self.dry_run:
                                 try:
@@ -2577,6 +2594,13 @@ class TALiveTrader:
                             # V3.15b: Auto-revert filter check + per-strategy hydra tracking
                             self._check_filter_auto_revert(won)
                             self._track_hydra_result(open_trade, won)
+
+                            # V3.15b: Post-loss forensics
+                            if not won and self.forensics:
+                                try:
+                                    self.forensics.analyze_loss(asdict(open_trade), {k: asdict(t) for k, t in self.trades.items() if t.status == "closed"})
+                                except Exception as e:
+                                    print(f"  [FORENSICS] Error: {e}")
 
                             # Auto-redeem winnings after each win
                             if won and not self.dry_run:
