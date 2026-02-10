@@ -549,13 +549,19 @@ class TALiveTrader:
                 self.filter_stats = data.get("filter_stats", {})
 
                 # Restore IH2P feature flags from saved state
+                # V3.15c: Only restore ML-revoked flags, don't override class-level re-enable
                 ih2p = data.get("ih2p_features", {})
                 if "bond_enabled" in ih2p:
-                    self.BOND_MODE_ENABLED = ih2p["bond_enabled"]
+                    if not ih2p["bond_enabled"] and not self.BOND_MODE_ENABLED:
+                        self.BOND_MODE_ENABLED = False  # ML-revoked and class agrees
+                    elif not ih2p["bond_enabled"] and self.BOND_MODE_ENABLED:
+                        print("[LOAD] Bond mode was ML-revoked but class re-enabled it — keeping ENABLED")
                 if "dca_enabled" in ih2p:
-                    self.DCA_ENABLED = ih2p["dca_enabled"]
+                    if not ih2p["dca_enabled"] and not self.DCA_ENABLED:
+                        self.DCA_ENABLED = False
                 if "hedge_enabled" in ih2p:
-                    self.HEDGE_ENABLED = ih2p["hedge_enabled"]
+                    if not ih2p["hedge_enabled"] and not self.HEDGE_ENABLED:
+                        self.HEDGE_ENABLED = False
 
                 # Load hourly stats
                 saved_hourly = data.get("hourly_stats", {})
@@ -1519,8 +1525,8 @@ class TALiveTrader:
     # === IH2P ADAPTATIONS (ALL DISABLED — capital rebuild mode) ===
     # DCA caused double-betting ($6.80 + $3.78 topup = $10.58 per market).
     # With 7 ghost processes, each one doing DCA = $21+ per market. NEVER AGAIN.
-    BOND_MODE_ENABLED = False     # DISABLED: Rebuild capital first
-    BOND_MIN_CONFIDENCE = 0.85    # Model must be 85%+ confident
+    BOND_MODE_ENABLED = True      # V3.15c: Enabled for directional markets ($0.85+ sides)
+    BOND_MIN_CONFIDENCE = 0.40    # V3.15c: Lowered — market price ($0.85+) IS the confidence signal, model just can't disagree
     BOND_MIN_PRICE = 0.85         # Entry price must be $0.85+
     DCA_ENABLED = False           # DISABLED: No DCA stacking during capital rebuild
     DCA_INITIAL_RATIO = 0.60      # First entry: 60% of position
@@ -1781,18 +1787,32 @@ class TALiveTrader:
                     continue
 
                 # === BOND MODE (IH2P): High-prob side at $0.85+ ===
+                # V3.15c: Bond mode can OVERRIDE signal side. Market price IS confidence.
+                # If UP is $0.93, we buy UP even if TA model picked DOWN (contrarian).
+                # Model just needs to not strongly disagree (>= 40% on the bond side).
                 is_bond_trade = False
+                bond_override_side = None
                 if self.BOND_MODE_ENABLED and signal.action == "ENTER":
-                    # Check if either side qualifies for bond mode
-                    if signal.side == "UP" and signal.model_up >= self.BOND_MIN_CONFIDENCE and up_price >= self.BOND_MIN_PRICE:
+                    # Check BOTH sides — pick the one at $0.85+ where model doesn't disagree
+                    if up_price >= self.BOND_MIN_PRICE and signal.model_up >= self.BOND_MIN_CONFIDENCE:
                         is_bond_trade = True
-                    elif signal.side == "DOWN" and signal.model_down >= self.BOND_MIN_CONFIDENCE and down_price >= self.BOND_MIN_PRICE:
+                        if signal.side != "UP":
+                            bond_override_side = "UP"
+                            print(f"  [{asset}] BOND OVERRIDE: Market UP@${up_price:.2f} (model_up={signal.model_up:.0%}) — overriding signal side {signal.side}")
+                            signal.side = "UP"
+                    elif down_price >= self.BOND_MIN_PRICE and signal.model_down >= self.BOND_MIN_CONFIDENCE:
                         is_bond_trade = True
+                        if signal.side != "DOWN":
+                            bond_override_side = "DOWN"
+                            print(f"  [{asset}] BOND OVERRIDE: Market DOWN@${down_price:.2f} (model_down={signal.model_down:.0%}) — overriding signal side {signal.side}")
+                            signal.side = "DOWN"
 
                     if is_bond_trade:
                         print(f"  [{asset}] BOND MODE: {signal.side} @ ${up_price if signal.side == 'UP' else down_price:.2f} | Model: {signal.model_up if signal.side == 'UP' else signal.model_down:.0%}")
                         # Bond mode skips V3.3 price/confidence filters below
                         # but still goes through risk checks, KL, ML scoring
+                    else:
+                        print(f"  [{asset}] Bond check: UP=${up_price:.2f} DOWN=${down_price:.2f} model_up={signal.model_up:.0%} model_down={signal.model_down:.0%} (need>=${self.BOND_MIN_PRICE}+>={self.BOND_MIN_CONFIDENCE:.0%})")
 
                 # === V3.3: SIDE-SPECIFIC FILTERS WITH TREND + DEATH ZONE + BREAK-EVEN AWARE ===
                 skip_reason = None
@@ -2038,8 +2058,9 @@ class TALiveTrader:
 
                         # === KL DIVERGENCE FILTER (V3.15: loosened from 0.20 to 0.10) ===
                         # Shadow data: blocked 9W/6L = +$7.99 in missed winners at 0.20 floor
+                        # V3.15c: Bond trades skip KL (price near certainty = naturally low KL)
                         kl_floor = 0.10  # V3.15: Was 0.20, loosened for more trade flow
-                        if bregman_signal.kl_divergence < kl_floor:
+                        if bregman_signal.kl_divergence < kl_floor and not is_bond_trade:
                             print(f"  [{asset}] KL too low: {bregman_signal.kl_divergence:.3f} < {kl_floor}")
                             self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "kl_divergence")
                             continue
@@ -2049,7 +2070,7 @@ class TALiveTrader:
                         ml_score = self.ml.score_trade(features, signal.side)
                         min_score = self.ml.get_min_score_threshold()
 
-                        if ml_score < min_score:
+                        if ml_score < min_score and not is_bond_trade:
                             self.ml_rejections += 1
                             print(f"[ML] {asset} Rejected: {signal.side} score={ml_score:.2f} < {min_score:.2f}")
                             self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "ml_score")
@@ -2061,7 +2082,7 @@ class TALiveTrader:
                         # The 0.128 confidence trade lost $6.54. Without it, session goes from -$3.94 to +$2.60.
                         # Paper: edge 20-30% = 26.7% WR. Edge 30-50% = 73-79% WR.
                         raw_conf = signal.model_up if signal.side == "UP" else signal.model_down
-                        if raw_conf < 0.55:
+                        if raw_conf < 0.55 and not is_bond_trade:
                             print(f"  [{asset}] V3.8: Raw confidence too low: {raw_conf:.1%} < 55%")
                             self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_confidence")
                             continue
@@ -2070,39 +2091,39 @@ class TALiveTrader:
                         # V3.14: CSV 29 bot trades: VWAP dist<=0.30 = 65% WR, >0.30 = 50% WR
                         # Hard cap on absolute VWAP distance + directional alignment check
                         vwap_dist = features.vwap_distance
-                        if abs(vwap_dist) > 0.30:
-                            print(f"  [{asset}] V3.14: VWAP too far: {vwap_dist:+.3f} (max 0.30) - price dislocated from fair value")
-                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v314_vwap_dist")
-                            continue
-                        if signal.side == "DOWN" and vwap_dist > 0.25:
-                            # Betting DOWN but price is well ABOVE VWAP = fighting the trend
-                            print(f"  [{asset}] V3.8: VWAP misalign DOWN (vwap_dist={vwap_dist:+.3f} > +0.25)")
-                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_vwap")
-                            continue
-                        if signal.side == "UP" and vwap_dist < -0.25:
-                            # Betting UP but price is well BELOW VWAP = fighting the trend
-                            print(f"  [{asset}] V3.8: VWAP misalign UP (vwap_dist={vwap_dist:+.3f} < -0.25)")
-                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_vwap")
-                            continue
+                        if not is_bond_trade:  # V3.15c: Bond trades skip VWAP filters (price-is-confidence)
+                            if abs(vwap_dist) > 0.30:
+                                print(f"  [{asset}] V3.14: VWAP too far: {vwap_dist:+.3f} (max 0.30) - price dislocated from fair value")
+                                self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v314_vwap_dist")
+                                continue
+                            if signal.side == "DOWN" and vwap_dist > 0.25:
+                                print(f"  [{asset}] V3.8: VWAP misalign DOWN (vwap_dist={vwap_dist:+.3f} > +0.25)")
+                                self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_vwap")
+                                continue
+                            if signal.side == "UP" and vwap_dist < -0.25:
+                                print(f"  [{asset}] V3.8: VWAP misalign UP (vwap_dist={vwap_dist:+.3f} < -0.25)")
+                                self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_vwap")
+                                continue
 
                         # 3. HEIKEN ASHI CONTRADICTION VETO
                         # Trade 6 bet UP with 3 bearish Heiken candles → lost.
                         # If Heiken strongly contradicts signal direction (3+ candles), skip.
                         ha_bullish = features.heiken_bullish
                         ha_count = features.heiken_count
-                        if signal.side == "UP" and not ha_bullish and ha_count >= 3:
-                            print(f"  [{asset}] V3.8: Heiken contradiction (UP vs {ha_count} bearish candles)")
-                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_heiken")
-                            continue
-                        if signal.side == "DOWN" and ha_bullish and ha_count >= 3:
-                            print(f"  [{asset}] V3.8: Heiken contradiction (DOWN vs {ha_count} bullish candles)")
-                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_heiken")
-                            continue
+                        if not is_bond_trade:  # V3.15c: Bond trades skip Heiken check
+                            if signal.side == "UP" and not ha_bullish and ha_count >= 3:
+                                print(f"  [{asset}] V3.8: Heiken contradiction (UP vs {ha_count} bearish candles)")
+                                self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_heiken")
+                                continue
+                            if signal.side == "DOWN" and ha_bullish and ha_count >= 3:
+                                print(f"  [{asset}] V3.8: Heiken contradiction (DOWN vs {ha_count} bullish candles)")
+                                self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_heiken")
+                                continue
 
                         # 4. ATR VOLATILITY GATE
                         # Both live trades with ATR ratio > 1.0 lost. High vol = unpredictable.
                         # Require higher confidence in volatile markets.
-                        if atr_ratio > 1.2 and raw_conf < 0.65:
+                        if atr_ratio > 1.2 and raw_conf < 0.65 and not is_bond_trade:
                             print(f"  [{asset}] V3.8: High vol (ATR={atr_ratio:.1f}x) needs conf>65%, got {raw_conf:.1%}")
                             self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_atr_vol")
                             continue
@@ -2205,6 +2226,8 @@ class TALiveTrader:
                         trade_features = {**asdict(features), "_full_size": full_size, "_with_trend": with_trend, "_atr_ratio": atr_ratio, "_atr_high": atr_high, "_hydra_agrees": hydra_agrees, "_hydra_strategies": hydra_agreeing}
                         if is_bond_trade:
                             trade_features["_bond_mode"] = True
+                            if bond_override_side:
+                                trade_features["_bond_override"] = bond_override_side
                         if topup_size > 0:
                             trade_features["_dca_initial"] = initial_size
                             trade_features["_dca_pending"] = topup_size
