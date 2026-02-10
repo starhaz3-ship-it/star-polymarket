@@ -24,6 +24,9 @@ from dataclasses import dataclass
 TREND_STRATEGIES = {"MULTI_SMA_TREND", "TRENDLINE_BREAK", "DC03_KALMAN_ADX"}
 REVERSION_STRATEGIES = {"CONNORS_RSI", "CONSEC_CANDLE_REVERSAL", "SHORT_TERM_REVERSAL", "MFI_DIVERGENCE"}
 
+# V3.16: KILLED — 0% WR in paper, all net negative. Do not generate signals.
+KILLED_STRATEGIES = {"CONNORS_RSI", "CONSEC_CANDLE_REVERSAL", "SHORT_TERM_REVERSAL", "MFI_DIVERGENCE"}
+
 
 @dataclass
 class StrategySignal:
@@ -581,6 +584,9 @@ def scan_strategies(candles_data: dict) -> List[StrategySignal]:
     # === V3.14d POST-PROCESSING FILTERS ===
     # All signals are kept (for A/B tracking) but filtered ones are marked
     _apply_filters(signals)
+
+    # V3.16: Remove killed strategies (0% WR in paper — CONNORS_RSI, CONSEC_CANDLE_REVERSAL, SHORT_TERM_REVERSAL, MFI_DIVERGENCE)
+    signals = [s for s in signals if s.name not in KILLED_STRATEGIES]
 
     return signals
 

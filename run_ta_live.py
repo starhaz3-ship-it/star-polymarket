@@ -446,7 +446,7 @@ class TALiveTrader:
         # === V3.15b: HYDRA LIVE PROBATION ===
         # Promoted from quarantine based on paper performance.
         # Auto-demote back to quarantine if WR < 40% after 8+ trades.
-        self.hydra_promoted = ["MULTI_SMA_TREND", "TRENDLINE_BREAK"]
+        self.hydra_promoted = ["MULTI_SMA_TREND", "TRENDLINE_BREAK", "ALIGNMENT"]  # V3.16: ALIGNMENT promoted (88.9% WR, +$73 paper)
         self.hydra_boost = 0.10  # Confidence boost when hydra agrees
         self.HYDRA_DEMOTE_MIN_TRADES = 8   # Min trades before demotion check
         self.HYDRA_DEMOTE_MIN_WR = 0.40    # Demote if WR below this
@@ -738,6 +738,8 @@ class TALiveTrader:
 
     def _save(self):
         """Save current state to working file AND permanent archive."""
+        # V3.15c FIX: Recalculate total_pnl from actual trades every save (prevents accumulator drift)
+        self.total_pnl = round(sum(t.pnl for t in self.trades.values() if t.status == "closed"), 4)
         data = {
             "start_time": self.start_time,
             "last_updated": datetime.now(timezone.utc).isoformat(),
@@ -841,7 +843,7 @@ class TALiveTrader:
     # ETH-specific constraints (V3.9)
     ETH_UP_ONLY = True  # Only allow UP trades on ETH (70% WR vs 47% DOWN)
     ETH_MAX_PRICE = 0.55  # V3.12: Shadow 13W/7L 65%WR blocked at 0.45. Paper 39 ETH trades=61.5%WR
-    ETH_MIN_CONFIDENCE = 0.60  # V3.15: Was 0.70, blocked +$13.13 in winners. Loosened.
+    ETH_MIN_CONFIDENCE = 0.70  # V3.16: Restored to 0.70. ETH is -$3.87 live (50% WR, only loser asset).
     # SOL DOWN constraint (V3.10): Paper data shows SOL_DOWN = 50% WR (coin flip)
     # Require higher edge for SOL DOWN trades (edge >= 0.35 lifts to ~71% WR per paper analysis)
     SOL_DOWN_MIN_EDGE = 0.20  # V3.15: Was 0.35, blocked +$5.50 in winners. Loosened.
@@ -1498,7 +1500,7 @@ class TALiveTrader:
     DOWN_EXPENSIVE_WINS = 0      # ML auto-tighten: wins where DOWN > $0.45
     DOWN_EXPENSIVE_LOSSES = 0    # ML auto-tighten: losses where DOWN > $0.45
     DOWN_EXPENSIVE_PNL = 0.0     # ML auto-tighten: cumulative PnL for DOWN > $0.45
-    MIN_ENTRY_PRICE = 0.20       # V3.15: Was 0.25, loosened for more fills
+    MIN_ENTRY_PRICE = 0.38       # V3.16: Was 0.20. Live data: $0.20-0.40 = 33% WR, -$18. Cheap entries are losers.
     MIN_KL_DIVERGENCE = 0.08     # V3.12: Shadow 7W/1L 88%WR blocked at 0.15. Loosened.
 
     # Paper trades both sides successfully (UP 81% WR in paper)
@@ -1605,6 +1607,14 @@ class TALiveTrader:
         hour_mult = self._get_hour_multiplier(hour)
         if hour_mult != 1.0:
             size *= hour_mult
+
+        # === V3.16: DAY-OF-WEEK MULTIPLIER ===
+        # CSV data: Monday = 70% WR ($0.76/trade), Wednesday = 93.4% WR ($6.20/trade)
+        dow = datetime.now(timezone.utc).weekday()  # 0=Mon, 6=Sun
+        if dow == 0:  # Monday
+            size *= 0.80
+        elif dow == 5 or dow == 6:  # Saturday/Sunday — CSV shows strong weekends
+            size *= 1.10
 
         # Hard clamp — HARD_MAX_BET is the absolute ceiling
         size = max(self.MIN_POSITION_SIZE, min(self.HARD_MAX_BET, size))
@@ -2090,8 +2100,8 @@ class TALiveTrader:
                         # Hard cap on absolute VWAP distance + directional alignment check
                         vwap_dist = features.vwap_distance
                         if not is_bond_trade:  # V3.15c: Bond trades skip VWAP filters (price-is-confidence)
-                            if abs(vwap_dist) > 0.30:
-                                print(f"  [{asset}] V3.14: VWAP too far: {vwap_dist:+.3f} (max 0.30) - price dislocated from fair value")
+                            if abs(vwap_dist) > 0.50:  # V3.16: Was 0.30, shadow showed 70% WR on blocked trades (+$46 missed)
+                                print(f"  [{asset}] V3.16: VWAP too far: {vwap_dist:+.3f} (max 0.50) - price dislocated from fair value")
                                 self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v314_vwap_dist")
                                 continue
                             if signal.side == "DOWN" and vwap_dist > 0.25:
@@ -2142,6 +2152,15 @@ class TALiveTrader:
                             btc_1h_change=features.btc_1h_change,
                             volatility=features.btc_volatility,
                         )
+
+                        # === V3.16: PRE-MARKET OPEN BOOST (9:00-9:15 EST = UTC 14) ===
+                        # Research: BTC LONG at US pre-market open shows +700%/mo compounding.
+                        # Our data: UTC 14 = 100% WR live, 71.4% WR paper. Boost BTC UP here.
+                        utc_hour = datetime.now(timezone.utc).hour
+                        if utc_hour == 14 and asset == "BTC" and signal.side == "UP":
+                            premarket_boost = 1.30
+                            position_size = round(position_size * premarket_boost, 2)
+                            print(f"  [{asset}] PRE-MARKET BOOST: BTC UP at US open -> 1.3x size (${position_size:.2f})")
 
                         # === TREND BIAS (soft, with counterfactual tracking) ===
                         # 200 EMA trend: counter-trend trades get 85% size (softer than old 30%)
@@ -2249,6 +2268,29 @@ class TALiveTrader:
                         )
                         self.trades[trade_key] = new_trade
                         self.recently_traded_markets.add(market_id)  # Prevent duplicate orders
+
+                        # V3.15c FIX: Query actual fill details to correct entry_price and size_usd
+                        # The requested price/size may differ from what actually filled on-chain
+                        try:
+                            order_details = self.executor.client.get_order(order_result)
+                            if isinstance(order_details, dict):
+                                size_matched = float(order_details.get("size_matched", 0))
+                                price_avg = float(order_details.get("associate_trades", [{}])[0].get("price", 0)) if order_details.get("associate_trades") else 0
+                                # size_matched = shares filled, actual cost = size_matched * avg_price
+                                if size_matched > 0 and price_avg > 0:
+                                    actual_cost = round(size_matched * price_avg, 4)
+                                    if abs(actual_cost - new_trade.size_usd) > 0.01 or abs(price_avg - new_trade.entry_price) > 0.005:
+                                        print(f"[FILL FIX] {asset}: requested ${new_trade.size_usd:.2f}@${new_trade.entry_price:.3f} -> actual ${actual_cost:.2f}@${price_avg:.3f} ({size_matched:.0f} shares)")
+                                        new_trade.entry_price = round(price_avg, 4)
+                                        new_trade.size_usd = actual_cost
+                                elif size_matched > 0:
+                                    # No price in associate_trades, use matched size * requested price as approximation
+                                    actual_cost = round(size_matched * entry_price, 4)
+                                    if abs(actual_cost - new_trade.size_usd) > 0.10:
+                                        print(f"[FILL FIX] {asset}: partial fill {size_matched:.0f}/{shares} shares -> size ${actual_cost:.2f} (was ${new_trade.size_usd:.2f})")
+                                        new_trade.size_usd = actual_cost
+                        except Exception as e:
+                            print(f"[FILL FIX] Could not query fill details: {e}")
 
                         # === DCA: Queue top-up for next scan ===
                         if topup_size > 0:
@@ -3190,9 +3232,13 @@ class TALiveTrader:
                     try:
                         claimed = auto_redeem_winnings()
                         if claimed and claimed > 0:
-                            # V3.10: Do NOT add to bankroll — PnL already counted on resolution
-                            # Adding here was double-counting ($45.82 → $63.96 bug)
-                            print(f"[REDEEM] Claimed ${claimed:.2f} (bankroll unchanged at ${self.bankroll:.2f} — PnL already tracked)")
+                            # V3.10: Do NOT add to bankroll directly — PnL already counted on resolution
+                            # V3.15c FIX: But DO sync CLOB balance so bankroll reflects redeemed funds
+                            print(f"[REDEEM] Claimed ${claimed:.2f} — syncing CLOB balance...")
+                            clob_bal = self._sync_clob_balance()
+                            if clob_bal >= 0:
+                                self.bankroll = clob_bal
+                                print(f"[REDEEM] Bankroll updated to ${self.bankroll:.2f} (was stale before redeem)")
                             self._save()
                     except Exception as e:
                         if "No winning" not in str(e):
