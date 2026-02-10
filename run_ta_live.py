@@ -1656,7 +1656,7 @@ class TALiveTrader:
     UP_ENABLE_MIN_PNL = 10.0
 
     # UP trade settings - V3.11: MATCHED TO PAPER (UP_MIN_CONFIDENCE=0.65 in paper)
-    UP_MIN_CONFIDENCE = 0.65     # V3.11: Paper proven. Was 0.56, too loose.
+    UP_MIN_CONFIDENCE = 0.68     # V3.18 CSV: 10/11 losses are UP. Raise from 0.65 to reduce UP losses.
     UP_MIN_EDGE = 0.25           # V3.12: Match new MIN_EDGE
     UP_RSI_MIN = 45              # Relaxed to match paper (was 60)
     CANDLE_LOOKBACK = 120        # V3.6b: Was 15 — killed MACD(35), TTM(25), EMA Cross(20), RSI slope. Now all 9 indicators active.
@@ -1761,6 +1761,14 @@ class TALiveTrader:
             size *= 0.80
         elif dow == 5 or dow == 6:  # Saturday/Sunday — CSV shows strong weekends
             size *= 1.10
+
+        # === V3.18: SIDE MULTIPLIER (CSV: DOWN=99% WR, UP=82% WR) ===
+        # 10/11 losses are UP trades. DOWN is near-perfect. Adjust sizing accordingly.
+        if hasattr(self, '_current_trade_side'):
+            if self._current_trade_side == "DOWN":
+                size *= 1.15  # Boost DOWN — 99% WR in CSV
+            elif self._current_trade_side == "UP":
+                size *= 0.85  # Reduce UP — 82% WR, source of 10/11 losses
 
         # Hard clamp — HARD_MAX_BET is the absolute ceiling
         size = max(self.MIN_POSITION_SIZE, min(self.HARD_MAX_BET, size))
@@ -1993,14 +2001,15 @@ class TALiveTrader:
                             up_conf_req = max(0.50, up_conf_req - 0.10)
 
                         # Dynamic UP max price: confidence unlocks higher prices (V3.3, softened V3.9)
-                        # Shadow data: v33_conviction blocked 75% winners at $0.49-$0.52. Loosening.
-                        effective_up_max = self.MAX_ENTRY_PRICE  # $0.45 base
+                        # V3.18 CSV: 10/11 losses are UP. UP>$0.50 has 3 losses ($0.51/$0.53/$0.57).
+                        # Tighten: cap at $0.50 even with high confidence. DOWN=99% WR, UP=82%.
+                        effective_up_max = self.MAX_ENTRY_PRICE  # $0.52 base
                         if signal.model_up >= 0.85:
-                            effective_up_max = max(effective_up_max, 0.58)
+                            effective_up_max = max(effective_up_max, 0.52)  # V3.18: Was 0.58
                         elif signal.model_up >= 0.75:
-                            effective_up_max = max(effective_up_max, 0.52)
+                            effective_up_max = max(effective_up_max, 0.50)  # V3.18: Was 0.52
                         elif signal.model_up >= 0.65:
-                            effective_up_max = max(effective_up_max, 0.48)
+                            effective_up_max = max(effective_up_max, 0.46)  # V3.18: Was 0.48
 
                         if signal.model_up < up_conf_req:
                             skip_reason = f"UP_conf_{signal.model_up:.0%}<{up_conf_req:.0%}"
@@ -2314,6 +2323,7 @@ class TALiveTrader:
                             hydra_tag = f" [HYDRA+{'+'.join(hydra_agreeing)}]"
                             print(f"  [{asset}] HYDRA BOOST: {', '.join(hydra_agreeing)} agree with {signal.side}")
 
+                        self._current_trade_side = signal.side  # V3.18: For side multiplier in sizing
                         position_size = self.calculate_position_size(
                             edge=edge if edge else 0.10,
                             kelly_fraction=bregman_signal.kelly_fraction,
