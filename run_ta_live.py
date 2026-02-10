@@ -436,13 +436,19 @@ class TALiveTrader:
         self.FILTER_REVERT_THRESHOLD = 15  # Check after this many trades
         self.FILTER_REVERT_MIN_WR = 0.50  # Revert if WR below this
 
-        # === V3.15: HYDRA AUTO-PROMOTION ===
-        # MULTI_SMA_TREND (92% WR, +$145 in paper quarantine) promoted to live.
-        # When hydra signal agrees with TA direction, boost confidence.
-        self.hydra_promoted = ["MULTI_SMA_TREND"]  # Promoted strategy names
+        # === V3.15b: HYDRA LIVE PROBATION ===
+        # Promoted from quarantine based on paper performance.
+        # Auto-demote back to quarantine if WR < 40% after 8+ trades.
+        self.hydra_promoted = ["MULTI_SMA_TREND", "TRENDLINE_BREAK"]
         self.hydra_boost = 0.10  # Confidence boost when hydra agrees
-        self.hydra_live_stats = {"trades": 0, "wins": 0, "losses": 0, "pnl": 0.0}
-        self.hydra_last_signals: Dict[str, str] = {}  # {asset: direction} from last hydra scan
+        self.HYDRA_DEMOTE_MIN_TRADES = 8   # Min trades before demotion check
+        self.HYDRA_DEMOTE_MIN_WR = 0.40    # Demote if WR below this
+        # Per-strategy live tracking
+        self.hydra_live_stats: Dict[str, dict] = {
+            name: {"trades": 0, "wins": 0, "losses": 0, "pnl": 0.0, "status": "PROBATION"}
+            for name in self.hydra_promoted
+        }
+        self.hydra_last_signals: Dict[str, dict] = {}  # {asset: {strategy: direction}}
 
         # Executor for live trading
         self.executor = None
@@ -579,10 +585,20 @@ class TALiveTrader:
                         self.MAX_TIME_REMAINING = 9.0
                         self.use_nyu_model = True
                 hl = data.get("hydra_live", {})
-                if hl.get("promoted"):
-                    self.hydra_promoted = hl["promoted"]
-                if hl.get("stats"):
-                    self.hydra_live_stats = hl["stats"]
+                saved_promoted = hl.get("promoted", [])
+                if hl.get("per_strategy"):
+                    self.hydra_live_stats = hl["per_strategy"]
+                # Merge: keep saved list but add any new default promotions not yet demoted
+                demoted = {n for n, s in self.hydra_live_stats.items() if s.get("status") == "DEMOTED"}
+                for name in self.hydra_promoted:
+                    if name not in saved_promoted and name not in demoted:
+                        saved_promoted.append(name)
+                        print(f"[HYDRA] New promotion: {name} added to live probation")
+                self.hydra_promoted = saved_promoted
+                # Init stats for any newly promoted strategies
+                for name in self.hydra_promoted:
+                    if name not in self.hydra_live_stats:
+                        self.hydra_live_stats[name] = {"trades": 0, "wins": 0, "losses": 0, "pnl": 0.0, "status": "PROBATION"}
 
                 shadow_open = sum(1 for s in self.shadow_trades.values() if s.get("status") == "open")
                 print(f"[Live] Loaded {len(self.trades)} trades + {len(self.shadow_trades)} shadow ({shadow_open} open)")
@@ -748,7 +764,7 @@ class TALiveTrader:
             },
             "hydra_live": {
                 "promoted": self.hydra_promoted,
-                "stats": self.hydra_live_stats,
+                "per_strategy": self.hydra_live_stats,
             },
         }
         # Working file (can be reset)
@@ -1609,8 +1625,8 @@ class TALiveTrader:
         self.signals_count += 1
         main_signal = None
 
-        # === V3.15: HYDRA PROMOTED STRATEGY SCAN ===
-        # Run MULTI_SMA_TREND on each asset's candle data for directional confirmation
+        # === V3.15b: HYDRA LIVE PROBATION SCAN ===
+        # Run promoted strategies on each asset's candle data for directional confirmation
         if HYDRA_AVAILABLE and self.hydra_promoted:
             try:
                 candles_for_hydra = {
@@ -1621,8 +1637,11 @@ class TALiveTrader:
                 self.hydra_last_signals = {}
                 for hsig in hydra_signals:
                     if hsig.name in self.hydra_promoted and hsig.asset:
-                        self.hydra_last_signals[hsig.asset] = hsig.direction
-                        if self.signals_count % 10 == 0:  # Log every 10th scan
+                        # Track per-asset, per-strategy
+                        if hsig.asset not in self.hydra_last_signals:
+                            self.hydra_last_signals[hsig.asset] = {}
+                        self.hydra_last_signals[hsig.asset][hsig.name] = hsig.direction
+                        if self.signals_count % 10 == 0:
                             print(f"  [HYDRA] {hsig.name} -> {hsig.asset} {hsig.direction} (conf={hsig.confidence:.0%})")
             except Exception as e:
                 if self.signals_count % 50 == 0:
@@ -2078,12 +2097,15 @@ class TALiveTrader:
                             self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_atr_vol")
                             continue
 
-                        # === V3.15: HYDRA PROMOTED STRATEGY BOOST ===
-                        hydra_agrees = self.hydra_last_signals.get(asset) == signal.side
+                        # === V3.15b: HYDRA PROBATION BOOST ===
+                        # Check how many promoted strategies agree with this direction
+                        asset_hydra = self.hydra_last_signals.get(asset, {})
+                        hydra_agreeing = [s for s, d in asset_hydra.items() if d == signal.side]
+                        hydra_agrees = len(hydra_agreeing) > 0
                         hydra_tag = ""
-                        if hydra_agrees:
-                            hydra_tag = " [HYDRA+]"
-                            print(f"  [{asset}] HYDRA BOOST: MULTI_SMA_TREND agrees with {signal.side}")
+                        if hydra_agreeing:
+                            hydra_tag = f" [HYDRA+{'+'.join(hydra_agreeing)}]"
+                            print(f"  [{asset}] HYDRA BOOST: {', '.join(hydra_agreeing)} agree with {signal.side}")
 
                         position_size = self.calculate_position_size(
                             edge=edge if edge else 0.10,
@@ -2170,7 +2192,7 @@ class TALiveTrader:
                             continue
 
                         # Build feature dict with IH2P tags + hydra agreement
-                        trade_features = {**asdict(features), "_full_size": full_size, "_with_trend": with_trend, "_atr_ratio": atr_ratio, "_atr_high": atr_high, "_hydra_agrees": hydra_agrees}
+                        trade_features = {**asdict(features), "_full_size": full_size, "_with_trend": with_trend, "_atr_ratio": atr_ratio, "_atr_high": atr_high, "_hydra_agrees": hydra_agrees, "_hydra_strategies": hydra_agreeing}
                         if is_bond_trade:
                             trade_features["_bond_mode"] = True
                         if topup_size > 0:
@@ -2356,15 +2378,9 @@ class TALiveTrader:
                                     self.DOWN_EXPENSIVE_LOSSES += 1
                                 print(f"  [ML-TRACK] DOWN>${0.45}: {self.DOWN_EXPENSIVE_WINS}W/{self.DOWN_EXPENSIVE_LOSSES}L PnL=${self.DOWN_EXPENSIVE_PNL:+.2f}")
 
-                            # V3.15: Auto-revert filter check + hydra tracking
+                            # V3.15b: Auto-revert filter check + per-strategy hydra tracking
                             self._check_filter_auto_revert(won)
-                            if open_trade.features.get("_hydra_agrees"):
-                                self.hydra_live_stats["trades"] += 1
-                                self.hydra_live_stats["pnl"] += open_trade.pnl
-                                if won:
-                                    self.hydra_live_stats["wins"] += 1
-                                else:
-                                    self.hydra_live_stats["losses"] += 1
+                            self._track_hydra_result(open_trade, won)
 
                             # Auto-redeem winnings after each win
                             if won and not self.dry_run:
@@ -2558,15 +2574,9 @@ class TALiveTrader:
                                     self.DOWN_EXPENSIVE_LOSSES += 1
                                 print(f"  [ML-TRACK] DOWN>${0.45}: {self.DOWN_EXPENSIVE_WINS}W/{self.DOWN_EXPENSIVE_LOSSES}L PnL=${self.DOWN_EXPENSIVE_PNL:+.2f}")
 
-                            # V3.15: Auto-revert filter check + hydra tracking
+                            # V3.15b: Auto-revert filter check + per-strategy hydra tracking
                             self._check_filter_auto_revert(won)
-                            if open_trade.features.get("_hydra_agrees"):
-                                self.hydra_live_stats["trades"] += 1
-                                self.hydra_live_stats["pnl"] += open_trade.pnl
-                                if won:
-                                    self.hydra_live_stats["wins"] += 1
-                                else:
-                                    self.hydra_live_stats["losses"] += 1
+                            self._track_hydra_result(open_trade, won)
 
                             # Auto-redeem winnings after each win
                             if won and not self.dry_run:
@@ -2689,6 +2699,32 @@ class TALiveTrader:
             if ss["hedge_pnl"] < -3.0:
                 self.HEDGE_ENABLED = False
                 print(f"[ML-REVOKE] Hedges DISABLED (PnL=${ss['hedge_pnl']:+.2f} after {ss['hedge_trades']} trades)")
+
+    def _track_hydra_result(self, trade, won: bool):
+        """V3.15b: Track per-strategy hydra results and check for demotion."""
+        strategies = trade.features.get("_hydra_strategies", [])
+        if not strategies:
+            return
+        for strat_name in strategies:
+            if strat_name not in self.hydra_live_stats:
+                self.hydra_live_stats[strat_name] = {"trades": 0, "wins": 0, "losses": 0, "pnl": 0.0, "status": "PROBATION"}
+            s = self.hydra_live_stats[strat_name]
+            s["trades"] += 1
+            s["pnl"] += trade.pnl
+            if won:
+                s["wins"] += 1
+            else:
+                s["losses"] += 1
+            wr = s["wins"] / max(1, s["trades"]) * 100
+            print(f"  [HYDRA-TRACK] {strat_name}: {s['trades']}T {wr:.0f}%WR ${s['pnl']:+.2f}")
+
+            # Auto-demotion check: WR < 40% after 8+ trades -> back to quarantine
+            if s["trades"] >= self.HYDRA_DEMOTE_MIN_TRADES:
+                if s["wins"] / s["trades"] < self.HYDRA_DEMOTE_MIN_WR:
+                    s["status"] = "DEMOTED"
+                    if strat_name in self.hydra_promoted:
+                        self.hydra_promoted.remove(strat_name)
+                    print(f"  [HYDRA-DEMOTE] {strat_name} demoted! WR={wr:.0f}% < 40% after {s['trades']} trades -> back to quarantine")
 
     def _check_filter_auto_revert(self, won: bool):
         """V3.15: Track post-reduction WR and auto-revert to strict filters if losing.
@@ -3029,9 +3065,12 @@ class TALiveTrader:
         else:
             print(f"  Reverted to STRICT mode (filters restored)")
         print(f"  Hydra promoted: {', '.join(self.hydra_promoted) if self.hydra_promoted else 'none'}")
-        hl = self.hydra_live_stats
-        h_wr = hl["wins"] / max(1, hl["trades"]) * 100
-        print(f"  Hydra-boosted: {hl['trades']}T ({hl['wins']}W/{hl['losses']}L, {h_wr:.0f}%WR, ${hl['pnl']:+.2f})")
+        print(f"  Hydra auto-demote: WR < {self.HYDRA_DEMOTE_MIN_WR:.0%} after {self.HYDRA_DEMOTE_MIN_TRADES}+ trades")
+        for sname, hs in self.hydra_live_stats.items():
+            if sname.startswith("_"):
+                continue
+            h_wr = hs["wins"] / max(1, hs["trades"]) * 100
+            print(f"    {sname}: {hs.get('status','?')} | {hs['trades']}T ({hs['wins']}W/{hs['losses']}L, {h_wr:.0f}%WR, ${hs['pnl']:+.2f})")
 
         # IH2P Adaptations status
         ss = self.shadow_stats
