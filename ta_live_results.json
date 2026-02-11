@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-08T21:42:49.466657+00:00",
-  "last_updated": "2026-02-10T22:06:52.406226+00:00",
+  "last_updated": "2026-02-11T02:01:33.805069+00:00",
   "dry_run": false,
   "trades": {
     "0xefb50b4d430aa8e42ccb0a77b6729b31b0c0f7d4f40ae1e60f642f2868d0e560_UP": {
@@ -2282,16 +2282,67 @@
       "status": "closed",
       "order_id": "0xef58286dd6df05f15f0aa4b49e8fd7fc8c6cf84161cfbd34d1c1c508803bc714",
       "execution_error": null
+    },
+    "0x9ca60ff48da5b767103c4712eca9e0539457de60ad430f9770f817b3671f84a5_UP": {
+      "trade_id": "0x9ca60ff48da5b767103c4712eca9e0539457de60ad430f9770f817b3671f84a5_UP",
+      "market_id": "0x9ca60ff48da5b767103c4712eca9e0539457de60ad430f9770f817b3671f84a5",
+      "market_title": "[BTC] Bitcoin Up or Down - February 10, 8:30PM-8:45PM ET",
+      "side": "UP",
+      "entry_price": 0.39,
+      "entry_time": "2026-02-11T01:40:29.475403+00:00",
+      "size_usd": 3.0,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.44480441138888893,
+      "kl_divergence": 0.41542074431147713,
+      "kelly_fraction": 0.25,
+      "features": {
+        "rsi": 55.000161765182284,
+        "rsi_slope": 10.099487217197357,
+        "vwap_distance": -0.032719767707607296,
+        "vwap_slope": -0.5678329405119358,
+        "heiken_count": 4,
+        "heiken_bullish": true,
+        "macd_histogram": 7.329777913176187,
+        "macd_expanding": true,
+        "time_remaining": 6.03520595,
+        "model_confidence": 0.5996088227777778,
+        "kl_divergence": 0.41542074431147713,
+        "kelly_fraction": 0.25,
+        "market_edge": 44.48044113888889,
+        "btc_1h_change": -0.1044573082489045,
+        "btc_volatility": 0.04765717010255049,
+        "garch_vol_forecast": 0.0572,
+        "garch_vol_regime": 0.5,
+        "ceemd_trend_slope": 5e-05,
+        "ceemd_noise_ratio": 0.1977,
+        "_full_size": 3.0,
+        "_with_trend": true,
+        "_atr_ratio": 0.86,
+        "_atr_high": false,
+        "_hydra_agrees": false,
+        "_hydra_strategies": [],
+        "_garch_regime": "NORMAL",
+        "_garch_ratio": 1.0906,
+        "_ceemd_aligned": false,
+        "_ceemd_trend_slope": 5e-05,
+        "_ceemd_noise_ratio": 0.1977
+      },
+      "exit_price": 0.39,
+      "exit_time": "2026-02-11T01:56:53.381961+00:00",
+      "pnl": 0.0,
+      "status": "closed",
+      "order_id": "0x46308563260e770557e2aa02695f4044ebec89af8f2ee26f0d77eaad53271b13",
+      "execution_error": null
     }
   },
   "total_pnl": 16.8142,
   "wins": 20,
   "losses": 17,
-  "signals_count": 3063,
+  "signals_count": 3097,
   "ml_rejections": 0,
   "consecutive_wins": 1,
   "consecutive_losses": 0,
-  "bankroll": 75.401593,
+  "bankroll": 79.721093,
   "ml_win_features": [
     {
       "rsi": 80.71328743723713,
@@ -5484,9 +5535,12 @@
       "market_id": "0x74c2cf91fff667c15d2e1bc640805430ba818731ebc8f1668dddcadb2b2d4e2d",
       "market_title": "[BTC] Bitcoin Up or Down - February 10, 4:45PM-5:00PM ET",
       "size_usd": 5.0,
-      "status": "open",
+      "status": "closed",
       "reason": "filter_v33_conviction",
-      "filter_name": "v33_conviction"
+      "filter_name": "v33_conviction",
+      "pnl": 0.0,
+      "exit_price": 0.645,
+      "exit_time": "2026-02-11T01:37:33.132399+00:00"
     },
     "filter_0xd50daa011e96751ef88bcdc2b46813108bc6ba2b73f8d4364597f9b00d6e8f72_UP_v314_eth_conf": {
       "asset": "ETH",
@@ -5496,9 +5550,12 @@
       "market_id": "0xd50daa011e96751ef88bcdc2b46813108bc6ba2b73f8d4364597f9b00d6e8f72",
       "market_title": "[ETH] Ethereum Up or Down - February 10, 4:45PM-5:00PM ET",
       "size_usd": 5.0,
-      "status": "open",
+      "status": "closed",
       "reason": "filter_v314_eth_conf",
-      "filter_name": "v314_eth_conf"
+      "filter_name": "v314_eth_conf",
+      "pnl": 0.0,
+      "exit_price": 0.575,
+      "exit_time": "2026-02-11T01:37:33.132399+00:00"
     },
     "filter_0xd50daa011e96751ef88bcdc2b46813108bc6ba2b73f8d4364597f9b00d6e8f72_UP_v39_eth_price": {
       "asset": "ETH",
@@ -5508,9 +5565,12 @@
       "market_id": "0xd50daa011e96751ef88bcdc2b46813108bc6ba2b73f8d4364597f9b00d6e8f72",
       "market_title": "[ETH] Ethereum Up or Down - February 10, 4:45PM-5:00PM ET",
       "size_usd": 5.0,
-      "status": "open",
+      "status": "closed",
       "reason": "filter_v39_eth_price",
-      "filter_name": "v39_eth_price"
+      "filter_name": "v39_eth_price",
+      "pnl": 0.0,
+      "exit_price": 0.745,
+      "exit_time": "2026-02-11T01:37:33.132399+00:00"
     },
     "filter_0x0b204fe89aaafa165153b6195513248645c68ab3f42e8e0813d7dd052b4fbb4b_DOWN_v33_conviction": {
       "asset": "SOL",
@@ -5535,9 +5595,12 @@
       "market_id": "0xd50daa011e96751ef88bcdc2b46813108bc6ba2b73f8d4364597f9b00d6e8f72",
       "market_title": "[ETH] Ethereum Up or Down - February 10, 4:45PM-5:00PM ET",
       "size_usd": 5.0,
-      "status": "open",
+      "status": "closed",
       "reason": "filter_v314_eth_conf",
-      "filter_name": "v314_eth_conf"
+      "filter_name": "v314_eth_conf",
+      "pnl": 0.0,
+      "exit_price": 0.255,
+      "exit_time": "2026-02-11T01:37:33.132399+00:00"
     },
     "filter_0x0b204fe89aaafa165153b6195513248645c68ab3f42e8e0813d7dd052b4fbb4b_DOWN_v310_sol_down_edge": {
       "asset": "SOL",
@@ -5577,9 +5640,12 @@
       "market_id": "0x20199e20fe081a1d6e0483d1dfccd3ebeca7fd2c7b61d30560719c13f46ce6e3",
       "market_title": "[SOL] Solana Up or Down - February 10, 5:00PM-5:15PM ET",
       "size_usd": 5.0,
-      "status": "open",
+      "status": "closed",
       "reason": "filter_v33_conviction",
-      "filter_name": "v33_conviction"
+      "filter_name": "v33_conviction",
+      "pnl": 0.0,
+      "exit_price": 0.695,
+      "exit_time": "2026-02-11T01:37:33.132399+00:00"
     },
     "filter_0x02acbf2a1c45460a46f8f3a0f3852bc5c8d9572257c6ea739aa5e3de458df101_None_v314_eth_conf": {
       "asset": "ETH",
@@ -5589,9 +5655,12 @@
       "market_id": "0x02acbf2a1c45460a46f8f3a0f3852bc5c8d9572257c6ea739aa5e3de458df101",
       "market_title": "[ETH] Ethereum Up or Down - February 10, 5:00PM-5:15PM ET",
       "size_usd": 5.0,
-      "status": "open",
+      "status": "closed",
       "reason": "filter_v314_eth_conf",
-      "filter_name": "v314_eth_conf"
+      "filter_name": "v314_eth_conf",
+      "pnl": 0.0,
+      "exit_price": 0.225,
+      "exit_time": "2026-02-11T01:37:33.132399+00:00"
     },
     "filter_0x3648e593fcb3e29f2c74c5bff389d795ec25b91836eec0d873213f1bd336c79f_DOWN_v39_btc_down_contrarian": {
       "asset": "BTC",
@@ -5601,9 +5670,12 @@
       "market_id": "0x3648e593fcb3e29f2c74c5bff389d795ec25b91836eec0d873213f1bd336c79f",
       "market_title": "[BTC] Bitcoin Up or Down - February 10, 5:00PM-5:15PM ET",
       "size_usd": 5.0,
-      "status": "open",
+      "status": "closed",
       "reason": "filter_v39_btc_down_contrarian",
-      "filter_name": "v39_btc_down_contrarian"
+      "filter_name": "v39_btc_down_contrarian",
+      "pnl": 0.0,
+      "exit_price": 0.345,
+      "exit_time": "2026-02-11T01:37:33.132399+00:00"
     },
     "filter_0x20199e20fe081a1d6e0483d1dfccd3ebeca7fd2c7b61d30560719c13f46ce6e3_DOWN_v310_sol_down_edge": {
       "asset": "SOL",
@@ -5613,9 +5685,54 @@
       "market_id": "0x20199e20fe081a1d6e0483d1dfccd3ebeca7fd2c7b61d30560719c13f46ce6e3",
       "market_title": "[SOL] Solana Up or Down - February 10, 5:00PM-5:15PM ET",
       "size_usd": 5.0,
-      "status": "open",
+      "status": "closed",
       "reason": "filter_v310_sol_down_edge",
-      "filter_name": "v310_sol_down_edge"
+      "filter_name": "v310_sol_down_edge",
+      "pnl": 0.0,
+      "exit_price": 0.305,
+      "exit_time": "2026-02-11T01:37:33.132399+00:00"
+    },
+    "filter_0xebee5d85b1f11498a33be5ac22b899aa602a1d97fd12a9c758ab9e3560bef8b9_UP_v33_conviction": {
+      "asset": "SOL",
+      "side": "UP",
+      "entry_price": 0.745,
+      "entry_time": "2026-02-11T01:37:33.131119+00:00",
+      "market_id": "0xebee5d85b1f11498a33be5ac22b899aa602a1d97fd12a9c758ab9e3560bef8b9",
+      "market_title": "[SOL] Solana Up or Down - February 10, 8:30PM-8:45PM ET",
+      "size_usd": 5.0,
+      "status": "closed",
+      "reason": "filter_v33_conviction",
+      "filter_name": "v33_conviction",
+      "pnl": 0.0,
+      "exit_price": 0.745,
+      "exit_time": "2026-02-11T01:54:11.923631+00:00"
+    },
+    "filter_0x5bf8708b141f8d67aede0a245416b580e989b557ad983aaa8d4116f7b6acdb6c_None_v314_eth_conf": {
+      "asset": "ETH",
+      "side": null,
+      "entry_price": 0.405,
+      "entry_time": "2026-02-11T01:38:18.424877+00:00",
+      "market_id": "0x5bf8708b141f8d67aede0a245416b580e989b557ad983aaa8d4116f7b6acdb6c",
+      "market_title": "[ETH] Ethereum Up or Down - February 10, 8:30PM-8:45PM ET",
+      "size_usd": 5.0,
+      "status": "closed",
+      "reason": "filter_v314_eth_conf",
+      "filter_name": "v314_eth_conf",
+      "pnl": 0.0,
+      "exit_price": 0.405,
+      "exit_time": "2026-02-11T01:54:53.341316+00:00"
+    },
+    "filter_0xce5e3b1ce0242c9a3624cb3e2eaeb5caddeda8ee4d9ab29cc3c25e7c489771c1_UP_v314_eth_conf": {
+      "asset": "ETH",
+      "side": "UP",
+      "entry_price": 0.405,
+      "entry_time": "2026-02-11T01:51:33.142213+00:00",
+      "market_id": "0xce5e3b1ce0242c9a3624cb3e2eaeb5caddeda8ee4d9ab29cc3c25e7c489771c1",
+      "market_title": "[ETH] Ethereum Up or Down - February 10, 8:45PM-9:00PM ET",
+      "size_usd": 5.0,
+      "status": "open",
+      "reason": "filter_v314_eth_conf",
+      "filter_name": "v314_eth_conf"
     }
   },
   "shadow_stats": {
@@ -5651,13 +5768,13 @@
   },
   "filter_stats": {
     "v39_eth_price": {
-      "blocked": 1,
+      "blocked": 0,
       "wins": 0,
       "losses": 0,
       "pnl": 0.0
     },
     "v33_conviction": {
-      "blocked": 341,
+      "blocked": 342,
       "wins": 146,
       "losses": 126,
       "pnl": 59.26568352517137
@@ -5711,7 +5828,7 @@
       "pnl": 0.0
     },
     "v314_eth_conf": {
-      "blocked": 89,
+      "blocked": 91,
       "wins": 23,
       "losses": 31,
       "pnl": -12.890609880957298
