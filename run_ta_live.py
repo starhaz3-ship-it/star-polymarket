@@ -412,6 +412,14 @@ class TALiveTrader:
         # Data: After 2 losses WR=29.7% vs After 2 wins WR=63.8% (279 trades)
         self.momentum_pause_until = None  # datetime when pause expires
 
+        # V10.9: ML LOSS CASCADE TIGHTENING
+        # Rolling window of last N trade results. When rolling WR drops, auto-tighten filters.
+        # When WR recovers, auto-loosen back to defaults. Always protects against drawdown spirals.
+        self.rolling_results: list = []  # List of bools (True=win, False=loss), last 10 trades
+        self.ROLLING_WINDOW = 10
+        self.loss_cascade_active = False  # True when tightening is engaged
+        self.loss_cascade_level = 0  # 0=normal, 1=mild, 2=severe
+
         # Duplicate order protection - track markets we've traded this cycle
         self.recently_traded_markets: set = set()
 
@@ -566,6 +574,9 @@ class TALiveTrader:
                 self.start_time = data.get("start_time", self.start_time)
                 self.consecutive_wins = data.get("consecutive_wins", 0)
                 self.consecutive_losses = data.get("consecutive_losses", 0)
+                self.rolling_results = data.get("rolling_results", [])
+                self.loss_cascade_level = data.get("loss_cascade_level", 0)
+                self.loss_cascade_active = data.get("loss_cascade_active", False)
                 self.bankroll = data.get("bankroll", self.bankroll)
 
                 # Load ML state
@@ -639,10 +650,10 @@ class TALiveTrader:
                     if self.filter_mode == "STRICT":
                         self.MIN_EDGE = 0.25
                         self.LOW_EDGE_THRESHOLD = 0.25
-                        self.MAX_ENTRY_PRICE = 0.45
+                        self.MAX_ENTRY_PRICE = 0.52  # V10.9: Was 0.45. Shadow: +$63 blocked profit. Match class default.
                         self.MIN_ENTRY_PRICE = 0.25
                         self.ETH_MIN_CONFIDENCE = 0.70
-                        self.SOL_DOWN_MIN_EDGE = 0.35
+                        self.SOL_DOWN_MIN_EDGE = 0.20  # V10.9: Was 0.35. Shadow: 106 blocked, 54%WR, +$17.57 missed.
                         self.SKIP_HOURS_UTC = {5, 6, 8, 9, 10, 12, 14, 16}
                         self.MIN_TIME_REMAINING = 5.0
                         self.MAX_TIME_REMAINING = 9.0
@@ -754,6 +765,43 @@ class TALiveTrader:
 
                         result = "WIN" if won else "LOSS"
                         print(f"  [{result}] {trade.side} ${trade.pnl:+.2f} | {trade.market_title[:50]}")
+
+                        # V10.9: ML LOSS CASCADE — rolling window tightening
+                        self.rolling_results.append(won)
+                        if len(self.rolling_results) > self.ROLLING_WINDOW:
+                            self.rolling_results = self.rolling_results[-self.ROLLING_WINDOW:]
+                        if len(self.rolling_results) >= 5:
+                            rolling_wr = sum(self.rolling_results) / len(self.rolling_results)
+                            old_level = self.loss_cascade_level
+                            if rolling_wr < 0.30:
+                                # SEVERE: <30% WR over last 10 → max tighten
+                                self.loss_cascade_level = 2
+                                self.loss_cascade_active = True
+                                self.MAX_ENTRY_PRICE = 0.45
+                                self.SOL_DOWN_MIN_EDGE = 0.35
+                                self.UP_MIN_CONFIDENCE = 0.75
+                                self.MIN_EDGE = 0.30
+                            elif rolling_wr < 0.40:
+                                # MILD: <40% WR → moderate tighten
+                                self.loss_cascade_level = 1
+                                self.loss_cascade_active = True
+                                self.MAX_ENTRY_PRICE = 0.48
+                                self.SOL_DOWN_MIN_EDGE = 0.25
+                                self.UP_MIN_CONFIDENCE = 0.70
+                                self.MIN_EDGE = 0.20
+                            else:
+                                # NORMAL: >=40% WR → loosen back to defaults
+                                if self.loss_cascade_active:
+                                    self.MAX_ENTRY_PRICE = 0.52
+                                    self.SOL_DOWN_MIN_EDGE = 0.20
+                                    self.UP_MIN_CONFIDENCE = 0.68
+                                    self.MIN_EDGE = 0.12
+                                    print(f"  [CASCADE OFF] Rolling WR {rolling_wr:.0%} recovered — filters loosened to defaults")
+                                self.loss_cascade_level = 0
+                                self.loss_cascade_active = False
+                            if self.loss_cascade_level != old_level and self.loss_cascade_active:
+                                print(f"  [CASCADE L{self.loss_cascade_level}] Rolling WR {rolling_wr:.0%} ({sum(self.rolling_results)}W/{len(self.rolling_results)-sum(self.rolling_results)}L last {len(self.rolling_results)}) — MAX_PRICE=${self.MAX_ENTRY_PRICE} SOL_EDGE={self.SOL_DOWN_MIN_EDGE} UP_CONF={self.UP_MIN_CONFIDENCE}")
+
                         # V3.13: ML auto-tighten tracking for expensive DOWN trades
                         if trade.side == "DOWN" and trade.entry_price > 0.45:
                             self.DOWN_EXPENSIVE_TRADES += 1
@@ -799,6 +847,9 @@ class TALiveTrader:
             "ml_rejections": self.ml_rejections,
             "consecutive_wins": self.consecutive_wins,
             "consecutive_losses": self.consecutive_losses,
+            "rolling_results": self.rolling_results[-self.ROLLING_WINDOW:],
+            "loss_cascade_level": self.loss_cascade_level,
+            "loss_cascade_active": self.loss_cascade_active,
             "bankroll": self.bankroll,
             "ml_win_features": self.ml.win_features[-100:],  # Keep last 100
             "ml_loss_features": self.ml.loss_features[-100:],
@@ -2005,11 +2056,11 @@ class TALiveTrader:
                         # Tighten: cap at $0.50 even with high confidence. DOWN=99% WR, UP=82%.
                         effective_up_max = self.MAX_ENTRY_PRICE  # $0.52 base
                         if signal.model_up >= 0.85:
-                            effective_up_max = max(effective_up_max, 0.52)  # V3.18: Was 0.58
+                            effective_up_max = max(effective_up_max, 0.55)  # V10.9: Was 0.52. Shadow: 386 blocked, 54%WR, +$63 missed
                         elif signal.model_up >= 0.75:
-                            effective_up_max = max(effective_up_max, 0.50)  # V3.18: Was 0.52
+                            effective_up_max = max(effective_up_max, 0.52)  # V10.9: Was 0.50
                         elif signal.model_up >= 0.65:
-                            effective_up_max = max(effective_up_max, 0.46)  # V3.18: Was 0.48
+                            effective_up_max = max(effective_up_max, 0.48)  # V10.9: Was 0.46
 
                         if signal.model_up < up_conf_req:
                             skip_reason = f"UP_conf_{signal.model_up:.0%}<{up_conf_req:.0%}"
@@ -3038,10 +3089,10 @@ class TALiveTrader:
                 # Restore strict filter values
                 self.MIN_EDGE = 0.25
                 self.LOW_EDGE_THRESHOLD = 0.25
-                self.MAX_ENTRY_PRICE = 0.45
+                self.MAX_ENTRY_PRICE = 0.52  # V10.9: Was 0.45. Match class default.
                 self.MIN_ENTRY_PRICE = 0.25
                 self.ETH_MIN_CONFIDENCE = 0.70
-                self.SOL_DOWN_MIN_EDGE = 0.35
+                self.SOL_DOWN_MIN_EDGE = 0.20  # V10.9: Was 0.35. Match class default.
                 self.SKIP_HOURS_UTC = {5, 6, 8, 9, 10, 12, 14, 16}
                 self.MIN_TIME_REMAINING = 5.0
                 self.MAX_TIME_REMAINING = 9.0
@@ -3088,14 +3139,25 @@ class TALiveTrader:
         shadow_key = f"filter_{market_id}_{side}_{filter_name}"
         if shadow_key in self.shadow_trades:
             return  # Already tracking this one
+        now_utc = datetime.now(timezone.utc)
         self.shadow_trades[shadow_key] = {
             "asset": asset, "side": side, "entry_price": entry_price,
-            "entry_time": datetime.now(timezone.utc).isoformat(),
+            "entry_time": now_utc.isoformat(),
             "market_id": market_id,
             "market_title": f"[{asset}] {market_title[:75]}",
             "size_usd": size_usd,
             "status": "open", "reason": f"filter_{filter_name}",
             "filter_name": filter_name,
+            # V10.9: Extended shadow variables for ML analysis
+            "hour_utc": now_utc.hour,
+            "day_of_week": now_utc.weekday(),  # 0=Mon, 6=Sun
+            "price_bucket": round(entry_price, 1),  # $0.1 buckets
+            "garch_regime": self._last_garch.get("regime", "UNKNOWN"),
+            "garch_ratio": round(self._last_garch.get("ratio", 1.0), 2),
+            "ceemd_slope": round(self._last_ceemd.get("trend_slope", 0.0), 6),
+            "ceemd_noise": round(self._last_ceemd.get("noise_ratio", 0.5), 2),
+            "model_confidence": 0.0,  # Filled below
+            "cascade_level": self.loss_cascade_level,
         }
         # Init filter stats if new
         if filter_name not in self.filter_stats:
@@ -3144,6 +3206,16 @@ class TALiveTrader:
                     adjusted = True
                 elif fname == "edge_floor":
                     changes.append(f"[ML-EVOLVE] {fname}: Already tag-only (V3.18)")
+                elif fname == "v33_conviction" and not self.loss_cascade_active:
+                    old = self.MAX_ENTRY_PRICE
+                    self.MAX_ENTRY_PRICE = min(old + 0.02, 0.58)
+                    changes.append(f"[ML-EVOLVE] {fname}: MAX_ENTRY_PRICE {old:.2f} -> {self.MAX_ENTRY_PRICE:.2f}")
+                    adjusted = True
+                elif fname == "v310_sol_down_edge" and not self.loss_cascade_active:
+                    old = self.SOL_DOWN_MIN_EDGE
+                    self.SOL_DOWN_MIN_EDGE = max(old - 0.05, 0.10)
+                    changes.append(f"[ML-EVOLVE] {fname}: SOL_DOWN_MIN_EDGE {old:.2f} -> {self.SOL_DOWN_MIN_EDGE:.2f}")
+                    adjusted = True
                 else:
                     changes.append(f"[EVOLVE] WARNING: {fname} blocking {fwr:.0f}% winners (${fs['pnl']:+.2f} missed). No auto-fix mapped.")
                 # Reset stats after adjustment for clean re-evaluation
@@ -3209,6 +3281,52 @@ class TALiveTrader:
                 changes.append(f"[EVOLVE] WARNING: Overall WR {overall_wr:.0f}% is below 40%. Filters may be too loose or market regime shifted.")
             elif overall_wr > 65:
                 changes.append(f"[EVOLVE] STRONG: Overall WR {overall_wr:.0f}%. Current filters are working well.")
+
+        # 5. V10.9: MULTI-DIMENSIONAL SHADOW ANALYSIS
+        # Analyze resolved shadows by hour, price bucket, asset, regime to find hidden edges
+        resolved_shadows = [s for s in self.shadow_trades.values() if s.get("status") == "closed" and s.get("pnl") is not None]
+        if len(resolved_shadows) >= 20:
+            from collections import defaultdict
+            # By hour
+            hour_shadow = defaultdict(lambda: {"w": 0, "l": 0, "pnl": 0.0})
+            # By price bucket
+            price_shadow = defaultdict(lambda: {"w": 0, "l": 0, "pnl": 0.0})
+            # By asset
+            asset_shadow = defaultdict(lambda: {"w": 0, "l": 0, "pnl": 0.0})
+            # By GARCH regime
+            regime_shadow = defaultdict(lambda: {"w": 0, "l": 0, "pnl": 0.0})
+
+            for s in resolved_shadows:
+                won = s.get("pnl", 0) > 0
+                pnl = s.get("pnl", 0)
+                h = s.get("hour_utc", -1)
+                pb = s.get("price_bucket", -1)
+                a = s.get("asset", "?")
+                gr = s.get("garch_regime", "UNKNOWN")
+
+                for dim, key in [(hour_shadow, h), (price_shadow, pb), (asset_shadow, a), (regime_shadow, gr)]:
+                    if won:
+                        dim[key]["w"] += 1
+                    else:
+                        dim[key]["l"] += 1
+                    dim[key]["pnl"] += pnl
+
+            # Report gold mines (high WR, positive PnL blocked shadows) and disasters
+            changes.append(f"[SHADOW] {len(resolved_shadows)} resolved shadows analyzed:")
+            for label, dim_data in [("HOUR", hour_shadow), ("PRICE", price_shadow), ("ASSET", asset_shadow), ("REGIME", regime_shadow)]:
+                for key in sorted(dim_data.keys()):
+                    d = dim_data[key]
+                    total = d["w"] + d["l"]
+                    if total < 5:
+                        continue
+                    wr = d["w"] / total * 100
+                    tag = ""
+                    if wr >= 60 and d["pnl"] > 3:
+                        tag = " ** GOLD MINE — consider loosening"
+                    elif wr <= 30 and d["pnl"] < -3:
+                        tag = " ** DISASTER — keep blocked"
+                    if tag:
+                        changes.append(f"  [{label}={key}] {d['w']}W/{d['l']}L {wr:.0f}%WR ${d['pnl']:+.1f}{tag}")
 
         if changes:
             print(f"\n{'='*50}")
