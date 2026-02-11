@@ -63,7 +63,7 @@ class CopyTrader:
         "WickRick": "0x1c12abb42d0427e70e144ae67c92951b232f79d9",  # $21K PnL, 1 trade, $75K portfolio
         "BoshBashBish": "0x29bc82f761749e67fa00d62896bc6855097b683c",  # $147K PnL, 9,621 trades, $29M volume, 7 weeks old
         "NeverYES": "0xe55108581aec68af7686bd4cbc4f53ef93680a67",  # $107K portfolio, 17 trades
-        "Harmless-Critic": "0x1461cC6e1A05e20710c416307Db62C28f1D122d8",  # $737K portfolio, $4.5M volume, 192 markets
+        "Harmless-Critic": "0x1461cC6e1A05e20710c416307Db62C28f1D122d8",  # $244K PnL, $1M portfolio, $16M vol, 354 markets
         "distinct-baguette": "0xe00740bce98a594e26861838885ab310ec3b548c",  # $521K PnL, 30K trades, $47M vol - MARKET MAKER, DCA ladders both sides
         "DrPufferfish": "0xdb27bf2ac5d428a9c63dbc914611036855a6c56e",
         "PBot1": "0x88f46b9e5d86b4fb85be55ab0ec4004264b9d4db",  # $107K PnL, 6,098 trades, $7.6M volume
