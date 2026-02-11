@@ -87,6 +87,11 @@ class CopyTrader:
         # --- Weather Whales (added 2026-02-09) ---
         "automatedAItradingbot": "0xd8f8c13644ea84d62e1ec88c5d1215e436eb0f11",  # $65K profit, NYC/London/Seoul weather markets
         "0xf2e346ab": "0x8278252ebbf354eca8ce316e680a0eaf02859464",  # $1K->$24K since Apr 2025, London weather
+        # --- High-conviction whale (added 2026-02-10) ---
+        "98866": "0x7e6fda10646a4343358c84004859adfea1c0c022",  # $207K PnL, 11 markets, $955K vol, selective high-size bets
+        "Multicolored-Self": "0x492442eab586f242b53bda933fd5de859c8a3782",  # -$7.9M PnL, 804 markets, $280M vol — INVERSE SIGNAL candidate
+        "RetamzZ": "0x19f19dd8ee1f7e5f6ec666987e2963a65971a9c6",  # $38K PnL, 100% WR, 15m Up/Down oracle sniper, sweeps book at open
+        "Unripe-Terrace": "0xea48fde115f3b0eb3cebbbf654b0f9ca2710f2b2",  # $14K PnL, 1,878 markets, $63K vol, high-frequency micro trader
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]
