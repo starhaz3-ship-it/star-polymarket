@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-08T21:42:49.466657+00:00",
-  "last_updated": "2026-02-12T07:57:31.037421+00:00",
+  "last_updated": "2026-02-12T12:31:08.876958+00:00",
   "dry_run": false,
   "trades": {
     "0xefb50b4d430aa8e42ccb0a77b6729b31b0c0f7d4f40ae1e60f642f2868d0e560_UP": {
@@ -3483,14 +3483,14 @@
   "total_pnl": 24.0421,
   "wins": 24,
   "losses": 18,
-  "signals_count": 4834,
+  "signals_count": 4836,
   "ml_rejections": 0,
   "consecutive_wins": 3,
   "consecutive_losses": 0,
   "rolling_results": [],
   "loss_cascade_level": 0,
   "loss_cascade_active": false,
-  "bankroll": 26.414838,
+  "bankroll": 40.314838,
   "ml_win_features": [
     {
       "rsi": 80.71328743723713,
@@ -7544,7 +7544,7 @@
       "market_id": "0xb8407b7b0dce95a64186ad4a261ceda3d69bc0c18a712c248020c6f155a37898",
       "market_title": "[BTC] Bitcoin Up or Down - February 12, 2:45AM-3:00AM ET",
       "size_usd": 5.0,
-      "status": "open",
+      "status": "closed",
       "reason": "filter_v33_conviction",
       "filter_name": "v33_conviction",
       "hour_utc": 7,
@@ -7556,7 +7556,10 @@
       "ceemd_noise": 0.83,
       "model_confidence": 0.0,
       "cascade_level": 0,
-      "session": "LONDON_KILL"
+      "session": "LONDON_KILL",
+      "pnl": 0.0,
+      "exit_price": 0.475,
+      "exit_time": "2026-02-12T12:30:26.606345+00:00"
     },
     "filter_0x57a112ec940ffc284ef7c26be3f32a5b5cdb4d8ee8202b01c47f05ed2eb08a89_DOWN_v310_sol_down_edge": {
       "asset": "SOL",
@@ -7566,7 +7569,7 @@
       "market_id": "0x57a112ec940ffc284ef7c26be3f32a5b5cdb4d8ee8202b01c47f05ed2eb08a89",
       "market_title": "[SOL] Solana Up or Down - February 12, 2:45AM-3:00AM ET",
       "size_usd": 5.0,
-      "status": "open",
+      "status": "closed",
       "reason": "filter_v310_sol_down_edge",
       "filter_name": "v310_sol_down_edge",
       "hour_utc": 7,
@@ -7578,7 +7581,10 @@
       "ceemd_noise": 0.83,
       "model_confidence": 0.0,
       "cascade_level": 0,
-      "session": "LONDON_KILL"
+      "session": "LONDON_KILL",
+      "pnl": 0.0,
+      "exit_price": 0.455,
+      "exit_time": "2026-02-12T12:30:26.606345+00:00"
     },
     "filter_0x2b482a13c4af1c183d933acce433cba2457277e57dd6009799ce7e8e316958af_UP_v314_eth_conf": {
       "asset": "ETH",
@@ -7588,7 +7594,7 @@
       "market_id": "0x2b482a13c4af1c183d933acce433cba2457277e57dd6009799ce7e8e316958af",
       "market_title": "[ETH] Ethereum Up or Down - February 12, 2:45AM-3:00AM ET",
       "size_usd": 5.0,
-      "status": "open",
+      "status": "closed",
       "reason": "filter_v314_eth_conf",
       "filter_name": "v314_eth_conf",
       "hour_utc": 7,
@@ -7600,7 +7606,10 @@
       "ceemd_noise": 0.83,
       "model_confidence": 0.0,
       "cascade_level": 0,
-      "session": "LONDON_KILL"
+      "session": "LONDON_KILL",
+      "pnl": 0.0,
+      "exit_price": 0.425,
+      "exit_time": "2026-02-12T12:30:26.606345+00:00"
     },
     "filter_0x57a112ec940ffc284ef7c26be3f32a5b5cdb4d8ee8202b01c47f05ed2eb08a89_DOWN_v33_conviction": {
       "asset": "SOL",
@@ -7610,7 +7619,7 @@
       "market_id": "0x57a112ec940ffc284ef7c26be3f32a5b5cdb4d8ee8202b01c47f05ed2eb08a89",
       "market_title": "[SOL] Solana Up or Down - February 12, 2:45AM-3:00AM ET",
       "size_usd": 5.0,
-      "status": "open",
+      "status": "closed",
       "reason": "filter_v33_conviction",
       "filter_name": "v33_conviction",
       "hour_utc": 7,
@@ -7622,7 +7631,10 @@
       "ceemd_noise": 0.89,
       "model_confidence": 0.0,
       "cascade_level": 0,
-      "session": "LONDON_KILL"
+      "session": "LONDON_KILL",
+      "pnl": 0.0,
+      "exit_price": 0.415,
+      "exit_time": "2026-02-12T12:30:26.606345+00:00"
     },
     "filter_0xb8407b7b0dce95a64186ad4a261ceda3d69bc0c18a712c248020c6f155a37898_DOWN_v1010_session": {
       "asset": "BTC",
@@ -7632,7 +7644,7 @@
       "market_id": "0xb8407b7b0dce95a64186ad4a261ceda3d69bc0c18a712c248020c6f155a37898",
       "market_title": "[BTC] Bitcoin Up or Down - February 12, 2:45AM-3:00AM ET",
       "size_usd": 5.0,
-      "status": "open",
+      "status": "closed",
       "reason": "filter_v1010_session",
       "filter_name": "v1010_session",
       "hour_utc": 7,
@@ -7644,7 +7656,10 @@
       "ceemd_noise": 0.44,
       "model_confidence": 0.0,
       "cascade_level": 0,
-      "session": "LONDON_KILL"
+      "session": "LONDON_KILL",
+      "pnl": 0.0,
+      "exit_price": 0.525,
+      "exit_time": "2026-02-12T12:30:26.606345+00:00"
     }
   },
   "shadow_stats": {
@@ -7698,7 +7713,7 @@
       "pnl": 0.0
     },
     "edge_floor": {
-      "blocked": 1,
+      "blocked": 0,
       "wins": 0,
       "losses": 0,
       "pnl": 0.0
