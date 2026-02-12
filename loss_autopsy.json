@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "total_losses_analyzed": 21,
+  "total_losses_analyzed": 22,
   "reports": [
     {
       "timestamp": "2026-02-10T03:47:19.792026+00:00",
@@ -709,6 +709,30 @@
       "diagnosis": "HIGH: Multiple danger patterns (UP_expensive, VWAP_dislocated)",
       "recommendation": "[FIX #7] VWAP distance > 0.50 = price far from fair value, avoid (triggered 7x total)",
       "severity": "HIGH"
+    },
+    {
+      "timestamp": "2026-02-11T17:51:08.519364+00:00",
+      "trade_id": "0x706ccd72c120101fed212d48788f52592b1074fe346d72207c602c4eb9eccbd5_UP",
+      "asset": "SOL",
+      "side": "UP",
+      "entry_price": 0.38,
+      "exit_price": 0.005,
+      "pnl": -3.0,
+      "size_usd": 3.0,
+      "entry_hour": 17,
+      "triggers": [],
+      "diagnosis": "No known pattern matched - novel loss type. Needs manual review.",
+      "recommendation": "",
+      "severity": "LOW",
+      "deviations_from_winners": [
+        {
+          "field": "kl_divergence",
+          "loss_value": 0.4667,
+          "win_average": 0.2784,
+          "z_score": 1.74,
+          "note": "kl_divergence is 1.7 std devs above winning average"
+        }
+      ]
     }
   ],
   "pattern_counts": {

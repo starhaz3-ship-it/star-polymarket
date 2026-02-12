@@ -961,17 +961,72 @@ class TALiveTrader:
     TREND_BIAS_WEAK = 0.30     # Capital % for counter-trend trades (30% less)
 
     # Trading hours filter (UTC) - skip low-WR hours
-    # V3.5: Expanded from {0,1,8,22,23} based on overnight massacre:
-    #   08h: 0W/4L (-$15.38), 10h: 0W/2L (-$13.10), 11h: 0W/2L (-$9.44)
-    #   12h: 0W/7L (-$51.94), 13h: 0W/1L (-$6.72), 15h: 0W/2L (-$14.12)
-    #   20h: 0W/2L (-$8.78)
-    # Shadow-tracked on paper account for re-evaluation
-    # V3.6: Reopened UTC 10-13 (73-80% WR in paper, +$222 from 34 trades)
-    # Only skip: UTC 1 (no data), UTC 8 (20% WR), UTC 14 (33% WR), UTC 15 (no data)
-    # V3.15: Reduced from 8 to 4 skip hours to increase trade flow.
-    # Keep only the absolute worst: 8 (20% WR), 12 (-$52 PnL), 5 (0 data), 16 (worst).
-    # Auto-revert will catch if reopened hours lose money.
+    # V3.15: Reduced to minimum. Auto-revert catches losers.
     SKIP_HOURS_UTC = {5, 8, 12, 15, 16}  # V10.9: Added 15 (0W/4L, -$8.43)
+
+    # === V10.10: SESSION-BASED TRADING (from PolyData + microstructure research) ===
+    # PolyData analysis of 87K crypto Up/Down markets shows:
+    #   - Crypto 15-min markets are HIGHLY efficient (near-zero edge at 30-70c)
+    #   - Only 80-99c shows consistent positive EV (+0.3 to +0.7pp)
+    #   - Edge comes from TIMING, not price selection
+    # Session rules based on BTC market microstructure:
+    #   ASIAN  (UTC 0-8, EST 7PM-3AM): Low vol, mean-reversion. FADE extremes.
+    #   LONDON (UTC 7-10, EST 2AM-5AM): Expansion after Asian sweep. Trade POST-SWEEP.
+    #   NY_OPEN (UTC 12-16, EST 7AM-11AM): Max volatility. Follow CONFIRMED breaks.
+    #   LONDON_CLOSE (UTC 15-17, EST 10AM-12PM): Exhaustion. FADE overextension.
+    #   WEEKEND: Thin liquidity, fake breakouts. REDUCE size, mean-revert only.
+    SESSION_CONFIGS = {
+        "ASIAN": {
+            "hours_utc": {0, 1, 2, 3, 4, 5, 6, 7},
+            "style": "MEAN_REVERT",     # Fade extremes
+            "confidence_boost": 0.0,     # Standard confidence
+            "size_mult": 1.0,            # Normal size
+            "prefer_side": None,         # No bias
+            "require_vwap_stretch": True, # Only trade when price far from VWAP
+            "min_atr_ratio": 0.0,        # No ATR gate
+            "max_momentum": 0.003,       # Fade if momentum < 0.3% (compression)
+        },
+        "LONDON_KILL": {
+            "hours_utc": {7, 8, 9, 10},
+            "style": "POST_SWEEP",       # Trade after liquidity grab
+            "confidence_boost": 0.05,    # Need more conviction after sweep
+            "size_mult": 1.1,            # Slight boost — high opportunity
+            "prefer_side": None,
+            "require_vwap_stretch": False,
+            "min_atr_ratio": 1.0,        # Need volatility expansion
+            "max_momentum": None,         # No momentum cap
+        },
+        "NY_OPEN": {
+            "hours_utc": {12, 13, 14, 15, 16},
+            "style": "MOMENTUM",          # Follow confirmed breaks
+            "confidence_boost": 0.0,
+            "size_mult": 1.15,            # Best session for momentum — boost
+            "prefer_side": None,
+            "require_vwap_stretch": False,
+            "min_atr_ratio": 0.8,         # Need vol expansion
+            "max_momentum": None,
+        },
+        "LONDON_CLOSE": {
+            "hours_utc": {15, 16, 17},
+            "style": "FADE_EXHAUSTION",   # Fade overextended trends
+            "confidence_boost": 0.05,     # Need more conviction to fade
+            "size_mult": 0.85,            # Reduce — lower quality
+            "prefer_side": None,
+            "require_vwap_stretch": True,  # Only fade when stretched
+            "min_atr_ratio": 0.0,
+            "max_momentum": None,
+        },
+        "OTHER": {
+            "hours_utc": set(),           # Fallback
+            "style": "STANDARD",
+            "confidence_boost": 0.0,
+            "size_mult": 1.0,
+            "prefer_side": None,
+            "require_vwap_stretch": False,
+            "min_atr_ratio": 0.0,
+            "max_momentum": None,
+        },
+    }
 
     def _ema(self, candles, period: int) -> float:
         """Calculate EMA from candle close prices."""
@@ -983,6 +1038,135 @@ class TALiveTrader:
         for price in closes[period:]:
             ema = (price - ema) * mult + ema
         return ema
+
+    def _get_session(self) -> dict:
+        """V10.10: Detect current BTC trading session and return session config.
+
+        Session priority: LONDON_KILL > LONDON_CLOSE > NY_OPEN > ASIAN > OTHER
+        Weekend detection reduces all session sizes by 30%.
+
+        Returns dict with: name, style, confidence_boost, size_mult, etc.
+        """
+        now = datetime.now(timezone.utc)
+        hour = now.hour
+        is_weekend = now.weekday() >= 5  # Saturday=5, Sunday=6
+
+        # Match session (priority order — overlapping hours resolved here)
+        session_name = "OTHER"
+        if hour in {7, 8, 9, 10}:
+            session_name = "LONDON_KILL"
+        elif hour in {15, 16, 17}:
+            session_name = "LONDON_CLOSE"
+        elif hour in {12, 13, 14}:
+            session_name = "NY_OPEN"
+        elif hour in {0, 1, 2, 3, 4, 5, 6}:
+            session_name = "ASIAN"
+        elif hour in {18, 19, 20, 21, 22, 23}:
+            session_name = "OTHER"  # US afternoon / Asia pre-open
+
+        config = dict(self.SESSION_CONFIGS.get(session_name, self.SESSION_CONFIGS["OTHER"]))
+        config["name"] = session_name
+
+        # Weekend override: reduce size, force mean-revert style
+        if is_weekend:
+            config["size_mult"] *= 0.70  # 30% size reduction on weekends
+            config["confidence_boost"] += 0.05  # Need more conviction
+            config["name"] = f"{session_name}_WKND"
+            # Weekend = more fake breakouts, prefer mean reversion
+            if config["style"] == "MOMENTUM":
+                config["style"] = "MEAN_REVERT"
+
+        return config
+
+    def _session_filter(self, candles, signal_side: str, entry_price: float, session: dict) -> str:
+        """V10.10: Session-aware signal filtering. Returns skip_reason or None to proceed.
+
+        ASIAN: Only trade when price is stretched from VWAP (mean reversion).
+               Fade extremes. Don't follow breakouts.
+        LONDON_KILL: Only trade AFTER a sweep (price broke then reversed back).
+                     Need volume expansion.
+        NY_OPEN: Follow confirmed momentum. Need ATR expansion.
+        LONDON_CLOSE: Fade overextended moves only.
+        """
+        if not candles or len(candles) < 30:
+            return None  # Not enough data for session analysis
+
+        style = session.get("style", "STANDARD")
+        price = candles[-1].close
+
+        # Compute VWAP (simple average of close * volume / total volume)
+        vwap_prices = [(c.close * c.volume, c.volume) for c in candles[-30:] if c.volume > 0]
+        if vwap_prices:
+            vwap = sum(pv for pv, _ in vwap_prices) / sum(v for _, v in vwap_prices)
+            vwap_distance = abs(price - vwap) / vwap if vwap > 0 else 0
+        else:
+            vwap = price
+            vwap_distance = 0
+
+        # Price momentum (5-candle)
+        momentum = self._get_price_momentum(candles, lookback=5)
+
+        # ATR ratio (recent vs historical)
+        atr_val = self._compute_atr(candles[:-3], 14)
+        if atr_val > 0:
+            recent_ranges = [c.high - c.low for c in candles[-3:]]
+            avg_recent = sum(recent_ranges) / len(recent_ranges) if recent_ranges else 0
+            atr_ratio = avg_recent / atr_val
+        else:
+            atr_ratio = 1.0
+
+        # MACD check (12/26/9)
+        macd_expanding = False
+        if len(candles) >= 35:
+            ema12 = self._ema(candles, 12)
+            ema26 = self._ema(candles, 26)
+            macd_now = ema12 - ema26
+            ema12_prev = self._ema(candles[:-1], 12)
+            ema26_prev = self._ema(candles[:-1], 26)
+            macd_prev = ema12_prev - ema26_prev
+            macd_expanding = abs(macd_now) > abs(macd_prev)
+
+        if style == "MEAN_REVERT":
+            # ASIAN: Only trade when stretched from VWAP
+            if session.get("require_vwap_stretch") and vwap_distance < 0.001:
+                return f"SESSION_{session['name']}_no_vwap_stretch({vwap_distance:.4f}<0.001)"
+            # Don't follow momentum in Asian — fade it
+            if session.get("max_momentum") and abs(momentum) > session["max_momentum"]:
+                # In mean-revert, high momentum is OK if we're FADING it
+                if signal_side == "UP" and momentum > session["max_momentum"]:
+                    return f"SESSION_{session['name']}_chasing_momentum_UP({momentum:.4f})"
+                elif signal_side == "DOWN" and momentum < -session["max_momentum"]:
+                    return f"SESSION_{session['name']}_chasing_momentum_DOWN({momentum:.4f})"
+
+        elif style == "POST_SWEEP":
+            # LONDON: Need ATR expansion
+            min_atr = session.get("min_atr_ratio", 0)
+            if min_atr > 0 and atr_ratio < min_atr:
+                return f"SESSION_{session['name']}_low_atr({atr_ratio:.1f}<{min_atr})"
+
+        elif style == "MOMENTUM":
+            # NY: Need ATR expansion + MACD should be expanding
+            min_atr = session.get("min_atr_ratio", 0)
+            if min_atr > 0 and atr_ratio < min_atr:
+                return f"SESSION_{session['name']}_low_atr({atr_ratio:.1f}<{min_atr})"
+            # In momentum mode, trade WITH the trend, not against
+            if signal_side == "UP" and momentum < -0.002:
+                return f"SESSION_{session['name']}_counter_trend_UP(mom={momentum:.4f})"
+            elif signal_side == "DOWN" and momentum > 0.002:
+                return f"SESSION_{session['name']}_counter_trend_DOWN(mom={momentum:.4f})"
+
+        elif style == "FADE_EXHAUSTION":
+            # LONDON_CLOSE: Only fade when price is stretched and momentum fading
+            if session.get("require_vwap_stretch") and vwap_distance < 0.001:
+                return f"SESSION_{session['name']}_no_stretch({vwap_distance:.4f})"
+            # Should be fading: UP signal when momentum is negative (fading down move)
+            # or DOWN signal when momentum is positive (fading up move)
+            if signal_side == "UP" and momentum > 0.002:
+                return f"SESSION_{session['name']}_not_fading_UP(mom={momentum:.4f})"
+            elif signal_side == "DOWN" and momentum < -0.002:
+                return f"SESSION_{session['name']}_not_fading_DOWN(mom={momentum:.4f})"
+
+        return None  # Passed session filter
 
     def _get_trend_bias(self, candles, price: float) -> str:
         """V3.13: Dual-timeframe trend — 200 EMA for macro + 30-min slope for active moves.
@@ -1693,7 +1877,7 @@ class TALiveTrader:
     MIN_EDGE = 0.12              # V3.15: Was 0.25, blocked +$26.88 in winners. Loosened.
     LOW_EDGE_THRESHOLD = 0.18    # V3.15: Was 0.25, match new floor
     MAX_ENTRY_PRICE = 0.52       # V3.15: Was 0.45, blocked 87 winners. Widened.
-    DOWN_MAX_PRICE = 0.65        # V3.13: Dynamic DOWN cap
+    DOWN_MAX_PRICE = 0.72        # V10.10: Was 0.65. PolyData: 70-74c WR=72.5%, +0.0pp. 75c+ is positive EV.
     DOWN_EXPENSIVE_TRADES = 0    # ML auto-tighten: count trades where DOWN > $0.45
     DOWN_EXPENSIVE_WINS = 0      # ML auto-tighten: wins where DOWN > $0.45
     DOWN_EXPENSIVE_LOSSES = 0    # ML auto-tighten: losses where DOWN > $0.45
@@ -1725,9 +1909,9 @@ class TALiveTrader:
     # === IH2P ADAPTATIONS (ALL DISABLED — capital rebuild mode) ===
     # DCA caused double-betting ($6.80 + $3.78 topup = $10.58 per market).
     # With 7 ghost processes, each one doing DCA = $21+ per market. NEVER AGAIN.
-    BOND_MODE_ENABLED = True      # V3.15c: Enabled for directional markets ($0.85+ sides)
-    BOND_MIN_CONFIDENCE = 0.40    # V3.15c: Lowered — market price ($0.85+) IS the confidence signal, model just can't disagree
-    BOND_MIN_PRICE = 0.85         # Entry price must be $0.85+
+    BOND_MODE_ENABLED = True      # V3.15c: Enabled for directional markets ($0.80+ sides)
+    BOND_MIN_CONFIDENCE = 0.40    # V3.15c: Lowered — market price ($0.80+) IS the confidence signal, model just can't disagree
+    BOND_MIN_PRICE = 0.80         # V10.10: Was 0.85. PolyData: 80-84c WR=82.8%, +0.3pp edge. Lower threshold.
     DCA_ENABLED = False           # DISABLED: No DCA stacking during capital rebuild
     DCA_INITIAL_RATIO = 0.60      # First entry: 60% of position
     DCA_TOPUP_RATIO = 0.40        # Second entry: 40% (next scan, same or better price)
@@ -1830,12 +2014,25 @@ class TALiveTrader:
             if 0.45 <= ep <= 0.55:
                 size *= 1.20  # 20% boost in the sweet spot
 
+        # === V10.10: SESSION-BASED SIZE MULTIPLIER ===
+        # PolyData: Crypto 15-min markets are efficient. Edge comes from timing.
+        # Weekend trades get 30% reduction. NY open gets 15% boost.
+        session = self._get_session()
+        session_mult = session.get("size_mult", 1.0)
+        if session_mult != 1.0:
+            size *= session_mult
+
         # Hard clamp — HARD_MAX_BET is the absolute ceiling
         size = max(self.MIN_POSITION_SIZE, min(self.HARD_MAX_BET, size))
         return round(size, 2)
 
     async def run_cycle(self):
         """Run one trading cycle across all assets."""
+        # V10.10: Session awareness
+        current_session = self._get_session()
+        if self.signals_count % 20 == 0:
+            print(f"[SESSION] {current_session['name']} ({current_session['style']}) | size: {current_session.get('size_mult', 1.0):.2f}x")
+
         # Skip low win-rate hours — still resolve open trades, just don't place new ones
         current_hour = datetime.now(timezone.utc).hour
         is_skip_hour = current_hour in self.SKIP_HOURS_UTC
@@ -2078,9 +2275,12 @@ class TALiveTrader:
                         # V3.15: UP momentum check REMOVED — was blocking winners in v33_conviction
 
                 elif signal.side == "DOWN":
-                    # DEATH ZONE: $0.40-0.45 = 14% WR, -$321 PnL. NEVER trade here. (V3.3)
-                    if 0.40 <= down_price < 0.45:
-                        skip_reason = f"DOWN_DEATH_ZONE_{down_price:.2f}_(14%WR)"
+                    # DEATH ZONE: $0.35-0.45 = negative EV in PolyData (87K crypto markets)
+                    # V10.10: Extended from $0.40-0.45 to $0.35-0.45 based on PolyData analysis:
+                    #   35-39c: -0.8pp edge (ONLY losing bucket in overall data)
+                    #   40-44c: -0.7pp edge on crypto specifically
+                    if 0.35 <= down_price < 0.45:
+                        skip_reason = f"DOWN_DEATH_ZONE_{down_price:.2f}_(PolyData:-0.8pp)"
                     # V3.15: Loosened from $0.35 to $0.25 (was blocking winners)
                     elif down_price < 0.25:
                         skip_reason = f"DOWN_cheap_{down_price:.2f}_(V3.15_block)"
@@ -2107,11 +2307,11 @@ class TALiveTrader:
                                 effective_down_max = 0.45
                                 print(f"  [{asset}] ML-TIGHTEN: DOWN>${0.45} has {self.DOWN_EXPENSIVE_WINS}W/{self.DOWN_EXPENSIVE_LOSSES}L, PnL=${self.DOWN_EXPENSIVE_PNL:+.2f} — capped at $0.45")
                             elif signal.model_down >= 0.85:
-                                effective_down_max = max(effective_down_max, self.DOWN_MAX_PRICE)  # $0.65
+                                effective_down_max = max(effective_down_max, self.DOWN_MAX_PRICE)  # $0.72
                             elif signal.model_down >= 0.75:
-                                effective_down_max = max(effective_down_max, 0.58)
+                                effective_down_max = max(effective_down_max, 0.65)  # V10.10: Was 0.58. PolyData: 60-64c WR=62.5%
                             elif signal.model_down >= 0.65:
-                                effective_down_max = max(effective_down_max, 0.52)
+                                effective_down_max = max(effective_down_max, 0.58)  # V10.10: Was 0.52. PolyData: 55-59c WR=57.2%
 
                             if down_price > effective_down_max:
                                 skip_reason = f"DOWN_price_{down_price:.2f}>{effective_down_max:.2f}"
@@ -2171,6 +2371,18 @@ class TALiveTrader:
                         continue
                     if nyu_result.recommended_action == "TRADE":
                         print(f"  [{asset}] NYU TRADE: edge={nyu_result.edge_score:.2f}, vol={nyu_result.instantaneous_volatility:.3f}")
+
+                # === V10.10: SESSION-BASED FILTER ===
+                # Uses current BTC trading session to adjust behavior.
+                # Asian=fade extremes, London=post-sweep, NY=momentum, Close=fade exhaustion
+                if not is_bond_trade:
+                    session = self._get_session()
+                    ep = up_price if signal.side == "UP" else down_price
+                    session_skip = self._session_filter(candles, signal.side, ep, session)
+                    if session_skip:
+                        print(f"  [{asset}] {session_skip}")
+                        self._record_filter_shadow(asset, signal.side, ep, market_id, question, "v1010_session")
+                        continue
 
                 if signal.action == "ENTER" and signal.side and trade_key:
                     if trade_key not in self.trades:
@@ -2493,6 +2705,10 @@ class TALiveTrader:
                         trade_features["_ceemd_aligned"] = ceemd_aligned
                         trade_features["_ceemd_trend_slope"] = ceemd["trend_slope"]
                         trade_features["_ceemd_noise_ratio"] = ceemd["noise_ratio"]
+                        # V10.10: Session info for analysis
+                        session = self._get_session()
+                        trade_features["_session"] = session.get("name", "UNKNOWN")
+                        trade_features["_session_style"] = session.get("style", "STANDARD")
 
                         new_trade = LiveTrade(
                             trade_id=trade_key,
@@ -3168,6 +3384,7 @@ class TALiveTrader:
             "ceemd_noise": round(self._last_ceemd.get("noise_ratio", 0.5), 2),
             "model_confidence": 0.0,  # Filled below
             "cascade_level": self.loss_cascade_level,
+            "session": self._get_session().get("name", "UNKNOWN"),  # V10.10
         }
         # Init filter stats if new
         if filter_name not in self.filter_stats:
@@ -3601,6 +3818,8 @@ class TALiveTrader:
         print(f"DOWN: Death zone $0.40-0.45=SKIP | Break-even conf for cheap | Momentum confirm >{self.DOWN_MIN_MOMENTUM_DROP}")
         print(f"NYU model: edge_score>0.15 (avoid 50% zone)")
         print(f"Skip Hours (UTC): {sorted(self.SKIP_HOURS_UTC)}")
+        session = self._get_session()
+        print(f"Session: {session['name']} ({session['style']}) | Size mult: {session.get('size_mult', 1.0):.2f}x")
         print(f"Entry Window: {self.MIN_TIME_REMAINING}-{self.MAX_TIME_REMAINING} min")
         print(f"Scan interval: 30 seconds (+ auto-redeem every 30s)")
         print("=" * 70)
