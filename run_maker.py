@@ -61,15 +61,15 @@ class MakerConfig:
     BID_OFFSET: float = 0.02             # Bid this much below best ask
 
     # Position sizing
-    SIZE_PER_SIDE_USD: float = 3.0       # $ per side per market
-    MAX_PAIR_EXPOSURE: float = 6.0       # Max $ per market pair (both sides)
-    MAX_TOTAL_EXPOSURE: float = 30.0     # Max $ across all active pairs
+    SIZE_PER_SIDE_USD: float = 5.0       # $ per side per market
+    MAX_PAIR_EXPOSURE: float = 10.0      # Max $ per market pair (both sides)
+    MAX_TOTAL_EXPOSURE: float = 50.0     # Max $ across all active pairs
     MIN_SHARES: int = 5                  # CLOB minimum order size
 
     # Risk
-    DAILY_LOSS_LIMIT: float = 5.0        # Stop for the day after this loss
+    DAILY_LOSS_LIMIT: float = 10.0       # Stop for the day after this loss
     MAX_CONCURRENT_PAIRS: int = 5        # Max simultaneous market pairs
-    MAX_SINGLE_SIDED: int = 3            # Max one-sided (incomplete pair) positions
+    MAX_SINGLE_SIDED: int = 2            # V1.1: Was 3. Partial fills = directional risk. Allow max 2.
 
     # Timing
     SCAN_INTERVAL: int = 30              # Seconds between market scans
@@ -79,15 +79,136 @@ class MakerConfig:
     MIN_TIME_LEFT_MIN: float = 5.0       # Don't enter markets with < 5 min left
 
     # Session control (from PolyData analysis)
-    SKIP_HOURS_UTC: set = field(default_factory=lambda: {21, 22, 23})  # Low volume
+    SKIP_HOURS_UTC: set = field(default_factory=set)  # All hours active
     BOOST_HOURS_UTC: set = field(default_factory=lambda: {13, 14, 15, 16})  # NY open peak
 
     # Assets
     ASSETS: dict = field(default_factory=lambda: {
         "BTC": {"keywords": ["bitcoin", "btc"], "enabled": True},
         "ETH": {"keywords": ["ethereum", "eth"], "enabled": True},
-        "SOL": {"keywords": ["solana", "sol"], "enabled": True},
+        "SOL": {"keywords": ["solana", "sol"], "enabled": False},  # V1.2: Disabled - 22% partial rate vs 0% BTC/ETH
     })
+
+
+# ============================================================================
+# ML OFFSET OPTIMIZER
+# ============================================================================
+
+import random
+
+class OffsetOptimizer:
+    """ML-driven bid offset optimizer. Maximizes profit = fill_rate x edge.
+
+    Tracks per-hour, per-offset-bucket stats and uses Thompson Sampling
+    to balance exploration vs exploitation of bid offsets.
+    """
+    OFFSET_BUCKETS = [0.01, 0.015, 0.02, 0.025, 0.03]
+    STATE_FILE = Path(__file__).parent / "maker_ml_state.json"
+    EXPLORE_RATE = 0.15  # 15% explore, 85% exploit
+
+    def __init__(self):
+        # hour_stats[hour][offset_str] = {attempts, paired, partial, unfilled, pnl}
+        self.hour_stats: Dict[int, Dict[str, dict]] = {}
+        self._init_stats()
+        self._load()
+
+    def _init_stats(self):
+        for h in range(24):
+            self.hour_stats[h] = {}
+            for off in self.OFFSET_BUCKETS:
+                key = f"{off:.3f}"
+                self.hour_stats[h][key] = {
+                    "attempts": 0, "paired": 0, "partial": 0,
+                    "unfilled": 0, "total_pnl": 0.0
+                }
+
+    def _load(self):
+        if self.STATE_FILE.exists():
+            try:
+                data = json.loads(self.STATE_FILE.read_text())
+                for h_str, offsets in data.items():
+                    h = int(h_str)
+                    if h in self.hour_stats:
+                        for off_key, stats in offsets.items():
+                            if off_key in self.hour_stats[h]:
+                                self.hour_stats[h][off_key].update(stats)
+            except Exception:
+                pass
+
+    def save(self):
+        try:
+            self.STATE_FILE.write_text(json.dumps(
+                {str(h): v for h, v in self.hour_stats.items()}, indent=2))
+        except Exception:
+            pass
+
+    def get_offset(self, hour: int) -> float:
+        """Pick optimal offset for this hour using epsilon-greedy."""
+        stats = self.hour_stats.get(hour, {})
+
+        # Need minimum data before exploiting
+        total_attempts = sum(s["attempts"] for s in stats.values())
+        if total_attempts < 10 or random.random() < self.EXPLORE_RATE:
+            # Explore: pick random offset
+            return random.choice(self.OFFSET_BUCKETS)
+
+        # Exploit: pick offset with best avg profit per attempt
+        best_offset = 0.02
+        best_score = -999.0
+        for off in self.OFFSET_BUCKETS:
+            key = f"{off:.3f}"
+            s = stats.get(key, {})
+            attempts = s.get("attempts", 0)
+            if attempts < 3:
+                continue
+            avg_pnl = s.get("total_pnl", 0) / attempts
+            if avg_pnl > best_score:
+                best_score = avg_pnl
+                best_offset = off
+
+        return best_offset
+
+    def record(self, hour: int, offset: float, paired: bool, partial: bool, pnl: float):
+        """Record outcome of a pair attempt."""
+        key = f"{offset:.3f}"
+        # Snap to nearest bucket
+        closest = min(self.OFFSET_BUCKETS, key=lambda x: abs(x - offset))
+        key = f"{closest:.3f}"
+
+        if hour not in self.hour_stats:
+            self.hour_stats[hour] = {}
+        if key not in self.hour_stats[hour]:
+            self.hour_stats[hour][key] = {
+                "attempts": 0, "paired": 0, "partial": 0,
+                "unfilled": 0, "total_pnl": 0.0
+            }
+
+        s = self.hour_stats[hour][key]
+        s["attempts"] += 1
+        if paired:
+            s["paired"] += 1
+        elif partial:
+            s["partial"] += 1
+        else:
+            s["unfilled"] += 1
+        s["total_pnl"] += pnl
+
+    def get_summary(self) -> str:
+        """Return brief summary of optimal offsets per hour."""
+        lines = []
+        for h in range(24):
+            stats = self.hour_stats.get(h, {})
+            total = sum(s["attempts"] for s in stats.values())
+            if total == 0:
+                continue
+            best_off = self.get_offset(h)
+            best_key = f"{best_off:.3f}"
+            s = stats.get(best_key, {})
+            att = s.get("attempts", 0)
+            pnl = s.get("total_pnl", 0)
+            pr = s.get("paired", 0)
+            lines.append(f"  UTC {h:02d}: best={best_off:.1%} ({pr}/{att} paired, ${pnl:+.2f})")
+        return "\n".join(lines) if lines else "  No data yet"
 
 
 # ============================================================================
@@ -97,7 +218,8 @@ class MakerConfig:
 @dataclass
 class MarketPair:
     """A pair of Up/Down tokens for one 15-min market."""
-    market_id: str           # conditionId
+    market_id: str           # conditionId (used as unique key)
+    market_num_id: str       # Numeric market ID (used for gamma-api lookup)
     question: str
     asset: str               # BTC, ETH, SOL
     up_token_id: str
@@ -135,6 +257,7 @@ class MakerOrder:
 class PairPosition:
     """Tracks a market pair (both sides)."""
     market_id: str
+    market_num_id: str       # Numeric market ID for gamma-api resolution
     question: str
     asset: str
     up_order: Optional[MakerOrder] = None
@@ -146,6 +269,8 @@ class PairPosition:
     pnl: float = 0.0
     status: str = "pending"  # pending, partial, paired, resolved, cancelled
     created_at: str = ""
+    bid_offset_used: float = 0.02  # Track which offset was used
+    hour_utc: int = -1             # Hour when position was created
 
     @property
     def is_paired(self) -> bool:
@@ -170,6 +295,7 @@ class CryptoMarketMaker:
         self.paper = paper
         self.config = MakerConfig()
         self.client = None  # ClobClient (live only)
+        self.ml_optimizer = OffsetOptimizer()
 
         # State
         self.positions: Dict[str, PairPosition] = {}  # market_id -> PairPosition
@@ -226,12 +352,31 @@ class CryptoMarketMaker:
                 data = json.loads(self.OUTPUT_FILE.read_text())
                 self.stats = data.get("stats", self.stats)
                 self.resolved = data.get("resolved", [])
-                # Restore active positions
+                # Restore active positions (reconstruct dataclass objects)
                 for pos_data in data.get("active_positions", []):
-                    pos = PairPosition(**{k: v for k, v in pos_data.items()
-                                         if k in PairPosition.__dataclass_fields__})
-                    if pos.status not in ("resolved", "cancelled"):
-                        self.positions[pos.market_id] = pos
+                    try:
+                        # Reconstruct MakerOrder objects from dicts
+                        up_order = None
+                        down_order = None
+                        if pos_data.get("up_order") and isinstance(pos_data["up_order"], dict):
+                            up_order = MakerOrder(**{k: v for k, v in pos_data["up_order"].items()
+                                                     if k in MakerOrder.__dataclass_fields__})
+                        if pos_data.get("down_order") and isinstance(pos_data["down_order"], dict):
+                            down_order = MakerOrder(**{k: v for k, v in pos_data["down_order"].items()
+                                                       if k in MakerOrder.__dataclass_fields__})
+
+                        # Build PairPosition with proper objects
+                        simple_fields = {k: v for k, v in pos_data.items()
+                                        if k in PairPosition.__dataclass_fields__
+                                        and k not in ("up_order", "down_order")}
+                        pos = PairPosition(**simple_fields)
+                        pos.up_order = up_order
+                        pos.down_order = down_order
+
+                        if pos.status not in ("resolved", "cancelled"):
+                            self.positions[pos.market_id] = pos
+                    except Exception:
+                        continue  # Skip corrupt entries
                 print(f"[MAKER] Loaded {len(self.resolved)} resolved, {len(self.positions)} active")
             except Exception as e:
                 print(f"[MAKER] Load error: {e}")
@@ -301,6 +446,7 @@ class CryptoMarketMaker:
         """Parse a market into a MarketPair."""
         try:
             condition_id = market.get("conditionId", "")
+            market_num_id = str(market.get("id", ""))  # Numeric ID for gamma-api lookup
             if not condition_id:
                 return None
 
@@ -348,6 +494,7 @@ class CryptoMarketMaker:
 
             pair = MarketPair(
                 market_id=condition_id,
+                market_num_id=market_num_id,
                 question=question,
                 asset=asset,
                 up_token_id=token_ids[up_idx],
@@ -393,18 +540,10 @@ class CryptoMarketMaker:
             return None
 
     def _get_bid_offset(self) -> float:
-        """Adaptive bid offset based on session and recent fills."""
+        """ML-optimized bid offset. Maximizes profit = fill_rate x edge."""
         hour = datetime.now(timezone.utc).hour
-
-        # NY open (high volume) = tighter spread, more fills expected
-        if hour in self.config.BOOST_HOURS_UTC:
-            return 0.015  # 1.5c offset during peak
-
-        # Asian session = wider spread, thin books
-        if hour in {0, 1, 2, 3, 4, 5, 6, 7}:
-            return 0.025
-
-        return self.config.BID_OFFSET  # Default 2c
+        offset = self.ml_optimizer.get_offset(hour)
+        return offset
 
     def evaluate_pair(self, pair: MarketPair) -> dict:
         """Evaluate a market pair for maker opportunity."""
@@ -433,15 +572,16 @@ class CryptoMarketMaker:
             "combined": combined,
             "edge": edge,
             "edge_pct": edge / combined * 100 if combined > 0 else 0,
+            "offset": offset,
             "mins_left": mins_left,
             "viable": (
                 combined < self.config.MAX_COMBINED_PRICE
                 and edge >= self.config.MIN_SPREAD_EDGE
                 and mins_left > self.config.MIN_TIME_LEFT_MIN  # Need time for fills
-                and up_bid > 0.10  # Don't bid on extreme prices (low fill chance)
-                and down_bid > 0.10
-                and up_bid < 0.90
-                and down_bid < 0.90
+                and up_bid >= 0.38  # V1.1: Balanced markets only. Skewed = partial fill risk
+                and down_bid >= 0.38  # Both sides must have reasonable fill probability
+                and up_bid <= 0.62  # Symmetric range ensures both sides are near 50/50
+                and down_bid <= 0.62
             ),
         }
 
@@ -461,10 +601,13 @@ class CryptoMarketMaker:
         # Create position tracker
         pos = PairPosition(
             market_id=pair.market_id,
+            market_num_id=pair.market_num_id,
             question=pair.question,
             asset=pair.asset,
             created_at=datetime.now(timezone.utc).isoformat(),
             status="pending",
+            bid_offset_used=eval_result.get("offset", self.config.BID_OFFSET),
+            hour_utc=datetime.now(timezone.utc).hour,
         )
 
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -686,6 +829,19 @@ class CryptoMarketMaker:
             created = datetime.fromisoformat(pos.created_at)
             age_min = (now - created).total_seconds() / 60
 
+            # V1.1: Partial fill protection — if only one side filled after 8 min,
+            # cancel the unfilled side to avoid holding directional risk through resolution.
+            if age_min > 8 and pos.is_partial:
+                for order, attr in [(pos.up_order, "up_filled"), (pos.down_order, "down_filled")]:
+                    if order and not getattr(pos, attr) and order.status == "open":
+                        order.status = "cancelled"
+                        if not self.paper:
+                            try:
+                                self.client.cancel(order.order_id)
+                            except Exception:
+                                pass
+                        print(f"  [PARTIAL-PROTECT] Cancelled unfilled {order.side_label} on {pos.asset} after {age_min:.0f}min (one-sided risk)")
+
             # If approaching close (>13 min for a 15-min market), cancel unfilled orders
             if age_min > 13:
                 for order, attr in [(pos.up_order, "up_filled"), (pos.down_order, "down_filled")]:
@@ -712,12 +868,18 @@ class CryptoMarketMaker:
             if age_min < 16:  # Wait for resolution
                 continue
 
-            # Fetch outcome
-            outcome = await self._fetch_outcome(market_id)
+            # Fetch outcome using numeric market ID
+            outcome = await self._fetch_outcome(pos.market_num_id)
             if not outcome:
                 if age_min > 30:  # Give up after 30 min
                     pos.status = "cancelled"
                     self._cancel_position_orders(pos)
+                    # ML: record unfilled/cancelled attempt
+                    self.ml_optimizer.record(
+                        hour=pos.hour_utc if pos.hour_utc >= 0 else datetime.now(timezone.utc).hour,
+                        offset=pos.bid_offset_used,
+                        paired=False, partial=pos.is_partial, pnl=0.0
+                    )
                 continue
 
             pos.outcome = outcome
@@ -742,10 +904,19 @@ class CryptoMarketMaker:
             self.stats["best_pair_pnl"] = max(self.stats["best_pair_pnl"], pnl)
             self.stats["worst_pair_pnl"] = min(self.stats["worst_pair_pnl"], pnl)
 
+            # ML: record outcome for offset optimization
+            self.ml_optimizer.record(
+                hour=pos.hour_utc if pos.hour_utc >= 0 else datetime.now(timezone.utc).hour,
+                offset=pos.bid_offset_used,
+                paired=pos.is_paired,
+                partial=pos.is_partial,
+                pnl=pnl
+            )
+
             # Log
             pair_type = "PAIRED" if pos.is_paired else "PARTIAL" if pos.is_partial else "UNFILLED"
             icon = "+" if pnl > 0 else "-" if pnl < 0 else "="
-            print(f"  [{pair_type}] {pos.asset} {pos.question[:50]} | {outcome} | PnL: {icon}${abs(pnl):.4f}")
+            print(f"  [{pair_type}] {pos.asset} {pos.question[:50]} | {outcome} | PnL: {icon}${abs(pnl):.4f} (off={pos.bid_offset_used:.1%})")
 
             # Archive
             self.resolved.append({
@@ -757,6 +928,8 @@ class CryptoMarketMaker:
                 "partial": pos.is_partial,
                 "combined_cost": pos.combined_cost,
                 "pnl": pnl,
+                "bid_offset": pos.bid_offset_used,
+                "hour_utc": pos.hour_utc,
                 "up_price": pos.up_order.fill_price if pos.up_order and pos.up_filled else 0,
                 "down_price": pos.down_order.fill_price if pos.down_order and pos.down_filled else 0,
                 "resolved_at": now.isoformat(),
@@ -766,34 +939,33 @@ class CryptoMarketMaker:
         self.positions = {k: v for k, v in self.positions.items()
                          if v.status not in ("resolved", "cancelled")}
 
-    async def _fetch_outcome(self, condition_id: str) -> Optional[str]:
-        """Fetch market outcome from gamma-api."""
+    async def _fetch_outcome(self, market_num_id: str) -> Optional[str]:
+        """Fetch market outcome from gamma-api using numeric market ID."""
+        if not market_num_id:
+            return None
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 r = await client.get(
-                    "https://gamma-api.polymarket.com/markets",
-                    params={"condition_id": condition_id, "limit": "1"},
+                    f"https://gamma-api.polymarket.com/markets/{market_num_id}",
                     headers={"User-Agent": "Mozilla/5.0"}
                 )
                 if r.status_code == 200:
-                    markets = r.json()
-                    if markets and len(markets) > 0:
-                        m = markets[0]
-                        prices = m.get("outcomePrices", [])
-                        if isinstance(prices, str):
-                            prices = json.loads(prices)
-                        outcomes = m.get("outcomes", [])
-                        if isinstance(outcomes, str):
-                            outcomes = json.loads(outcomes)
+                    m = r.json()
+                    prices = m.get("outcomePrices", [])
+                    if isinstance(prices, str):
+                        prices = json.loads(prices)
+                    outcomes = m.get("outcomes", [])
+                    if isinstance(outcomes, str):
+                        outcomes = json.loads(outcomes)
 
-                        if prices and len(prices) >= 2:
-                            p0 = float(prices[0])
-                            p1 = float(prices[1])
-                            if p0 > 0.95 and p1 < 0.05:
-                                return str(outcomes[0]).upper() if outcomes else "UP"
-                            elif p1 > 0.95 and p0 < 0.05:
-                                return str(outcomes[1]).upper() if outcomes else "DOWN"
-        except Exception:
+                    if prices and len(prices) >= 2:
+                        p0 = float(prices[0])
+                        p1 = float(prices[1])
+                        if p0 > 0.95 and p1 < 0.05:
+                            return str(outcomes[0]).upper() if outcomes else "UP"
+                        elif p1 > 0.95 and p0 < 0.05:
+                            return str(outcomes[1]).upper() if outcomes else "DOWN"
+        except Exception as e:
             pass
         return None
 
@@ -915,38 +1087,36 @@ class CryptoMarketMaker:
                 # Phase 3: Check fills on active orders
                 await self.check_fills()
 
-                # Phase 4: Risk check
-                if not self.check_risk():
-                    if cycle % 10 == 0:
-                        self._print_status(cycle)
-                    await asyncio.sleep(self.config.SCAN_INTERVAL)
-                    continue
+                # Phase 4: Discover and place if risk allows
+                if self.check_risk():
+                    # Phase 5: Discover new markets
+                    markets = await self.discover_markets()
 
-                # Phase 5: Discover new markets
-                markets = await self.discover_markets()
+                    # Phase 6: Evaluate and place orders on best pairs
+                    for pair in markets:
+                        if not self.check_risk():
+                            break
 
-                # Phase 6: Evaluate and place orders on best pairs
-                placed = 0
-                for pair in markets:
-                    if not self.check_risk():
-                        break
+                        eval_result = self.evaluate_pair(pair)
+                        if not eval_result["viable"]:
+                            continue
 
-                    eval_result = self.evaluate_pair(pair)
-                    if not eval_result["viable"]:
-                        continue
+                        print(f"\n[{pair.asset}] {pair.question[:60]}")
+                        print(f"  Mid: UP ${pair.up_mid:.2f} / DOWN ${pair.down_mid:.2f} | "
+                              f"Mins left: {eval_result['mins_left']:.1f}")
 
-                    print(f"\n[{pair.asset}] {pair.question[:60]}")
-                    print(f"  Mid: UP ${pair.up_mid:.2f} / DOWN ${pair.down_mid:.2f} | "
-                          f"Mins left: {eval_result['mins_left']:.1f}")
+                        await self.place_pair_orders(pair, eval_result)
 
-                    result = await self.place_pair_orders(pair, eval_result)
-                    if result:
-                        placed += 1
-
-                # Phase 6: Status & save
-                if cycle % 5 == 0 or placed > 0:
+                # Phase 7: Status & save (ALWAYS, not just when placing)
+                if cycle % 5 == 0:
                     self._print_status(cycle)
                     self._save()
+                    self.ml_optimizer.save()
+
+                # Phase 8: ML summary every 50 cycles (~25 min)
+                if cycle % 50 == 0 and cycle > 0:
+                    print(f"\n[ML OFFSET] Current optimal offsets:")
+                    print(self.ml_optimizer.get_summary())
 
                 await asyncio.sleep(self.config.SCAN_INTERVAL)
 

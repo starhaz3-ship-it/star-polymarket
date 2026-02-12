@@ -651,10 +651,10 @@ class TALiveTrader:
                         self.MIN_EDGE = 0.25
                         self.LOW_EDGE_THRESHOLD = 0.25
                         self.MAX_ENTRY_PRICE = 0.52  # V10.9: Was 0.45. Shadow: +$63 blocked profit. Match class default.
-                        self.MIN_ENTRY_PRICE = 0.38  # V10.9: Was 0.25. $0.20 bucket = 0%WR, -$9.54.
+                        self.MIN_ENTRY_PRICE = 0.43  # V10.12: Was 0.38. CSV: <$0.43 = 30-33% WR.
                         self.ETH_MIN_CONFIDENCE = 0.70
                         self.SOL_DOWN_MIN_EDGE = 0.20  # V10.9: Was 0.35. Shadow: 106 blocked, 54%WR, +$17.57 missed.
-                        self.SKIP_HOURS_UTC = {5, 6, 8, 9, 10, 12, 14, 15, 16}  # V10.9: Added 15 (0W/4L, -$8.43)
+                        self.SKIP_HOURS_UTC = {6, 8, 12, 15, 16, 18, 19}  # V10.13: +UTC15,19 (0-17% WR)
                         self.MIN_TIME_REMAINING = 5.0
                         self.MAX_TIME_REMAINING = 9.0
                         self.use_nyu_model = True
@@ -929,6 +929,7 @@ class TALiveTrader:
     # Multi-asset configuration
     # V3.9: ETH promoted to live (UP only). Paper: 70% WR on ETH UP, +$158 over 20 trades.
     # ETH DOWN stays blocked (47.1% WR in paper — not worth the risk during capital rebuild).
+    # V10.12: ETH removed. CSV: -$146.58, 29.5% WR. Moved to SHADOW_ASSETS for ML monitoring.
     ASSETS = {
         "BTC": {
             "symbol": "BTCUSDT",
@@ -938,17 +939,22 @@ class TALiveTrader:
             "symbol": "SOLUSDT",
             "keywords": ["solana", "sol"],
         },
+    }
+    # Shadow-only assets: fetched + signals generated + logged, but NEVER executed
+    # V10.12: ETH moved to shadow. CSV data: -$146.58, 29.5% WR. ML auto-promote if shadow >55% WR/20+ trades.
+    SHADOW_ASSETS = {
         "ETH": {
             "symbol": "ETHUSDT",
             "keywords": ["ethereum", "eth"],
         },
     }
-    # Shadow-only assets: fetched + signals generated + logged, but NEVER executed
-    SHADOW_ASSETS = {}
     # ETH-specific constraints (V3.9)
     ETH_UP_ONLY = True  # Only allow UP trades on ETH (70% WR vs 47% DOWN)
     ETH_MAX_PRICE = 0.70  # V3.18: Was 0.55, shadow 23W/10L 70% WR blocked (+$24.97 missed)
     ETH_MIN_CONFIDENCE = 0.70  # V3.16: Restored to 0.70. ETH is -$3.87 live (50% WR, only loser asset).
+    # V10.12: SOL DOWN-ONLY. CSV: SOL UP = heavy losses. SOL DOWN = 42.3% WR, manageable.
+    # BTC-DOWN is the ONLY profitable combo (+$82.79). SOL UP blocked, shadow-tracked.
+    SOL_DOWN_ONLY = True  # ML auto-evolve can flip if SOL UP shadow >55% WR/15+ trades
     # SOL DOWN constraint (V3.10): Paper data shows SOL_DOWN = 50% WR (coin flip)
     # Require higher edge for SOL DOWN trades (edge >= 0.35 lifts to ~71% WR per paper analysis)
     SOL_DOWN_MIN_EDGE = 0.20  # V3.15: Was 0.35, blocked +$5.50 in winners. Loosened.
@@ -962,7 +968,9 @@ class TALiveTrader:
 
     # Trading hours filter (UTC) - skip low-WR hours
     # V3.15: Reduced to minimum. Auto-revert catches losers.
-    SKIP_HOURS_UTC = {5, 8, 12, 15, 16}  # V10.9: Added 15 (0W/4L, -$8.43)
+    # V10.12: Block catastrophic hours from CSV data. ML auto-evolve can unblock if shadow >50% WR/10+ trades.
+    # UTC 12=7%WR(-$73), UTC 08=10%WR(-$39), UTC 18=27%WR(-$44), UTC 06=38%WR(-$56), UTC 16=low WR
+    SKIP_HOURS_UTC = {6, 8, 12, 15, 16, 18, 19}  # V10.13: +UTC15,19 (0-17% WR)
 
     # === V10.10: SESSION-BASED TRADING (from PolyData + microstructure research) ===
     # PolyData analysis of 87K crypto Up/Down markets shows:
@@ -1882,7 +1890,7 @@ class TALiveTrader:
     DOWN_EXPENSIVE_WINS = 0      # ML auto-tighten: wins where DOWN > $0.45
     DOWN_EXPENSIVE_LOSSES = 0    # ML auto-tighten: losses where DOWN > $0.45
     DOWN_EXPENSIVE_PNL = 0.0     # ML auto-tighten: cumulative PnL for DOWN > $0.45
-    MIN_ENTRY_PRICE = 0.38       # V3.16: Was 0.20. Live data: $0.20-0.40 = 33% WR, -$18. Cheap entries are losers.
+    MIN_ENTRY_PRICE = 0.43       # V10.12: Was 0.38. CSV: <$0.43 = 30-33% WR, -$167. Only 0.45+ is near breakeven.
     MIN_KL_DIVERGENCE = 0.08     # V3.12: Shadow 7W/1L 88%WR blocked at 0.15. Loosened.
 
     # Paper trades both sides successfully (UP 81% WR in paper)
@@ -1894,7 +1902,7 @@ class TALiveTrader:
     UP_ENABLE_MIN_PNL = 10.0
 
     # UP trade settings - V3.11: MATCHED TO PAPER (UP_MIN_CONFIDENCE=0.65 in paper)
-    UP_MIN_CONFIDENCE = 0.68     # V3.18 CSV: 10/11 losses are UP. Raise from 0.65 to reduce UP losses.
+    UP_MIN_CONFIDENCE = 0.75     # V10.11: Was 0.68. 10/11 losses are UP. Raised to 0.75 per strategy recommendations.
     UP_MIN_EDGE = 0.25           # V3.12: Match new MIN_EDGE
     UP_RSI_MIN = 45              # Relaxed to match paper (was 60)
     CANDLE_LOOKBACK = 120        # V3.6b: Was 15 — killed MACD(35), TTM(25), EMA Cross(20), RSI slope. Now all 9 indicators active.
@@ -2004,9 +2012,9 @@ class TALiveTrader:
         # 10/11 losses are UP trades. DOWN is near-perfect. Adjust sizing accordingly.
         if hasattr(self, '_current_trade_side'):
             if self._current_trade_side == "DOWN":
-                size *= 1.15  # Boost DOWN — 99% WR in CSV
+                size *= 1.30  # V10.11: Boost DOWN — 99% WR in CSV (was 1.15x)
             elif self._current_trade_side == "UP":
-                size *= 0.85  # Reduce UP — 82% WR, source of 10/11 losses
+                size *= 0.70  # V10.11: Reduce UP further — 82% WR, 10/11 losses are UP (was 0.85x)
 
         # === V10.9: SWEET SPOT BOOST ($0.45-$0.55 = 63% WR, +$32.76) ===
         if hasattr(self, '_current_entry_price'):
@@ -2033,16 +2041,15 @@ class TALiveTrader:
         if self.signals_count % 20 == 0:
             print(f"[SESSION] {current_session['name']} ({current_session['style']}) | size: {current_session.get('size_mult', 1.0):.2f}x")
 
-        # Skip low win-rate hours — still resolve open trades, just don't place new ones
+        # V10.11: Skip hours now shadow-trade instead of resting.
+        # ML auto-evolve can still block truly catastrophic hours (<15% WR/10+ trades).
+        # During skip hours: resolve open trades, shadow-trade new signals (no real orders).
         current_hour = datetime.now(timezone.utc).hour
         is_skip_hour = current_hour in self.SKIP_HOURS_UTC
         if is_skip_hour:
             open_count = sum(1 for t in self.trades.values() if t.status == "open")
             if open_count > 0:
-                print(f"[SKIP] Hour {current_hour:02d} UTC - resolving {open_count} open trades...")
-            else:
-                print(f"[SKIP] Hour {current_hour:02d} UTC is in skip list - resting")
-                return None
+                print(f"[SKIP-SHADOW] Hour {current_hour:02d} UTC - resolving {open_count} open trades, shadow-only for new signals")
 
         asset_data = await self.fetch_data()
 
@@ -2165,6 +2172,12 @@ class TALiveTrader:
                 if self.DOWN_ONLY_MODE and signal.side == "UP":
                     continue  # Silent skip - don't spam logs
 
+                # === V10.12: SOL DOWN-ONLY ===
+                # CSV: SOL UP = heavy losses. Block UP, shadow-track for ML.
+                if asset == "SOL" and self.SOL_DOWN_ONLY and signal.side == "UP":
+                    self._record_filter_shadow(asset, signal.side, up_price, market_id, question, "v1012_sol_up_block")
+                    continue  # Shadow tracked
+
                 # === V3.9: ETH UP-ONLY + BTC DOWN CONTRARIAN BLOCK ===
                 # ETH DOWN = 47.1% WR in paper. Only allow UP (70% WR).
                 if asset == "ETH" and self.ETH_UP_ONLY and signal.side == "DOWN":
@@ -2258,15 +2271,15 @@ class TALiveTrader:
                             up_conf_req = max(0.50, up_conf_req - 0.10)
 
                         # Dynamic UP max price: confidence unlocks higher prices (V3.3, softened V3.9)
-                        # V3.18 CSV: 10/11 losses are UP. UP>$0.50 has 3 losses ($0.51/$0.53/$0.57).
-                        # Tighten: cap at $0.50 even with high confidence. DOWN=99% WR, UP=82%.
-                        effective_up_max = self.MAX_ENTRY_PRICE  # $0.52 base
+                        # V10.11: Tightened aggressively. UP>$0.50 = 3 losses ($0.51/$0.53/$0.57).
+                        # Strategy recs say cap UP at $0.45. Compromise: $0.48 max for 85%+ confidence.
+                        effective_up_max = 0.45  # V10.11: Base UP cap $0.45 (was $0.52)
                         if signal.model_up >= 0.85:
-                            effective_up_max = max(effective_up_max, 0.55)  # V10.9: Was 0.52. Shadow: 386 blocked, 54%WR, +$63 missed
+                            effective_up_max = 0.48  # V10.11: Was 0.55. Hard cap below danger zone.
                         elif signal.model_up >= 0.75:
-                            effective_up_max = max(effective_up_max, 0.52)  # V10.9: Was 0.50
+                            effective_up_max = 0.46  # V10.11: Was 0.52
                         elif signal.model_up >= 0.65:
-                            effective_up_max = max(effective_up_max, 0.48)  # V10.9: Was 0.46
+                            effective_up_max = 0.44  # V10.11: Was 0.48
 
                         if signal.model_up < up_conf_req:
                             skip_reason = f"UP_conf_{signal.model_up:.0%}<{up_conf_req:.0%}"
@@ -2520,11 +2533,11 @@ class TALiveTrader:
                         # === V3.8 DATA-DRIVEN FILTERS (103 paper + 6 live trades) ===
 
                         # 1. MODEL CONFIDENCE HARD FLOOR
-                        # The 0.128 confidence trade lost $6.54. Without it, session goes from -$3.94 to +$2.60.
-                        # Paper: edge 20-30% = 26.7% WR. Edge 30-50% = 73-79% WR.
+                        # V10.13: Raised 0.55 → 0.65. Pattern analysis: 0.55 bucket = 12.5% WR (trap).
+                        # Conf >= 0.65 = 71.4% WR, >= 0.70 = 87.5% WR.
                         raw_conf = signal.model_up if signal.side == "UP" else signal.model_down
-                        if raw_conf < 0.55 and not is_bond_trade:
-                            print(f"  [{asset}] V3.8: Raw confidence too low: {raw_conf:.1%} < 55%")
+                        if raw_conf < 0.65 and not is_bond_trade:
+                            print(f"  [{asset}] V10.13: Raw confidence too low: {raw_conf:.1%} < 65%")
                             self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_confidence")
                             continue
 
@@ -2579,11 +2592,27 @@ class TALiveTrader:
                             elif signal.side == "DOWN" and ceemd["trend_slope"] < -0.001:
                                 ceemd_aligned = True
 
-                            if ceemd["noise_ratio"] > 0.85 and not is_bond_trade:
+                            if ceemd["noise_ratio"] > 0.95 and not is_bond_trade:  # V10.11: Was 0.85, blocking winners
                                 print(f"  [{asset}] V3.17: CEEMD noisy market (noise={ceemd['noise_ratio']:.2f}, {ceemd['n_imfs']} IMFs)")
                                 self.shadow_stats["ceemd_noisy_blocked"] += 1
                                 self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v317_ceemd_noise")
                                 continue
+
+                        # === V10.13: MACD EXPANDING GATE ===
+                        # Pattern analysis: MACD expanding = 87.5% WR vs 44.4% when not.
+                        # MACD expanding + entry 0.40-0.55 = 100% WR on 12 trades.
+                        if not features.macd_expanding and not is_bond_trade:
+                            print(f"  [{asset}] V10.13: MACD not expanding (momentum fading)")
+                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v1013_macd_gate")
+                            continue
+
+                        # === V10.13: HEIKEN COUNT=3 CURSE BLOCK ===
+                        # Pattern analysis: heiken_count=3 exactly = 0/6 wins (-$11.12).
+                        # Counts 1,2,4,5+ are fine. Only 3 is cursed.
+                        if features.heiken_count == 3 and not is_bond_trade:
+                            print(f"  [{asset}] V10.13: Heiken count=3 curse (0% historical WR)")
+                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v1013_heiken3_curse")
+                            continue
 
                         # === V3.15b: HYDRA PROBATION BOOST ===
                         # Check how many promoted strategies agree with this direction
@@ -2681,6 +2710,23 @@ class TALiveTrader:
                             continue
 
                         print(f"[SIZE] {asset} ${initial_size:.2f}{f' (+${topup_size:.2f} DCA pending)' if topup_size > 0 else ''} (Kelly={bregman_signal.kelly_fraction:.0%}, Edge={edge:.1%}, {trend_tag}{hour_tag}{hydra_tag})")
+
+                        # V10.11: During skip hours, record as shadow instead of placing real trade
+                        if is_skip_hour:
+                            shadow_key = f"skip_{trade_key}_{int(time.time())}"
+                            self.shadow_trades[shadow_key] = {
+                                "asset": asset, "side": signal.side, "entry_price": entry_price,
+                                "size_usd": initial_size,
+                                "hour_utc": current_hour, "model_up": signal.model_up,
+                                "edge": edge, "price_bucket": int(entry_price * 10) / 10,
+                                "garch_regime": garch.get("regime", "UNKNOWN"),
+                                "reason": "skip_hour_shadow", "status": "open",
+                                "entry_time": datetime.now(timezone.utc).isoformat(),
+                                "market_id": market_id,
+                                "market_title": f"[{asset}] {question[:60]}",
+                            }
+                            print(f"  [{asset}] SKIP-HOUR SHADOW: {signal.side} @ ${entry_price:.4f} (UTC {current_hour} is skipped, recording for ML)")
+                            continue
 
                         success, order_result = await self.execute_trade(
                             market, signal.side, initial_size, entry_price
@@ -3316,10 +3362,10 @@ class TALiveTrader:
                 self.MIN_EDGE = 0.25
                 self.LOW_EDGE_THRESHOLD = 0.25
                 self.MAX_ENTRY_PRICE = 0.52  # V10.9: Was 0.45. Match class default.
-                self.MIN_ENTRY_PRICE = 0.38  # V10.9: Was 0.25. $0.20 bucket = 0%WR.
+                self.MIN_ENTRY_PRICE = 0.43  # V10.12: Was 0.38. CSV: <$0.43 = 30-33% WR.
                 self.ETH_MIN_CONFIDENCE = 0.70
                 self.SOL_DOWN_MIN_EDGE = 0.20  # V10.9: Was 0.35. Match class default.
-                self.SKIP_HOURS_UTC = {5, 6, 8, 9, 10, 12, 14, 15, 16}  # V10.9: Added 15
+                self.SKIP_HOURS_UTC = {6, 8, 12, 15, 16, 18, 19}  # V10.13: +UTC15,19 (0-17% WR)
                 self.MIN_TIME_REMAINING = 5.0
                 self.MAX_TIME_REMAINING = 9.0
                 self.use_nyu_model = True  # Re-enable NYU filter
@@ -3480,26 +3526,67 @@ class TALiveTrader:
                 continue
 
             wr = s["wins"] / trades_h * 100
-            # If an active hour has <25% WR over 5+ trades, add to skip hours
-            if h not in self.SKIP_HOURS_UTC and wr < 25 and trades_h >= 5:
+            # V10.11: Only block hours with truly catastrophic WR (< 15% over 10+ trades)
+            # Previously blocked at <25%/5+ trades which was too aggressive
+            if h not in self.SKIP_HOURS_UTC and wr < 15 and trades_h >= 10:
                 self.SKIP_HOURS_UTC.add(h)
                 changes.append(f"[EVOLVE] UTC {h} BLOCKED: {wr:.0f}% WR over {trades_h} trades — auto-added to skip hours")
+            # V10.11: Auto-UNBLOCK hours that have recovered (>50% WR over 10+ trades)
+            elif h in self.SKIP_HOURS_UTC and wr > 50 and trades_h >= 10:
+                self.SKIP_HOURS_UTC.discard(h)
+                changes.append(f"[EVOLVE] UTC {h} UNBLOCKED: {wr:.0f}% WR over {trades_h} trades — removed from skip hours")
 
             # If a skipped hour has >65% WR over 8+ trades in shadow, remove from skip
             # (Would need shadow data for skip hours — future enhancement)
 
-        # 3. ETH PROMOTION CHECK: If ETH shadows show >60% WR over 15+ resolved
-        eth_shadows = [s for s in self.shadow_trades.values()
-                       if s.get("asset") == "ETH" and s.get("status") == "closed"
-                       and s.get("reason") == "shadow_asset"]
-        eth_wins = sum(1 for s in eth_shadows if s.get("pnl", 0) > 0)
-        eth_total = len(eth_shadows)
-        if eth_total >= 15:
-            eth_wr = eth_wins / eth_total * 100
-            if eth_wr >= 60:
-                changes.append(f"[EVOLVE] ETH PROMOTION READY: {eth_wr:.0f}% WR over {eth_total} shadow trades. Consider promoting to live.")
-            elif eth_wr < 40:
-                changes.append(f"[EVOLVE] ETH STRUGGLING: {eth_wr:.0f}% WR over {eth_total} shadows. Keep shadow-only.")
+        # 3. V10.12: COMPREHENSIVE ASSET/SIDE AUTO-EVOLUTION
+        # Auto-promote shadow assets if WR > 55% over 20+ trades
+        # Auto-demote live assets to shadow if WR < 35% over 15+ trades
+        # Auto-unblock sides if shadow WR > 55% over 15+ trades
+        for asset_name in list(self.SHADOW_ASSETS.keys()):
+            shadows = [s for s in self.shadow_trades.values()
+                       if s.get("asset") == asset_name and s.get("status") == "closed"]
+            sw = sum(1 for s in shadows if s.get("pnl", 0) > 0)
+            st = len(shadows)
+            if st >= 20:
+                swr = sw / st * 100
+                if swr >= 55 and asset_name not in self.ASSETS:
+                    # AUTO-PROMOTE to live
+                    self.ASSETS[asset_name] = self.SHADOW_ASSETS[asset_name]
+                    del self.SHADOW_ASSETS[asset_name]
+                    changes.append(f"[ML-PROMOTE] {asset_name} PROMOTED to live! {swr:.0f}% WR over {st} shadow trades")
+                elif swr < 40:
+                    changes.append(f"[EVOLVE] {asset_name} STRUGGLING: {swr:.0f}% WR over {st} shadows. Keep shadow-only.")
+
+        for asset_name in list(self.ASSETS.keys()):
+            # Check live asset performance from hourly_stats or trade history
+            asset_trades = [t for t in self.trades.values()
+                           if hasattr(t, 'asset') and t.asset == asset_name
+                           and t.status in ("won", "lost")]
+            aw = sum(1 for t in asset_trades if t.status == "won")
+            at = len(asset_trades)
+            if at >= 15:
+                awr = aw / at * 100
+                if awr < 35:
+                    # AUTO-DEMOTE to shadow
+                    self.SHADOW_ASSETS[asset_name] = self.ASSETS[asset_name]
+                    del self.ASSETS[asset_name]
+                    changes.append(f"[ML-DEMOTE] {asset_name} DEMOTED to shadow! {awr:.0f}% WR over {at} live trades — too many losses")
+
+        # SOL UP auto-unblock check
+        if self.SOL_DOWN_ONLY:
+            sol_up_shadows = [s for s in self.shadow_trades.values()
+                             if s.get("asset") == "SOL" and s.get("side") == "UP"
+                             and s.get("status") == "closed"]
+            suw = sum(1 for s in sol_up_shadows if s.get("pnl", 0) > 0)
+            sut = len(sol_up_shadows)
+            if sut >= 15:
+                suwr = suw / sut * 100
+                if suwr >= 55:
+                    self.SOL_DOWN_ONLY = False
+                    changes.append(f"[ML-UNBLOCK] SOL UP UNBLOCKED! {suwr:.0f}% WR over {sut} shadow trades")
+                else:
+                    changes.append(f"[EVOLVE] SOL UP still blocked: {suwr:.0f}% WR over {sut} shadows")
 
         # 4. OVERALL HEALTH: Warn if WR is declining
         if total_trades >= 10:
