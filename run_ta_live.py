@@ -2225,18 +2225,25 @@ class TALiveTrader:
 
                 # === BOND MODE CHECK (before conviction filters) ===
                 # V3.15c: Bond mode can force-enter when signal says NO_TRADE.
-                # Market price $0.85+ IS the conviction. Model just can't strongly disagree.
+                # V10.14b: Require model > market price (positive edge), respect asset restrictions
                 is_bond_trade = False
                 bond_override_side = None
                 if self.BOND_MODE_ENABLED:
-                    if up_price >= self.BOND_MIN_PRICE and signal.model_up >= self.BOND_MIN_CONFIDENCE:
+                    # V10.14b: Bond must respect SOL_DOWN_ONLY and ETH shadow-only
+                    bond_up_allowed = not (asset == "SOL" and self.SOL_DOWN_ONLY)
+                    bond_down_allowed = not (asset == "ETH" and self.ETH_UP_ONLY)
+                    # V10.14b: Require model confidence > market price (positive edge)
+                    # Old: BOND_MIN_CONFIDENCE=40% → took -36% edge trades. Now: model must beat market.
+                    if (bond_up_allowed and up_price >= self.BOND_MIN_PRICE
+                            and signal.model_up >= up_price):  # V10.14b: model must exceed market price
                         is_bond_trade = True
                         if signal.side != "UP":
                             bond_override_side = "UP"
                             print(f"  [{asset}] BOND OVERRIDE: Market UP@${up_price:.2f} (model_up={signal.model_up:.0%}) — overriding {signal.action}/{signal.side}")
                             signal.side = "UP"
                             signal.action = "ENTER"
-                    elif down_price >= self.BOND_MIN_PRICE and signal.model_down >= self.BOND_MIN_CONFIDENCE:
+                    elif (bond_down_allowed and down_price >= self.BOND_MIN_PRICE
+                            and signal.model_down >= down_price):  # V10.14b: model must exceed market price
                         is_bond_trade = True
                         if signal.side != "DOWN":
                             bond_override_side = "DOWN"
@@ -2301,12 +2308,18 @@ class TALiveTrader:
                         # V3.15: UP momentum check REMOVED — was blocking winners in v33_conviction
 
                 elif signal.side == "DOWN":
-                    # DEATH ZONE: $0.35-0.45 = negative EV in PolyData (87K crypto markets)
-                    # V10.10: Extended from $0.40-0.45 to $0.35-0.45 based on PolyData analysis:
-                    #   35-39c: -0.8pp edge (ONLY losing bucket in overall data)
-                    #   40-44c: -0.7pp edge on crypto specifically
-                    if 0.35 <= down_price < 0.45:
+                    # DEATH ZONE: V10.14b: Narrowed from $0.35-$0.45 to $0.35-$0.40
+                    # PolyData: 35-39c = -0.8pp (truly losing). 40-44c = -0.7pp but:
+                    #   - Our model adds 15-25pp edge above market-implied
+                    #   - We use maker orders (+1.12% vs taker)
+                    #   - BTC DOWN is our strongest live edge (+$82.79, 46% WR from CSV)
+                    # V10.14b: Allow $0.40-$0.45 when model >= 65% (covers most BTC DOWN)
+                    if 0.35 <= down_price < 0.40:
                         skip_reason = f"DOWN_DEATH_ZONE_{down_price:.2f}_(PolyData:-0.8pp)"
+                    elif 0.40 <= down_price < 0.45:
+                        model_conf = signal.model_down
+                        if model_conf < 0.65:
+                            skip_reason = f"DOWN_soft_zone_{down_price:.2f}_conf_{model_conf:.0%}<65%"
                     # V3.15: Loosened from $0.35 to $0.25 (was blocking winners)
                     elif down_price < 0.25:
                         skip_reason = f"DOWN_cheap_{down_price:.2f}_(V3.15_block)"
@@ -2611,21 +2624,21 @@ class TALiveTrader:
                                 self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v317_ceemd_noise", market_numeric_id=market_numeric_id)
                                 continue
 
-                        # === V10.13: MACD EXPANDING GATE ===
-                        # Pattern analysis: MACD expanding = 87.5% WR vs 44.4% when not.
-                        # MACD expanding + entry 0.40-0.55 = 100% WR on 12 trades.
+                        # === V10.13: MACD EXPANDING GATE → V10.14b: Shadow-only ===
+                        # Pattern analysis: 87.5% WR when expanding vs 44.4% not. But only 12 trades.
+                        # V10.14b: Converted to shadow-only — too few trades for statistical significance.
                         if not features.macd_expanding and not is_bond_trade:
-                            print(f"  [{asset}] V10.13: MACD not expanding (momentum fading)")
+                            print(f"  [{asset}] V10.13: MACD not expanding (shadow-only)")
                             self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v1013_macd_gate", market_numeric_id=market_numeric_id)
-                            continue
+                            # continue  # V10.14b: Shadow-only — collecting data, not blocking
 
-                        # === V10.13: HEIKEN COUNT=3 CURSE BLOCK ===
-                        # Pattern analysis: heiken_count=3 exactly = 0/6 wins (-$11.12).
-                        # Counts 1,2,4,5+ are fine. Only 3 is cursed.
+                        # === V10.13: HEIKEN COUNT=3 CURSE → V10.14b: Shadow-only ===
+                        # Pattern analysis: heiken_count=3 = 0/6 wins. But only 6 trades.
+                        # V10.14b: Converted to shadow-only — insufficient sample size.
                         if features.heiken_count == 3 and not is_bond_trade:
-                            print(f"  [{asset}] V10.13: Heiken count=3 curse (0% historical WR)")
+                            print(f"  [{asset}] V10.13: Heiken count=3 (shadow-only)")
                             self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v1013_heiken3_curse", market_numeric_id=market_numeric_id)
-                            continue
+                            # continue  # V10.14b: Shadow-only — collecting data, not blocking
 
                         # === V3.15b: HYDRA PROBATION BOOST ===
                         # Check how many promoted strategies agree with this direction
@@ -3380,7 +3393,7 @@ class TALiveTrader:
                 self.MIN_ENTRY_PRICE = 0.43  # V10.12: Was 0.38. CSV: <$0.43 = 30-33% WR.
                 self.ETH_MIN_CONFIDENCE = 0.70
                 self.SOL_DOWN_MIN_EDGE = 0.20  # V10.9: Was 0.35. Match class default.
-                self.SKIP_HOURS_UTC = {6, 8, 12, 15, 16, 18, 19}  # V10.13: +UTC15,19 (0-17% WR)
+                self.SKIP_HOURS_UTC = {8, 15, 19}  # V10.14: Only skip truly bad hours
                 self.MIN_TIME_REMAINING = 5.0
                 self.MAX_TIME_REMAINING = 9.0
                 self.use_nyu_model = True  # Re-enable NYU filter
