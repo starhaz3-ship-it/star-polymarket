@@ -1,0 +1,890 @@
+{
+  "0": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "1": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "2": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "3": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "4": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "5": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 2,
+      "paired": 0,
+      "partial": 2,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 3,
+      "paired": 2,
+      "partial": 1,
+      "unfilled": 0,
+      "total_pnl": -2.28
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 1,
+      "paired": 1,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.7
+    }
+  },
+  "6": {
+    "0.010": {
+      "attempts": 2,
+      "paired": 0,
+      "partial": 2,
+      "unfilled": 0,
+      "total_pnl": 0.2999999999999998
+    },
+    "0.015": {
+      "attempts": 2,
+      "paired": 1,
+      "partial": 1,
+      "unfilled": 0,
+      "total_pnl": -3.8672929999999996
+    },
+    "0.020": {
+      "attempts": 6,
+      "paired": 3,
+      "partial": 1,
+      "unfilled": 2,
+      "total_pnl": 3.331108
+    },
+    "0.025": {
+      "attempts": 1,
+      "paired": 1,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.5
+    },
+    "0.030": {
+      "attempts": 3,
+      "paired": 0,
+      "partial": 2,
+      "unfilled": 1,
+      "total_pnl": 0.5
+    }
+  },
+  "7": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 3,
+      "paired": 0,
+      "partial": 2,
+      "unfilled": 1,
+      "total_pnl": -9.9
+    },
+    "0.025": {
+      "attempts": 1,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 1,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 1,
+      "paired": 0,
+      "partial": 1,
+      "unfilled": 0,
+      "total_pnl": -4.599829
+    }
+  },
+  "8": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "9": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "10": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "11": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "12": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "13": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "14": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "15": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "16": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "17": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "18": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "19": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "20": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "21": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "22": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "23": {
+    "0.010": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.015": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.020": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.025": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.030": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  }
+}
