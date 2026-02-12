@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-08T21:42:49.466657+00:00",
-  "last_updated": "2026-02-12T12:31:08.876958+00:00",
+  "last_updated": "2026-02-12T13:32:37.884602+00:00",
   "dry_run": false,
   "trades": {
     "0xefb50b4d430aa8e42ccb0a77b6729b31b0c0f7d4f40ae1e60f642f2868d0e560_UP": {
@@ -41,7 +41,8 @@
       "pnl": -3.445333333333333,
       "status": "closed",
       "order_id": "0x570882c978b7214550e57ceb074055ac36c192f3ff44d57b74b1c72b23b58e25",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x4ee42c2322ce460c6419dfbb16cdbfe0fc2b58918704881aa392c947548e65ed_UP": {
       "trade_id": "0x4ee42c2322ce460c6419dfbb16cdbfe0fc2b58918704881aa392c947548e65ed_UP",
@@ -81,7 +82,8 @@
       "pnl": 4.319999999999999,
       "status": "closed",
       "order_id": "0xe909a41bcd24f755f0aab5f3f3c2644d6a4f38fe36c0b1a7c024d4c622bc6771",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x501578d67fec79dd02212dea422010ac5742cccdece916aae4dd9575ce8394a2_DOWN": {
       "trade_id": "0x501578d67fec79dd02212dea422010ac5742cccdece916aae4dd9575ce8394a2_DOWN",
@@ -121,7 +123,8 @@
       "pnl": -6.54,
       "status": "closed",
       "order_id": "0x160f4954185f1a343cadd2c3a5991a05ca3be4c7138478c76d3ff98d96be2770",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xb031b1f6a985395fd4d5b7f2acb3cfe3718e656d57ae06781629361e5105a69e_DOWN": {
       "trade_id": "0xb031b1f6a985395fd4d5b7f2acb3cfe3718e656d57ae06781629361e5105a69e_DOWN",
@@ -163,7 +166,8 @@
       "pnl": 3.394495412844037,
       "status": "closed",
       "order_id": "0x008e54d01e53c7ce62bb0e6474196632da60fd32cb8606c70b85652e58f238ba",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xb1b92c63717ceb66cb75e85c4a1fb0fc2a7c2e1bfa927e56d7318a5d42c72ba3_DOWN": {
       "trade_id": "0xb1b92c63717ceb66cb75e85c4a1fb0fc2a7c2e1bfa927e56d7318a5d42c72ba3_DOWN",
@@ -207,7 +211,8 @@
       "pnl": 2.3753846153846148,
       "status": "closed",
       "order_id": "0x041475c8679bf3268caaef87127edd623a38ed75f3cab7f3aa743db07d8b83ee",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x431db17e68d938748acdd9d2ef5b8187c0894eecd4d44a9c9074bb5a73692685_UP": {
       "trade_id": "0x431db17e68d938748acdd9d2ef5b8187c0894eecd4d44a9c9074bb5a73692685_UP",
@@ -251,7 +256,8 @@
       "pnl": -4.04040404040404,
       "status": "closed",
       "order_id": "0x813adbd0607a08c32a469bfc7aecb1e84295f6d3f346170735756c548e6e8da4",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x7a1c3b9188046b7075db75bf3dac577980804d393398ac3b3f1ed26775b2c0ba_DOWN": {
       "trade_id": "0x7a1c3b9188046b7075db75bf3dac577980804d393398ac3b3f1ed26775b2c0ba_DOWN",
@@ -291,7 +297,8 @@
       "pnl": -5.290666666666667,
       "status": "closed",
       "order_id": "0xcb89595d32bc8966c3344409248244c188ed45d0862edb8d4a9865118c7365e0",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xec34ca85f6ab61817b784cd8b6e7930af3780b0f9975c4e2a48074ef227ab08d_DOWN": {
       "trade_id": "0xec34ca85f6ab61817b784cd8b6e7930af3780b0f9975c4e2a48074ef227ab08d_DOWN",
@@ -331,7 +338,8 @@
       "pnl": 4.545454545454545,
       "status": "closed",
       "order_id": "0xc3db8bcb812251cbaa64409a909dbd07e263d5f1b6dd1e6268702e8c8c65113c",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xac16d3040a9eeaf17a027321a890966f93d3aeec61867ac6ef3d7845ba67396b_UP": {
       "trade_id": "0xac16d3040a9eeaf17a027321a890966f93d3aeec61867ac6ef3d7845ba67396b_UP",
@@ -371,7 +379,8 @@
       "pnl": 5.910679611650486,
       "status": "closed",
       "order_id": "0x380587ddf65f1d49504f20d7fd25a91f0e91c291deb58b8f5d4fa04b6393aaa2",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x076b1d1a3e6608e20a135c1a0184f747441e096e1591af20e7406130c81edbe2_UP": {
       "trade_id": "0x076b1d1a3e6608e20a135c1a0184f747441e096e1591af20e7406130c81edbe2_UP",
@@ -411,7 +420,8 @@
       "pnl": 1.3978021978021973,
       "status": "closed",
       "order_id": "0x8477c3783d35a0e5d0e1ede9812f5b59986fffba09634966c73bc7debec8f13c",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xf19646e6ff096261d9edb32946d13f981ab9e7d84b2ab7fbdc06e8cf808276d2_UP": {
       "trade_id": "0xf19646e6ff096261d9edb32946d13f981ab9e7d84b2ab7fbdc06e8cf808276d2_UP",
@@ -451,7 +461,8 @@
       "pnl": 3.164299065420561,
       "status": "closed",
       "order_id": "0x167cf02f8c52d3ac4c459c415e47a9c7875dc37fc496aae718dca652aaa7b079",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x3aad3a99f5999ad70b3ca48ee293b8aebce0ce2df59fdb8cbc55961f0e264a95_UP": {
       "trade_id": "0x3aad3a99f5999ad70b3ca48ee293b8aebce0ce2df59fdb8cbc55961f0e264a95_UP",
@@ -491,7 +502,8 @@
       "pnl": 5.2678787878787885,
       "status": "closed",
       "order_id": "0x4f64ce0a85d71cef71f703a5aebd3d9c5cd82dadb36a1ac56f01139e594b69ed",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x15c5590e0d0220b95647d314b8ee49a8b69c919956531c4040cadd1186b8b5a6_UP": {
       "trade_id": "0x15c5590e0d0220b95647d314b8ee49a8b69c919956531c4040cadd1186b8b5a6_UP",
@@ -531,7 +543,8 @@
       "pnl": -4.079191919191919,
       "status": "closed",
       "order_id": "0xfe5bcca1f0349b04c17f1dafa59be8bc011643e727b37b85c68320f9857d5cb2",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x18e9e8d542997c1ae305a1d1771fbe45325aaac279226d37ebca32f9fc643fd9_DOWN": {
       "trade_id": "0x18e9e8d542997c1ae305a1d1771fbe45325aaac279226d37ebca32f9fc643fd9_DOWN",
@@ -571,7 +584,8 @@
       "pnl": 2.5119402985074633,
       "status": "closed",
       "order_id": "0xaa4c0147115217d5418fe7468dd05ca5abe93574a975bd11b7b6682d98a2ef47",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x08353dffb7935d155d7b8803c05dc0e17d42d72f9189153598dfdb2d569cf175_UP": {
       "trade_id": "0x08353dffb7935d155d7b8803c05dc0e17d42d72f9189153598dfdb2d569cf175_UP",
@@ -611,7 +625,8 @@
       "pnl": 7.094432989690722,
       "status": "closed",
       "order_id": "0x874ea87e8688b343163a49d44beabbdfb9b20664717affede4ae3f82fffb1f60",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x7b0d52d6b4a0b2876a2dfc278a8a6d3f9e22476a89f94d542bc8f4a4306c3294_UP": {
       "trade_id": "0x7b0d52d6b4a0b2876a2dfc278a8a6d3f9e22476a89f94d542bc8f4a4306c3294_UP",
@@ -651,7 +666,8 @@
       "pnl": 4.960594059405941,
       "status": "closed",
       "order_id": "0x582f92e550c78299b916d7d03f8b4d334a37bf75257cc84ac682530a47ca133e",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xb3e78fa307db6993c38abc4c2568c251446afaf0ca91c540b8f621ae40b1e9d1_DOWN": {
       "trade_id": "0xb3e78fa307db6993c38abc4c2568c251446afaf0ca91c540b8f621ae40b1e9d1_DOWN",
@@ -691,7 +707,8 @@
       "pnl": -5.99820895522388,
       "status": "closed",
       "order_id": "0xcafa5c7f37c6c500d9956a79e0d6f7ec93440e0c01ab02094496bbe119a1313b",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x9d6422e89476ff571b80af007dc6e3a6be3cc550c6ad77215c7103cec64def80_UP": {
       "trade_id": "0x9d6422e89476ff571b80af007dc6e3a6be3cc550c6ad77215c7103cec64def80_UP",
@@ -731,7 +748,8 @@
       "pnl": 4.160000000000001,
       "status": "closed",
       "order_id": "0x101e8dacf966b9266ca79ca45e1d378b6a0a2402dab5d300dfe3ce2f2fb08b02",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x413a67d8cf377cdfb97aecd7f11f0747384bbc3651115d256f64183df9cec2d1_UP": {
       "trade_id": "0x413a67d8cf377cdfb97aecd7f11f0747384bbc3651115d256f64183df9cec2d1_UP",
@@ -771,7 +789,8 @@
       "pnl": 3.217821782178218,
       "status": "closed",
       "order_id": "0xe8b90ff280617771b4c11c925faf29ee8128b93385ced2a35df62fd7d42beaf2",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x686741af518e2dee347137ded8fcf2250dca0f182908ff9a70f353c9b5a28378_UP": {
       "trade_id": "0x686741af518e2dee347137ded8fcf2250dca0f182908ff9a70f353c9b5a28378_UP",
@@ -811,7 +830,8 @@
       "pnl": -3.316326530612245,
       "status": "closed",
       "order_id": "0x5639851d06a2582b4ea9c33d8a0c8ca9fa4cf150d15a44fc18c1fd856a69b0cb",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x64b699badee8e9b0846e78dad462fd0b8037e3a9ac7d50b31147a862e6f7c524_UP": {
       "trade_id": "0x64b699badee8e9b0846e78dad462fd0b8037e3a9ac7d50b31147a862e6f7c524_UP",
@@ -851,7 +871,8 @@
       "pnl": 2.0510204081632644,
       "status": "closed",
       "order_id": "0x68b77cbbc6d2392c6a8f3156a0127d0f2f362c1008846b7e345cedc532529191",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xe342498f2d3d1a677e6b7ab817904e0f086901ce6bd7b9b645f6581e5049d81f_UP": {
       "trade_id": "0xe342498f2d3d1a677e6b7ab817904e0f086901ce6bd7b9b645f6581e5049d81f_UP",
@@ -891,7 +912,8 @@
       "pnl": -2.663265306122449,
       "status": "closed",
       "order_id": "0xc23c9458ac9d2ac4308fca3411ef4ad1dff78bfa67ed8a7111fe485cdbb29d0d",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x8c15a04c97e9329f8e4ee19bdcf7db2a01da5975c8529adafcd795c2dd61175f_UP": {
       "trade_id": "0x8c15a04c97e9329f8e4ee19bdcf7db2a01da5975c8529adafcd795c2dd61175f_UP",
@@ -931,7 +953,8 @@
       "pnl": -1.15,
       "status": "closed",
       "order_id": "0x8a52682128f66d5d3f3b9888d0b571f13e4d69e88ef3cf604f807bebf6e7557b",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xd149b6cb197a17535fd36c803558832bdd3a2c3f8acec14dc9335db04e76328e_UP": {
       "trade_id": "0xd149b6cb197a17535fd36c803558832bdd3a2c3f8acec14dc9335db04e76328e_UP",
@@ -971,7 +994,8 @@
       "pnl": 3.1224489795918364,
       "status": "closed",
       "order_id": "0x29ed5bb098839a63d2086f686eeae8b026a8cfe739678287689c7197ffa0cc0c",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xb6fc233114c1d974691b238b45632e2e50fa5b05d5ea0290b3df7b90232b2402_UP": {
       "trade_id": "0xb6fc233114c1d974691b238b45632e2e50fa5b05d5ea0290b3df7b90232b2402_UP",
@@ -1011,7 +1035,8 @@
       "pnl": 0.9166666666666665,
       "status": "closed",
       "order_id": "0x997b155cb9deb39c60430c9968e00ae417082cd5dccf722508d89443c5ac8cc0",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xc07a13a973e536c5439e2c96fbe42b32dfec8b58f9ed51826981d96d170d7bf7_UP": {
       "trade_id": "0xc07a13a973e536c5439e2c96fbe42b32dfec8b58f9ed51826981d96d170d7bf7_UP",
@@ -1051,7 +1076,8 @@
       "pnl": -1.5566037735849056,
       "status": "closed",
       "order_id": "0x6a816c205bd5b814a7c824da5c32643536d3315fe6a4b67a1260bc6b19f97d3c",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xa31a78b85feabf1ce3eb61fa1fbb183dbaa9262f81a61f5df73d5eb5f2bdb37c_UP": {
       "trade_id": "0xa31a78b85feabf1ce3eb61fa1fbb183dbaa9262f81a61f5df73d5eb5f2bdb37c_UP",
@@ -1091,7 +1117,8 @@
       "pnl": 1.6944444444444438,
       "status": "closed",
       "order_id": "0x9679b442b8f8796c0379e1fc1bbf2c6d9eb9e4f49ff5d2e2ae8129263d416493",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x42dd8141b972ec2aaf51f905ffb48d432bb1f3de4a6f18feff92a6ca7ba82574_UP": {
       "trade_id": "0x42dd8141b972ec2aaf51f905ffb48d432bb1f3de4a6f18feff92a6ca7ba82574_UP",
@@ -1131,7 +1158,8 @@
       "pnl": -2.116071428571429,
       "status": "closed",
       "order_id": "0xef12c0a6c776a50245b38ea6594a42fa81bfc8522722c59bc72640c7f42009a5",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xbf3b9e2dcea4e25970831ba6487a4d64c0e5a0474b02b2d92337041a9ef51926_UP": {
       "trade_id": "0xbf3b9e2dcea4e25970831ba6487a4d64c0e5a0474b02b2d92337041a9ef51926_UP",
@@ -1171,7 +1199,8 @@
       "pnl": -0.7788461538461537,
       "status": "closed",
       "order_id": "0x127b7b2f97fa80a9050fdc42f79e0f1ea752352a725bb7e61933a424224a5e12",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xae12b7b895956437de598d37df4354169ab292c70a5965682599d5b5396e24c1_UP": {
       "trade_id": "0xae12b7b895956437de598d37df4354169ab292c70a5965682599d5b5396e24c1_UP",
@@ -1211,7 +1240,8 @@
       "pnl": 0.986842105263158,
       "status": "closed",
       "order_id": "0x1d763d54c4bf5400d137278bed88399a7be6aa307e26069f7dc1f40d45cf4832",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x2e5a6fa51d324e3bda80a1f8a864d032d2d7129a8f1c14847a536dbd45f76028_UP": {
       "trade_id": "0x2e5a6fa51d324e3bda80a1f8a864d032d2d7129a8f1c14847a536dbd45f76028_UP",
@@ -1251,7 +1281,8 @@
       "pnl": -3.0,
       "status": "closed",
       "order_id": "0x1ca95c19de9d0688bc51245d46100b2038e6d1b667ac1554e8634f33b1f35b9d",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x8b00d6444be106e4872ab56ccff594b7bdf942a46ec0aad2b1188209f0918fba_UP": {
       "trade_id": "0x8b00d6444be106e4872ab56ccff594b7bdf942a46ec0aad2b1188209f0918fba_UP",
@@ -1293,7 +1324,8 @@
       "pnl": 0.8023255813953489,
       "status": "closed",
       "order_id": "0x20d47a212f8f8391906c859c4387b869a78973e5aa58f669250d55e015dd581b",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xfdff402155cb2ba057cc73e038864d97aa93eade3ebae2764b082133f13ec1a3_UP": {
       "trade_id": "0xfdff402155cb2ba057cc73e038864d97aa93eade3ebae2764b082133f13ec1a3_UP",
@@ -1335,7 +1367,8 @@
       "pnl": -3.0,
       "status": "closed",
       "order_id": "0x23693c5f8dbc191270f26acee2d569b87356c1ba11a243fe985f471c4f1d8559",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xd81bb738523a183205b868d83538020e21790ff83a72871fff0882c75b4a4375_DOWN": {
       "trade_id": "0xd81bb738523a183205b868d83538020e21790ff83a72871fff0882c75b4a4375_DOWN",
@@ -1377,7 +1410,8 @@
       "pnl": 2.4519230769230766,
       "status": "closed",
       "order_id": "0x57ed01f7abd2782c8040a06749edecc1b54df5a0ae6a3e7eba4c31460b274790",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x277dca7a1432c846311eaee6985d853c57e84bf9948ddd6eb9ef30fcac5d1c80_UP": {
       "trade_id": "0x277dca7a1432c846311eaee6985d853c57e84bf9948ddd6eb9ef30fcac5d1c80_UP",
@@ -1423,7 +1457,8 @@
       "pnl": 0.049450549450549275,
       "status": "closed",
       "order_id": "0x595442be27183d930368363095dc8f0bb1dfc7581df288344009e3a01aaad189",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x792ff12527bf6ce8afe3e02650396a9ce1c386f39650275b49a668ca837b039e_DOWN": {
       "trade_id": "0x792ff12527bf6ce8afe3e02650396a9ce1c386f39650275b49a668ca837b039e_DOWN",
@@ -1465,7 +1500,8 @@
       "pnl": -1.763157894736842,
       "status": "closed",
       "order_id": "0x7babcea5f84bd28301550e90aae2a8eb47da71277eb09c8bb4de24137463b47d",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x9478cb5c9a4c67e3a1fed5d9d697355e63431316fe73a3eeb67e947fd83e66c5_UP": {
       "trade_id": "0x9478cb5c9a4c67e3a1fed5d9d697355e63431316fe73a3eeb67e947fd83e66c5_UP",
@@ -1507,7 +1543,8 @@
       "pnl": -0.22222222222222232,
       "status": "closed",
       "order_id": "0x6868dd74a891f1f43ce4ebad6d72a65b6d83913e3955cae4b884c96ce7797b17",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x1aba28d2ad442fbec9e39f9db9ca7aa349bda4090f925aba59720d96cd0a7797_DOWN": {
       "trade_id": "0x1aba28d2ad442fbec9e39f9db9ca7aa349bda4090f925aba59720d96cd0a7797_DOWN",
@@ -1551,7 +1588,8 @@
       "pnl": 1.741071428571428,
       "status": "closed",
       "order_id": "0xc1c126da7b7466aaa755558bfbd873be2dd58a7dd784a669b2ccb5a2291579a1",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x8e6a37b82fd77b90d6c5beafbed036fea5c8ae616648eff3d5540e98b9c87087_UP": {
       "trade_id": "0x8e6a37b82fd77b90d6c5beafbed036fea5c8ae616648eff3d5540e98b9c87087_UP",
@@ -1593,7 +1631,8 @@
       "pnl": -3.0,
       "status": "closed",
       "order_id": "0x0c6073696a291169e7d4db0b8570d5d83cd98b9bbb910b65d440470989dcccfc",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xc2f3dff44d825518ea466949127fd2e945eb42db4d82a77db239c720014caa86_UP": {
       "trade_id": "0xc2f3dff44d825518ea466949127fd2e945eb42db4d82a77db239c720014caa86_UP",
@@ -1640,7 +1679,8 @@
       "pnl": -0.015957446808509967,
       "status": "closed",
       "order_id": "0x1432707c6f4cf0bc8ecbb6058bbae7721aefc54652dd06f59fda2aebb70ef823",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x4daba48ae7a551e018579c93fbfa7b9e0451f2a3682e500b12b66e468308feac_DOWN": {
       "trade_id": "0x4daba48ae7a551e018579c93fbfa7b9e0451f2a3682e500b12b66e468308feac_DOWN",
@@ -1682,7 +1722,8 @@
       "pnl": 0.7682926829268295,
       "status": "closed",
       "order_id": "0x2c6e9842eea8c6137151a989502c63da2fdd5f5f7810805490942546e9c45f0a",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xca778e507c5b74b451c10d13730f6a855d3f1c4f2c0b6da12377aaaff89ddb7f_DOWN": {
       "trade_id": "0xca778e507c5b74b451c10d13730f6a855d3f1c4f2c0b6da12377aaaff89ddb7f_DOWN",
@@ -1724,7 +1765,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0xb57eec11857300402fa905ecf810fa4ecc54d89c6076b727456548711a8e97f8",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x32f9d7c03abfc078e0c88165036d6e0b0346a4c0a357087a166816ea02124eba_DOWN": {
       "trade_id": "0x32f9d7c03abfc078e0c88165036d6e0b0346a4c0a357087a166816ea02124eba_DOWN",
@@ -1769,7 +1811,8 @@
       "pnl": 1.8396226415094334,
       "status": "closed",
       "order_id": "0xe33cca4db2a57fc0cd7784fc86ff83e6edbdebb6d61978c7c64d315f9beda27b",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xf8626ad7653b6aba2216d63973cc1cde60e32133ab576af77b251414e8bf74be_UP": {
       "trade_id": "0xf8626ad7653b6aba2216d63973cc1cde60e32133ab576af77b251414e8bf74be_UP",
@@ -1811,7 +1854,8 @@
       "pnl": -0.78125,
       "status": "closed",
       "order_id": "0x782b5543a046b20885fa441d1d3649cdb22fc53a63b784fcf68af4f229eb7a30",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x7cb902afecc4496684e74f204757b834fc121f4cdc4ab5c26d8ad512a05110f1_UP": {
       "trade_id": "0x7cb902afecc4496684e74f204757b834fc121f4cdc4ab5c26d8ad512a05110f1_UP",
@@ -1862,7 +1906,8 @@
       "pnl": 2.1944444444444446,
       "status": "closed",
       "order_id": "0xb26e3ee0cc4126e7271a137d7b81a5759a0984061338bfb4fe8b1652ef13a511",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xa5602c2421fd7363d8fab8d5e8984a903b05fa1f59b3b799b0cd2c1ad9ce3997_DOWN": {
       "trade_id": "0xa5602c2421fd7363d8fab8d5e8984a903b05fa1f59b3b799b0cd2c1ad9ce3997_DOWN",
@@ -1915,7 +1960,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0x426f3afb68f352f89e8b4213f6f58940494b161c360febf2dcf09b196abfe3f5",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x8b8aaf62221b78ea2f7ae4cea2e49d3211489cc4d4b384e255dd97bcb9b6abf2_DOWN": {
       "trade_id": "0x8b8aaf62221b78ea2f7ae4cea2e49d3211489cc4d4b384e255dd97bcb9b6abf2_DOWN",
@@ -1966,7 +2012,8 @@
       "pnl": -3.0,
       "status": "closed",
       "order_id": "0xc523f4d045b4c7d220fa3377157741be37f1cbeaae8550d3bd7ba82a6b7e39ff",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x014767a9ab2dcf41c6fd1ac564477c4778494cc9ea31886b5b456bea74a670da_UP": {
       "trade_id": "0x014767a9ab2dcf41c6fd1ac564477c4778494cc9ea31886b5b456bea74a670da_UP",
@@ -2019,7 +2066,8 @@
       "pnl": -1.6176470588235297,
       "status": "closed",
       "order_id": "0x688b37b268f65f94d3809d081445971e77b54680388927e37e22ff30cfdd0a1e",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x1e6afb6061f683c43822570ac6d9e0339a0fe854d4c5708e826e2c029b2b62cb_UP": {
       "trade_id": "0x1e6afb6061f683c43822570ac6d9e0339a0fe854d4c5708e826e2c029b2b62cb_UP",
@@ -2070,7 +2118,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0xe6d6f49aa2353372f5e1b2de32c0fc561e2788bf078d697c965ebebe83af3602",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x1b12409a786c716d43b066e58244ee06a6c0c7373f461acde0e219bc4cd840fd_UP": {
       "trade_id": "0x1b12409a786c716d43b066e58244ee06a6c0c7373f461acde0e219bc4cd840fd_UP",
@@ -2121,7 +2170,8 @@
       "pnl": 3.25,
       "status": "closed",
       "order_id": "0x9fbd93dee96ba7859b9b1bfa75faee86237aa0beadb70ced9721c57e9d69933f",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x699cc9c0add468b8fa7ed64b7e604e49e611fcb2f70ed49556f9adca29646f98_UP": {
       "trade_id": "0x699cc9c0add468b8fa7ed64b7e604e49e611fcb2f70ed49556f9adca29646f98_UP",
@@ -2172,7 +2222,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0xc27ee3f46b896e44b10ab19348c7175eb4448129dac353afcdd249afe1295830",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x74fa68e159d68ad059f703315cfe549840b6ff3485581e04b7991586afb5bcb7_UP": {
       "trade_id": "0x74fa68e159d68ad059f703315cfe549840b6ff3485581e04b7991586afb5bcb7_UP",
@@ -2227,7 +2278,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0xd4615bed9c6c42ff07615917bd97c6fcb973d706832577167624c42b44066042",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xf17363c67690bcf5e4002fd3a5742f54847eac065b1d99f77b2606c6beb70fcf_DOWN": {
       "trade_id": "0xf17363c67690bcf5e4002fd3a5742f54847eac065b1d99f77b2606c6beb70fcf_DOWN",
@@ -2281,7 +2333,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0xef58286dd6df05f15f0aa4b49e8fd7fc8c6cf84161cfbd34d1c1c508803bc714",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x9ca60ff48da5b767103c4712eca9e0539457de60ad430f9770f817b3671f84a5_UP": {
       "trade_id": "0x9ca60ff48da5b767103c4712eca9e0539457de60ad430f9770f817b3671f84a5_UP",
@@ -2332,7 +2385,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0x46308563260e770557e2aa02695f4044ebec89af8f2ee26f0d77eaad53271b13",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xd8e3df65cde5502af38343bd32c8050310bd382eb8418b61af7c0a01e4f88bcd_UP": {
       "trade_id": "0xd8e3df65cde5502af38343bd32c8050310bd382eb8418b61af7c0a01e4f88bcd_UP",
@@ -2383,7 +2437,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0x9a1d4b2db0c19005010c3630c95892336668d46901195b68097cd0b9f09bf4bd",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xf59463fba846ba2f30729472be87140e9aacafafe6f15e1f35e9dac57224fba3_DOWN": {
       "trade_id": "0xf59463fba846ba2f30729472be87140e9aacafafe6f15e1f35e9dac57224fba3_DOWN",
@@ -2436,7 +2491,8 @@
       "pnl": 4.317073170731708,
       "status": "closed",
       "order_id": "0x20b1c2b23da3097226730ded763a84f944777e3c3651e1b7e2b159edda005980",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x751a3ebd7c0de22b97e40c3b8fd83cba9a92e09e4eb9cea2fc0f6f970fcea853_DOWN": {
       "trade_id": "0x751a3ebd7c0de22b97e40c3b8fd83cba9a92e09e4eb9cea2fc0f6f970fcea853_DOWN",
@@ -2487,7 +2543,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0xa167e2eb937ccf7c79d59d10641ccbac6d37a27f4b8aec584dad29318b45adcc",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x511ddd2b692987d83e9fec17d7b9246398d5398a414c0f39001b9a1c25e097cf_DOWN": {
       "trade_id": "0x511ddd2b692987d83e9fec17d7b9246398d5398a414c0f39001b9a1c25e097cf_DOWN",
@@ -2538,7 +2595,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0xfd6ae2782365f8a9ee55b54a81a148692efe62dab7ebc1c106370035613c56f4",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x111b674536302a721c250244ba57af55440d3bfd2ce4388b2a606f9ac443ffc6_DOWN": {
       "trade_id": "0x111b674536302a721c250244ba57af55440d3bfd2ce4388b2a606f9ac443ffc6_DOWN",
@@ -2589,7 +2647,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0x22c566f54b331b1a8960975e62839e1c1025425eaa0fbde334226a6cda4dac8e",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x08d01f03149729aa97fede30fb484fb66f58e66ee01a366692846602582c440b_UP": {
       "trade_id": "0x08d01f03149729aa97fede30fb484fb66f58e66ee01a366692846602582c440b_UP",
@@ -2640,7 +2699,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0xa1bf9ebb70a40511da0a16226088c2b2ff0a47e5554aba8165f7db381fc5d5f1",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x402b6fa446e2a2847eb8080dda460b126f8845ae84f4278951e6fc649f942f60_DOWN": {
       "trade_id": "0x402b6fa446e2a2847eb8080dda460b126f8845ae84f4278951e6fc649f942f60_DOWN",
@@ -2693,7 +2753,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0x1e48dec34ab3008b2d69437f2cbf54485f4371d8b1a147010874009ad2b34bf2",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x706ccd72c120101fed212d48788f52592b1074fe346d72207c602c4eb9eccbd5_UP": {
       "trade_id": "0x706ccd72c120101fed212d48788f52592b1074fe346d72207c602c4eb9eccbd5_UP",
@@ -2746,7 +2807,8 @@
       "pnl": -3.0,
       "status": "closed",
       "order_id": "0xf3f78a41f65b06b61d3d39343ab8268105b4e1164def0510ef8c90310d678e0a",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x910197c1ec6d8d35f4b3dad7dbca2a1eaa8a15c406afd9523e97c49caad1bd37_UP": {
       "trade_id": "0x910197c1ec6d8d35f4b3dad7dbca2a1eaa8a15c406afd9523e97c49caad1bd37_UP",
@@ -2797,7 +2859,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0x92d0ea0519b6074a5775772bc3d1633eef848e0f22f076d41a4707f44dcfe094",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xa16b348c5e4289a948ae84eea2fa640ce3b3e615ccd1f4c2ff0648dc9f597822_UP": {
       "trade_id": "0xa16b348c5e4289a948ae84eea2fa640ce3b3e615ccd1f4c2ff0648dc9f597822_UP",
@@ -2853,7 +2916,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0x460d865dce985db2ec38e0527ae1b68182ac5e0143913f7336a1456c2ca4d617",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x0aaa7dc1e5b729d3f709812be14d8f86933b621982ffdcdad5ccbba6806eed5e_UP": {
       "trade_id": "0x0aaa7dc1e5b729d3f709812be14d8f86933b621982ffdcdad5ccbba6806eed5e_UP",
@@ -2904,7 +2968,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0xa3f146d6054e5c71e281f6f3cedd2ac25ecdef9a050aa242e0484dcc2e53ab30",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xf2e53a7f9c6480f97badd87fcfefe8fb9b42efec8af724d274f38d95d61847bc_UP": {
       "trade_id": "0xf2e53a7f9c6480f97badd87fcfefe8fb9b42efec8af724d274f38d95d61847bc_UP",
@@ -2955,7 +3020,8 @@
       "pnl": 2.88235294117647,
       "status": "closed",
       "order_id": "0xbb085b9850cacd20939cb42960ad49c9277b5add8cbea5d7a7ec9eaf6573a1ca",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x43404512d2547144799297fe2b776a432620fad707cfff3bcd1fbd6af4a868a0_UP": {
       "trade_id": "0x43404512d2547144799297fe2b776a432620fad707cfff3bcd1fbd6af4a868a0_UP",
@@ -3008,7 +3074,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0x54703e74dc4f5ef25c8146520428cb34292f24bb7c4168436dada3273a25fe2b",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xc7e1e12aa47ee93170accda03bf875a8507c44a5280834a040e470c098b5b87a_DOWN": {
       "trade_id": "0xc7e1e12aa47ee93170accda03bf875a8507c44a5280834a040e470c098b5b87a_DOWN",
@@ -3062,7 +3129,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0x2142e3048b5320e8e5801d2e7d333692e5820d56757009a60486f005719db1e8",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x4e465b10b05bc7d181ffe9ec3fb56cd727244a8985e7785fb4be7bd6c817844a_DOWN": {
       "trade_id": "0x4e465b10b05bc7d181ffe9ec3fb56cd727244a8985e7785fb4be7bd6c817844a_DOWN",
@@ -3116,7 +3184,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0x6fab6c7f4e41cb348a044cfcafdf8b40a74cef64fb526b61b6406b6880bcd54f",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xd3e4282f2f5f2c8b1838fc640c8650d436ca9e86d56f0671ae75b6cf386d7146_DOWN": {
       "trade_id": "0xd3e4282f2f5f2c8b1838fc640c8650d436ca9e86d56f0671ae75b6cf386d7146_DOWN",
@@ -3167,7 +3236,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0x8bb9997fe4b272658e41d818cee470290c25a11656a8c9a2494cc71a0424badb",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xf23b5af167e96236ea33a6630f31fe4e47b196d129a8d7d453f4255fd2c200d4_UP": {
       "trade_id": "0xf23b5af167e96236ea33a6630f31fe4e47b196d129a8d7d453f4255fd2c200d4_UP",
@@ -3218,7 +3288,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0x5f191f9ff331e9d64c1f12806d2ae6efa27851521ff1675484e56991209f92b7",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x41f05982aca618166ae4ae5b212773e4a7f20d91d261d82c0b9d2be70cd89d7e_UP": {
       "trade_id": "0x41f05982aca618166ae4ae5b212773e4a7f20d91d261d82c0b9d2be70cd89d7e_UP",
@@ -3269,7 +3340,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0x3340d1164b86095271d62acf2d5b23b2d3b28a1816704f54981e0e422485838a",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x6d9689a766db622c240ccce3fc8be4ffbc1914d904b3ff9ed4d5ec6a00ac5e15_UP": {
       "trade_id": "0x6d9689a766db622c240ccce3fc8be4ffbc1914d904b3ff9ed4d5ec6a00ac5e15_UP",
@@ -3320,7 +3392,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0xd8f8abc1f90d3966d4087bbfebf371ed23ada711681e070ac07aa099814df6fa",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x40028ce0a91e7ca76c23bcb110e315799d0f3bffc1bad26d57c32763cbc18612_DOWN": {
       "trade_id": "0x40028ce0a91e7ca76c23bcb110e315799d0f3bffc1bad26d57c32763cbc18612_DOWN",
@@ -3373,7 +3446,8 @@
       "pnl": 0.0,
       "status": "closed",
       "order_id": "0xd6ae41c54a270091efcbfd2512e753fd12db6da79ec5c86ba5be8e8afe0ed6ec",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0xe1949296753d72f45ca707d7d9024ce7e192efa21214dc22abf749d932e49b25_DOWN": {
       "trade_id": "0xe1949296753d72f45ca707d7d9024ce7e192efa21214dc22abf749d932e49b25_DOWN",
@@ -3426,7 +3500,8 @@
       "pnl": 0.058499999999999996,
       "status": "closed",
       "order_id": "0xf77360871b499ec08da2cd5372b9c9a4a585bdad811c885974fd394c41a4b06e",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     },
     "0x88ee58a8ab656dba0b93ad2c3ec25c00511c4116a511929b25a2b8cecb99ffaa_UP": {
       "trade_id": "0x88ee58a8ab656dba0b93ad2c3ec25c00511c4116a511929b25a2b8cecb99ffaa_UP",
@@ -3477,13 +3552,14 @@
       "pnl": 2.97,
       "status": "closed",
       "order_id": "0x6c3b1285026cfa346b23d4812aed2401e86bb4b851b17efeb95618c62717d2d0",
-      "execution_error": null
+      "execution_error": null,
+      "market_numeric_id": null
     }
   },
   "total_pnl": 24.0421,
   "wins": 24,
   "losses": 18,
-  "signals_count": 4836,
+  "signals_count": 4925,
   "ml_rejections": 0,
   "consecutive_wins": 3,
   "consecutive_losses": 0,
@@ -4531,666 +4607,6 @@
     "time_remaining": 0.8
   },
   "shadow_trades": {
-    "filter_0xd49d6b280fe8fb03e95e25a383ca93d5aba6a56a09f849a6fc7b2bb3f91501e0_UP_v33_conviction": {
-      "asset": "BTC",
-      "side": "UP",
-      "entry_price": 0.665,
-      "entry_time": "2026-02-11T18:51:38.545330+00:00",
-      "market_id": "0xd49d6b280fe8fb03e95e25a383ca93d5aba6a56a09f849a6fc7b2bb3f91501e0",
-      "market_title": "[BTC] Bitcoin Up or Down - February 11, 1:45PM-2:00PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v33_conviction",
-      "filter_name": "v33_conviction",
-      "pnl": 0.0,
-      "exit_price": 0.665,
-      "exit_time": "2026-02-11T19:07:56.037804+00:00"
-    },
-    "filter_0x25e3de23adef28bd58f82a10c416ee5f56400ef80296eca179c0a418fb39112f_DOWN_v310_sol_down_edge": {
-      "asset": "SOL",
-      "side": "DOWN",
-      "entry_price": 0.35,
-      "entry_time": "2026-02-11T18:51:38.547724+00:00",
-      "market_id": "0x25e3de23adef28bd58f82a10c416ee5f56400ef80296eca179c0a418fb39112f",
-      "market_title": "[SOL] Solana Up or Down - February 11, 1:45PM-2:00PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v310_sol_down_edge",
-      "filter_name": "v310_sol_down_edge",
-      "pnl": 0.0,
-      "exit_price": 0.35,
-      "exit_time": "2026-02-11T19:07:56.037804+00:00"
-    },
-    "filter_0x31bdb9bf8afb3cd94e8269be3abd13b2bb88b79e59815633c31e71292450813a_None_v314_eth_conf": {
-      "asset": "ETH",
-      "side": null,
-      "entry_price": 0.185,
-      "entry_time": "2026-02-11T18:51:38.549779+00:00",
-      "market_id": "0x31bdb9bf8afb3cd94e8269be3abd13b2bb88b79e59815633c31e71292450813a",
-      "market_title": "[ETH] Ethereum Up or Down - February 11, 1:45PM-2:00PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v314_eth_conf",
-      "filter_name": "v314_eth_conf",
-      "pnl": 0.0,
-      "exit_price": 0.185,
-      "exit_time": "2026-02-11T19:07:56.037804+00:00"
-    },
-    "filter_0xd49d6b280fe8fb03e95e25a383ca93d5aba6a56a09f849a6fc7b2bb3f91501e0_DOWN_v39_btc_down_contrarian": {
-      "asset": "BTC",
-      "side": "DOWN",
-      "entry_price": 0.335,
-      "entry_time": "2026-02-11T18:52:18.758827+00:00",
-      "market_id": "0xd49d6b280fe8fb03e95e25a383ca93d5aba6a56a09f849a6fc7b2bb3f91501e0",
-      "market_title": "[BTC] Bitcoin Up or Down - February 11, 1:45PM-2:00PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v39_btc_down_contrarian",
-      "filter_name": "v39_btc_down_contrarian",
-      "pnl": 0.0,
-      "exit_price": 0.335,
-      "exit_time": "2026-02-11T19:08:39.877378+00:00"
-    },
-    "filter_0xb843346f63d143098e93ebdf807d43a7ad13db5b27c79b287c8bf327982b9a75_UP_v314_vwap_dist": {
-      "asset": "BTC",
-      "side": "UP",
-      "entry_price": 0.3,
-      "entry_time": "2026-02-11T19:06:24.530744+00:00",
-      "market_id": "0xb843346f63d143098e93ebdf807d43a7ad13db5b27c79b287c8bf327982b9a75",
-      "market_title": "[BTC] Bitcoin Up or Down - February 11, 2:00PM-2:15PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v314_vwap_dist",
-      "filter_name": "v314_vwap_dist",
-      "pnl": 0.0,
-      "exit_price": 0.3,
-      "exit_time": "2026-02-11T19:22:46.975373+00:00"
-    },
-    "filter_0xbbf7cdcf08f6fbafaa9dad36f261c6cfb0980dd78f1480599b7c715451b7c3df_None_v314_eth_conf": {
-      "asset": "ETH",
-      "side": null,
-      "entry_price": 0.675,
-      "entry_time": "2026-02-11T19:07:56.037804+00:00",
-      "market_id": "0xbbf7cdcf08f6fbafaa9dad36f261c6cfb0980dd78f1480599b7c715451b7c3df",
-      "market_title": "[ETH] Ethereum Up or Down - February 11, 2:00PM-2:15PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v314_eth_conf",
-      "filter_name": "v314_eth_conf",
-      "pnl": 0.0,
-      "exit_price": 0.675,
-      "exit_time": "2026-02-11T19:24:25.452161+00:00"
-    },
-    "filter_0x883f017e5833e43e0fe7bf01e2cee339b42d57d76d3893bdfab991a4dc97cb52_UP_v314_vwap_dist": {
-      "asset": "SOL",
-      "side": "UP",
-      "entry_price": 0.44,
-      "entry_time": "2026-02-11T19:08:39.875370+00:00",
-      "market_id": "0x883f017e5833e43e0fe7bf01e2cee339b42d57d76d3893bdfab991a4dc97cb52",
-      "market_title": "[SOL] Solana Up or Down - February 11, 2:00PM-2:15PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v314_vwap_dist",
-      "filter_name": "v314_vwap_dist",
-      "pnl": 0.0,
-      "exit_price": 0.44,
-      "exit_time": "2026-02-11T19:25:06.687288+00:00"
-    },
-    "filter_0xbbf7cdcf08f6fbafaa9dad36f261c6cfb0980dd78f1480599b7c715451b7c3df_UP_v314_vwap_dist": {
-      "asset": "ETH",
-      "side": "UP",
-      "entry_price": 0.39,
-      "entry_time": "2026-02-11T19:08:39.877378+00:00",
-      "market_id": "0xbbf7cdcf08f6fbafaa9dad36f261c6cfb0980dd78f1480599b7c715451b7c3df",
-      "market_title": "[ETH] Ethereum Up or Down - February 11, 2:00PM-2:15PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v314_vwap_dist",
-      "filter_name": "v314_vwap_dist",
-      "pnl": 0.0,
-      "exit_price": 0.39,
-      "exit_time": "2026-02-11T19:25:06.687288+00:00"
-    },
-    "filter_0xc3c69fee08905b8a1cad8de2794c3232e4b77fc2b128030d57d95caa96ce7493_UP_v33_conviction": {
-      "asset": "BTC",
-      "side": "UP",
-      "entry_price": 0.525,
-      "entry_time": "2026-02-11T19:21:26.987958+00:00",
-      "market_id": "0xc3c69fee08905b8a1cad8de2794c3232e4b77fc2b128030d57d95caa96ce7493",
-      "market_title": "[BTC] Bitcoin Up or Down - February 11, 2:15PM-2:30PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v33_conviction",
-      "filter_name": "v33_conviction",
-      "pnl": 0.0,
-      "exit_price": 0.525,
-      "exit_time": "2026-02-11T19:37:58.240285+00:00"
-    },
-    "filter_0xa16b348c5e4289a948ae84eea2fa640ce3b3e615ccd1f4c2ff0648dc9f597822_DOWN_v310_sol_down_edge": {
-      "asset": "SOL",
-      "side": "DOWN",
-      "entry_price": 0.595,
-      "entry_time": "2026-02-11T19:21:26.991014+00:00",
-      "market_id": "0xa16b348c5e4289a948ae84eea2fa640ce3b3e615ccd1f4c2ff0648dc9f597822",
-      "market_title": "[SOL] Solana Up or Down - February 11, 2:15PM-2:30PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v310_sol_down_edge",
-      "filter_name": "v310_sol_down_edge",
-      "pnl": 0.0,
-      "exit_price": 0.595,
-      "exit_time": "2026-02-11T19:37:58.240285+00:00"
-    },
-    "filter_0xdcad7189119e750b0000cbe9ab390ccbd51087d6e7786befaa12d21d63450b67_UP_v33_conviction": {
-      "asset": "ETH",
-      "side": "UP",
-      "entry_price": 0.195,
-      "entry_time": "2026-02-11T19:23:45.084365+00:00",
-      "market_id": "0xdcad7189119e750b0000cbe9ab390ccbd51087d6e7786befaa12d21d63450b67",
-      "market_title": "[ETH] Ethereum Up or Down - February 11, 2:15PM-2:30PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v33_conviction",
-      "filter_name": "v33_conviction",
-      "pnl": 0.0,
-      "exit_price": 0.195,
-      "exit_time": "2026-02-11T19:40:00.000368+00:00"
-    },
-    "filter_0xa16b348c5e4289a948ae84eea2fa640ce3b3e615ccd1f4c2ff0648dc9f597822_UP_v33_conviction": {
-      "asset": "SOL",
-      "side": "UP",
-      "entry_price": 0.095,
-      "entry_time": "2026-02-11T19:24:25.449151+00:00",
-      "market_id": "0xa16b348c5e4289a948ae84eea2fa640ce3b3e615ccd1f4c2ff0648dc9f597822",
-      "market_title": "[SOL] Solana Up or Down - February 11, 2:15PM-2:30PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v33_conviction",
-      "filter_name": "v33_conviction",
-      "pnl": 0.0,
-      "exit_price": 0.095,
-      "exit_time": "2026-02-11T19:40:41.961584+00:00"
-    },
-    "filter_0x2c2786f30da819855143cb7f4f709401ebab831d31ec925b5bf4e0f487ef299a_None_v314_eth_conf": {
-      "asset": "ETH",
-      "side": null,
-      "entry_price": 0.255,
-      "entry_time": "2026-02-11T19:40:00.000368+00:00",
-      "market_id": "0x2c2786f30da819855143cb7f4f709401ebab831d31ec925b5bf4e0f487ef299a",
-      "market_title": "[ETH] Ethereum Up or Down - February 11, 2:30PM-2:45PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v314_eth_conf",
-      "filter_name": "v314_eth_conf",
-      "pnl": 0.0,
-      "exit_price": 0.255,
-      "exit_time": "2026-02-11T19:56:27.495304+00:00"
-    },
-    "filter_0xa84a5454cc418b189e1512667355b4679559c65b137f7a90938975910ba13f91_None_v314_eth_conf": {
-      "asset": "ETH",
-      "side": null,
-      "entry_price": 0.625,
-      "entry_time": "2026-02-11T19:53:45.473489+00:00",
-      "market_id": "0xa84a5454cc418b189e1512667355b4679559c65b137f7a90938975910ba13f91",
-      "market_title": "[ETH] Ethereum Up or Down - February 11, 2:45PM-3:00PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v314_eth_conf",
-      "filter_name": "v314_eth_conf",
-      "pnl": 0.0,
-      "exit_price": 0.625,
-      "exit_time": "2026-02-11T20:10:19.852551+00:00"
-    },
-    "filter_0x8032d8355d335c6ccbfc2508d99fbc87eb13f437bd275c93ee56fd1558e517ff_DOWN_v33_conviction": {
-      "asset": "BTC",
-      "side": "DOWN",
-      "entry_price": 0.795,
-      "entry_time": "2026-02-11T19:54:25.886125+00:00",
-      "market_id": "0x8032d8355d335c6ccbfc2508d99fbc87eb13f437bd275c93ee56fd1558e517ff",
-      "market_title": "[BTC] Bitcoin Up or Down - February 11, 2:45PM-3:00PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v33_conviction",
-      "filter_name": "v33_conviction",
-      "pnl": 0.0,
-      "exit_price": 0.795,
-      "exit_time": "2026-02-11T20:11:04.275311+00:00"
-    },
-    "filter_0x0aaa7dc1e5b729d3f709812be14d8f86933b621982ffdcdad5ccbba6806eed5e_DOWN_v310_sol_down_edge": {
-      "asset": "SOL",
-      "side": "DOWN",
-      "entry_price": 0.715,
-      "entry_time": "2026-02-11T19:54:25.888249+00:00",
-      "market_id": "0x0aaa7dc1e5b729d3f709812be14d8f86933b621982ffdcdad5ccbba6806eed5e",
-      "market_title": "[SOL] Solana Up or Down - February 11, 2:45PM-3:00PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v310_sol_down_edge",
-      "filter_name": "v310_sol_down_edge",
-      "pnl": 0.0,
-      "exit_price": 0.715,
-      "exit_time": "2026-02-11T20:11:04.275311+00:00"
-    },
-    "filter_0x95a6cfc8a2deade168f1d00a980d3f6e34216acf10329052ff0cb031405ab5b2_DOWN_v39_btc_down_contrarian": {
-      "asset": "BTC",
-      "side": "DOWN",
-      "entry_price": 0.415,
-      "entry_time": "2026-02-11T20:06:34.425611+00:00",
-      "market_id": "0x95a6cfc8a2deade168f1d00a980d3f6e34216acf10329052ff0cb031405ab5b2",
-      "market_title": "[BTC] Bitcoin Up or Down - February 11, 3:00PM-3:15PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v39_btc_down_contrarian",
-      "filter_name": "v39_btc_down_contrarian",
-      "exit_price": 0.225,
-      "pnl": -2.2891566265060237,
-      "exit_time": "2026-02-11T20:21:31.038685+00:00"
-    },
-    "filter_0xb5a940fbd7954f9cd748c26ec31df5fca137397fe1d89cf459cd77ee0b38a6f8_DOWN_v310_sol_down_edge": {
-      "asset": "SOL",
-      "side": "DOWN",
-      "entry_price": 0.595,
-      "entry_time": "2026-02-11T20:06:34.427615+00:00",
-      "market_id": "0xb5a940fbd7954f9cd748c26ec31df5fca137397fe1d89cf459cd77ee0b38a6f8",
-      "market_title": "[SOL] Solana Up or Down - February 11, 3:00PM-3:15PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v310_sol_down_edge",
-      "filter_name": "v310_sol_down_edge",
-      "exit_price": 0.345,
-      "pnl": -2.100840336134454,
-      "exit_time": "2026-02-11T20:21:31.041697+00:00"
-    },
-    "filter_0x95a6cfc8a2deade168f1d00a980d3f6e34216acf10329052ff0cb031405ab5b2_DOWN_v33_conviction": {
-      "asset": "BTC",
-      "side": "DOWN",
-      "entry_price": 0.415,
-      "entry_time": "2026-02-11T20:07:14.283112+00:00",
-      "market_id": "0x95a6cfc8a2deade168f1d00a980d3f6e34216acf10329052ff0cb031405ab5b2",
-      "market_title": "[BTC] Bitcoin Up or Down - February 11, 3:00PM-3:15PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v33_conviction",
-      "filter_name": "v33_conviction",
-      "exit_price": 0.225,
-      "pnl": -2.2891566265060237,
-      "exit_time": "2026-02-11T20:21:31.038685+00:00"
-    },
-    "filter_0xb5a940fbd7954f9cd748c26ec31df5fca137397fe1d89cf459cd77ee0b38a6f8_DOWN_v33_conviction": {
-      "asset": "SOL",
-      "side": "DOWN",
-      "entry_price": 0.595,
-      "entry_time": "2026-02-11T20:07:54.645313+00:00",
-      "market_id": "0xb5a940fbd7954f9cd748c26ec31df5fca137397fe1d89cf459cd77ee0b38a6f8",
-      "market_title": "[SOL] Solana Up or Down - February 11, 3:00PM-3:15PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v33_conviction",
-      "filter_name": "v33_conviction",
-      "exit_price": 0.345,
-      "pnl": -2.100840336134454,
-      "exit_time": "2026-02-11T20:21:31.041697+00:00"
-    },
-    "filter_0xf2e53a7f9c6480f97badd87fcfefe8fb9b42efec8af724d274f38d95d61847bc_None_v314_eth_conf": {
-      "asset": "ETH",
-      "side": null,
-      "entry_price": 0.525,
-      "entry_time": "2026-02-11T20:07:54.648365+00:00",
-      "market_id": "0xf2e53a7f9c6480f97badd87fcfefe8fb9b42efec8af724d274f38d95d61847bc",
-      "market_title": "[ETH] Ethereum Up or Down - February 11, 3:00PM-3:15PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v314_eth_conf",
-      "filter_name": "v314_eth_conf",
-      "exit_price": 0.015,
-      "pnl": -5.0,
-      "exit_time": "2026-02-11T20:21:32.546456+00:00"
-    },
-    "filter_0x6d17f870e97c4d4b320ebd9a6bad15ca05c4083d89845d9f2f8d5da275b0a97e_UP_v33_conviction": {
-      "asset": "SOL",
-      "side": "UP",
-      "entry_price": 0.505,
-      "entry_time": "2026-02-11T20:21:31.041697+00:00",
-      "market_id": "0x6d17f870e97c4d4b320ebd9a6bad15ca05c4083d89845d9f2f8d5da275b0a97e",
-      "market_title": "[SOL] Solana Up or Down - February 11, 3:15PM-3:30PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v33_conviction",
-      "filter_name": "v33_conviction",
-      "pnl": 0.0,
-      "exit_price": 0.505,
-      "exit_time": "2026-02-11T20:37:58.132991+00:00"
-    },
-    "filter_0x176f8d3ac722be46c665af3c8b45c7c56ed8a7275a0356f9313ec958d34dd1cd_None_v314_eth_conf": {
-      "asset": "ETH",
-      "side": null,
-      "entry_price": 0.505,
-      "entry_time": "2026-02-11T20:21:31.511424+00:00",
-      "market_id": "0x176f8d3ac722be46c665af3c8b45c7c56ed8a7275a0356f9313ec958d34dd1cd",
-      "market_title": "[ETH] Ethereum Up or Down - February 11, 3:15PM-3:30PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v314_eth_conf",
-      "filter_name": "v314_eth_conf",
-      "pnl": 0.0,
-      "exit_price": 0.505,
-      "exit_time": "2026-02-11T20:37:58.132991+00:00"
-    },
-    "filter_0x0fb0b22817ed846a40688b6ca9ec26f5922620199e7d64e3f1adde1c0b7c05ad_DOWN_v33_conviction": {
-      "asset": "BTC",
-      "side": "DOWN",
-      "entry_price": 0.545,
-      "entry_time": "2026-02-11T20:24:25.127169+00:00",
-      "market_id": "0x0fb0b22817ed846a40688b6ca9ec26f5922620199e7d64e3f1adde1c0b7c05ad",
-      "market_title": "[BTC] Bitcoin Up or Down - February 11, 3:15PM-3:30PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v33_conviction",
-      "filter_name": "v33_conviction",
-      "pnl": 0.0,
-      "exit_price": 0.545,
-      "exit_time": "2026-02-11T20:40:42.830084+00:00"
-    },
-    "filter_0x6d17f870e97c4d4b320ebd9a6bad15ca05c4083d89845d9f2f8d5da275b0a97e_DOWN_v310_sol_down_edge": {
-      "asset": "SOL",
-      "side": "DOWN",
-      "entry_price": 0.685,
-      "entry_time": "2026-02-11T20:24:25.129243+00:00",
-      "market_id": "0x6d17f870e97c4d4b320ebd9a6bad15ca05c4083d89845d9f2f8d5da275b0a97e",
-      "market_title": "[SOL] Solana Up or Down - February 11, 3:15PM-3:30PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v310_sol_down_edge",
-      "filter_name": "v310_sol_down_edge",
-      "pnl": 0.0,
-      "exit_price": 0.685,
-      "exit_time": "2026-02-11T20:40:42.830084+00:00"
-    },
-    "filter_0x991eb14712a6e3fbe4a323ecffeece7d571062b25be53bd05f5064e0828c3bc3_DOWN_v39_btc_down_contrarian": {
-      "asset": "BTC",
-      "side": "DOWN",
-      "entry_price": 0.345,
-      "entry_time": "2026-02-11T20:36:36.889412+00:00",
-      "market_id": "0x991eb14712a6e3fbe4a323ecffeece7d571062b25be53bd05f5064e0828c3bc3",
-      "market_title": "[BTC] Bitcoin Up or Down - February 11, 3:30PM-3:45PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v39_btc_down_contrarian",
-      "filter_name": "v39_btc_down_contrarian",
-      "pnl": 0.0,
-      "exit_price": 0.345,
-      "exit_time": "2026-02-11T20:52:51.467774+00:00"
-    },
-    "filter_0xe6bf428f375bbc91cdd10e4274fb1bc1018624c8634d839ef29e53dc057b4daf_None_v314_eth_conf": {
-      "asset": "ETH",
-      "side": null,
-      "entry_price": 0.265,
-      "entry_time": "2026-02-11T20:36:36.894603+00:00",
-      "market_id": "0xe6bf428f375bbc91cdd10e4274fb1bc1018624c8634d839ef29e53dc057b4daf",
-      "market_title": "[ETH] Ethereum Up or Down - February 11, 3:30PM-3:45PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v314_eth_conf",
-      "filter_name": "v314_eth_conf",
-      "pnl": 0.0,
-      "exit_price": 0.265,
-      "exit_time": "2026-02-11T20:52:51.467774+00:00"
-    },
-    "filter_0x991eb14712a6e3fbe4a323ecffeece7d571062b25be53bd05f5064e0828c3bc3_UP_v33_conviction": {
-      "asset": "BTC",
-      "side": "UP",
-      "entry_price": 0.655,
-      "entry_time": "2026-02-11T20:39:20.630643+00:00",
-      "market_id": "0x991eb14712a6e3fbe4a323ecffeece7d571062b25be53bd05f5064e0828c3bc3",
-      "market_title": "[BTC] Bitcoin Up or Down - February 11, 3:30PM-3:45PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v33_conviction",
-      "filter_name": "v33_conviction",
-      "pnl": 0.0,
-      "exit_price": 0.655,
-      "exit_time": "2026-02-11T20:55:34.396075+00:00"
-    },
-    "filter_0x73c10e8f92f3e779a8ff2b791de4e6f759a9930a25c739e7e8fb38a4044d6766_UP_v33_conviction": {
-      "asset": "SOL",
-      "side": "UP",
-      "entry_price": 0.765,
-      "entry_time": "2026-02-11T20:39:20.633647+00:00",
-      "market_id": "0x73c10e8f92f3e779a8ff2b791de4e6f759a9930a25c739e7e8fb38a4044d6766",
-      "market_title": "[SOL] Solana Up or Down - February 11, 3:30PM-3:45PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v33_conviction",
-      "filter_name": "v33_conviction",
-      "pnl": 0.0,
-      "exit_price": 0.765,
-      "exit_time": "2026-02-11T20:55:34.396075+00:00"
-    },
-    "filter_0xe6bf428f375bbc91cdd10e4274fb1bc1018624c8634d839ef29e53dc057b4daf_UP_v39_eth_price": {
-      "asset": "ETH",
-      "side": "UP",
-      "entry_price": 0.745,
-      "entry_time": "2026-02-11T20:39:20.636097+00:00",
-      "market_id": "0xe6bf428f375bbc91cdd10e4274fb1bc1018624c8634d839ef29e53dc057b4daf",
-      "market_title": "[ETH] Ethereum Up or Down - February 11, 3:30PM-3:45PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v39_eth_price",
-      "filter_name": "v39_eth_price",
-      "pnl": 0.0,
-      "exit_price": 0.745,
-      "exit_time": "2026-02-11T20:55:34.396075+00:00"
-    },
-    "filter_0xace57ca0856abb2d6453efa465bc120821736a2d0ab9a07dc2760fddd6c3cda0_DOWN_v39_btc_down_contrarian": {
-      "asset": "BTC",
-      "side": "DOWN",
-      "entry_price": 0.115,
-      "entry_time": "2026-02-11T20:51:31.331861+00:00",
-      "market_id": "0xace57ca0856abb2d6453efa465bc120821736a2d0ab9a07dc2760fddd6c3cda0",
-      "market_title": "[BTC] Bitcoin Up or Down - February 11, 3:45PM-4:00PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v39_btc_down_contrarian",
-      "filter_name": "v39_btc_down_contrarian",
-      "exit_price": 0.0005,
-      "pnl": -5.0,
-      "exit_time": "2026-02-11T21:06:18.940461+00:00"
-    },
-    "filter_0x0e069fa4505fc94d0e4e6ee4e71542e4e53054983a86d702a570e52ec437c0ee_DOWN_v33_conviction": {
-      "asset": "SOL",
-      "side": "DOWN",
-      "entry_price": 0.095,
-      "entry_time": "2026-02-11T20:51:31.333863+00:00",
-      "market_id": "0x0e069fa4505fc94d0e4e6ee4e71542e4e53054983a86d702a570e52ec437c0ee",
-      "market_title": "[SOL] Solana Up or Down - February 11, 3:45PM-4:00PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v33_conviction",
-      "filter_name": "v33_conviction",
-      "exit_price": 0.005,
-      "pnl": -5.0,
-      "exit_time": "2026-02-11T21:07:50.425659+00:00"
-    },
-    "filter_0x78e62e05bfbfd9e894b48264485e1fdc1b1540f7151599a11938b9dd6dcddbfd_None_v314_eth_conf": {
-      "asset": "ETH",
-      "side": null,
-      "entry_price": 0.125,
-      "entry_time": "2026-02-11T20:53:33.178863+00:00",
-      "market_id": "0x78e62e05bfbfd9e894b48264485e1fdc1b1540f7151599a11938b9dd6dcddbfd",
-      "market_title": "[ETH] Ethereum Up or Down - February 11, 3:45PM-4:00PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v314_eth_conf",
-      "filter_name": "v314_eth_conf",
-      "exit_price": 0.0005,
-      "pnl": -5.0,
-      "exit_time": "2026-02-11T21:09:21.838535+00:00"
-    },
-    "filter_0x48f4b6ca192d6de8f5e975d840d52de42cfe164a006c87ee69f8a9be6731eba9_UP_v33_conviction": {
-      "asset": "BTC",
-      "side": "UP",
-      "entry_price": 0.535,
-      "entry_time": "2026-02-11T21:06:18.940461+00:00",
-      "market_id": "0x48f4b6ca192d6de8f5e975d840d52de42cfe164a006c87ee69f8a9be6731eba9",
-      "market_title": "[BTC] Bitcoin Up or Down - February 11, 4:00PM-4:15PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v33_conviction",
-      "filter_name": "v33_conviction",
-      "pnl": 0.0,
-      "exit_price": 0.535,
-      "exit_time": "2026-02-11T21:25:10.830835+00:00"
-    },
-    "filter_0xed1ccdb2b897c8add2e7d080e2bfd8b57abd87959dc9b0e4d9c9736cd6a680d4_UP_v33_conviction": {
-      "asset": "SOL",
-      "side": "UP",
-      "entry_price": 0.525,
-      "entry_time": "2026-02-11T21:37:45.349579+00:00",
-      "market_id": "0xed1ccdb2b897c8add2e7d080e2bfd8b57abd87959dc9b0e4d9c9736cd6a680d4",
-      "market_title": "[SOL] Solana Up or Down - February 11, 4:30PM-4:45PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v33_conviction",
-      "filter_name": "v33_conviction",
-      "pnl": 0.0,
-      "exit_price": 0.525,
-      "exit_time": "2026-02-11T21:54:02.614894+00:00"
-    },
-    "filter_0xdf2117e57a99d9a483fd029ebaae6f314cee18aad9e9bc77c6e0ac247c97e0c4_UP_v314_vwap_dist": {
-      "asset": "ETH",
-      "side": "UP",
-      "entry_price": 0.49,
-      "entry_time": "2026-02-11T21:37:45.351589+00:00",
-      "market_id": "0xdf2117e57a99d9a483fd029ebaae6f314cee18aad9e9bc77c6e0ac247c97e0c4",
-      "market_title": "[ETH] Ethereum Up or Down - February 11, 4:30PM-4:45PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v314_vwap_dist",
-      "filter_name": "v314_vwap_dist",
-      "pnl": 0.0,
-      "exit_price": 0.49,
-      "exit_time": "2026-02-11T21:54:02.614894+00:00"
-    },
-    "filter_0xa71499967fc282bedda6add34ab1d5dc85c951bb3f1fb6befd5787999502417e_UP_edge_floor": {
-      "asset": "BTC",
-      "side": "UP",
-      "entry_price": 0.495,
-      "entry_time": "2026-02-11T21:51:22.179285+00:00",
-      "market_id": "0xa71499967fc282bedda6add34ab1d5dc85c951bb3f1fb6befd5787999502417e",
-      "market_title": "[BTC] Bitcoin Up or Down - February 11, 4:45PM-5:00PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_edge_floor",
-      "filter_name": "edge_floor",
-      "pnl": 0.0,
-      "exit_price": 0.495,
-      "exit_time": "2026-02-11T22:07:54.046689+00:00"
-    },
-    "filter_0xaaa63dcc9f841c973c84df3bd110c58bbb5648ad59985a5888d3fc5887c550de_DOWN_v310_sol_down_edge": {
-      "asset": "SOL",
-      "side": "DOWN",
-      "entry_price": 0.525,
-      "entry_time": "2026-02-11T21:51:22.181895+00:00",
-      "market_id": "0xaaa63dcc9f841c973c84df3bd110c58bbb5648ad59985a5888d3fc5887c550de",
-      "market_title": "[SOL] Solana Up or Down - February 11, 4:45PM-5:00PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v310_sol_down_edge",
-      "filter_name": "v310_sol_down_edge",
-      "pnl": 0.0,
-      "exit_price": 0.525,
-      "exit_time": "2026-02-11T22:07:54.046689+00:00"
-    },
-    "filter_0x2427938ef355f40ae0a7e6c7573da5edb30d639de7b9a18ae9efd1b46ee95beb_None_v314_eth_conf": {
-      "asset": "ETH",
-      "side": null,
-      "entry_price": 0.315,
-      "entry_time": "2026-02-11T21:52:01.693299+00:00",
-      "market_id": "0x2427938ef355f40ae0a7e6c7573da5edb30d639de7b9a18ae9efd1b46ee95beb",
-      "market_title": "[ETH] Ethereum Up or Down - February 11, 4:45PM-5:00PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v314_eth_conf",
-      "filter_name": "v314_eth_conf",
-      "pnl": 0.0,
-      "exit_price": 0.315,
-      "exit_time": "2026-02-11T22:08:36.794407+00:00"
-    },
-    "filter_0xa71499967fc282bedda6add34ab1d5dc85c951bb3f1fb6befd5787999502417e_DOWN_v33_conviction": {
-      "asset": "BTC",
-      "side": "DOWN",
-      "entry_price": 0.735,
-      "entry_time": "2026-02-11T21:53:22.138767+00:00",
-      "market_id": "0xa71499967fc282bedda6add34ab1d5dc85c951bb3f1fb6befd5787999502417e",
-      "market_title": "[BTC] Bitcoin Up or Down - February 11, 4:45PM-5:00PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v33_conviction",
-      "filter_name": "v33_conviction",
-      "pnl": 0.0,
-      "exit_price": 0.735,
-      "exit_time": "2026-02-11T22:09:57.657139+00:00"
-    },
-    "filter_0xaaa63dcc9f841c973c84df3bd110c58bbb5648ad59985a5888d3fc5887c550de_UP_v33_conviction": {
-      "asset": "SOL",
-      "side": "UP",
-      "entry_price": 0.455,
-      "entry_time": "2026-02-11T21:53:22.140896+00:00",
-      "market_id": "0xaaa63dcc9f841c973c84df3bd110c58bbb5648ad59985a5888d3fc5887c550de",
-      "market_title": "[SOL] Solana Up or Down - February 11, 4:45PM-5:00PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v33_conviction",
-      "filter_name": "v33_conviction",
-      "pnl": 0.0,
-      "exit_price": 0.455,
-      "exit_time": "2026-02-11T22:09:57.657139+00:00"
-    },
-    "filter_0x2427938ef355f40ae0a7e6c7573da5edb30d639de7b9a18ae9efd1b46ee95beb_UP_v33_conviction": {
-      "asset": "ETH",
-      "side": "UP",
-      "entry_price": 0.685,
-      "entry_time": "2026-02-11T21:53:22.143903+00:00",
-      "market_id": "0x2427938ef355f40ae0a7e6c7573da5edb30d639de7b9a18ae9efd1b46ee95beb",
-      "market_title": "[ETH] Ethereum Up or Down - February 11, 4:45PM-5:00PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_v33_conviction",
-      "filter_name": "v33_conviction",
-      "pnl": 0.0,
-      "exit_price": 0.685,
-      "exit_time": "2026-02-11T22:09:57.657139+00:00"
-    },
-    "filter_0xaaa63dcc9f841c973c84df3bd110c58bbb5648ad59985a5888d3fc5887c550de_UP_edge_floor": {
-      "asset": "SOL",
-      "side": "UP",
-      "entry_price": 0.455,
-      "entry_time": "2026-02-11T21:54:46.044177+00:00",
-      "market_id": "0xaaa63dcc9f841c973c84df3bd110c58bbb5648ad59985a5888d3fc5887c550de",
-      "market_title": "[SOL] Solana Up or Down - February 11, 4:45PM-5:00PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_edge_floor",
-      "filter_name": "edge_floor",
-      "pnl": 0.0,
-      "exit_price": 0.455,
-      "exit_time": "2026-02-11T22:11:19.645426+00:00"
-    },
-    "filter_0xc7e1e12aa47ee93170accda03bf875a8507c44a5280834a040e470c098b5b87a_DOWN_edge_floor": {
-      "asset": "BTC",
-      "side": "DOWN",
-      "entry_price": 0.475,
-      "entry_time": "2026-02-11T22:06:16.835989+00:00",
-      "market_id": "0xc7e1e12aa47ee93170accda03bf875a8507c44a5280834a040e470c098b5b87a",
-      "market_title": "[BTC] Bitcoin Up or Down - February 11, 5:00PM-5:15PM ET",
-      "size_usd": 5.0,
-      "status": "closed",
-      "reason": "filter_edge_floor",
-      "filter_name": "edge_floor",
-      "pnl": 0.0,
-      "exit_price": 0.475,
-      "exit_time": "2026-02-11T22:22:18.680281+00:00"
-    },
     "filter_0xe80829743924ceaf15888843823a81a29c292040ce9b0a25b2a4b3800c0b795d_None_v314_eth_conf": {
       "asset": "ETH",
       "side": null,
@@ -7660,6 +7076,260 @@
       "pnl": 0.0,
       "exit_price": 0.525,
       "exit_time": "2026-02-12T12:30:26.606345+00:00"
+    },
+    "filter_0x5166b7872d77538933d92da3ba23e44b1f141a9e4ffac3d0a86d4b6d14c58ad9_DOWN_v310_sol_down_edge": {
+      "asset": "SOL",
+      "side": "DOWN",
+      "entry_price": 0.475,
+      "entry_time": "2026-02-12T13:07:49.135833+00:00",
+      "market_id": "0x5166b7872d77538933d92da3ba23e44b1f141a9e4ffac3d0a86d4b6d14c58ad9",
+      "market_title": "[SOL] Solana Up or Down - February 12, 8:00AM-8:15AM ET",
+      "size_usd": 5.0,
+      "status": "closed",
+      "reason": "filter_v310_sol_down_edge",
+      "filter_name": "v310_sol_down_edge",
+      "hour_utc": 13,
+      "day_of_week": 3,
+      "price_bucket": 0.5,
+      "garch_regime": "NORMAL",
+      "garch_ratio": 0.99,
+      "ceemd_slope": -0.000156,
+      "ceemd_noise": 0.18,
+      "model_confidence": 0.0,
+      "cascade_level": 0,
+      "session": "NY_OPEN",
+      "pnl": 0.0,
+      "exit_price": 0.475,
+      "exit_time": "2026-02-12T13:23:50.126848+00:00"
+    },
+    "filter_0xdbbfbc58b768340848cf963e554a91a686265b39aa49d5e68cb310f6566a8ac3_DOWN_v1010_session": {
+      "asset": "BTC",
+      "side": "DOWN",
+      "entry_price": 0.465,
+      "entry_time": "2026-02-12T13:08:29.126892+00:00",
+      "market_id": "0xdbbfbc58b768340848cf963e554a91a686265b39aa49d5e68cb310f6566a8ac3",
+      "market_title": "[BTC] Bitcoin Up or Down - February 12, 8:00AM-8:15AM ET",
+      "size_usd": 5.0,
+      "status": "closed",
+      "reason": "filter_v1010_session",
+      "filter_name": "v1010_session",
+      "hour_utc": 13,
+      "day_of_week": 3,
+      "price_bucket": 0.5,
+      "garch_regime": "NORMAL",
+      "garch_ratio": 0.99,
+      "ceemd_slope": -4.1e-05,
+      "ceemd_noise": 0.16,
+      "model_confidence": 0.0,
+      "cascade_level": 0,
+      "session": "NY_OPEN",
+      "pnl": 0.0,
+      "exit_price": 0.465,
+      "exit_time": "2026-02-12T13:24:30.651003+00:00"
+    },
+    "filter_0x5166b7872d77538933d92da3ba23e44b1f141a9e4ffac3d0a86d4b6d14c58ad9_DOWN_edge_floor": {
+      "asset": "SOL",
+      "side": "DOWN",
+      "entry_price": 0.63,
+      "entry_time": "2026-02-12T13:09:09.182349+00:00",
+      "market_id": "0x5166b7872d77538933d92da3ba23e44b1f141a9e4ffac3d0a86d4b6d14c58ad9",
+      "market_title": "[SOL] Solana Up or Down - February 12, 8:00AM-8:15AM ET",
+      "size_usd": 5.0,
+      "status": "closed",
+      "reason": "filter_edge_floor",
+      "filter_name": "edge_floor",
+      "hour_utc": 13,
+      "day_of_week": 3,
+      "price_bucket": 0.6,
+      "garch_regime": "NORMAL",
+      "garch_ratio": 0.98,
+      "ceemd_slope": -0.000133,
+      "ceemd_noise": 0.26,
+      "model_confidence": 0.0,
+      "cascade_level": 0,
+      "session": "NY_OPEN",
+      "pnl": 0.0,
+      "exit_price": 0.63,
+      "exit_time": "2026-02-12T13:25:11.761805+00:00"
+    },
+    "filter_0x5166b7872d77538933d92da3ba23e44b1f141a9e4ffac3d0a86d4b6d14c58ad9_DOWN_v1010_session": {
+      "asset": "SOL",
+      "side": "DOWN",
+      "entry_price": 0.63,
+      "entry_time": "2026-02-12T13:09:09.183350+00:00",
+      "market_id": "0x5166b7872d77538933d92da3ba23e44b1f141a9e4ffac3d0a86d4b6d14c58ad9",
+      "market_title": "[SOL] Solana Up or Down - February 12, 8:00AM-8:15AM ET",
+      "size_usd": 5.0,
+      "status": "closed",
+      "reason": "filter_v1010_session",
+      "filter_name": "v1010_session",
+      "hour_utc": 13,
+      "day_of_week": 3,
+      "price_bucket": 0.6,
+      "garch_regime": "NORMAL",
+      "garch_ratio": 0.98,
+      "ceemd_slope": -0.000133,
+      "ceemd_noise": 0.26,
+      "model_confidence": 0.0,
+      "cascade_level": 0,
+      "session": "NY_OPEN",
+      "pnl": 0.0,
+      "exit_price": 0.63,
+      "exit_time": "2026-02-12T13:25:11.761805+00:00"
+    },
+    "filter_0xe095c51dbc2ed480298885527c5432dc271a698f6c0eba5d4eed6e34a668f476_UP_v314_eth_conf": {
+      "asset": "ETH",
+      "side": "UP",
+      "entry_price": 0.385,
+      "entry_time": "2026-02-12T13:09:09.185373+00:00",
+      "market_id": "0xe095c51dbc2ed480298885527c5432dc271a698f6c0eba5d4eed6e34a668f476",
+      "market_title": "[ETH] Ethereum Up or Down - February 12, 8:00AM-8:15AM ET",
+      "size_usd": 5.0,
+      "status": "closed",
+      "reason": "filter_v314_eth_conf",
+      "filter_name": "v314_eth_conf",
+      "hour_utc": 13,
+      "day_of_week": 3,
+      "price_bucket": 0.4,
+      "garch_regime": "NORMAL",
+      "garch_ratio": 0.98,
+      "ceemd_slope": -0.000133,
+      "ceemd_noise": 0.26,
+      "model_confidence": 0.0,
+      "cascade_level": 0,
+      "session": "NY_OPEN",
+      "pnl": 0.0,
+      "exit_price": 0.385,
+      "exit_time": "2026-02-12T13:25:11.761805+00:00"
+    },
+    "filter_0xdbbfbc58b768340848cf963e554a91a686265b39aa49d5e68cb310f6566a8ac3_UP_v33_conviction": {
+      "asset": "BTC",
+      "side": "UP",
+      "entry_price": 0.125,
+      "entry_time": "2026-02-12T13:09:48.929258+00:00",
+      "market_id": "0xdbbfbc58b768340848cf963e554a91a686265b39aa49d5e68cb310f6566a8ac3",
+      "market_title": "[BTC] Bitcoin Up or Down - February 12, 8:00AM-8:15AM ET",
+      "size_usd": 5.0,
+      "status": "closed",
+      "reason": "filter_v33_conviction",
+      "filter_name": "v33_conviction",
+      "hour_utc": 13,
+      "day_of_week": 3,
+      "price_bucket": 0.1,
+      "garch_regime": "NORMAL",
+      "garch_ratio": 0.97,
+      "ceemd_slope": -0.000106,
+      "ceemd_noise": 0.27,
+      "model_confidence": 0.0,
+      "cascade_level": 0,
+      "session": "NY_OPEN",
+      "pnl": 0.0,
+      "exit_price": 0.125,
+      "exit_time": "2026-02-12T13:25:54.090410+00:00"
+    },
+    "filter_0x5166b7872d77538933d92da3ba23e44b1f141a9e4ffac3d0a86d4b6d14c58ad9_UP_v1012_sol_up_block": {
+      "asset": "SOL",
+      "side": "UP",
+      "entry_price": 0.365,
+      "entry_time": "2026-02-12T13:09:48.932261+00:00",
+      "market_id": "0x5166b7872d77538933d92da3ba23e44b1f141a9e4ffac3d0a86d4b6d14c58ad9",
+      "market_title": "[SOL] Solana Up or Down - February 12, 8:00AM-8:15AM ET",
+      "size_usd": 5.0,
+      "status": "closed",
+      "reason": "filter_v1012_sol_up_block",
+      "filter_name": "v1012_sol_up_block",
+      "hour_utc": 13,
+      "day_of_week": 3,
+      "price_bucket": 0.4,
+      "garch_regime": "NORMAL",
+      "garch_ratio": 0.97,
+      "ceemd_slope": -0.000106,
+      "ceemd_noise": 0.27,
+      "model_confidence": 0.0,
+      "cascade_level": 0,
+      "session": "NY_OPEN",
+      "pnl": 0.0,
+      "exit_price": 0.365,
+      "exit_time": "2026-02-12T13:25:54.090410+00:00"
+    },
+    "shadow_0xe095c51dbc2ed480298885527c5432dc271a698f6c0eba5d4eed6e34a668f476_UP": {
+      "asset": "ETH",
+      "side": "UP",
+      "entry_price": 0.215,
+      "entry_time": "2026-02-12T13:09:48.934263+00:00",
+      "market_title": "[ETH] Ethereum Up or Down - February 12, 8:00AM-8:15AM ET",
+      "edge": 0.6587423023863637,
+      "status": "closed",
+      "reason": "shadow_asset",
+      "pnl": 0.0,
+      "exit_price": 0.215,
+      "exit_time": "2026-02-12T13:25:54.090410+00:00"
+    },
+    "filter_0xff3be1be1aaa58170f72793830bec324e97ec7ca79f33ae6645c18ee6999c902_DOWN_v39_btc_down_contrarian": {
+      "asset": "BTC",
+      "side": "DOWN",
+      "entry_price": 0.145,
+      "entry_time": "2026-02-12T13:21:10.594476+00:00",
+      "market_id": "0xff3be1be1aaa58170f72793830bec324e97ec7ca79f33ae6645c18ee6999c902",
+      "market_title": "[BTC] Bitcoin Up or Down - February 12, 8:15AM-8:30AM ET",
+      "size_usd": 5.0,
+      "status": "open",
+      "reason": "filter_v39_btc_down_contrarian",
+      "filter_name": "v39_btc_down_contrarian",
+      "hour_utc": 13,
+      "day_of_week": 3,
+      "price_bucket": 0.1,
+      "garch_regime": "NORMAL",
+      "garch_ratio": 1.05,
+      "ceemd_slope": 0.000159,
+      "ceemd_noise": 0.37,
+      "model_confidence": 0.0,
+      "cascade_level": 0,
+      "session": "NY_OPEN"
+    },
+    "filter_0xf083561d4e4da69979a575e4e14ada8b0d4e9a59e5504eb0d87ab351d3d14617_DOWN_v1010_session": {
+      "asset": "SOL",
+      "side": "DOWN",
+      "entry_price": 0.255,
+      "entry_time": "2026-02-12T13:21:10.597533+00:00",
+      "market_id": "0xf083561d4e4da69979a575e4e14ada8b0d4e9a59e5504eb0d87ab351d3d14617",
+      "market_title": "[SOL] Solana Up or Down - February 12, 8:15AM-8:30AM ET",
+      "size_usd": 5.0,
+      "status": "open",
+      "reason": "filter_v1010_session",
+      "filter_name": "v1010_session",
+      "hour_utc": 13,
+      "day_of_week": 3,
+      "price_bucket": 0.3,
+      "garch_regime": "NORMAL",
+      "garch_ratio": 1.05,
+      "ceemd_slope": 0.000159,
+      "ceemd_noise": 0.37,
+      "model_confidence": 0.0,
+      "cascade_level": 0,
+      "session": "NY_OPEN"
+    },
+    "filter_0xf083561d4e4da69979a575e4e14ada8b0d4e9a59e5504eb0d87ab351d3d14617_UP_v1012_sol_up_block": {
+      "asset": "SOL",
+      "side": "UP",
+      "entry_price": 0.745,
+      "entry_time": "2026-02-12T13:22:30.209382+00:00",
+      "market_id": "0xf083561d4e4da69979a575e4e14ada8b0d4e9a59e5504eb0d87ab351d3d14617",
+      "market_title": "[SOL] Solana Up or Down - February 12, 8:15AM-8:30AM ET",
+      "size_usd": 5.0,
+      "status": "open",
+      "reason": "filter_v1012_sol_up_block",
+      "filter_name": "v1012_sol_up_block",
+      "hour_utc": 13,
+      "day_of_week": 3,
+      "price_bucket": 0.7,
+      "garch_regime": "NORMAL",
+      "garch_ratio": 1.04,
+      "ceemd_slope": -1.2e-05,
+      "ceemd_noise": 0.47,
+      "model_confidence": 0.0,
+      "cascade_level": 0,
+      "session": "NY_OPEN"
     }
   },
   "shadow_stats": {
@@ -7701,7 +7371,7 @@
       "pnl": 0.0
     },
     "v33_conviction": {
-      "blocked": 490,
+      "blocked": 491,
       "wins": 149,
       "losses": 133,
       "pnl": 44.74911861046741
@@ -7719,13 +7389,13 @@
       "pnl": 0.0
     },
     "v39_btc_down_contrarian": {
-      "blocked": 50,
+      "blocked": 51,
       "wins": 12,
       "losses": 19,
       "pnl": -5.150701571377068
     },
     "v310_sol_down_edge": {
-      "blocked": 134,
+      "blocked": 135,
       "wins": 37,
       "losses": 33,
       "pnl": 15.46744637798992
@@ -7755,7 +7425,7 @@
       "pnl": 0.0
     },
     "v314_eth_conf": {
-      "blocked": 164,
+      "blocked": 165,
       "wins": 23,
       "losses": 35,
       "pnl": -32.8906098809573
@@ -7767,13 +7437,13 @@
       "pnl": 0.4255319148936172
     },
     "v1012_sol_up_block": {
-      "blocked": 3,
+      "blocked": 5,
       "wins": 0,
       "losses": 0,
       "pnl": 0.0
     },
     "v1010_session": {
-      "blocked": 4,
+      "blocked": 7,
       "wins": 0,
       "losses": 0,
       "pnl": 0.0
