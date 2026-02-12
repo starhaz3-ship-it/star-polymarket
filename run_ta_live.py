@@ -98,6 +98,8 @@ class LiveTrade:
     # Execution
     order_id: Optional[str] = None
     execution_error: Optional[str] = None
+    # V10.14: Numeric market ID for API resolution
+    market_numeric_id: Optional[str] = None
 
 
 class MLOptimizer:
@@ -654,7 +656,7 @@ class TALiveTrader:
                         self.MIN_ENTRY_PRICE = 0.43  # V10.12: Was 0.38. CSV: <$0.43 = 30-33% WR.
                         self.ETH_MIN_CONFIDENCE = 0.70
                         self.SOL_DOWN_MIN_EDGE = 0.20  # V10.9: Was 0.35. Shadow: 106 blocked, 54%WR, +$17.57 missed.
-                        self.SKIP_HOURS_UTC = {6, 8, 12, 15, 16, 18, 19}  # V10.13: +UTC15,19 (0-17% WR)
+                        self.SKIP_HOURS_UTC = {8, 15, 19}  # V10.14: Reopened UTC{6,12,16,18}
                         self.MIN_TIME_REMAINING = 5.0
                         self.MAX_TIME_REMAINING = 9.0
                         self.use_nyu_model = True
@@ -696,14 +698,24 @@ class TALiveTrader:
         import httpx
         for tid, trade in stale:
             try:
-                r = httpx.get(
-                    "https://gamma-api.polymarket.com/markets",
-                    params={"condition_id": trade.market_id, "limit": "1"},
-                    headers={"User-Agent": "Mozilla/5.0"},
-                    timeout=10
-                )
-                if r.status_code == 200 and r.json():
-                    mkt = r.json()[0]
+                # V10.14: Use numeric ID if available (condition_id query returns wrong market)
+                if trade.market_numeric_id:
+                    r = httpx.get(
+                        f"https://gamma-api.polymarket.com/markets/{trade.market_numeric_id}",
+                        headers={"User-Agent": "Mozilla/5.0"},
+                        timeout=10
+                    )
+                else:
+                    r = httpx.get(
+                        "https://gamma-api.polymarket.com/markets",
+                        params={"condition_id": trade.market_id, "limit": "1"},
+                        headers={"User-Agent": "Mozilla/5.0"},
+                        timeout=10
+                    )
+                if r.status_code == 200:
+                    mkt = r.json() if trade.market_numeric_id else (r.json()[0] if r.json() else None)
+                    if not mkt:
+                        continue
                     outcomes = mkt.get("outcomes", [])
                     prices = mkt.get("outcomePrices", [])
                     if isinstance(outcomes, str):
@@ -970,7 +982,7 @@ class TALiveTrader:
     # V3.15: Reduced to minimum. Auto-revert catches losers.
     # V10.12: Block catastrophic hours from CSV data. ML auto-evolve can unblock if shadow >50% WR/10+ trades.
     # UTC 12=7%WR(-$73), UTC 08=10%WR(-$39), UTC 18=27%WR(-$44), UTC 06=38%WR(-$56), UTC 16=low WR
-    SKIP_HOURS_UTC = {6, 8, 12, 15, 16, 18, 19}  # V10.13: +UTC15,19 (0-17% WR)
+    SKIP_HOURS_UTC = {8, 15, 19}  # V10.14: Reopened UTC{6,12,16,18} - live data too sparse to justify blocking
 
     # === V10.10: SESSION-BASED TRADING (from PolyData + microstructure research) ===
     # PolyData analysis of 87K crypto Up/Down markets shows:
@@ -2145,6 +2157,7 @@ class TALiveTrader:
                 if is_skip_hour:
                     break
                 market_id = market.get("conditionId", "")
+                market_numeric_id = market.get("id")  # V10.14: For shadow resolution
                 question = market.get("question", "")
 
                 signal = self.generator.generate_signal(
@@ -2175,7 +2188,7 @@ class TALiveTrader:
                 # === V10.12: SOL DOWN-ONLY ===
                 # CSV: SOL UP = heavy losses. Block UP, shadow-track for ML.
                 if asset == "SOL" and self.SOL_DOWN_ONLY and signal.side == "UP":
-                    self._record_filter_shadow(asset, signal.side, up_price, market_id, question, "v1012_sol_up_block")
+                    self._record_filter_shadow(asset, signal.side, up_price, market_id, question, "v1012_sol_up_block", market_numeric_id=market_numeric_id)
                     continue  # Shadow tracked
 
                 # === V3.9: ETH UP-ONLY + BTC DOWN CONTRARIAN BLOCK ===
@@ -2185,14 +2198,14 @@ class TALiveTrader:
                 # ETH max price (best in $0.15-$0.40 range, $0.40-$0.50 = 50% WR)
                 if asset == "ETH" and signal.side == "UP" and up_price > self.ETH_MAX_PRICE:
                     print(f"  [{asset}] V3.9: ETH UP price ${up_price:.2f} > ${self.ETH_MAX_PRICE} cap")
-                    self._record_filter_shadow(asset, signal.side, up_price, market_id, question, "v39_eth_price")
+                    self._record_filter_shadow(asset, signal.side, up_price, market_id, question, "v39_eth_price", market_numeric_id=market_numeric_id)
                     continue
                 # V3.14: ETH = worst asset (29.4% WR in 326 CSV trades). Require higher confidence.
                 if asset == "ETH":
                     eth_conf = signal.model_up if signal.side == "UP" else signal.model_down
                     if eth_conf < self.ETH_MIN_CONFIDENCE:
                         print(f"  [{asset}] V3.14: ETH needs {self.ETH_MIN_CONFIDENCE:.0%} conf, got {eth_conf:.0%} (29.4% WR overall)")
-                        self._record_filter_shadow(asset, signal.side, up_price if signal.side == "UP" else down_price, market_id, question, "v314_eth_conf")
+                        self._record_filter_shadow(asset, signal.side, up_price if signal.side == "UP" else down_price, market_id, question, "v314_eth_conf", market_numeric_id=market_numeric_id)
                         continue
                 # BTC DOWN contrarian: both live BTC DOWN losses were against uptrend.
                 # Require with-trend OR entry > $0.50 for BTC DOWN.
@@ -2200,14 +2213,14 @@ class TALiveTrader:
                     btc_trend = self._get_trend_bias(candles, price)
                     if btc_trend in ("BULLISH", "RISING") and down_price < 0.50:
                         print(f"  [{asset}] V3.9: BTC DOWN contrarian (trend=BULLISH, price=${down_price:.2f}<$0.50)")
-                        self._record_filter_shadow(asset, signal.side, down_price, market_id, question, "v39_btc_down_contrarian")
+                        self._record_filter_shadow(asset, signal.side, down_price, market_id, question, "v39_btc_down_contrarian", market_numeric_id=market_numeric_id)
                         continue
                 # V3.10: SOL DOWN = 50% WR in paper (coin flip). Require higher edge.
                 if asset == "SOL" and signal.side == "DOWN":
                     sol_edge = signal.edge_down if signal.edge_down else 0
                     if sol_edge < self.SOL_DOWN_MIN_EDGE:
                         print(f"  [{asset}] V3.10: SOL DOWN edge {sol_edge:.1%} < {self.SOL_DOWN_MIN_EDGE:.0%} (paper: 50% WR, need >=35%)")
-                        self._record_filter_shadow(asset, signal.side, down_price, market_id, question, "v310_sol_down_edge")
+                        self._record_filter_shadow(asset, signal.side, down_price, market_id, question, "v310_sol_down_edge", market_numeric_id=market_numeric_id)
                         continue
 
                 # === BOND MODE CHECK (before conviction filters) ===
@@ -2335,7 +2348,7 @@ class TALiveTrader:
                 if skip_reason and not is_bond_trade:
                     print(f"  [{asset}] V3.3 filter: {skip_reason}")
                     ep = up_price if signal.side == "UP" else down_price
-                    self._record_filter_shadow(asset, signal.side, ep, market_id, question, "v33_conviction")
+                    self._record_filter_shadow(asset, signal.side, ep, market_id, question, "v33_conviction", market_numeric_id=market_numeric_id)
                     continue
 
                 # === EDGE FILTER (with low-edge circuit breaker) ===
@@ -2353,7 +2366,7 @@ class TALiveTrader:
                     print(f"  [{asset}] Edge low (tag-only): {best_edge:.1%} < {edge_floor:.0%}{lock_tag}")
                     # V3.18: Converted to tag-only — shadow showed 7/7 blocked = winners (+$22.29)
                     ep = up_price if signal.side == "UP" else down_price
-                    self._record_filter_shadow(asset, signal.side, ep, market_id, question, "edge_floor")
+                    self._record_filter_shadow(asset, signal.side, ep, market_id, question, "edge_floor", market_numeric_id=market_numeric_id)
                     # continue  # REMOVED V3.18 — no longer blocks
                 is_low_edge = best_edge is not None and best_edge < self.LOW_EDGE_THRESHOLD
 
@@ -2380,7 +2393,7 @@ class TALiveTrader:
                     nyu_threshold = {"low": 0.05, "medium": 0.02, "high": 0.01}.get(nyu_result.volatility_regime, 0.05)
                     if nyu_result.edge_score < nyu_threshold:
                         print(f"  [{asset}] NYU filter: edge={nyu_result.edge_score:.2f}<{nyu_threshold} (vol={nyu_result.volatility_regime})")
-                        self._record_filter_shadow(asset, signal.side, entry_price_nyu, market_id, question, "nyu_vol")
+                        self._record_filter_shadow(asset, signal.side, entry_price_nyu, market_id, question, "nyu_vol", market_numeric_id=market_numeric_id)
                         continue
                     if nyu_result.recommended_action == "TRADE":
                         print(f"  [{asset}] NYU TRADE: edge={nyu_result.edge_score:.2f}, vol={nyu_result.instantaneous_volatility:.3f}")
@@ -2394,7 +2407,7 @@ class TALiveTrader:
                     session_skip = self._session_filter(candles, signal.side, ep, session)
                     if session_skip:
                         print(f"  [{asset}] {session_skip}")
-                        self._record_filter_shadow(asset, signal.side, ep, market_id, question, "v1010_session")
+                        self._record_filter_shadow(asset, signal.side, ep, market_id, question, "v1010_session", market_numeric_id=market_numeric_id)
                         continue
 
                 if signal.action == "ENTER" and signal.side and trade_key:
@@ -2515,7 +2528,7 @@ class TALiveTrader:
                         # V3.15c: Bond trades skip KL (price near certainty = naturally low KL)
                         if bregman_signal.kl_divergence < self.ml_kl_floor and not is_bond_trade:  # V3.18: ML-tunable
                             print(f"  [{asset}] KL too low: {bregman_signal.kl_divergence:.3f} < {self.ml_kl_floor}")
-                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "kl_divergence")
+                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "kl_divergence", market_numeric_id=market_numeric_id)
                             continue
 
                         features = self.ml.extract_features(signal, bregman_signal, candles)
@@ -2527,7 +2540,7 @@ class TALiveTrader:
                         if ml_score < min_score and not is_bond_trade:
                             self.ml_rejections += 1
                             print(f"[ML] {asset} Rejected: {signal.side} score={ml_score:.2f} < {min_score:.2f}")
-                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "ml_score")
+                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "ml_score", market_numeric_id=market_numeric_id)
                             continue
 
                         # === V3.8 DATA-DRIVEN FILTERS (103 paper + 6 live trades) ===
@@ -2538,7 +2551,7 @@ class TALiveTrader:
                         raw_conf = signal.model_up if signal.side == "UP" else signal.model_down
                         if raw_conf < 0.65 and not is_bond_trade:
                             print(f"  [{asset}] V10.13: Raw confidence too low: {raw_conf:.1%} < 65%")
-                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_confidence")
+                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_confidence", market_numeric_id=market_numeric_id)
                             continue
 
                         # 2. VWAP ALIGNMENT + DISTANCE FILTER
@@ -2548,15 +2561,15 @@ class TALiveTrader:
                         if not is_bond_trade:  # V3.15c: Bond trades skip VWAP filters (price-is-confidence)
                             if abs(vwap_dist) > self.ml_vwap_abs_cap:  # V3.18: ML-tunable (was 0.50)
                                 print(f"  [{asset}] V3.18: VWAP too far: {vwap_dist:+.3f} (max {self.ml_vwap_abs_cap:.2f})")
-                                self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v314_vwap_dist")
+                                self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v314_vwap_dist", market_numeric_id=market_numeric_id)
                                 continue
                             if signal.side == "DOWN" and vwap_dist > self.ml_vwap_dir_cap:  # V3.18: ML-tunable
                                 print(f"  [{asset}] V3.18: VWAP misalign DOWN (vwap_dist={vwap_dist:+.3f} > +{self.ml_vwap_dir_cap:.2f})")
-                                self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_vwap")
+                                self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_vwap", market_numeric_id=market_numeric_id)
                                 continue
                             if signal.side == "UP" and vwap_dist < -self.ml_vwap_dir_cap:  # V3.18: ML-tunable
                                 print(f"  [{asset}] V3.18: VWAP misalign UP (vwap_dist={vwap_dist:+.3f} < -{self.ml_vwap_dir_cap:.2f})")
-                                self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_vwap")
+                                self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_vwap", market_numeric_id=market_numeric_id)
                                 continue
 
                         # 3. HEIKEN ASHI CONTRADICTION VETO
@@ -2567,11 +2580,11 @@ class TALiveTrader:
                         if not is_bond_trade:  # V3.15c: Bond trades skip Heiken check
                             if signal.side == "UP" and not ha_bullish and ha_count >= 3:
                                 print(f"  [{asset}] V3.8: Heiken contradiction (UP vs {ha_count} bearish candles)")
-                                self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_heiken")
+                                self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_heiken", market_numeric_id=market_numeric_id)
                                 continue
                             if signal.side == "DOWN" and ha_bullish and ha_count >= 3:
                                 print(f"  [{asset}] V3.8: Heiken contradiction (DOWN vs {ha_count} bullish candles)")
-                                self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_heiken")
+                                self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_heiken", market_numeric_id=market_numeric_id)
                                 continue
 
                         # 4. GARCH VOLATILITY GATE (V3.17: replaces ATR ratio)
@@ -2579,7 +2592,7 @@ class TALiveTrader:
                         garch = self._last_garch
                         if garch["regime"] == "HIGH" and raw_conf < 0.65 and not is_bond_trade:
                             print(f"  [{asset}] V3.17: GARCH HIGH vol (ratio={garch['ratio']:.2f}) needs conf>65%, got {raw_conf:.1%}")
-                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v317_garch_vol")
+                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v317_garch_vol", market_numeric_id=market_numeric_id)
                             continue
 
                         # 5. CEEMD NOISE FILTER (V3.17)
@@ -2595,7 +2608,7 @@ class TALiveTrader:
                             if ceemd["noise_ratio"] > 0.95 and not is_bond_trade:  # V10.11: Was 0.85, blocking winners
                                 print(f"  [{asset}] V3.17: CEEMD noisy market (noise={ceemd['noise_ratio']:.2f}, {ceemd['n_imfs']} IMFs)")
                                 self.shadow_stats["ceemd_noisy_blocked"] += 1
-                                self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v317_ceemd_noise")
+                                self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v317_ceemd_noise", market_numeric_id=market_numeric_id)
                                 continue
 
                         # === V10.13: MACD EXPANDING GATE ===
@@ -2603,7 +2616,7 @@ class TALiveTrader:
                         # MACD expanding + entry 0.40-0.55 = 100% WR on 12 trades.
                         if not features.macd_expanding and not is_bond_trade:
                             print(f"  [{asset}] V10.13: MACD not expanding (momentum fading)")
-                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v1013_macd_gate")
+                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v1013_macd_gate", market_numeric_id=market_numeric_id)
                             continue
 
                         # === V10.13: HEIKEN COUNT=3 CURSE BLOCK ===
@@ -2611,7 +2624,7 @@ class TALiveTrader:
                         # Counts 1,2,4,5+ are fine. Only 3 is cursed.
                         if features.heiken_count == 3 and not is_bond_trade:
                             print(f"  [{asset}] V10.13: Heiken count=3 curse (0% historical WR)")
-                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v1013_heiken3_curse")
+                            self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v1013_heiken3_curse", market_numeric_id=market_numeric_id)
                             continue
 
                         # === V3.15b: HYDRA PROBATION BOOST ===
@@ -2759,6 +2772,7 @@ class TALiveTrader:
                         new_trade = LiveTrade(
                             trade_id=trade_key,
                             market_id=market_id,
+                            market_numeric_id=market_numeric_id,  # V10.14
                             market_title=f"[{asset}] {question[:75]}",
                             side=signal.side,
                             entry_price=entry_price,
@@ -2826,6 +2840,7 @@ class TALiveTrader:
                                     hedge_trade = LiveTrade(
                                         trade_id=hedge_key,
                                         market_id=market_id,
+                                        market_numeric_id=market_numeric_id,  # V10.14
                                         market_title=f"[{asset}] HEDGE {opp_side} {question[:60]}",
                                         side=opp_side,
                                         entry_price=opp_price,
@@ -3220,20 +3235,21 @@ class TALiveTrader:
                 s_entry = datetime.fromisoformat(shadow["entry_time"])
                 s_age = (now - s_entry).total_seconds() / 60
                 if s_age > 16:
-                    s_market_id = shadow.get("market_id", "")
                     s_size = shadow.get("size_usd", 5.0)
+                    s_side = shadow.get("side")
                     s_resolved = False
-                    if s_market_id:
+                    # V10.14: Use numeric ID (condition_id query returns wrong market)
+                    s_numeric_id = shadow.get("market_numeric_id")
+                    if s_numeric_id and s_side:
                         try:
                             import httpx
                             r = httpx.get(
-                                "https://gamma-api.polymarket.com/markets",
-                                params={"condition_id": s_market_id, "limit": "1"},
+                                f"https://gamma-api.polymarket.com/markets/{s_numeric_id}",
                                 headers={"User-Agent": "Mozilla/5.0"},
                                 timeout=10
                             )
-                            if r.status_code == 200 and r.json():
-                                mkt = r.json()[0]
+                            if r.status_code == 200:
+                                mkt = r.json()
                                 outcomes = mkt.get("outcomes", [])
                                 prices = mkt.get("outcomePrices", [])
                                 if isinstance(outcomes, str):
@@ -3241,7 +3257,7 @@ class TALiveTrader:
                                 if isinstance(prices, str):
                                     prices = json.loads(prices)
                                 for i, outcome in enumerate(outcomes):
-                                    if str(outcome).lower() == shadow["side"].lower() and i < len(prices):
+                                    if str(outcome).lower() == s_side.lower() and i < len(prices):
                                         res_price = float(prices[i])
                                         if res_price >= 0.95:
                                             s_exit = s_size / shadow["entry_price"]
@@ -3264,15 +3280,14 @@ class TALiveTrader:
                                             self.filter_stats[fname]["pnl"] += shadow["pnl"]
                                         reason = shadow.get("reason", "shadow")
                                         result = "WIN" if won else "LOSS"
-                                        print(f"[SHADOW {result}] {shadow['side']} ${shadow['pnl']:+.2f} ({reason}) | {shadow.get('market_title', skey)[:35]}...")
+                                        print(f"[SHADOW {result}] {s_side} ${shadow['pnl']:+.2f} ({reason}) | {shadow.get('market_title', skey)[:35]}...")
                                         s_resolved = True
                                         break
                         except Exception:
                             pass
                     if not s_resolved:
-                        shadow["status"] = "closed"
-                        shadow["pnl"] = 0.0
-                        shadow["exit_price"] = shadow["entry_price"]
+                        # V10.14: Don't fake pnl=0 — mark unresolved and exclude from stats
+                        shadow["status"] = "unresolved"
                         shadow["exit_time"] = now.isoformat()
             except Exception:
                 pass
@@ -3402,7 +3417,7 @@ class TALiveTrader:
 
     def _record_filter_shadow(self, asset: str, side: str, entry_price: float,
                               market_id: str, market_title: str, filter_name: str,
-                              size_usd: float = 5.0):
+                              size_usd: float = 5.0, market_numeric_id=None):
         """Record a shadow trade for a filter rejection (V3.9).
 
         Tracks what would have happened if we took the trade the filter blocked.
@@ -3413,9 +3428,10 @@ class TALiveTrader:
             return  # Already tracking this one
         now_utc = datetime.now(timezone.utc)
         self.shadow_trades[shadow_key] = {
-            "asset": asset, "side": side, "entry_price": entry_price,
+            "asset": asset, "side": side or "UP", "entry_price": entry_price,
             "entry_time": now_utc.isoformat(),
             "market_id": market_id,
+            "market_numeric_id": market_numeric_id,  # V10.14: For proper API resolution
             "market_title": f"[{asset}] {market_title[:75]}",
             "size_usd": size_usd,
             "status": "open", "reason": f"filter_{filter_name}",
@@ -3598,7 +3614,8 @@ class TALiveTrader:
 
         # 5. V10.9: MULTI-DIMENSIONAL SHADOW ANALYSIS
         # Analyze resolved shadows by hour, price bucket, asset, regime to find hidden edges
-        resolved_shadows = [s for s in self.shadow_trades.values() if s.get("status") == "closed" and s.get("pnl") is not None]
+        # V10.14: Only count properly resolved shadows (exclude unresolved/pnl=0 API failures)
+        resolved_shadows = [s for s in self.shadow_trades.values() if s.get("status") == "closed" and s.get("pnl") is not None and s.get("pnl") != 0.0]
         if len(resolved_shadows) >= 20:
             from collections import defaultdict
             # By hour

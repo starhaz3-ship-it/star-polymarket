@@ -271,6 +271,7 @@ class PairPosition:
     created_at: str = ""
     bid_offset_used: float = 0.02  # Track which offset was used
     hour_utc: int = -1             # Hour when position was created
+    first_fill_time: Optional[str] = None  # V1.3: When first side filled (for fast partial-protect)
 
     @property
     def is_paired(self) -> bool:
@@ -736,6 +737,9 @@ class CryptoMarketMaker:
                 )
             elif pos.up_filled or pos.down_filled:
                 pos.status = "partial"
+                # V1.3: Track when first side filled for fast partial-protect
+                if not pos.first_fill_time:
+                    pos.first_fill_time = datetime.now(timezone.utc).isoformat()
 
     async def _check_fills_paper(self, pos: PairPosition):
         """Simulate fills for paper mode.
@@ -829,18 +833,39 @@ class CryptoMarketMaker:
             created = datetime.fromisoformat(pos.created_at)
             age_min = (now - created).total_seconds() / 60
 
-            # V1.1: Partial fill protection — if only one side filled after 8 min,
-            # cancel the unfilled side to avoid holding directional risk through resolution.
-            if age_min > 8 and pos.is_partial:
-                for order, attr in [(pos.up_order, "up_filled"), (pos.down_order, "down_filled")]:
-                    if order and not getattr(pos, attr) and order.status == "open":
-                        order.status = "cancelled"
-                        if not self.paper:
-                            try:
-                                self.client.cancel(order.order_id)
-                            except Exception:
-                                pass
-                        print(f"  [PARTIAL-PROTECT] Cancelled unfilled {order.side_label} on {pos.asset} after {age_min:.0f}min (one-sided risk)")
+            # V1.3: FAST partial protection — if one side fills and the other doesn't
+            # within 2 minutes of the first fill, cancel the ENTIRE position.
+            # Holding a one-sided bet = pure directional gamble. One partial loss (-$5)
+            # wipes ~10 paired wins (+$0.50 each). Better to cancel than gamble.
+            PARTIAL_GRACE_MINUTES = 2.0
+            if pos.is_partial and not pos.first_fill_time:
+                pos.first_fill_time = pos.created_at  # Backfill for old positions
+            if pos.is_partial and pos.first_fill_time:
+                first_fill_dt = datetime.fromisoformat(pos.first_fill_time)
+                since_first_fill = (now - first_fill_dt).total_seconds() / 60
+                if since_first_fill > PARTIAL_GRACE_MINUTES:
+                    # Cancel the unfilled side
+                    for order, attr in [(pos.up_order, "up_filled"), (pos.down_order, "down_filled")]:
+                        if order and not getattr(pos, attr) and order.status == "open":
+                            order.status = "cancelled"
+                            if not self.paper:
+                                try:
+                                    self.client.cancel(order.order_id)
+                                except Exception:
+                                    pass
+                    # V1.3: Cancel the FILLED side too — don't hold directional risk!
+                    # In paper mode: mark entire position cancelled (PnL = 0, not resolved)
+                    # In live mode: would need to sell the filled shares (TODO for live)
+                    filled_side = "UP" if pos.up_filled else "DOWN"
+                    print(f"  [PARTIAL-CANCEL] {pos.asset} {filled_side}-only after {since_first_fill:.0f}min — cancelling entire position (no directional gamble)")
+                    pos.status = "cancelled"
+                    pos.pnl = 0.0
+                    # ML: record as partial for offset learning
+                    self.ml_optimizer.record(
+                        hour=pos.hour_utc if pos.hour_utc >= 0 else now.hour,
+                        offset=pos.bid_offset_used,
+                        paired=False, partial=True, pnl=0.0
+                    )
 
             # If approaching close (>13 min for a 15-min market), cancel unfilled orders
             if age_min > 13:

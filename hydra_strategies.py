@@ -601,36 +601,8 @@ def _apply_filters(signals: List[StrategySignal]):
         asset_signals.setdefault(s.asset, []).append(s)
 
     for sig in signals:
-        # --- FILTER 1: RSI > 65 veto on UP signals ---
-        # Data: RSI 40-60 = 95% WR (+$293), RSI > 60 = 57% WR (+$15)
-        # Every single loss was an UP signal with RSI > 65
-        if sig.direction == "UP" and "RSI=" in sig.details:
-            try:
-                rsi_str = sig.details.split("RSI=")[1].split()[0].rstrip(",")
-                rsi_v = float(rsi_str)
-                if rsi_v > 65:
-                    sig.filtered = True
-                    sig.filter_reason = f"RSI_UP_VETO(RSI={rsi_v:.0f}>65)"
-                    continue
-            except (ValueError, IndexError):
-                pass
-
-        # --- FILTER 2: TRENDLINE_BREAK requires below_ema50 + vol > 0.3 ---
-        # Data: 5/5 wins with below_ema50=True, loss had below_ema50=False + vol=0.2x
-        if sig.name == "TRENDLINE_BREAK":
-            if "below_ema50=False" in sig.details:
-                sig.filtered = True
-                sig.filter_reason = "TL_EMA50_FILTER(not_below_ema50)"
-                continue
-            try:
-                vol_str = sig.details.split("vol=")[1].split("x")[0]
-                vol_v = float(vol_str)
-                if vol_v < 0.3:
-                    sig.filtered = True
-                    sig.filter_reason = f"TL_VOL_FILTER(vol={vol_v:.1f}<0.3)"
-                    continue
-            except (ValueError, IndexError):
-                pass
+        # --- REMOVED FILTER 1 (RSI_UP_VETO): A/B data showed 84% would_win (36W/7L, -$92.56). Killed 2026-02-12. ---
+        # --- REMOVED FILTER 2 (TL_EMA50_FILTER + TL_VOL_FILTER): A/B data 55-59% would_win (-$49.72 combined). Killed 2026-02-12. ---
 
         # --- FILTER 3: Trend-beats-reversion conflict resolution ---
         # Data: When trend vs reversion disagree, trend wins 100%
