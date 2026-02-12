@@ -472,7 +472,7 @@ class TALiveTrader:
 
         # === V3.18: ML-TUNABLE FILTER THRESHOLDS ===
         # Auto-evolve adjusts these at runtime based on shadow trade data
-        self.ml_vwap_abs_cap = 0.80    # V3.18: Was 0.50 hardcoded
+        self.ml_vwap_abs_cap = 0.25    # V10.9: Was 0.80. Losers avg 0.272, winners avg 0.157. Hard cap at 0.25.
         self.ml_vwap_dir_cap = 0.40    # V3.18: Was 0.25 hardcoded
         self.ml_kl_floor = 0.03        # V3.18: Was 0.10 hardcoded
 
@@ -651,10 +651,10 @@ class TALiveTrader:
                         self.MIN_EDGE = 0.25
                         self.LOW_EDGE_THRESHOLD = 0.25
                         self.MAX_ENTRY_PRICE = 0.52  # V10.9: Was 0.45. Shadow: +$63 blocked profit. Match class default.
-                        self.MIN_ENTRY_PRICE = 0.25
+                        self.MIN_ENTRY_PRICE = 0.38  # V10.9: Was 0.25. $0.20 bucket = 0%WR, -$9.54.
                         self.ETH_MIN_CONFIDENCE = 0.70
                         self.SOL_DOWN_MIN_EDGE = 0.20  # V10.9: Was 0.35. Shadow: 106 blocked, 54%WR, +$17.57 missed.
-                        self.SKIP_HOURS_UTC = {5, 6, 8, 9, 10, 12, 14, 16}
+                        self.SKIP_HOURS_UTC = {5, 6, 8, 9, 10, 12, 14, 15, 16}  # V10.9: Added 15 (0W/4L, -$8.43)
                         self.MIN_TIME_REMAINING = 5.0
                         self.MAX_TIME_REMAINING = 9.0
                         self.use_nyu_model = True
@@ -971,7 +971,7 @@ class TALiveTrader:
     # V3.15: Reduced from 8 to 4 skip hours to increase trade flow.
     # Keep only the absolute worst: 8 (20% WR), 12 (-$52 PnL), 5 (0 data), 16 (worst).
     # Auto-revert will catch if reopened hours lose money.
-    SKIP_HOURS_UTC = {5, 8, 12, 16}
+    SKIP_HOURS_UTC = {5, 8, 12, 15, 16}  # V10.9: Added 15 (0W/4L, -$8.43)
 
     def _ema(self, candles, period: int) -> float:
         """Calculate EMA from candle close prices."""
@@ -1399,10 +1399,13 @@ class TALiveTrader:
                     if "404" not in str(e) and "not found" not in str(e).lower():
                         print(f"[OVERLAP-CHECK] Warning: {e}")
 
-            # 15-min markets have thin order books (asks at $0.97-$0.99 only).
-            # Place limit orders at the outcomePrices mid price and let them fill.
-            # MAX_ENTRY_PRICE check is already applied in conviction filters.
-            print(f"[ORDER] Placing limit {side} @ ${price:.4f} (mid price)")
+            # V10.9: AGGRESSIVE PRICING — cross the spread to actually get filled.
+            # Old: place at mid price → 50%+ unfill rate. New: add $0.02 spread offset.
+            # Paying $0.02 more per share is worth it vs missing 50% of profitable trades.
+            SPREAD_CROSS = 0.02
+            aggressive_price = min(price + SPREAD_CROSS, 0.95)  # Cap at $0.95 to avoid overpaying
+            print(f"[ORDER] Placing aggressive limit {side} @ ${aggressive_price:.4f} (mid ${price:.4f} + ${SPREAD_CROSS} spread cross)")
+            price = aggressive_price
 
             # Calculate shares - CLOB requires minimum 5 shares
             shares = math.floor(size / price)
@@ -1686,7 +1689,7 @@ class TALiveTrader:
     # Conviction thresholds - V3.15: LOOSENED based on filter shadow data
     # Shadow stats showed most filters blocking more winners than losers:
     # NYU vol: +$88 missed, v33_conviction: +$47, edge_floor: +$27, KL: +$8
-    MIN_MODEL_CONFIDENCE = 0.55  # Keep: basic sanity
+    MIN_MODEL_CONFIDENCE = 0.60  # V10.9: Was 0.55. Losers avg 0.538, winners avg 0.598. Gate above loser avg.
     MIN_EDGE = 0.12              # V3.15: Was 0.25, blocked +$26.88 in winners. Loosened.
     LOW_EDGE_THRESHOLD = 0.18    # V3.15: Was 0.25, match new floor
     MAX_ENTRY_PRICE = 0.52       # V3.15: Was 0.45, blocked 87 winners. Widened.
@@ -1820,6 +1823,12 @@ class TALiveTrader:
                 size *= 1.15  # Boost DOWN — 99% WR in CSV
             elif self._current_trade_side == "UP":
                 size *= 0.85  # Reduce UP — 82% WR, source of 10/11 losses
+
+        # === V10.9: SWEET SPOT BOOST ($0.45-$0.55 = 63% WR, +$32.76) ===
+        if hasattr(self, '_current_entry_price'):
+            ep = self._current_entry_price
+            if 0.45 <= ep <= 0.55:
+                size *= 1.20  # 20% boost in the sweet spot
 
         # Hard clamp — HARD_MAX_BET is the absolute ceiling
         size = max(self.MIN_POSITION_SIZE, min(self.HARD_MAX_BET, size))
@@ -2375,6 +2384,7 @@ class TALiveTrader:
                             print(f"  [{asset}] HYDRA BOOST: {', '.join(hydra_agreeing)} agree with {signal.side}")
 
                         self._current_trade_side = signal.side  # V3.18: For side multiplier in sizing
+                        self._current_entry_price = entry_price  # V10.9: For sweet spot boost in sizing
                         position_size = self.calculate_position_size(
                             edge=edge if edge else 0.10,
                             kelly_fraction=bregman_signal.kelly_fraction,
@@ -3090,10 +3100,10 @@ class TALiveTrader:
                 self.MIN_EDGE = 0.25
                 self.LOW_EDGE_THRESHOLD = 0.25
                 self.MAX_ENTRY_PRICE = 0.52  # V10.9: Was 0.45. Match class default.
-                self.MIN_ENTRY_PRICE = 0.25
+                self.MIN_ENTRY_PRICE = 0.38  # V10.9: Was 0.25. $0.20 bucket = 0%WR.
                 self.ETH_MIN_CONFIDENCE = 0.70
                 self.SOL_DOWN_MIN_EDGE = 0.20  # V10.9: Was 0.35. Match class default.
-                self.SKIP_HOURS_UTC = {5, 6, 8, 9, 10, 12, 14, 16}
+                self.SKIP_HOURS_UTC = {5, 6, 8, 9, 10, 12, 14, 15, 16}  # V10.9: Added 15
                 self.MIN_TIME_REMAINING = 5.0
                 self.MAX_TIME_REMAINING = 9.0
                 self.use_nyu_model = True  # Re-enable NYU filter
