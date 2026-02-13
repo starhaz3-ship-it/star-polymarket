@@ -1483,9 +1483,11 @@ class TALiveTrader:
             await asyncio.sleep(1.0)
             for tag_slug in ["15M", "5M"]:
                 try:
+                    # V3.18: 5M needs larger limit (hundreds of events, default returns expired)
+                    fetch_limit = 200 if tag_slug == "5M" else 50
                     mr = await client.get(
                         "https://gamma-api.polymarket.com/events",
-                        params={"tag_slug": tag_slug, "active": "true", "closed": "false", "limit": 50},
+                        params={"tag_slug": tag_slug, "active": "true", "closed": "false", "limit": fetch_limit},
                         headers={"User-Agent": "Mozilla/5.0"}
                     )
                     if mr.status_code == 200:
@@ -1505,6 +1507,15 @@ class TALiveTrader:
                                         m["question"] = event.get("title", "")
                                     m["_asset"] = matched_asset
                                     m["_timeframe"] = "5m" if tag_slug == "5M" else "15m"
+                                    # V3.18: Skip expired 5m markets
+                                    if tag_slug == "5M":
+                                        end = m.get("endDate", "")
+                                        try:
+                                            end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
+                                            if (end_dt - datetime.now(timezone.utc)).total_seconds() < 0:
+                                                continue
+                                        except:
+                                            pass
                                     asset_data[matched_asset]["markets"].append(m)
                         self._market_cache_all = asset_data
                     else:

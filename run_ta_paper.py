@@ -616,6 +616,19 @@ class TAPaperTrader:
         self.HYDRA_MIN_TRADES = 20  # Min predictions before evaluation
         self.HYDRA_PROMOTE_WR = 0.55  # 55% WR to promote
 
+        # === 5M SHADOW PAPER TRADING (V3.18) ===
+        # Pure momentum-based 5-minute market trading — separate from 15m pipeline
+        # Uses short-term price direction, not heavy model/KL/Bregman stack
+        self.shadow_5m_trades: Dict[str, dict] = {}  # {trade_key: trade_dict}
+        self.shadow_5m_stats = {"wins": 0, "losses": 0, "pnl": 0.0, "trades": []}
+        self.shadow_5m_SIZE = 10.0  # Paper position size
+        # 5m entry rules: momentum-first, relaxed filtering for data collection
+        self.SHADOW_5M_MIN_MOMENTUM = 0.0003  # 0.03% price move (relaxed for 5m)
+        self.SHADOW_5M_MAX_ENTRY = 0.60       # 5m prices hover near 0.50 — allow wider range
+        self.SHADOW_5M_MIN_ENTRY = 0.10       # Ultra-cheap = noise
+        self.SHADOW_5M_TIME_WINDOW = (0.5, 4.8)  # Minutes before expiry
+        self.SHADOW_5M_MAX_CONCURRENT = 5     # Max open 5m positions (collect data fast)
+
         self._load()
         self._apply_tuned_params()  # Apply ML-tuned parameters on startup
 
@@ -889,9 +902,16 @@ class TAPaperTrader:
                         self.hydra_quarantine_raw[strat] = saved_hydra_raw[strat]
                 self.hydra_filter_stats = data.get("hydra_filter_stats", {})
                 self.hydra_pending = data.get("hydra_pending", {})
+                # Load 5m shadow state (V3.18)
+                self.shadow_5m_trades = data.get("shadow_5m_trades", {})
+                saved_5m_stats = data.get("shadow_5m_stats", None)
+                if saved_5m_stats:
+                    self.shadow_5m_stats = saved_5m_stats
                 arb_open = sum(1 for a in self.arb_trades.values() if a.get("status") == "open")
                 hydra_total = sum(q["predictions"] for q in self.hydra_quarantine.values())
-                print(f"Loaded {len(self.trades)} trades + {len(self.arb_trades)} arb trades ({arb_open} open) + {hydra_total} hydra predictions from previous session")
+                s5 = self.shadow_5m_stats
+                print(f"Loaded {len(self.trades)} trades + {len(self.arb_trades)} arb ({arb_open} open) + {hydra_total} hydra + "
+                      f"5m:{s5['wins']}W/{s5['losses']}L ${s5['pnl']:+.2f}")
             except Exception as e:
                 print(f"Error loading state: {e}")
 
@@ -915,6 +935,8 @@ class TAPaperTrader:
             "hydra_quarantine_raw": self.hydra_quarantine_raw,
             "hydra_filter_stats": self.hydra_filter_stats,
             "hydra_pending": self.hydra_pending,
+            "shadow_5m_trades": self.shadow_5m_trades,
+            "shadow_5m_stats": self.shadow_5m_stats,
         }
         with open(self.OUTPUT_FILE, 'w') as f:
             json.dump(data, f, indent=2)
@@ -1011,9 +1033,11 @@ class TAPaperTrader:
             markets = []
             for tag_slug in ["15M", "5M"]:
                 try:
+                    # V3.18: 5M needs larger limit (hundreds of events, default returns expired ones)
+                    fetch_limit = 200 if tag_slug == "5M" else 50
                     mr = await client.get(
                         "https://gamma-api.polymarket.com/events",
-                        params={"tag_slug": tag_slug, "active": "true", "closed": "false", "limit": 50},
+                        params={"tag_slug": tag_slug, "active": "true", "closed": "false", "limit": fetch_limit},
                         headers={"User-Agent": "Mozilla/5.0"}
                     )
                     if mr.status_code == 200:
@@ -1034,6 +1058,16 @@ class TAPaperTrader:
                                         m["question"] = event.get("title", "")
                                     m["_asset"] = matched_asset  # Tag with asset name
                                     m["_timeframe"] = "5m" if tag_slug == "5M" else "15m"  # V3.16
+                                    # V3.18: Skip expired 5m markets (API returns stale ones)
+                                    if tag_slug == "5M":
+                                        end = m.get("endDate", "")
+                                        try:
+                                            from datetime import timezone as _tz
+                                            end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
+                                            if (end_dt - datetime.now(_tz.utc)).total_seconds() < 0:
+                                                continue  # Expired
+                                        except:
+                                            pass
                                     markets.append(m)
                     else:
                         print(f"[API] {tag_slug} status {mr.status_code}")
@@ -1124,6 +1158,265 @@ class TAPaperTrader:
             print(f"[DAILY RESET] Previous day PnL: ${self.daily_pnl:+.2f}")
             self.daily_pnl = 0.0
             self.last_reset_day = today
+
+    async def _trade_5m_shadow(self, markets, candles, btc_price):
+        """V3.18: Dedicated 5-minute market shadow paper trading."""
+        try:
+            await self._trade_5m_shadow_inner(markets, candles, btc_price)
+        except Exception as e:
+            print(f"[5M ERROR] {type(e).__name__}: {e}")
+
+    async def _trade_5m_shadow_inner(self, markets, candles, btc_price):
+        now = datetime.now(timezone.utc)
+        n5 = sum(1 for m in markets if m.get("_timeframe") == "5m")
+        # Find nearest 5m market
+        nearest_5m = None
+        for m in markets:
+            if m.get("_timeframe") != "5m":
+                continue
+            tl = self.get_time_remaining(m)
+            if nearest_5m is None or tl < nearest_5m[0]:
+                nearest_5m = (tl, m.get("question", "")[:50])
+        nm_str = f"nearest={nearest_5m[0]:.1f}m" if nearest_5m else "none"
+        print(f"[5M DEBUG] {n5} 5m mkts | {nm_str} | candles={len(candles)} | btc=${btc_price:,.0f}")
+
+        # Count open 5m positions
+        open_5m = sum(1 for t in self.shadow_5m_trades.values() if t["status"] == "open")
+
+        # --- RESOLVE expired 5m trades first ---
+        for tid, trade in list(self.shadow_5m_trades.items()):
+            if trade["status"] != "open":
+                continue
+            # Find this trade's market in current market list
+            for mkt in markets:
+                mkt_id = mkt.get("conditionId", "")
+                if mkt_id != trade.get("condition_id"):
+                    continue
+                time_left = self.get_time_remaining(mkt)
+                if time_left > 0.5:
+                    continue
+                up_p, down_p = self.get_market_prices(mkt)
+                if up_p is None or down_p is None:
+                    continue
+                # Resolve
+                price = up_p if trade["side"] == "UP" else down_p
+                if price >= 0.95:
+                    exit_val = trade["size_usd"] / trade["entry_price"]
+                elif price <= 0.05:
+                    exit_val = 0
+                else:
+                    exit_val = (trade["size_usd"] / trade["entry_price"]) * price
+                trade["exit_price"] = price
+                trade["exit_time"] = now.isoformat()
+                trade["pnl"] = exit_val - trade["size_usd"]
+                trade["status"] = "closed"
+
+                won = trade["pnl"] > 0
+                self.shadow_5m_stats["wins" if won else "losses"] += 1
+                self.shadow_5m_stats["pnl"] += trade["pnl"]
+                self.shadow_5m_stats["trades"].append({
+                    "side": trade["side"], "entry": trade["entry_price"],
+                    "exit": price, "pnl": trade["pnl"], "strategy": trade.get("strategy", "momentum"),
+                    "asset": trade.get("asset", "BTC"), "time": trade["entry_time"],
+                })
+                open_5m -= 1
+
+                w = self.shadow_5m_stats["wins"]
+                l = self.shadow_5m_stats["losses"]
+                wr = w / (w + l) * 100 if (w + l) > 0 else 0
+                tag = "WIN" if won else "LOSS"
+                print(f"[5M {tag}] {trade['side']} ${trade['pnl']:+.2f} | entry=${trade['entry_price']:.2f} exit=${price:.2f} | "
+                      f"5m stats: {w}W/{l}L {wr:.0f}%WR ${self.shadow_5m_stats['pnl']:+.2f} | {trade['title'][:40]}")
+                break
+
+        # Also resolve via age (>6 min old = definitely expired)
+        for tid, trade in list(self.shadow_5m_trades.items()):
+            if trade["status"] != "open":
+                continue
+            try:
+                entry_dt = datetime.fromisoformat(trade["entry_time"])
+                age_min = (now - entry_dt).total_seconds() / 60
+            except:
+                age_min = 999
+            if age_min > 6:
+                # Market expired, resolve via Gamma API
+                nid = trade.get("market_numeric_id")
+                if nid:
+                    try:
+                        async with httpx.AsyncClient(timeout=8) as cl:
+                            r = await cl.get(f"https://gamma-api.polymarket.com/markets/{nid}",
+                                           headers={"User-Agent": "Mozilla/5.0"})
+                            if r.status_code == 200:
+                                rm = r.json()
+                                up_p, down_p = self.get_market_prices(rm)
+                                if up_p is not None:
+                                    price = up_p if trade["side"] == "UP" else down_p
+                                    if price >= 0.95:
+                                        exit_val = trade["size_usd"] / trade["entry_price"]
+                                    elif price <= 0.05:
+                                        exit_val = 0
+                                    else:
+                                        exit_val = (trade["size_usd"] / trade["entry_price"]) * price
+                                    trade["exit_price"] = price
+                                    trade["exit_time"] = now.isoformat()
+                                    trade["pnl"] = exit_val - trade["size_usd"]
+                                    trade["status"] = "closed"
+                                    won = trade["pnl"] > 0
+                                    self.shadow_5m_stats["wins" if won else "losses"] += 1
+                                    self.shadow_5m_stats["pnl"] += trade["pnl"]
+                                    self.shadow_5m_stats["trades"].append({
+                                        "side": trade["side"], "entry": trade["entry_price"],
+                                        "exit": price, "pnl": trade["pnl"],
+                                        "strategy": trade.get("strategy", "momentum"),
+                                        "asset": trade.get("asset", "BTC"), "time": trade["entry_time"],
+                                    })
+                                    open_5m -= 1
+                                    w = self.shadow_5m_stats["wins"]
+                                    l = self.shadow_5m_stats["losses"]
+                                    wr = w / (w + l) * 100 if (w + l) > 0 else 0
+                                    tag = "WIN" if won else "LOSS"
+                                    print(f"[5M-API {tag}] {trade['side']} ${trade['pnl']:+.2f} | 5m: {w}W/{l}L {wr:.0f}%WR ${self.shadow_5m_stats['pnl']:+.2f}")
+                    except Exception as e:
+                        print(f"[5M] API resolve error: {e}")
+                else:
+                    # No numeric ID, mark as loss
+                    trade["status"] = "closed"
+                    trade["pnl"] = -trade["size_usd"]
+                    self.shadow_5m_stats["losses"] += 1
+                    self.shadow_5m_stats["pnl"] += trade["pnl"]
+                    open_5m -= 1
+
+        # --- ENTRY: Find new 5m trades ---
+        if open_5m >= self.SHADOW_5M_MAX_CONCURRENT:
+            return
+
+        # Calculate short-term momentum from candles (Candle objects with .close)
+        if len(candles) < 3:
+            return
+
+        # Momentum: price change over last 2-3 candles (recent 1-min bars)
+        try:
+            recent_closes = [c.close if hasattr(c, 'close') else float(c.get("c", c.get("close", 0))) for c in candles[-3:]]
+            if recent_closes[-1] == 0 or recent_closes[0] == 0:
+                return
+            momentum_10m = (recent_closes[-1] - recent_closes[0]) / recent_closes[0]
+            momentum_5m = (recent_closes[-1] - recent_closes[-2]) / recent_closes[-2]
+        except (IndexError, ValueError, ZeroDivisionError, AttributeError):
+            return
+
+        # Scan 5m markets in window
+        found_5m = 0
+        for market in markets:
+            tf = market.get("_timeframe", "15m")
+            if tf != "5m":
+                continue
+            found_5m += 1
+
+            time_left = self.get_time_remaining(market)
+            up_price, down_price = self.get_market_prices(market)
+
+            if time_left < self.SHADOW_5M_TIME_WINDOW[0] or time_left > self.SHADOW_5M_TIME_WINDOW[1]:
+                continue
+
+            if up_price is None or down_price is None:
+                continue
+
+            asset = market.get("_asset", "BTC")
+            cid = market.get("conditionId", "")
+            question = market.get("question", "")
+            nid = market.get("id")
+
+            print(f"[5M SCAN] {asset} | UP=${up_price:.2f} DOWN=${down_price:.2f} | "
+                  f"time={time_left:.1f}m | mom10m={momentum_10m:+.4%} mom5m={momentum_5m:+.4%} | "
+                  f"{question[:50]}")
+
+            # Skip if already trading this market
+            trade_key_up = f"5m_{cid}_UP"
+            trade_key_down = f"5m_{cid}_DOWN"
+            if trade_key_up in self.shadow_5m_trades or trade_key_down in self.shadow_5m_trades:
+                continue
+
+            # === STRATEGY 1: MOMENTUM DIRECTIONAL ===
+            # Strong recent momentum -> bet in that direction
+            # For 5m, use 10m momentum as primary (more stable than 5m noise)
+            side = None
+            entry_price = None
+            strategy = "momentum"
+
+            if momentum_10m > self.SHADOW_5M_MIN_MOMENTUM:
+                # Upward momentum — buy UP
+                if self.SHADOW_5M_MIN_ENTRY <= up_price <= self.SHADOW_5M_MAX_ENTRY:
+                    side = "UP"
+                    entry_price = round(up_price + 0.02, 2)
+                    # Stronger signal if both timeframes agree
+                    if momentum_5m > 0:
+                        strategy = "momentum_strong"
+            elif momentum_10m < -self.SHADOW_5M_MIN_MOMENTUM:
+                # Downward momentum — buy DOWN
+                if self.SHADOW_5M_MIN_ENTRY <= down_price <= self.SHADOW_5M_MAX_ENTRY:
+                    side = "DOWN"
+                    entry_price = round(down_price + 0.02, 2)
+                    if momentum_5m < 0:
+                        strategy = "momentum_strong"
+
+            # === STRATEGY 2: BOTH-SIDES (5m arb) ===
+            # If UP + DOWN < 0.96, buy both for guaranteed ~4% profit
+            combined = up_price + down_price
+            if combined < 0.96 and not side:
+                # Both-sides 5m arb
+                up_entry = round(up_price + 0.01, 2)
+                down_entry = round(down_price + 0.01, 2)
+                if up_entry + down_entry < 0.98:
+                    # Open both sides
+                    for s, ep in [("UP", up_entry), ("DOWN", down_entry)]:
+                        tk = f"5m_{cid}_{s}"
+                        self.shadow_5m_trades[tk] = {
+                            "side": s, "entry_price": ep, "size_usd": self.shadow_5m_SIZE / 2,
+                            "entry_time": now.isoformat(), "condition_id": cid,
+                            "market_numeric_id": nid, "title": question,
+                            "asset": asset, "strategy": "both_sides_5m",
+                            "status": "open", "pnl": 0.0,
+                        }
+                    print(f"[5M ARB] {asset} BOTH SIDES | UP=${up_entry:.2f} DOWN=${down_entry:.2f} | "
+                          f"combined=${combined:.2f} | {question[:50]}")
+                    open_5m += 2
+                    continue
+
+            # === STRATEGY 3: EXTREME PRICE (high-conviction directional) ===
+            # If one side is very cheap (<$0.20) and momentum agrees, that's a high-payoff bet
+            if not side:
+                if up_price < 0.20 and momentum_10m > 0.001:
+                    side = "UP"
+                    entry_price = round(up_price + 0.02, 2)
+                    strategy = "extreme_cheap"
+                elif down_price < 0.20 and momentum_10m < -0.001:
+                    side = "DOWN"
+                    entry_price = round(down_price + 0.02, 2)
+                    strategy = "extreme_cheap"
+
+            if side and entry_price and entry_price <= self.SHADOW_5M_MAX_ENTRY:
+                trade_key = f"5m_{cid}_{side}"
+                self.shadow_5m_trades[trade_key] = {
+                    "side": side, "entry_price": entry_price, "size_usd": self.shadow_5m_SIZE,
+                    "entry_time": now.isoformat(), "condition_id": cid,
+                    "market_numeric_id": nid, "title": question,
+                    "asset": asset, "strategy": strategy,
+                    "momentum_10m": momentum_10m, "momentum_5m": momentum_5m,
+                    "status": "open", "pnl": 0.0,
+                }
+                open_5m += 1
+                print(f"[5M ENTRY] {asset} {side} ${entry_price:.2f} | strat={strategy} | "
+                      f"mom_10m={momentum_10m:+.3%} mom_5m={momentum_5m:+.3%} | "
+                      f"time_left={time_left:.1f}m | {question[:50]}")
+
+                if open_5m >= self.SHADOW_5M_MAX_CONCURRENT:
+                    break
+
+        if found_5m == 0:
+            print(f"[5M] No 5m markets found in market list ({len(markets)} total)")
+
+        # Save 5m state
+        self._save()
 
     def _scan_arbitrage(self, eligible_markets):
         """Scan for both-sides arbitrage: UP + DOWN < threshold for guaranteed profit."""
@@ -1362,6 +1655,11 @@ class TAPaperTrader:
         # === ARBITRAGE SCAN ===
         # Check ALL eligible markets for both-sides arb (UP + DOWN < $0.97)
         self._scan_arbitrage(eligible_markets)
+
+        # === 5M SHADOW PAPER TRADING (V3.18) ===
+        # Separate momentum-based system for 5-minute markets
+        # Bypasses the heavy 15m filter pipeline entirely
+        await self._trade_5m_shadow(markets, candles, btc_price)
 
         # === DIRECTIONAL TRADING (Phase 1: Collect candidates) ===
         # Gather all trades that pass filters, then allocate via multi-outcome Kelly
@@ -2491,6 +2789,29 @@ class TAPaperTrader:
         for t in recent:
             result = "WIN" if t.pnl > 0 else "LOSS"
             print(f"  [{result}] {t.side} ${t.pnl:+.2f} | {t.market_title[:35]}...")
+
+        # 5M Shadow Stats
+        s5 = self.shadow_5m_stats
+        open_5m = sum(1 for t in self.shadow_5m_trades.values() if t.get("status") == "open")
+        total_5m = s5["wins"] + s5["losses"]
+        wr_5m = s5["wins"] / total_5m * 100 if total_5m > 0 else 0
+        print(f"\n5M SHADOW PAPER (V3.18):")
+        print(f"  {s5['wins']}W/{s5['losses']}L ({total_5m}T) | {wr_5m:.0f}% WR | PnL: ${s5['pnl']:+.2f} | {open_5m} open")
+        # Per-strategy breakdown
+        strat_stats = {}
+        for t in s5.get("trades", []):
+            st = t.get("strategy", "unknown")
+            if st not in strat_stats:
+                strat_stats[st] = {"w": 0, "l": 0, "pnl": 0.0}
+            if t.get("pnl", 0) > 0:
+                strat_stats[st]["w"] += 1
+            else:
+                strat_stats[st]["l"] += 1
+            strat_stats[st]["pnl"] += t.get("pnl", 0)
+        for st, ss in sorted(strat_stats.items(), key=lambda x: -x[1]["pnl"]):
+            tot = ss["w"] + ss["l"]
+            wr = ss["w"] / tot * 100 if tot > 0 else 0
+            print(f"    {st:20s} {ss['w']}W/{ss['l']}L {wr:.0f}%WR ${ss['pnl']:+.2f}")
 
         print("=" * 70)
         print()
