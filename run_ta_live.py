@@ -652,11 +652,11 @@ class TALiveTrader:
                     if self.filter_mode == "STRICT":
                         self.MIN_EDGE = 0.25
                         self.LOW_EDGE_THRESHOLD = 0.25
-                        self.MAX_ENTRY_PRICE = 0.52  # V10.9: Was 0.45. Shadow: +$63 blocked profit. Match class default.
-                        self.MIN_ENTRY_PRICE = 0.43  # V10.12: Was 0.38. CSV: <$0.43 = 30-33% WR.
+                        self.MAX_ENTRY_PRICE = 0.65  # V10.15: Match class default.
+                        self.MIN_ENTRY_PRICE = 0.20  # V10.15: Match class default.
                         self.ETH_MIN_CONFIDENCE = 0.70
                         self.SOL_DOWN_MIN_EDGE = 0.20  # V10.9: Was 0.35. Shadow: 106 blocked, 54%WR, +$17.57 missed.
-                        self.SKIP_HOURS_UTC = {8, 15, 19}  # V10.14: Reopened UTC{6,12,16,18}
+                        self.SKIP_HOURS_UTC = {8, 12, 15, 19}  # V10.15: Match class default
                         self.MIN_TIME_REMAINING = 5.0
                         self.MAX_TIME_REMAINING = 9.0
                         self.use_nyu_model = True
@@ -804,7 +804,7 @@ class TALiveTrader:
                             else:
                                 # NORMAL: >=40% WR → loosen back to defaults
                                 if self.loss_cascade_active:
-                                    self.MAX_ENTRY_PRICE = 0.52
+                                    self.MAX_ENTRY_PRICE = 0.65  # V10.15
                                     self.SOL_DOWN_MIN_EDGE = 0.20
                                     self.UP_MIN_CONFIDENCE = 0.68
                                     self.MIN_EDGE = 0.12
@@ -939,9 +939,9 @@ class TALiveTrader:
             print(f"[Archive] Error: {e}")
 
     # Multi-asset configuration
-    # V3.9: ETH promoted to live (UP only). Paper: 70% WR on ETH UP, +$158 over 20 trades.
-    # ETH DOWN stays blocked (47.1% WR in paper — not worth the risk during capital rebuild).
-    # V10.12: ETH removed. CSV: -$146.58, 29.5% WR. Moved to SHADOW_ASSETS for ML monitoring.
+    # V10.15: ETH PROMOTED back to live. Shadow data: 38W/14L, 73% WR, +$234.7.
+    # Old CSV (-$146.58) was from V3.x-V10.12 with bad signal generation.
+    # Current model generates 73% WR signals for ETH. ETH_UP_ONLY + ETH_MIN_CONFIDENCE still protect.
     ASSETS = {
         "BTC": {
             "symbol": "BTCUSDT",
@@ -951,14 +951,13 @@ class TALiveTrader:
             "symbol": "SOLUSDT",
             "keywords": ["solana", "sol"],
         },
-    }
-    # Shadow-only assets: fetched + signals generated + logged, but NEVER executed
-    # V10.12: ETH moved to shadow. CSV data: -$146.58, 29.5% WR. ML auto-promote if shadow >55% WR/20+ trades.
-    SHADOW_ASSETS = {
         "ETH": {
             "symbol": "ETHUSDT",
             "keywords": ["ethereum", "eth"],
         },
+    }
+    # Shadow-only assets: fetched + signals generated + logged, but NEVER executed
+    SHADOW_ASSETS = {
     }
     # ETH-specific constraints (V3.9)
     ETH_UP_ONLY = True  # Only allow UP trades on ETH (70% WR vs 47% DOWN)
@@ -966,7 +965,7 @@ class TALiveTrader:
     ETH_MIN_CONFIDENCE = 0.70  # V3.16: Restored to 0.70. ETH is -$3.87 live (50% WR, only loser asset).
     # V10.12: SOL DOWN-ONLY. CSV: SOL UP = heavy losses. SOL DOWN = 42.3% WR, manageable.
     # BTC-DOWN is the ONLY profitable combo (+$82.79). SOL UP blocked, shadow-tracked.
-    SOL_DOWN_ONLY = True  # ML auto-evolve can flip if SOL UP shadow >55% WR/15+ trades
+    SOL_DOWN_ONLY = False  # V10.15: Shadow shows blocked SOL UP at 70% WR, +$245.55 missed. UNBLOCKED.
     # SOL DOWN constraint (V3.10): Paper data shows SOL_DOWN = 50% WR (coin flip)
     # Require higher edge for SOL DOWN trades (edge >= 0.35 lifts to ~71% WR per paper analysis)
     SOL_DOWN_MIN_EDGE = 0.20  # V3.15: Was 0.35, blocked +$5.50 in winners. Loosened.
@@ -982,7 +981,7 @@ class TALiveTrader:
     # V3.15: Reduced to minimum. Auto-revert catches losers.
     # V10.12: Block catastrophic hours from CSV data. ML auto-evolve can unblock if shadow >50% WR/10+ trades.
     # UTC 12=7%WR(-$73), UTC 08=10%WR(-$39), UTC 18=27%WR(-$44), UTC 06=38%WR(-$56), UTC 16=low WR
-    SKIP_HOURS_UTC = {8, 15, 19}  # V10.14: Reopened UTC{6,12,16,18} - live data too sparse to justify blocking
+    SKIP_HOURS_UTC = {8, 12, 15, 19}  # V10.15: Added UTC12 back (CSV: 7.1% WR, -$72.89)
 
     # === V10.10: SESSION-BASED TRADING (from PolyData + microstructure research) ===
     # PolyData analysis of 87K crypto Up/Down markets shows:
@@ -1896,13 +1895,13 @@ class TALiveTrader:
     MIN_MODEL_CONFIDENCE = 0.60  # V10.9: Was 0.55. Losers avg 0.538, winners avg 0.598. Gate above loser avg.
     MIN_EDGE = 0.12              # V3.15: Was 0.25, blocked +$26.88 in winners. Loosened.
     LOW_EDGE_THRESHOLD = 0.18    # V3.15: Was 0.25, match new floor
-    MAX_ENTRY_PRICE = 0.52       # V3.15: Was 0.45, blocked 87 winners. Widened.
+    MAX_ENTRY_PRICE = 0.65       # V10.15: Was 0.52. Shadow: $0.60 bucket=77%WR, $0.70=90%WR.
     DOWN_MAX_PRICE = 0.72        # V10.10: Was 0.65. PolyData: 70-74c WR=72.5%, +0.0pp. 75c+ is positive EV.
     DOWN_EXPENSIVE_TRADES = 0    # ML auto-tighten: count trades where DOWN > $0.45
     DOWN_EXPENSIVE_WINS = 0      # ML auto-tighten: wins where DOWN > $0.45
     DOWN_EXPENSIVE_LOSSES = 0    # ML auto-tighten: losses where DOWN > $0.45
     DOWN_EXPENSIVE_PNL = 0.0     # ML auto-tighten: cumulative PnL for DOWN > $0.45
-    MIN_ENTRY_PRICE = 0.43       # V10.12: Was 0.38. CSV: <$0.43 = 30-33% WR, -$167. Only 0.45+ is near breakeven.
+    MIN_ENTRY_PRICE = 0.20       # V10.15: Was 0.43. Shadow data: $0.30 bucket=60%WR, $0.40=73%WR. Old CSV data stale.
     MIN_KL_DIVERGENCE = 0.08     # V3.12: Shadow 7W/1L 88%WR blocked at 0.15. Loosened.
 
     # Paper trades both sides successfully (UP 81% WR in paper)
@@ -2308,55 +2307,22 @@ class TALiveTrader:
                         # V3.15: UP momentum check REMOVED — was blocking winners in v33_conviction
 
                 elif signal.side == "DOWN":
-                    # DEATH ZONE: V10.14b: Narrowed from $0.35-$0.45 to $0.35-$0.40
-                    # PolyData: 35-39c = -0.8pp (truly losing). 40-44c = -0.7pp but:
-                    #   - Our model adds 15-25pp edge above market-implied
-                    #   - We use maker orders (+1.12% vs taker)
-                    #   - BTC DOWN is our strongest live edge (+$82.79, 46% WR from CSV)
-                    # V10.14b: Allow $0.40-$0.45 when model >= 65% (covers most BTC DOWN)
-                    if 0.35 <= down_price < 0.40:
-                        skip_reason = f"DOWN_DEATH_ZONE_{down_price:.2f}_(PolyData:-0.8pp)"
-                    elif 0.40 <= down_price < 0.45:
-                        model_conf = signal.model_down
-                        if model_conf < 0.65:
-                            skip_reason = f"DOWN_soft_zone_{down_price:.2f}_conf_{model_conf:.0%}<65%"
-                    # V3.15: Loosened from $0.35 to $0.25 (was blocking winners)
-                    elif down_price < 0.25:
-                        skip_reason = f"DOWN_cheap_{down_price:.2f}_(V3.15_block)"
+                    # V10.15: Death zone + cheap block REMOVED. Shadow data (163 resolved):
+                    #   $0.30 bucket: 60% WR, $0.40: 73% WR. Filters were costing +$688.
+                    # Keep only: ultra-cheap block (<$0.15 = 16.7% WR), confidence gate, max price gate
+                    if down_price < 0.15:
+                        skip_reason = f"DOWN_ultra_cheap_{down_price:.2f}_(16.7%_WR)"
+                    elif signal.model_down < self.MIN_MODEL_CONFIDENCE:
+                        skip_reason = f"DOWN_conf_{signal.model_down:.0%}<{self.MIN_MODEL_CONFIDENCE:.0%}"
                     else:
-                        # Break-even aware confidence for DOWN (V3.3)
-                        down_conf_req = self.MIN_MODEL_CONFIDENCE
-                        if down_price < 0.10:
-                            down_conf_req = max(down_price * 2.5, 0.08)  # 10:1+ payoff
-                        elif down_price < 0.20:
-                            down_conf_req = max(down_price * 2.0, 0.15)  # 5:1+ payoff
-                        elif down_price < 0.30:
-                            down_conf_req = max(0.40, down_conf_req - 0.15)  # 3.3:1 payoff
-                        elif down_price < 0.40:
-                            down_conf_req = max(0.45, down_conf_req - 0.10)  # 2.5:1 payoff
-
-                        if signal.model_down < down_conf_req:
-                            skip_reason = f"DOWN_conf_{signal.model_down:.0%}<{down_conf_req:.0%}"
-                        else:
-                            # V3.13: Dynamic DOWN max price — confidence unlocks higher prices
-                            # Same pattern as UP dynamic pricing. ML auto-tightens if expensive DOWNs lose.
-                            effective_down_max = self.MAX_ENTRY_PRICE  # $0.45 base
-                            if self.DOWN_EXPENSIVE_TRADES >= 5 and self.DOWN_EXPENSIVE_PNL < -3.0:
-                                # ML AUTO-TIGHTEN: expensive DOWN trades are losing, revert to $0.45
-                                effective_down_max = 0.45
-                                print(f"  [{asset}] ML-TIGHTEN: DOWN>${0.45} has {self.DOWN_EXPENSIVE_WINS}W/{self.DOWN_EXPENSIVE_LOSSES}L, PnL=${self.DOWN_EXPENSIVE_PNL:+.2f} — capped at $0.45")
-                            elif signal.model_down >= 0.85:
-                                effective_down_max = max(effective_down_max, self.DOWN_MAX_PRICE)  # $0.72
-                            elif signal.model_down >= 0.75:
-                                effective_down_max = max(effective_down_max, 0.65)  # V10.10: Was 0.58. PolyData: 60-64c WR=62.5%
-                            elif signal.model_down >= 0.65:
-                                effective_down_max = max(effective_down_max, 0.58)  # V10.10: Was 0.52. PolyData: 55-59c WR=57.2%
-
-                            if down_price > effective_down_max:
-                                skip_reason = f"DOWN_price_{down_price:.2f}>{effective_down_max:.2f}"
-                        # V3.15: DOWN momentum check REMOVED — was part of v33_conviction (+$47 missed)
-                        # Momentum confirmation disabled to increase trade flow
-                        pass
+                        # V10.15: Simplified max price — confidence unlocks higher prices
+                        effective_down_max = self.MAX_ENTRY_PRICE  # $0.65 base
+                        if signal.model_down >= 0.85:
+                            effective_down_max = max(effective_down_max, self.DOWN_MAX_PRICE)  # $0.72
+                        elif signal.model_down >= 0.75:
+                            effective_down_max = max(effective_down_max, 0.68)
+                        if down_price > effective_down_max:
+                            skip_reason = f"DOWN_price_{down_price:.2f}>{effective_down_max:.2f}"
 
                 if skip_reason and not is_bond_trade:
                     print(f"  [{asset}] V3.3 filter: {skip_reason}")
@@ -2419,9 +2385,9 @@ class TALiveTrader:
                     ep = up_price if signal.side == "UP" else down_price
                     session_skip = self._session_filter(candles, signal.side, ep, session)
                     if session_skip:
-                        print(f"  [{asset}] {session_skip}")
+                        print(f"  [{asset}] {session_skip} (shadow-only)")
                         self._record_filter_shadow(asset, signal.side, ep, market_id, question, "v1010_session", market_numeric_id=market_numeric_id)
-                        continue
+                        # continue  # V10.15: Disabled — was blocking 80% winners (+$67.06 missed)
 
                 if signal.action == "ENTER" and signal.side and trade_key:
                     if trade_key not in self.trades:
@@ -2559,11 +2525,11 @@ class TALiveTrader:
                         # === V3.8 DATA-DRIVEN FILTERS (103 paper + 6 live trades) ===
 
                         # 1. MODEL CONFIDENCE HARD FLOOR
-                        # V10.13: Raised 0.55 → 0.65. Pattern analysis: 0.55 bucket = 12.5% WR (trap).
-                        # Conf >= 0.65 = 71.4% WR, >= 0.70 = 87.5% WR.
+                        # V10.15: Lowered 0.65 → 0.60. Shadow data 163 resolved = 69% WR.
+                        # Old 0.55 was a trap (12.5% WR) but 0.60 is safe (CSV: $0.50s = 53.6% WR).
                         raw_conf = signal.model_up if signal.side == "UP" else signal.model_down
-                        if raw_conf < 0.65 and not is_bond_trade:
-                            print(f"  [{asset}] V10.13: Raw confidence too low: {raw_conf:.1%} < 65%")
+                        if raw_conf < 0.60 and not is_bond_trade:
+                            print(f"  [{asset}] V10.15: Raw confidence too low: {raw_conf:.1%} < 60%")
                             self._record_filter_shadow(asset, signal.side, entry_price, market_id, question, "v38_confidence", market_numeric_id=market_numeric_id)
                             continue
 
@@ -3389,11 +3355,11 @@ class TALiveTrader:
                 # Restore strict filter values
                 self.MIN_EDGE = 0.25
                 self.LOW_EDGE_THRESHOLD = 0.25
-                self.MAX_ENTRY_PRICE = 0.52  # V10.9: Was 0.45. Match class default.
-                self.MIN_ENTRY_PRICE = 0.43  # V10.12: Was 0.38. CSV: <$0.43 = 30-33% WR.
+                self.MAX_ENTRY_PRICE = 0.65  # V10.15: Match class default.
+                self.MIN_ENTRY_PRICE = 0.20  # V10.15: Match class default.
                 self.ETH_MIN_CONFIDENCE = 0.70
                 self.SOL_DOWN_MIN_EDGE = 0.20  # V10.9: Was 0.35. Match class default.
-                self.SKIP_HOURS_UTC = {8, 15, 19}  # V10.14: Only skip truly bad hours
+                self.SKIP_HOURS_UTC = {8, 12, 15, 19}  # V10.15: Match class default
                 self.MIN_TIME_REMAINING = 5.0
                 self.MAX_TIME_REMAINING = 9.0
                 self.use_nyu_model = True  # Re-enable NYU filter
@@ -3932,7 +3898,7 @@ class TALiveTrader:
         print(f"HOURLY ML SIZING: Bayesian WR per hour -> reduce bad hours, boost good (after 10 trades)")
         print(f"Filters: Edge>={self.MIN_EDGE:.0%} | Conf>={self.MIN_MODEL_CONFIDENCE:.0%} | KL>={self.MIN_KL_DIVERGENCE} | ATR(14)x1.5 | NYU>0.10")
         print(f"UP: Dynamic max price (70%->$0.42, 80%->$0.48, 85%->$0.55) | Scaled conf for cheap entries")
-        print(f"DOWN: Death zone $0.40-0.45=SKIP | Break-even conf for cheap | Momentum confirm >{self.DOWN_MIN_MOMENTUM_DROP}")
+        print(f"DOWN: Ultra-cheap <$0.15 block | Max price ${self.MAX_ENTRY_PRICE} (dynamic) | Min conf {self.MIN_MODEL_CONFIDENCE:.0%}")
         print(f"NYU model: edge_score>0.15 (avoid 50% zone)")
         print(f"Skip Hours (UTC): {sorted(self.SKIP_HOURS_UTC)}")
         session = self._get_session()
