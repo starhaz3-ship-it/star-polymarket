@@ -599,6 +599,7 @@ class TAPaperTrader:
             "TRENDLINE_BREAK", "MFI_DIVERGENCE", "CONNORS_RSI", "MULTI_SMA_TREND",
             "ALIGNMENT", "DC03_KALMAN_ADX", "CONSEC_CANDLE_REVERSAL",
             "SHORT_TERM_REVERSAL", "FVG_RETEST",
+            "BB_BOUNCE", "EXTREME_MOMENTUM", "RUBBER_BAND",
         ]
         # V3.14d: FILTERED stats (what we act on — with RSI veto, trend-beats-reversion, etc.)
         self.hydra_quarantine: Dict[str, dict] = {

@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-08T21:42:49.466657+00:00",
-  "last_updated": "2026-02-13T12:30:40.632721+00:00",
+  "last_updated": "2026-02-13T13:04:32.413292+00:00",
   "dry_run": false,
   "trades": {
     "0xefb50b4d430aa8e42ccb0a77b6729b31b0c0f7d4f40ae1e60f642f2868d0e560_UP": {
@@ -4164,7 +4164,7 @@
   "total_pnl": 29.2867,
   "wins": 26,
   "losses": 18,
-  "signals_count": 6842,
+  "signals_count": 6890,
   "ml_rejections": 0,
   "consecutive_wins": 5,
   "consecutive_losses": 0,
@@ -10158,6 +10158,29 @@
       "exit_price": 1.0,
       "pnl": 5.87,
       "exit_time": "2026-02-13T12:10:22.783321+00:00"
+    },
+    "filter_0x2b0ce2685cf4fb45a0a4c1226824fa5d0fc5bf3705144735730ee2dbae50b137_UP_v33_conviction": {
+      "asset": "BTC",
+      "side": "UP",
+      "entry_price": 0.495,
+      "entry_time": "2026-02-13T13:01:40.987946+00:00",
+      "market_id": "0x2b0ce2685cf4fb45a0a4c1226824fa5d0fc5bf3705144735730ee2dbae50b137",
+      "market_numeric_id": "1369336",
+      "market_title": "[BTC] Bitcoin Up or Down - February 13, 8:05AM-8:10AM ET",
+      "size_usd": 5.0,
+      "status": "open",
+      "reason": "filter_v33_conviction",
+      "filter_name": "v33_conviction",
+      "hour_utc": 13,
+      "day_of_week": 4,
+      "price_bucket": 0.5,
+      "garch_regime": "NORMAL",
+      "garch_ratio": 1.01,
+      "ceemd_slope": 0.00021,
+      "ceemd_noise": 0.71,
+      "model_confidence": 0.0,
+      "cascade_level": 0,
+      "session": "NY_OPEN"
     }
   },
   "shadow_stats": {
@@ -10199,7 +10222,7 @@
       "pnl": 0.0
     },
     "v33_conviction": {
-      "blocked": 614,
+      "blocked": 615,
       "wins": 235,
       "losses": 170,
       "pnl": 416.0832757547152

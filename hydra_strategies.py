@@ -22,7 +22,8 @@ from dataclasses import dataclass
 
 # Strategy classification for conflict resolution
 TREND_STRATEGIES = {"MULTI_SMA_TREND", "TRENDLINE_BREAK", "DC03_KALMAN_ADX"}
-REVERSION_STRATEGIES = {"CONNORS_RSI", "CONSEC_CANDLE_REVERSAL", "SHORT_TERM_REVERSAL", "MFI_DIVERGENCE"}
+REVERSION_STRATEGIES = {"CONNORS_RSI", "CONSEC_CANDLE_REVERSAL", "SHORT_TERM_REVERSAL", "MFI_DIVERGENCE",
+                        "BB_BOUNCE", "EXTREME_MOMENTUM", "RUBBER_BAND"}
 
 # V3.16: KILLED — 0% WR in paper, all net negative. Do not generate signals.
 KILLED_STRATEGIES = {"CONNORS_RSI", "CONSEC_CANDLE_REVERSAL", "SHORT_TERM_REVERSAL", "MFI_DIVERGENCE"}
@@ -574,7 +575,82 @@ def scan_strategies(candles_data: dict) -> List[StrategySignal]:
         except Exception:
             pass
 
-        # STRATEGY 10: RETURN_ASYMMETRY — REMOVED V3.14d
+        # ============================================================
+        # STRATEGY 10: BB_BOUNCE (Bollinger Band mean reversion, ideal for 5m)
+        # Buy at lower BB touch, sell at upper BB touch
+        # BB_SCALPER on Hydra: 42% WR but +$237 — high R:R scalps
+        # ============================================================
+        try:
+            if bb_lower and bb_upper and bb_mid:
+                # Price touching/below lower BB + RSI oversold area
+                if price <= bb_lower * 1.002 and rsi_val < 40:
+                    conf = 0.60 + (40 - rsi_val) / 100  # More oversold = higher conf
+                    signals.append(StrategySignal(
+                        "BB_BOUNCE", "UP", min(0.92, conf),
+                        f"BB_lower_touch RSI={rsi_val:.0f} bb_pos={bb_pos:.2f}"
+                    ))
+                # Price touching/above upper BB + RSI overbought area
+                elif price >= bb_upper * 0.998 and rsi_val > 60:
+                    conf = 0.60 + (rsi_val - 60) / 100
+                    signals.append(StrategySignal(
+                        "BB_BOUNCE", "DOWN", min(0.92, conf),
+                        f"BB_upper_touch RSI={rsi_val:.0f} bb_pos={bb_pos:.2f}"
+                    ))
+        except Exception:
+            pass
+
+        # ============================================================
+        # STRATEGY 11: EXTREME_MOMENTUM (RSI extreme + MACD confirmation)
+        # Catches strong momentum after oversold/overbought extremes
+        # Hydra: 90% WR backtest, 16:1 R:R
+        # ============================================================
+        try:
+            if rsi_val < 25 and macd_hist > 0:
+                # Extremely oversold + MACD turning bullish = snap-back UP
+                conf = 0.70 + (25 - rsi_val) / 50
+                signals.append(StrategySignal(
+                    "EXTREME_MOMENTUM", "UP", min(0.95, conf),
+                    f"RSI_extreme_low={rsi_val:.0f} MACD_bull={macd_hist:.4f}"
+                ))
+            elif rsi_val > 75 and macd_hist < 0:
+                # Extremely overbought + MACD turning bearish = snap-back DOWN
+                conf = 0.70 + (rsi_val - 75) / 50
+                signals.append(StrategySignal(
+                    "EXTREME_MOMENTUM", "DOWN", min(0.95, conf),
+                    f"RSI_extreme_high={rsi_val:.0f} MACD_bear={macd_hist:.4f}"
+                ))
+        except Exception:
+            pass
+
+        # ============================================================
+        # STRATEGY 12: RUBBER_BAND (Z-score extreme snap-back)
+        # Price deviates >2 std from 20-bar SMA = rubber band snap
+        # Hydra: 10:1 R:R, mean reversion after extreme deviation
+        # ============================================================
+        try:
+            if len(closes) >= 20:
+                sma_20 = np.mean(closes[-20:])
+                std_20 = np.std(closes[-20:])
+                if std_20 > 0:
+                    zscore = (price - sma_20) / std_20
+                    if zscore < -2.0 and rsi_val < 35:
+                        # Extreme downside deviation = snap UP
+                        conf = 0.65 + min(0.25, abs(zscore) / 10)
+                        signals.append(StrategySignal(
+                            "RUBBER_BAND", "UP", min(0.90, conf),
+                            f"z={zscore:.2f} RSI={rsi_val:.0f} mean_revert"
+                        ))
+                    elif zscore > 2.0 and rsi_val > 65:
+                        # Extreme upside deviation = snap DOWN
+                        conf = 0.65 + min(0.25, abs(zscore) / 10)
+                        signals.append(StrategySignal(
+                            "RUBBER_BAND", "DOWN", min(0.90, conf),
+                            f"z={zscore:.2f} RSI={rsi_val:.0f} mean_revert"
+                        ))
+        except Exception:
+            pass
+
+        # STRATEGY 13: RETURN_ASYMMETRY — REMOVED V3.14d
         # 42% WR by design, zero signals in 1.5hr quarantine. Not worth monitoring.
 
         # Tag all signals from this asset
