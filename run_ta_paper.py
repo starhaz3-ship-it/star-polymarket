@@ -38,6 +38,13 @@ try:
     HYDRA_AVAILABLE = True
 except ImportError:
     HYDRA_AVAILABLE = False
+
+# BTC ML Predictor for 5m and 15m (V3.19)
+try:
+    from btc_ml_predictor import BTCPredictor, MLPrediction as BTC_MLPrediction
+    BTC_ML_AVAILABLE = True
+except ImportError:
+    BTC_ML_AVAILABLE = False
     print("[HYDRA] hydra_strategies.py not found - strategy quarantine disabled")
 
 
@@ -617,18 +624,24 @@ class TAPaperTrader:
         self.HYDRA_MIN_TRADES = 20  # Min predictions before evaluation
         self.HYDRA_PROMOTE_WR = 0.55  # 55% WR to promote
 
-        # === 5M SHADOW PAPER TRADING (V3.18) ===
-        # Pure momentum-based 5-minute market trading — separate from 15m pipeline
-        # Uses short-term price direction, not heavy model/KL/Bregman stack
+        # === 5M SHADOW PAPER TRADING (V3.18 + V3.19 ML) ===
+        # Momentum + ML direction/sizing for 5-minute market trading
         self.shadow_5m_trades: Dict[str, dict] = {}  # {trade_key: trade_dict}
         self.shadow_5m_stats = {"wins": 0, "losses": 0, "pnl": 0.0, "trades": []}
-        self.shadow_5m_SIZE = 10.0  # Paper position size
-        # 5m entry rules: momentum-first, relaxed filtering for data collection
+        self.shadow_5m_SIZE = 10.0  # Default paper position size
+        # 5m entry rules: momentum-first, ML-enhanced
         self.SHADOW_5M_MIN_MOMENTUM = 0.0003  # 0.03% price move (relaxed for 5m)
         self.SHADOW_5M_MAX_ENTRY = 0.60       # 5m prices hover near 0.50 — allow wider range
         self.SHADOW_5M_MIN_ENTRY = 0.10       # Ultra-cheap = noise
         self.SHADOW_5M_TIME_WINDOW = (0.5, 4.8)  # Minutes before expiry
-        self.SHADOW_5M_MAX_CONCURRENT = 5     # Max open 5m positions (collect data fast)
+        self.SHADOW_5M_MAX_CONCURRENT = 5     # Max open 5m positions
+
+        # === BTC ML PREDICTORS (V3.19) ===
+        # LightGBM models trained on Binance candle data
+        # 3 models per timeframe: direction, volatility, momentum quality
+        self.ml_5m: Optional['BTCPredictor'] = None
+        self.ml_15m: Optional['BTCPredictor'] = None
+        self._ml_initialized = False
 
         self._load()
         self._apply_tuned_params()  # Apply ML-tuned parameters on startup
@@ -1226,8 +1239,18 @@ class TAPaperTrader:
                 l = self.shadow_5m_stats["losses"]
                 wr = w / (w + l) * 100 if (w + l) > 0 else 0
                 tag = "WIN" if won else "LOSS"
+                ml_str = f" | ML={trade.get('ml_direction','?')}({trade.get('ml_score',0):.2f})" if trade.get('ml_direction') else ""
                 print(f"[5M {tag}] {trade['side']} ${trade['pnl']:+.2f} | entry=${trade['entry_price']:.2f} exit=${price:.2f} | "
-                      f"5m stats: {w}W/{l}L {wr:.0f}%WR ${self.shadow_5m_stats['pnl']:+.2f} | {trade['title'][:40]}")
+                      f"5m stats: {w}W/{l}L {wr:.0f}%WR ${self.shadow_5m_stats['pnl']:+.2f}{ml_str} | {trade['title'][:40]}")
+                # V3.19: Feed outcome to ML for online learning
+                if self._ml_initialized and self.ml_5m and trade.get('ml_features') is not None:
+                    try:
+                        import numpy as _np
+                        self.ml_5m.add_outcome(
+                            _np.array(trade['ml_features']),
+                            trade['side'], won)
+                    except Exception:
+                        pass
                 break
 
         # Also resolve via age (>6 min old = definitely expired)
@@ -1277,6 +1300,15 @@ class TAPaperTrader:
                                     wr = w / (w + l) * 100 if (w + l) > 0 else 0
                                     tag = "WIN" if won else "LOSS"
                                     print(f"[5M-API {tag}] {trade['side']} ${trade['pnl']:+.2f} | 5m: {w}W/{l}L {wr:.0f}%WR ${self.shadow_5m_stats['pnl']:+.2f}")
+                                    # V3.19: ML feedback
+                                    if self._ml_initialized and self.ml_5m and trade.get('ml_features') is not None:
+                                        try:
+                                            import numpy as _np
+                                            self.ml_5m.add_outcome(
+                                                _np.array(trade['ml_features']),
+                                                trade['side'], won)
+                                        except Exception:
+                                            pass
                     except Exception as e:
                         print(f"[5M] API resolve error: {e}")
                 else:
@@ -1337,8 +1369,30 @@ class TAPaperTrader:
             if trade_key_up in self.shadow_5m_trades or trade_key_down in self.shadow_5m_trades:
                 continue
 
-            # === STRATEGY 1: MOMENTUM + TA DIRECTIONAL ===
-            # Combines price momentum with TA signals from btc_5min_ultra_strategy
+            # === V3.19: ML PREDICTION ===
+            # Get ML direction, volatility regime, and momentum quality
+            ml_pred = None
+            ml_dir = None
+            ml_score = 0.0
+            ml_size = self.shadow_5m_SIZE  # Default
+            if self._ml_initialized and self.ml_5m and self.ml_5m.is_trained:
+                try:
+                    ml_pred = self.ml_5m.predict(self.ml_5m.candles_raw)
+                    ml_dir = ml_pred.direction  # "UP", "DOWN", or "SKIP"
+                    ml_score = ml_pred.trade_score
+
+                    # ML-based position sizing
+                    if ml_pred.kelly_size_usd > 0:
+                        ml_size = ml_pred.kelly_size_usd
+                    elif ml_pred.vol_regime == "low":
+                        ml_size = self.shadow_5m_SIZE * 0.5  # Half size in low vol
+                    elif ml_pred.momentum_quality > 0.6:
+                        ml_size = min(self.shadow_5m_SIZE * 1.5, 15.0)  # Boost for quality momentum
+                except Exception:
+                    pass
+
+            # === STRATEGY 1: MOMENTUM + TA + ML DIRECTIONAL ===
+            # Combines price momentum with TA signals and ML prediction
             # Key edges: MACD expanding (87.5% WR), below VWAP (76.5% WR), BTC UP (90.9% WR)
             side = None
             entry_price = None
@@ -1367,6 +1421,13 @@ class TAPaperTrader:
             if heiken_count == 3:
                 ta_score -= 2  # Reversal danger zone
 
+            # ML momentum quality gate: if quality model says momentum is weak, skip
+            if ml_pred and ml_pred.momentum_quality < 0.25:
+                # Very low quality momentum — high reversal risk
+                print(f"[5M ML-SKIP] {asset} | quality={ml_pred.momentum_quality:.2f} | "
+                      f"vol={ml_pred.vol_regime} | Momentum too weak")
+                continue
+
             if momentum_10m > self.SHADOW_5M_MIN_MOMENTUM:
                 # Upward momentum — buy UP
                 if self.SHADOW_5M_MIN_ENTRY <= up_price <= self.SHADOW_5M_MAX_ENTRY:
@@ -1376,6 +1437,13 @@ class TAPaperTrader:
                         strategy = "ultra"  # Full alignment: momentum + MACD + VWAP
                     elif momentum_5m > 0:
                         strategy = "momentum_strong"
+                    # V3.19: ML override — if ML says opposite with high confidence, flip
+                    if ml_dir == "DOWN" and ml_score > 0.55:
+                        side = "DOWN"
+                        entry_price = round(down_price + 0.02, 2) if self.SHADOW_5M_MIN_ENTRY <= down_price <= self.SHADOW_5M_MAX_ENTRY else None
+                        strategy = "ml_override"
+                    elif ml_dir == "UP" and ml_score > 0.50:
+                        strategy = "ml_confirmed" if strategy == "momentum" else strategy
             elif momentum_10m < -self.SHADOW_5M_MIN_MOMENTUM:
                 # Downward momentum — buy DOWN
                 if self.SHADOW_5M_MIN_ENTRY <= down_price <= self.SHADOW_5M_MAX_ENTRY:
@@ -1385,16 +1453,31 @@ class TAPaperTrader:
                         strategy = "ultra"
                     elif momentum_5m < 0:
                         strategy = "momentum_strong"
+                    # V3.19: ML override
+                    if ml_dir == "UP" and ml_score > 0.55:
+                        side = "UP"
+                        entry_price = round(up_price + 0.02, 2) if self.SHADOW_5M_MIN_ENTRY <= up_price <= self.SHADOW_5M_MAX_ENTRY else None
+                        strategy = "ml_override"
+                    elif ml_dir == "DOWN" and ml_score > 0.50:
+                        strategy = "ml_confirmed" if strategy == "momentum" else strategy
+            elif ml_dir in ("UP", "DOWN") and ml_score > 0.55:
+                # V3.19: NO momentum but ML is confident — ML-only entry
+                if ml_dir == "UP" and self.SHADOW_5M_MIN_ENTRY <= up_price <= self.SHADOW_5M_MAX_ENTRY:
+                    side = "UP"
+                    entry_price = round(up_price + 0.02, 2)
+                    strategy = "ml_only"
+                elif ml_dir == "DOWN" and self.SHADOW_5M_MIN_ENTRY <= down_price <= self.SHADOW_5M_MAX_ENTRY:
+                    side = "DOWN"
+                    entry_price = round(down_price + 0.02, 2)
+                    strategy = "ml_only"
 
             # === STRATEGY 2: BOTH-SIDES (5m arb) ===
             # If UP + DOWN < 0.96, buy both for guaranteed ~4% profit
             combined = up_price + down_price
             if combined < 0.96 and not side:
-                # Both-sides 5m arb
                 up_entry = round(up_price + 0.01, 2)
                 down_entry = round(down_price + 0.01, 2)
                 if up_entry + down_entry < 0.98:
-                    # Open both sides
                     for s, ep in [("UP", up_entry), ("DOWN", down_entry)]:
                         tk = f"5m_{cid}_{s}"
                         self.shadow_5m_trades[tk] = {
@@ -1410,7 +1493,6 @@ class TAPaperTrader:
                     continue
 
             # === STRATEGY 3: EXTREME PRICE (high-conviction directional) ===
-            # If one side is very cheap (<$0.20) and momentum agrees, that's a high-payoff bet
             if not side:
                 if up_price < 0.20 and momentum_10m > 0.001:
                     side = "UP"
@@ -1422,21 +1504,29 @@ class TAPaperTrader:
                     strategy = "extreme_cheap"
 
             if side and entry_price and entry_price <= self.SHADOW_5M_MAX_ENTRY:
+                # V3.19: ML-adjusted position size
+                trade_size = ml_size if ml_pred else self.shadow_5m_SIZE
+
                 trade_key = f"5m_{cid}_{side}"
                 self.shadow_5m_trades[trade_key] = {
-                    "side": side, "entry_price": entry_price, "size_usd": self.shadow_5m_SIZE,
+                    "side": side, "entry_price": entry_price, "size_usd": trade_size,
                     "entry_time": now.isoformat(), "condition_id": cid,
                     "market_numeric_id": nid, "title": question,
                     "asset": asset, "strategy": strategy,
                     "momentum_10m": momentum_10m, "momentum_5m": momentum_5m,
                     "ta_score": ta_score, "macd_expanding": macd_expanding, "below_vwap": below_vwap,
+                    "ml_direction": ml_dir, "ml_score": ml_score,
+                    "ml_vol_regime": ml_pred.vol_regime if ml_pred else "n/a",
+                    "ml_quality": ml_pred.momentum_quality if ml_pred else 0,
+                    "ml_features": ml_pred.features.tolist() if ml_pred and ml_pred.features is not None else None,
                     "status": "open", "pnl": 0.0,
                 }
                 open_5m += 1
                 ta_str = f"MACD={'Y' if macd_expanding else 'N'} VWAP={'below' if below_vwap else 'above'} HA={heiken_count}"
-                print(f"[5M ENTRY] {asset} {side} ${entry_price:.2f} | strat={strategy} ta_score={ta_score} | "
+                ml_str = f"ML={ml_dir}({ml_score:.2f})" if ml_pred else "ML=off"
+                print(f"[5M ENTRY] {asset} {side} ${entry_price:.2f} ${trade_size:.0f} | strat={strategy} ta={ta_score} | "
                       f"mom_10m={momentum_10m:+.3%} mom_5m={momentum_5m:+.3%} | "
-                      f"{ta_str} | time={time_left:.1f}m | {question[:50]}")
+                      f"{ta_str} | {ml_str} | time={time_left:.1f}m | {question[:50]}")
 
                 if open_5m >= self.SHADOW_5M_MAX_CONCURRENT:
                     break
@@ -1954,6 +2044,31 @@ class TAPaperTrader:
 
                         ml_str = f"[ML:{ml_prediction.recommended_side} conf={ml_prediction.confidence:.0%}]"
 
+                    # === V3.19: BTC ML PREDICTOR (Binance-trained) ===
+                    # Adds volatility regime and momentum quality to sizing
+                    btc_ml_boost = 1.0
+                    btc_ml_str = ""
+                    if self._ml_initialized and self.ml_15m and self.ml_15m.is_trained:
+                        try:
+                            btc_pred = self.ml_15m.predict(self.ml_15m.candles_raw)
+                            btc_ml_str = f"[BTC-ML:q={btc_pred.momentum_quality:.2f} v={btc_pred.vol_regime}]"
+
+                            # Momentum quality boost/reduction
+                            if btc_pred.momentum_quality > 0.6:
+                                btc_ml_boost = 1.2  # High quality momentum → bigger position
+                            elif btc_pred.momentum_quality < 0.3:
+                                btc_ml_boost = 0.7  # Low quality → reduce exposure
+
+                            # Vol regime adjustment
+                            if btc_pred.vol_regime == "high":
+                                btc_ml_boost *= 1.1  # Big moves = good for Polymarket
+                            elif btc_pred.vol_regime == "low":
+                                btc_ml_boost *= 0.8  # Low vol = prices stay near 0.50
+
+                            ml_str += f" {btc_ml_str}"
+                        except Exception:
+                            pass
+
                     # === META-LABELING: Should we take this trade? ===
                     # Instead of binary ML veto, use calibrated P(correct) for filtering + sizing
                     nyu_result_for_meta = None
@@ -2032,6 +2147,11 @@ class TAPaperTrader:
                     if market_tf == "5m":
                         individual_size *= 0.7  # Conservative: 5m has less signal clarity
                         v35_mults.append("5m:0.7x")
+
+                    # V3.19: BTC ML Predictor boost/reduction
+                    if btc_ml_boost != 1.0:
+                        individual_size *= btc_ml_boost
+                        v35_mults.append(f"BTC-ML:{btc_ml_boost:.2f}x")
 
                     if v35_mults:
                         print(f"[V3.5] {' | '.join(v35_mults)} -> size=${individual_size:.2f}")
@@ -2825,8 +2945,12 @@ class TAPaperTrader:
         open_5m = sum(1 for t in self.shadow_5m_trades.values() if t.get("status") == "open")
         total_5m = s5["wins"] + s5["losses"]
         wr_5m = s5["wins"] / total_5m * 100 if total_5m > 0 else 0
-        print(f"\n5M SHADOW PAPER (V3.18):")
-        print(f"  {s5['wins']}W/{s5['losses']}L ({total_5m}T) | {wr_5m:.0f}% WR | PnL: ${s5['pnl']:+.2f} | {open_5m} open")
+        ml_tag = ""
+        if self._ml_initialized and self.ml_5m and self.ml_5m.is_trained:
+            p = self.ml_5m
+            ml_tag = f" | ML: {p.predictions_made}pred {p.correct_predictions}correct"
+        print(f"\n5M SHADOW PAPER (V3.19 ML):")
+        print(f"  {s5['wins']}W/{s5['losses']}L ({total_5m}T) | {wr_5m:.0f}% WR | PnL: ${s5['pnl']:+.2f} | {open_5m} open{ml_tag}")
         # Per-strategy breakdown
         strat_stats = {}
         for t in s5.get("trades", []):
@@ -2929,6 +3053,30 @@ class TAPaperTrader:
         print("=" * 70)
         print()
 
+        # === V3.19: Initialize BTC ML Predictors ===
+        if BTC_ML_AVAILABLE:
+            try:
+                self.ml_5m = BTCPredictor(timeframe='5m', bankroll=self.bankroll)
+                self.ml_15m = BTCPredictor(timeframe='15m', bankroll=self.bankroll)
+                ok_5m = await self.ml_5m.initialize()
+                ok_15m = await self.ml_15m.initialize()
+                self._ml_initialized = ok_5m or ok_15m
+                print(f"\nBTC ML PREDICTORS V3.19: 5m={'OK' if ok_5m else 'FAIL'} | 15m={'OK' if ok_15m else 'FAIL'}")
+                if ok_5m:
+                    pred = self.ml_5m.predict(self.ml_5m.candles_raw)
+                    print(f"  5m: {pred.direction} conf={pred.confidence:.1%} | "
+                          f"vol={pred.vol_regime}({pred.vol_score:.2f}) | "
+                          f"quality={pred.momentum_quality:.2f} | score={pred.trade_score:.2f}")
+                if ok_15m:
+                    pred = self.ml_15m.predict(self.ml_15m.candles_raw)
+                    print(f"  15m: {pred.direction} conf={pred.confidence:.1%} | "
+                          f"vol={pred.vol_regime}({pred.vol_score:.2f}) | "
+                          f"quality={pred.momentum_quality:.2f} | score={pred.trade_score:.2f}")
+            except Exception as e:
+                print(f"[ML V3.19] Init error: {e}")
+                self._ml_initialized = False
+        print()
+
         last_update = 0
         cycle = 0
 
@@ -2954,6 +3102,22 @@ class TAPaperTrader:
                 if now - self.last_tune_time >= self.TUNE_INTERVAL:
                     await self._run_ml_tuning()
                     self.last_tune_time = now
+
+                # V3.19: Retrain BTC ML every 30 min
+                if self._ml_initialized and self.ml_5m:
+                    try:
+                        retrained = await self.ml_5m.maybe_retrain()
+                        if retrained:
+                            print(f"[ML-5m] Retrained with fresh data")
+                    except Exception:
+                        pass
+                if self._ml_initialized and self.ml_15m:
+                    try:
+                        retrained = await self.ml_15m.maybe_retrain()
+                        if retrained:
+                            print(f"[ML-15m] Retrained with fresh data")
+                    except Exception:
+                        pass
 
                 await asyncio.sleep(120)  # 2 minutes between scans to avoid rate limiting
 
