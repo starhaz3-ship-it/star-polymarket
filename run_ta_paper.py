@@ -472,15 +472,16 @@ class TAPaperTrader:
     # 3. Multiple orders per market = disaster (DCA gone wrong)
     # 4. Need momentum confirmation before betting direction
 
-    # === V3.16 WHALE-INFORMED FILTERS (2026-02-13) ===
-    # Whale analysis: Canine-Commandment ($173K, 68.2% event WR) + Bidou28old ($88.5K/day)
-    # Both trade at wide price ranges (0.03-0.95). Our filters were too restrictive.
-    # Key: Bidou28old DOWN bias on BTC, UP bias on ETH/SOL
-    UP_MAX_PRICE = 0.45           # V3.16: Relaxed from 0.40 (whales buy UP to 0.95)
-    UP_MIN_CONFIDENCE = 0.62      # V3.16: Relaxed from 0.65 (too many good trades blocked)
-    DOWN_MAX_PRICE = 0.48         # V3.16: Relaxed from 0.40 (whales trade full range)
-    DOWN_MIN_CONFIDENCE = 0.55    # DOWN is more reliable, can be lower
-    DOWN_MIN_MOMENTUM_DROP = -0.001  # V3.16: Relaxed from -0.002 (whales enter earlier)
+    # === V3.17 CSV-PROVEN FILTERS (2026-02-13) ===
+    # CSV: 376 trades, 40.2% WR, -$214.20. V3.16 whale relaxations HURT us.
+    # ONLY profitable single-side bucket: $0.50-0.60 (55% WR, +$10)
+    # $0.40-0.50 = -$183 (-30% ROI). <$0.20 = -$101 (-73% ROI). UP = 32% WR.
+    # ETH = 33% WR (-$172). Both-sides = 90% WR (+$53, only consistent winner).
+    UP_MAX_PRICE = 0.38           # V3.17: TIGHTENED — CSV UP@$0.40-0.50 = coin flip
+    UP_MIN_CONFIDENCE = 0.72      # V3.17: TIGHTENED — CSV UP = 32% WR overall
+    DOWN_MAX_PRICE = 0.38         # V3.17: TIGHTENED — CSV $0.40-0.50 = -30% ROI death zone
+    DOWN_MIN_CONFIDENCE = 0.62    # V3.17: TIGHTENED — CSV DOWN = 39% WR overall
+    DOWN_MIN_MOMENTUM_DROP = -0.003  # V3.17: TIGHTENED — need STRONG falling price
 
     # Risk management
     MAX_DAILY_LOSS = 30.0         # Stop after losing $30 in a day
@@ -825,7 +826,7 @@ class TAPaperTrader:
         self.UP_MIN_CONFIDENCE = params["up_min_confidence"]
         self.DOWN_MAX_PRICE = params["down_max_price"]
         self.DOWN_MIN_CONFIDENCE = params["down_min_confidence"]
-        self.MIN_EDGE = max(params["min_edge"], 0.30)  # V3.4: floor at 0.30
+        self.MIN_EDGE = max(params["min_edge"], 0.35)  # V3.17: floor at 0.35 (CSV: 0.30 not enough edge)
         self.DOWN_MIN_MOMENTUM_DROP = params["down_momentum_threshold"]
         # Systematic Trading Features V3.5
         self.OVERNIGHT_BTC_BOOST = params.get("overnight_btc_boost", 0.05)
@@ -1100,12 +1101,12 @@ class TAPaperTrader:
             return default
 
     # Conviction thresholds - prevent flip-flopping
-    MIN_MODEL_CONFIDENCE = 0.62  # V3.16: Relaxed from 0.65 (whale edge is in volume, not conviction)
-    MIN_EDGE = 0.25              # V3.16: Relaxed from 0.30 (whales trade smaller edges at higher volume)
-    MIN_KL_DIVERGENCE = 0.12     # V3.16: Relaxed from 0.15 (whales capture small divergences)
+    MIN_MODEL_CONFIDENCE = 0.68  # V3.17: TIGHTENED — CSV 40% WR means model is wrong too often
+    MIN_EDGE = 0.35              # V3.17: TIGHTENED from 0.25 — need bigger edge to overcome taker disadvantage
+    MIN_KL_DIVERGENCE = 0.18     # V3.17: TIGHTENED from 0.12 — small divergences = coin flips
     MIN_TIME_REMAINING = 5.0     # V3.4: 2-5min = 47% WR; 5-12min = 83% WR (96 paper trades)
-    MAX_ENTRY_PRICE = 0.50       # V3.16: Relaxed from 0.45 (whales enter up to 0.95!)
-    MIN_ENTRY_PRICE = 0.20       # V3.16: Relaxed from 0.25 (whales enter as low as 0.03)
+    MAX_ENTRY_PRICE = 0.42       # V3.17: TIGHTENED — CSV $0.40-0.50 = -30% ROI
+    MIN_ENTRY_PRICE = 0.25       # V3.17: REVERTED — CSV <$0.20 = -73% ROI death
     CANDLE_LOOKBACK = 120        # V3.6b: Was 15 — killed MACD(35), TTM(25), EMA Cross(20), RSI slope. Now all 9 indicators active.
 
     def _get_price_momentum(self, candles: List, lookback: int = 5) -> float:
@@ -1473,13 +1474,12 @@ class TAPaperTrader:
                     elif momentum < -0.001:
                         skip_reason = f"UP_momentum_negative_{momentum:.3%}"
             elif signal.side == "DOWN":
-                # V3.16: Death zone narrowed. Whales trade full range.
-                # Old death zone was 0.40-0.45 (14% WR). Shadow-track instead of hard block.
-                if 0.41 <= down_price < 0.44:
-                    skip_reason = f"DOWN_CAUTION_ZONE_{down_price:.2f}_(narrow_death_zone)"
-                # V3.16: Cheap DOWN relaxed from 0.35 to 0.25 — Bidou28old buys DOWN at 0.03!
-                elif down_price < 0.25:
-                    skip_reason = f"DOWN_cheap_{down_price:.2f}_(V3.16_floor)"
+                # V3.17: FULL death zone restored — CSV $0.40-0.50 = -$183, -30% ROI
+                if 0.38 <= down_price < 0.50:
+                    skip_reason = f"DOWN_DEATH_ZONE_{down_price:.2f}_(CSV:-30%ROI)"
+                # V3.17: Cheap DOWN block at $0.30 — CSV <$0.30 = 24% WR
+                elif down_price < 0.30:
+                    skip_reason = f"DOWN_cheap_{down_price:.2f}_(CSV:24%WR)"
                 else:
                     down_conf_req = self.DOWN_MIN_CONFIDENCE
                     # Break-even aware confidence: at price P, need P prob to break even
@@ -1549,10 +1549,10 @@ class TAPaperTrader:
                     # Simulate realistic fill: offset +$0.03 toward ask to match live spread
                     entry_price = round(mid_price + 0.03, 2)
 
-                    # V3.16: Relaxed from 0.52 to 0.55 (whale analysis shows profitable entries at higher prices)
-                    MAX_ACTUAL_ENTRY = 0.55
+                    # V3.17: TIGHTENED to 0.45 — CSV $0.40-0.50 = -30% ROI, $0.50+ = 55% but thin edge
+                    MAX_ACTUAL_ENTRY = 0.45
                     if entry_price > MAX_ACTUAL_ENTRY:
-                        print(f"[V3.16] {asset} {signal.side} entry ${entry_price:.2f} > ${MAX_ACTUAL_ENTRY} after spread — SKIP")
+                        print(f"[V3.17] {asset} {signal.side} entry ${entry_price:.2f} > ${MAX_ACTUAL_ENTRY} after spread — SKIP")
                         continue
 
                     edge = signal.edge_up if signal.side == "UP" else signal.edge_down

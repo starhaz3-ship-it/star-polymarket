@@ -650,12 +650,12 @@ class TALiveTrader:
                     self.filter_mode_losses = fm.get("losses", 0)
                     # If mode was reverted to STRICT, re-apply strict settings
                     if self.filter_mode == "STRICT":
-                        self.MIN_EDGE = 0.25
-                        self.LOW_EDGE_THRESHOLD = 0.25
-                        self.MAX_ENTRY_PRICE = 0.65  # V10.15: Match class default.
-                        self.MIN_ENTRY_PRICE = 0.20  # V10.15: Match class default.
-                        self.ETH_MIN_CONFIDENCE = 0.70
-                        self.SOL_DOWN_MIN_EDGE = 0.20  # V10.9: Was 0.35. Shadow: 106 blocked, 54%WR, +$17.57 missed.
+                        self.MIN_EDGE = 0.35           # V3.17
+                        self.LOW_EDGE_THRESHOLD = 0.30  # V3.17
+                        self.MAX_ENTRY_PRICE = 0.42    # V3.17
+                        self.MIN_ENTRY_PRICE = 0.25    # V3.17
+                        self.ETH_MIN_CONFIDENCE = 0.75  # V3.17: ETH 33% WR, need higher bar
+                        self.SOL_DOWN_MIN_EDGE = 0.30  # V3.17: tightened from 0.20
                         self.SKIP_HOURS_UTC = {8, 12, 15, 19}  # V10.15: Match class default
                         self.MIN_TIME_REMAINING = 5.0
                         self.MAX_TIME_REMAINING = 9.0
@@ -789,25 +789,25 @@ class TALiveTrader:
                                 # SEVERE: <30% WR over last 10 → max tighten
                                 self.loss_cascade_level = 2
                                 self.loss_cascade_active = True
-                                self.MAX_ENTRY_PRICE = 0.45
-                                self.SOL_DOWN_MIN_EDGE = 0.35
-                                self.UP_MIN_CONFIDENCE = 0.75
-                                self.MIN_EDGE = 0.30
+                                self.MAX_ENTRY_PRICE = 0.35
+                                self.SOL_DOWN_MIN_EDGE = 0.40
+                                self.UP_MIN_CONFIDENCE = 0.80
+                                self.MIN_EDGE = 0.40
                             elif rolling_wr < 0.40:
                                 # MILD: <40% WR → moderate tighten
                                 self.loss_cascade_level = 1
                                 self.loss_cascade_active = True
-                                self.MAX_ENTRY_PRICE = 0.48
-                                self.SOL_DOWN_MIN_EDGE = 0.25
-                                self.UP_MIN_CONFIDENCE = 0.70
-                                self.MIN_EDGE = 0.20
+                                self.MAX_ENTRY_PRICE = 0.40
+                                self.SOL_DOWN_MIN_EDGE = 0.35
+                                self.UP_MIN_CONFIDENCE = 0.78
+                                self.MIN_EDGE = 0.38
                             else:
-                                # NORMAL: >=40% WR → loosen back to defaults
+                                # NORMAL: >=40% WR → V3.17 defaults (no more loose resets)
                                 if self.loss_cascade_active:
-                                    self.MAX_ENTRY_PRICE = 0.65  # V10.15
-                                    self.SOL_DOWN_MIN_EDGE = 0.20
-                                    self.UP_MIN_CONFIDENCE = 0.68
-                                    self.MIN_EDGE = 0.12
+                                    self.MAX_ENTRY_PRICE = 0.42  # V3.17
+                                    self.SOL_DOWN_MIN_EDGE = 0.25
+                                    self.UP_MIN_CONFIDENCE = 0.75
+                                    self.MIN_EDGE = 0.35
                                     print(f"  [CASCADE OFF] Rolling WR {rolling_wr:.0%} recovered — filters loosened to defaults")
                                 self.loss_cascade_level = 0
                                 self.loss_cascade_active = False
@@ -1897,17 +1897,17 @@ class TALiveTrader:
     # Conviction thresholds - V3.15: LOOSENED based on filter shadow data
     # Shadow stats showed most filters blocking more winners than losers:
     # NYU vol: +$88 missed, v33_conviction: +$47, edge_floor: +$27, KL: +$8
-    MIN_MODEL_CONFIDENCE = 0.60  # V10.9: Was 0.55. Losers avg 0.538, winners avg 0.598. Gate above loser avg.
-    MIN_EDGE = 0.12              # V3.15: Was 0.25, blocked +$26.88 in winners. Loosened.
-    LOW_EDGE_THRESHOLD = 0.18    # V3.15: Was 0.25, match new floor
-    MAX_ENTRY_PRICE = 0.65       # V10.15: Was 0.52. Shadow: $0.60 bucket=77%WR, $0.70=90%WR.
-    DOWN_MAX_PRICE = 0.72        # V10.10: Was 0.65. PolyData: 70-74c WR=72.5%, +0.0pp. 75c+ is positive EV.
+    MIN_MODEL_CONFIDENCE = 0.68  # V3.17: Was 0.60. CSV: need higher conviction (40% WR overall)
+    MIN_EDGE = 0.35              # V3.17: Was 0.12. CSV: low-edge trades are coin flips
+    LOW_EDGE_THRESHOLD = 0.30    # V3.17: Was 0.18, match tighter floor
+    MAX_ENTRY_PRICE = 0.42       # V3.17: Was 0.65. CSV: $0.40-0.50 = -30% ROI death zone
+    DOWN_MAX_PRICE = 0.38        # V3.17: Was 0.72. CSV: $0.38-0.50 = coin flip territory
     DOWN_EXPENSIVE_TRADES = 0    # ML auto-tighten: count trades where DOWN > $0.45
     DOWN_EXPENSIVE_WINS = 0      # ML auto-tighten: wins where DOWN > $0.45
     DOWN_EXPENSIVE_LOSSES = 0    # ML auto-tighten: losses where DOWN > $0.45
     DOWN_EXPENSIVE_PNL = 0.0     # ML auto-tighten: cumulative PnL for DOWN > $0.45
-    MIN_ENTRY_PRICE = 0.20       # V10.15: Was 0.43. Shadow data: $0.30 bucket=60%WR, $0.40=73%WR. Old CSV data stale.
-    MIN_KL_DIVERGENCE = 0.08     # V3.12: Shadow 7W/1L 88%WR blocked at 0.15. Loosened.
+    MIN_ENTRY_PRICE = 0.25       # V3.17: Was 0.20. CSV: <$0.20 = 24% WR, -73% ROI
+    MIN_KL_DIVERGENCE = 0.18     # V3.17: Was 0.08. CSV: need stronger divergence signal
 
     # Paper trades both sides successfully (UP 81% WR in paper)
     DOWN_ONLY_MODE = False       # Disabled - match paper
@@ -2315,22 +2315,16 @@ class TALiveTrader:
                         # V3.15: UP momentum check REMOVED — was blocking winners in v33_conviction
 
                 elif signal.side == "DOWN":
-                    # V10.15: Death zone + cheap block REMOVED. Shadow data (163 resolved):
-                    #   $0.30 bucket: 60% WR, $0.40: 73% WR. Filters were costing +$688.
-                    # Keep only: ultra-cheap block (<$0.15 = 16.7% WR), confidence gate, max price gate
-                    if down_price < 0.15:
-                        skip_reason = f"DOWN_ultra_cheap_{down_price:.2f}_(16.7%_WR)"
+                    # V3.17: Death zone RESTORED. CSV proved $0.38-0.50 = -30% ROI.
+                    # Shadow data was misleading — Polymarket losses have no Redeem row.
+                    if 0.38 <= down_price < 0.50:
+                        skip_reason = f"DOWN_DEATH_ZONE_{down_price:.2f}_(CSV:-30%ROI)"
+                    elif down_price < 0.25:
+                        skip_reason = f"DOWN_cheap_{down_price:.2f}_(CSV:24%WR)"
                     elif signal.model_down < self.MIN_MODEL_CONFIDENCE:
                         skip_reason = f"DOWN_conf_{signal.model_down:.0%}<{self.MIN_MODEL_CONFIDENCE:.0%}"
-                    else:
-                        # V10.15: Simplified max price — confidence unlocks higher prices
-                        effective_down_max = self.MAX_ENTRY_PRICE  # $0.65 base
-                        if signal.model_down >= 0.85:
-                            effective_down_max = max(effective_down_max, self.DOWN_MAX_PRICE)  # $0.72
-                        elif signal.model_down >= 0.75:
-                            effective_down_max = max(effective_down_max, 0.68)
-                        if down_price > effective_down_max:
-                            skip_reason = f"DOWN_price_{down_price:.2f}>{effective_down_max:.2f}"
+                    elif down_price > self.MAX_ENTRY_PRICE:
+                        skip_reason = f"DOWN_price_{down_price:.2f}>{self.MAX_ENTRY_PRICE:.2f}"
 
                 if skip_reason and not is_bond_trade:
                     print(f"  [{asset}] V3.3 filter: {skip_reason}")
@@ -2500,7 +2494,7 @@ class TALiveTrader:
                         entry_price = round(mid_price + 0.03, 2)
 
                         # === V3.15: Raised MAX_ACTUAL_ENTRY from $0.52 to $0.58 ===
-                        MAX_ACTUAL_ENTRY = 0.58  # V3.15: Was $0.52, widened for more fills
+                        MAX_ACTUAL_ENTRY = 0.45  # V3.17: Was $0.58. CSV: >$0.45 = negative ROI
                         if entry_price > MAX_ACTUAL_ENTRY and not is_bond_trade:
                             print(f"  [{asset}] Entry too expensive after spread: ${entry_price:.2f} > ${MAX_ACTUAL_ENTRY} (mid=${mid_price:.2f}+$0.05)")
                             continue
