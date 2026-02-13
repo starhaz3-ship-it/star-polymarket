@@ -1336,27 +1336,53 @@ class TAPaperTrader:
             if trade_key_up in self.shadow_5m_trades or trade_key_down in self.shadow_5m_trades:
                 continue
 
-            # === STRATEGY 1: MOMENTUM DIRECTIONAL ===
-            # Strong recent momentum -> bet in that direction
-            # For 5m, use 10m momentum as primary (more stable than 5m noise)
+            # === STRATEGY 1: MOMENTUM + TA DIRECTIONAL ===
+            # Combines price momentum with TA signals from btc_5min_ultra_strategy
+            # Key edges: MACD expanding (87.5% WR), below VWAP (76.5% WR), BTC UP (90.9% WR)
             side = None
             entry_price = None
             strategy = "momentum"
+
+            # Extract TA features from main signal (generated earlier in run_cycle)
+            macd_expanding = False
+            below_vwap = False
+            heiken_count = 0
+            if hasattr(self, '_last_signal') and self._last_signal:
+                sig = self._last_signal
+                if sig.macd and hasattr(sig.macd, 'expanding'):
+                    macd_expanding = sig.macd.expanding
+                elif sig.macd and hasattr(sig.macd, 'histogram_delta'):
+                    macd_expanding = (sig.macd.histogram_delta or 0) > 0
+                if sig.vwap and btc_price:
+                    below_vwap = btc_price < sig.vwap
+                heiken_count = sig.heiken_count or 0
+
+            # Score the opportunity (higher = better)
+            ta_score = 0
+            if macd_expanding:
+                ta_score += 2  # Strongest signal (87.5% WR)
+            if below_vwap:
+                ta_score += 1  # 76.5% WR
+            if heiken_count == 3:
+                ta_score -= 2  # Reversal danger zone
 
             if momentum_10m > self.SHADOW_5M_MIN_MOMENTUM:
                 # Upward momentum — buy UP
                 if self.SHADOW_5M_MIN_ENTRY <= up_price <= self.SHADOW_5M_MAX_ENTRY:
                     side = "UP"
                     entry_price = round(up_price + 0.02, 2)
-                    # Stronger signal if both timeframes agree
-                    if momentum_5m > 0:
+                    if momentum_5m > 0 and ta_score >= 2:
+                        strategy = "ultra"  # Full alignment: momentum + MACD + VWAP
+                    elif momentum_5m > 0:
                         strategy = "momentum_strong"
             elif momentum_10m < -self.SHADOW_5M_MIN_MOMENTUM:
                 # Downward momentum — buy DOWN
                 if self.SHADOW_5M_MIN_ENTRY <= down_price <= self.SHADOW_5M_MAX_ENTRY:
                     side = "DOWN"
                     entry_price = round(down_price + 0.02, 2)
-                    if momentum_5m < 0:
+                    if momentum_5m < 0 and ta_score >= 2:
+                        strategy = "ultra"
+                    elif momentum_5m < 0:
                         strategy = "momentum_strong"
 
             # === STRATEGY 2: BOTH-SIDES (5m arb) ===
@@ -1402,12 +1428,14 @@ class TAPaperTrader:
                     "market_numeric_id": nid, "title": question,
                     "asset": asset, "strategy": strategy,
                     "momentum_10m": momentum_10m, "momentum_5m": momentum_5m,
+                    "ta_score": ta_score, "macd_expanding": macd_expanding, "below_vwap": below_vwap,
                     "status": "open", "pnl": 0.0,
                 }
                 open_5m += 1
-                print(f"[5M ENTRY] {asset} {side} ${entry_price:.2f} | strat={strategy} | "
+                ta_str = f"MACD={'Y' if macd_expanding else 'N'} VWAP={'below' if below_vwap else 'above'} HA={heiken_count}"
+                print(f"[5M ENTRY] {asset} {side} ${entry_price:.2f} | strat={strategy} ta_score={ta_score} | "
                       f"mom_10m={momentum_10m:+.3%} mom_5m={momentum_5m:+.3%} | "
-                      f"time_left={time_left:.1f}m | {question[:50]}")
+                      f"{ta_str} | time={time_left:.1f}m | {question[:50]}")
 
                 if open_5m >= self.SHADOW_5M_MAX_CONCURRENT:
                     break
@@ -1563,6 +1591,7 @@ class TAPaperTrader:
             trades=trades
         )
 
+        self._last_signal = main_signal  # V3.18: Store for 5m TA scoring
         self.signals_count += 1
 
         # Sort markets by time remaining - trade nearest per asset
