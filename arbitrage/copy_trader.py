@@ -92,6 +92,9 @@ class CopyTrader:
         "Multicolored-Self": "0x492442eab586f242b53bda933fd5de859c8a3782",  # -$7.9M PnL, 804 markets, $280M vol — INVERSE SIGNAL candidate
         "RetamzZ": "0x19f19dd8ee1f7e5f6ec666987e2963a65971a9c6",  # $38K PnL, 100% WR, 15m Up/Down oracle sniper, sweeps book at open
         "Unripe-Terrace": "0xea48fde115f3b0eb3cebbbf654b0f9ca2710f2b2",  # $14K PnL, 1,878 markets, $63K vol, high-frequency micro trader
+        # --- 5m/15m Crypto Scalpers (added 2026-02-13) ---
+        "Canine-Commandment": "0x1d0034134e339a309700ff2d34e99fa2d48b0313",  # $173K PnL in 18d, 4,595 trades, $19.7M vol, both-sides MM on 5m/15m crypto
+        "Bidou28old": "0x4460bf2c0aa59db412a6493c2c08970797b62970",  # $88.5K PnL in 1 day, $524K vol, aggressive directional 5m/15m scalper
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]

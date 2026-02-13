@@ -472,13 +472,15 @@ class TAPaperTrader:
     # 3. Multiple orders per market = disaster (DCA gone wrong)
     # 4. Need momentum confirmation before betting direction
 
-    # === BACKTEST-VALIDATED FILTERS (2026-02-06) ===
-    # DOWN at cheap prices with falling momentum = best edge
-    UP_MAX_PRICE = 0.40           # Strict: only cheap UP entries (<40¢)
-    UP_MIN_CONFIDENCE = 0.65      # Higher bar for UP (underperforms)
-    DOWN_MAX_PRICE = 0.40         # Critical: entry < $0.40 for edge
+    # === V3.16 WHALE-INFORMED FILTERS (2026-02-13) ===
+    # Whale analysis: Canine-Commandment ($173K, 68.2% event WR) + Bidou28old ($88.5K/day)
+    # Both trade at wide price ranges (0.03-0.95). Our filters were too restrictive.
+    # Key: Bidou28old DOWN bias on BTC, UP bias on ETH/SOL
+    UP_MAX_PRICE = 0.45           # V3.16: Relaxed from 0.40 (whales buy UP to 0.95)
+    UP_MIN_CONFIDENCE = 0.62      # V3.16: Relaxed from 0.65 (too many good trades blocked)
+    DOWN_MAX_PRICE = 0.48         # V3.16: Relaxed from 0.40 (whales trade full range)
     DOWN_MIN_CONFIDENCE = 0.55    # DOWN is more reliable, can be lower
-    DOWN_MIN_MOMENTUM_DROP = -0.002  # CRITICAL: Price must be FALLING
+    DOWN_MIN_MOMENTUM_DROP = -0.001  # V3.16: Relaxed from -0.002 (whales enter earlier)
 
     # Risk management
     MAX_DAILY_LOSS = 30.0         # Stop after losing $30 in a day
@@ -1002,54 +1004,63 @@ class TAPaperTrader:
             # Rate limit before Polymarket
             await aio.sleep(1.5)
 
-            # Fetch ALL 15m markets (BTC + ETH + SOL)
+            # Fetch ALL 15m + 5m markets (BTC + ETH + SOL)
+            # V3.16: Added 5-min BTC markets based on whale analysis
+            # Canine-Commandment ($173K/18d) + Bidou28old ($88.5K/1d) both trade 5m heavily
             markets = []
-            try:
-                mr = await client.get(
-                    "https://gamma-api.polymarket.com/events",
-                    params={"tag_slug": "15M", "active": "true", "closed": "false", "limit": 50},
-                    headers={"User-Agent": "Mozilla/5.0"}
-                )
-                if mr.status_code == 200:
-                    events = mr.json()
-                    for event in events:
-                        title = event.get("title", "").lower()
-                        # Match any supported asset
-                        matched_asset = None
-                        for asset, cfg in self.ASSETS.items():
-                            if any(kw in title for kw in cfg["keywords"]):
-                                matched_asset = asset
-                                break
-                        if not matched_asset:
-                            continue
-                        for m in event.get("markets", []):
-                            if not m.get("closed", True):
-                                if not m.get("question"):
-                                    m["question"] = event.get("title", "")
-                                m["_asset"] = matched_asset  # Tag with asset name
-                                markets.append(m)
-                    if markets:
-                        self._market_cache = markets
-                else:
-                    print(f"[API] Status {mr.status_code}, using cache")
-                    markets = getattr(self, '_market_cache', [])
-            except Exception as e:
-                print(f"[API] Error: {e}, using cache")
+            for tag_slug in ["15M", "5M"]:
+                try:
+                    mr = await client.get(
+                        "https://gamma-api.polymarket.com/events",
+                        params={"tag_slug": tag_slug, "active": "true", "closed": "false", "limit": 50},
+                        headers={"User-Agent": "Mozilla/5.0"}
+                    )
+                    if mr.status_code == 200:
+                        events = mr.json()
+                        for event in events:
+                            title = event.get("title", "").lower()
+                            # Match any supported asset
+                            matched_asset = None
+                            for asset, cfg in self.ASSETS.items():
+                                if any(kw in title for kw in cfg["keywords"]):
+                                    matched_asset = asset
+                                    break
+                            if not matched_asset:
+                                continue
+                            for m in event.get("markets", []):
+                                if not m.get("closed", True):
+                                    if not m.get("question"):
+                                        m["question"] = event.get("title", "")
+                                    m["_asset"] = matched_asset  # Tag with asset name
+                                    m["_timeframe"] = "5m" if tag_slug == "5M" else "15m"  # V3.16
+                                    markets.append(m)
+                    else:
+                        print(f"[API] {tag_slug} status {mr.status_code}")
+                    await aio.sleep(0.5)  # Rate limit between tag fetches
+                except Exception as e:
+                    print(f"[API] {tag_slug} error: {e}")
+            if markets:
+                self._market_cache = markets
+            else:
                 markets = getattr(self, '_market_cache', [])
 
         # Use BTC candles as primary (backward compat)
         candles = btc_data.get("candles", [])
 
-        # Count by asset
+        # Count by asset and timeframe
         asset_counts = {}
+        tf_counts = {"5m": 0, "15m": 0}
         for m in markets:
             a = m.get("_asset", "?")
             asset_counts[a] = asset_counts.get(a, 0) + 1
+            tf = m.get("_timeframe", "15m")
+            tf_counts[tf] = tf_counts.get(tf, 0) + 1
         counts_str = " | ".join(f"{a}:{c}" for a, c in sorted(asset_counts.items()))
+        tf_str = " | ".join(f"{tf}:{c}" for tf, c in sorted(tf_counts.items()) if c > 0)
         if markets:
-            print(f"[Markets] Found {len(markets)} 15m markets ({counts_str})")
+            print(f"[Markets] {len(markets)} total ({counts_str}) [{tf_str}]")
         else:
-            print("[Markets] No active 15m markets found")
+            print("[Markets] No active markets found")
 
         return candles, btc_price, markets, bids, asks, trades
 
@@ -1077,22 +1088,24 @@ class TAPaperTrader:
     def get_time_remaining(self, market: Dict) -> float:
         """Get minutes remaining."""
         end = market.get("endDate")
+        tf = market.get("_timeframe", "15m")
+        default = 5.0 if tf == "5m" else 15.0
         if not end:
-            return 15.0
+            return default
         try:
             end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
             now = datetime.now(timezone.utc)
             return max(0, (end_dt - now).total_seconds() / 60)
         except:
-            return 15.0
+            return default
 
     # Conviction thresholds - prevent flip-flopping
-    MIN_MODEL_CONFIDENCE = 0.65  # Model must be at least 65% confident in direction
-    MIN_EDGE = 0.30              # V3.4: edge<0.30 = 36% WR (96 paper trades)
-    MIN_KL_DIVERGENCE = 0.15     # V3.4: KL<0.15 = 36% WR vs 67% above (96 paper trades)
+    MIN_MODEL_CONFIDENCE = 0.62  # V3.16: Relaxed from 0.65 (whale edge is in volume, not conviction)
+    MIN_EDGE = 0.25              # V3.16: Relaxed from 0.30 (whales trade smaller edges at higher volume)
+    MIN_KL_DIVERGENCE = 0.12     # V3.16: Relaxed from 0.15 (whales capture small divergences)
     MIN_TIME_REMAINING = 5.0     # V3.4: 2-5min = 47% WR; 5-12min = 83% WR (96 paper trades)
-    MAX_ENTRY_PRICE = 0.45       # V3.6: $0.45-0.55 = 50% WR coin flip, cut it
-    MIN_ENTRY_PRICE = 0.25       # V3.14: CSV <$0.25 = 13.3% WR, -$71 loss. Raised from $0.15.
+    MAX_ENTRY_PRICE = 0.50       # V3.16: Relaxed from 0.45 (whales enter up to 0.95!)
+    MIN_ENTRY_PRICE = 0.20       # V3.16: Relaxed from 0.25 (whales enter as low as 0.03)
     CANDLE_LOOKBACK = 120        # V3.6b: Was 15 — killed MACD(35), TTM(25), EMA Cross(20), RSI slope. Now all 9 indicators active.
 
     def _get_price_momentum(self, candles: List, lookback: int = 5) -> float:
@@ -1259,14 +1272,22 @@ class TAPaperTrader:
         self.signals_count += 1
 
         # Sort markets by time remaining - trade nearest per asset
+        # V3.16: 5m markets have tighter time windows (1-4 min sweet spot)
         eligible_markets = []
         for market in markets:
             up_price, down_price = self.get_market_prices(market)
             time_left = self.get_time_remaining(market)
             if up_price is None or down_price is None:
                 continue
-            if time_left > 9 or time_left < self.MIN_TIME_REMAINING:  # V3.14: Narrowed from 15 to 9 min (71% vs 47% WR)
-                continue
+            tf = market.get("_timeframe", "15m")
+            if tf == "5m":
+                # 5m markets: trade 1-4 min before expiry (whale pattern: rapid entry near open)
+                if time_left > 4.5 or time_left < 1.0:
+                    continue
+            else:
+                # 15m markets: existing proven window
+                if time_left > 9 or time_left < self.MIN_TIME_REMAINING:
+                    continue
             eligible_markets.append((time_left, market, up_price, down_price))
 
         # Sort by time remaining (ascending) - nearest expiring first
@@ -1275,13 +1296,16 @@ class TAPaperTrader:
         if eligible_markets:
             print(f"[Filter] {len(eligible_markets)} markets in window, trading nearest ({eligible_markets[0][0]:.1f}min left)")
 
-        # V3.2: Trade the nearest expiring market PER ASSET (BTC + ETH + SOL)
-        # Pick nearest market for each asset to maximize turnover across all assets
+        # V3.16: Trade nearest expiring market PER ASSET+TIMEFRAME
+        # Can trade BTC-5m AND BTC-15m simultaneously (different markets!)
+        # Whale pattern: Canine-Commandment trades both 5m and 15m BTC concurrently
         nearest_per_asset = {}
         for time_left, market, up_price, down_price in eligible_markets:
             asset = market.get("_asset", "BTC")
-            if asset not in nearest_per_asset:
-                nearest_per_asset[asset] = (time_left, market, up_price, down_price)
+            tf = market.get("_timeframe", "15m")
+            asset_tf_key = f"{asset}_{tf}"  # e.g., "BTC_5m", "BTC_15m"
+            if asset_tf_key not in nearest_per_asset:
+                nearest_per_asset[asset_tf_key] = (time_left, market, up_price, down_price)
 
         # === HYDRA STRATEGY QUARANTINE SCAN (V3.14) ===
         # Run 10 adapted Hyperliquid strategies on each asset's candle data
@@ -1294,9 +1318,18 @@ class TAPaperTrader:
                 if hydra_signals:
                     for hsig in hydra_signals:
                         sig_asset = hsig.asset
-                        if not sig_asset or sig_asset not in nearest_per_asset:
+                        if not sig_asset:
                             continue
-                        mkt_time, mkt, mkt_up, mkt_down = nearest_per_asset[sig_asset]
+                        # V3.16: Find any market for this asset (prefer 15m, fallback 5m)
+                        hydra_market_key = None
+                        for tf_pref in ["15m", "5m"]:
+                            candidate_key = f"{sig_asset}_{tf_pref}"
+                            if candidate_key in nearest_per_asset:
+                                hydra_market_key = candidate_key
+                                break
+                        if not hydra_market_key:
+                            continue
+                        mkt_time, mkt, mkt_up, mkt_down = nearest_per_asset[hydra_market_key]
                         mkt_id = mkt.get("conditionId", "")
                         pred_key = f"hydra_{hsig.name}_{sig_asset}_{hsig.direction}_{mkt_id}"
                         if pred_key in self.hydra_pending:
@@ -1332,7 +1365,10 @@ class TAPaperTrader:
         # === DIRECTIONAL TRADING (Phase 1: Collect candidates) ===
         # Gather all trades that pass filters, then allocate via multi-outcome Kelly
         trade_candidates = []
-        for asset, (time_left, market, up_price, down_price) in nearest_per_asset.items():
+        for asset_tf_key, (time_left, market, up_price, down_price) in nearest_per_asset.items():
+            # V3.16: Extract asset from composite key (e.g., "BTC_5m" -> "BTC")
+            asset = market.get("_asset", asset_tf_key.split("_")[0])
+            market_tf = market.get("_timeframe", "15m")
             market_id = market.get("conditionId", "")
             market_numeric_id = market.get("id")
             question = market.get("question", "")
@@ -1437,12 +1473,13 @@ class TAPaperTrader:
                     elif momentum < -0.001:
                         skip_reason = f"UP_momentum_negative_{momentum:.3%}"
             elif signal.side == "DOWN":
-                # DEATH ZONE: $0.40-0.45 = 14% WR, -$321 PnL. NEVER trade here.
-                if 0.40 <= down_price < 0.45:
-                    skip_reason = f"DOWN_DEATH_ZONE_{down_price:.2f}_(14%WR)"
-                # V3.5b ML: Block ALL DOWN < $0.35 — 0W/4L (-$34.95) in paper. Cheap DOWN is a trap.
-                elif down_price < 0.35:
-                    skip_reason = f"DOWN_cheap_{down_price:.2f}_(0W4L_block)"
+                # V3.16: Death zone narrowed. Whales trade full range.
+                # Old death zone was 0.40-0.45 (14% WR). Shadow-track instead of hard block.
+                if 0.41 <= down_price < 0.44:
+                    skip_reason = f"DOWN_CAUTION_ZONE_{down_price:.2f}_(narrow_death_zone)"
+                # V3.16: Cheap DOWN relaxed from 0.35 to 0.25 — Bidou28old buys DOWN at 0.03!
+                elif down_price < 0.25:
+                    skip_reason = f"DOWN_cheap_{down_price:.2f}_(V3.16_floor)"
                 else:
                     down_conf_req = self.DOWN_MIN_CONFIDENCE
                     # Break-even aware confidence: at price P, need P prob to break even
@@ -1512,11 +1549,10 @@ class TAPaperTrader:
                     # Simulate realistic fill: offset +$0.03 toward ask to match live spread
                     entry_price = round(mid_price + 0.03, 2)
 
-                    # V3.13: Hard cap on actual entry after spread offset
-                    # CSV proof: entries <$0.50 = 100% WR, $0.53+ = losses
-                    MAX_ACTUAL_ENTRY = 0.52
+                    # V3.16: Relaxed from 0.52 to 0.55 (whale analysis shows profitable entries at higher prices)
+                    MAX_ACTUAL_ENTRY = 0.55
                     if entry_price > MAX_ACTUAL_ENTRY:
-                        print(f"[V3.13] {asset} {signal.side} entry ${entry_price:.2f} > ${MAX_ACTUAL_ENTRY} after spread — SKIP")
+                        print(f"[V3.16] {asset} {signal.side} entry ${entry_price:.2f} > ${MAX_ACTUAL_ENTRY} after spread — SKIP")
                         continue
 
                     edge = signal.edge_up if signal.side == "UP" else signal.edge_down
@@ -1655,6 +1691,20 @@ class TAPaperTrader:
                         individual_size *= self.VOLREGIME_MISMATCH_PENALTY
                         v35_mults.append(f"VolMismatch:{self.VOLREGIME_MISMATCH_PENALTY:.0%}")
 
+                    # V3.16 Feature 6: Asset-Priority Sizing (whale-informed)
+                    # Canine-Commandment: BTC=$800-2600, ETH=$150-830, SOL/XRP=$7-280
+                    # Bidou28old: BTC heaviest, then ETH, then SOL
+                    ASSET_SIZE_MULT = {"BTC": 1.3, "ETH": 1.0, "SOL": 0.8, "XRP": 0.7}
+                    asset_mult = ASSET_SIZE_MULT.get(asset, 1.0)
+                    if asset_mult != 1.0:
+                        individual_size *= asset_mult
+                        v35_mults.append(f"Asset:{asset}x{asset_mult}")
+
+                    # V3.16 Feature 7: 5m market sizing (smaller due to shorter window, faster resolution)
+                    if market_tf == "5m":
+                        individual_size *= 0.7  # Conservative: 5m has less signal clarity
+                        v35_mults.append("5m:0.7x")
+
                     if v35_mults:
                         print(f"[V3.5] {' | '.join(v35_mults)} -> size=${individual_size:.2f}")
 
@@ -1668,6 +1718,7 @@ class TAPaperTrader:
                         "volregime_match": volregime_match,
                         "vol_regime": vol_regime,
                         "invvol_scale": round(invvol_scale, 2),
+                        "market_tf": market_tf,  # V3.16: 5m or 15m
                     }
 
                     # Collect candidate for multi-Kelly allocation
@@ -1684,6 +1735,7 @@ class TAPaperTrader:
                         'time_left': time_left, 'up_price': up_price,
                         'down_price': down_price,
                         'feature_tags': trade_feature_tags,
+                        'market_tf': market_tf,  # V3.16: 5m or 15m
                     })
 
             # Check for resolved markets
@@ -2136,7 +2188,8 @@ class TAPaperTrader:
                     nyu_r = self.nyu_model.calculate_volatility(cand['entry_price'], cand['time_left'])
                     nyu_info = f"NYU:{nyu_r.edge_score:.2f}"
 
-                print(f"[NEW] {side} @ ${cand['entry_price']:.4f} | Edge: {cand['edge']:.1%} | {momentum_str} | {nyu_info} | {meta_str} {kelly_str}")
+                tf_tag = f"[{cand.get('market_tf', '15m')}]" if cand.get('market_tf') == '5m' else ""
+                print(f"[NEW] {tf_tag}{side} @ ${cand['entry_price']:.4f} | Edge: {cand['edge']:.1%} | {momentum_str} | {nyu_info} | {meta_str} {kelly_str}")
                 print(f"      Size: ${optimal_size:.2f} | KL: {cand['bregman_signal'].kl_divergence:.4f} | {cand['ml_str']} | T-{cand['time_left']:.1f}min | {cand['question'][:40]}...")
 
                 cycle_exposure += optimal_size

@@ -1478,38 +1478,43 @@ class TALiveTrader:
                 except Exception as e:
                     print(f"[API] Error fetching {asset}: {e}")
 
-            # Fetch all 15m markets from Polymarket
+            # Fetch all 15m + 5m markets from Polymarket
+            # V3.16: Added 5-min BTC markets (whale analysis: top traders use 5m heavily)
             await asyncio.sleep(1.0)
-            try:
-                mr = await client.get(
-                    "https://gamma-api.polymarket.com/events",
-                    params={"tag_slug": "15M", "active": "true", "closed": "false", "limit": 50},
-                    headers={"User-Agent": "Mozilla/5.0"}
-                )
-                if mr.status_code == 200:
-                    events = mr.json()
-                    for event in events:
-                        title = event.get("title", "").lower()
-                        # Match event to asset
-                        matched_asset = None
-                        for asset, cfg in all_assets.items():
-                            if any(kw in title for kw in cfg["keywords"]):
-                                matched_asset = asset
-                                break
-                        if not matched_asset or matched_asset not in asset_data:
-                            continue
-                        for m in event.get("markets", []):
-                            if not m.get("closed", True):
-                                if not m.get("question"):
-                                    m["question"] = event.get("title", "")
-                                m["_asset"] = matched_asset  # Tag with asset name
-                                asset_data[matched_asset]["markets"].append(m)
-                    self._market_cache_all = asset_data
-                else:
-                    asset_data = getattr(self, '_market_cache_all', asset_data)
-            except Exception as e:
-                print(f"[API] Error fetching markets: {e}")
-                asset_data = getattr(self, '_market_cache_all', asset_data)
+            for tag_slug in ["15M", "5M"]:
+                try:
+                    mr = await client.get(
+                        "https://gamma-api.polymarket.com/events",
+                        params={"tag_slug": tag_slug, "active": "true", "closed": "false", "limit": 50},
+                        headers={"User-Agent": "Mozilla/5.0"}
+                    )
+                    if mr.status_code == 200:
+                        events = mr.json()
+                        for event in events:
+                            title = event.get("title", "").lower()
+                            matched_asset = None
+                            for asset, cfg in all_assets.items():
+                                if any(kw in title for kw in cfg["keywords"]):
+                                    matched_asset = asset
+                                    break
+                            if not matched_asset or matched_asset not in asset_data:
+                                continue
+                            for m in event.get("markets", []):
+                                if not m.get("closed", True):
+                                    if not m.get("question"):
+                                        m["question"] = event.get("title", "")
+                                    m["_asset"] = matched_asset
+                                    m["_timeframe"] = "5m" if tag_slug == "5M" else "15m"
+                                    asset_data[matched_asset]["markets"].append(m)
+                        self._market_cache_all = asset_data
+                    else:
+                        if tag_slug == "15M":
+                            asset_data = getattr(self, '_market_cache_all', asset_data)
+                    await asyncio.sleep(0.5)
+                except Exception as e:
+                    print(f"[API] Error fetching {tag_slug} markets: {e}")
+                    if tag_slug == "15M":
+                        asset_data = getattr(self, '_market_cache_all', asset_data)
 
         return asset_data
 
@@ -1924,6 +1929,7 @@ class TALiveTrader:
     MAX_TOTAL_EXPOSURE = 50.0    # V3.5: Tightened (was 100)
     MAX_SLIPPAGE = 0.03          # Keep tight for live execution
     MAX_CONCURRENT_POSITIONS = 1 # V3.5: Max 1 — single best signal only (multi-asset was -$207)
+    MAX_PER_ASSET_EXPOSURE = 6.0 # V10.16: Max $6 open exposure per asset (prevents $11.80 ETH DOWN repeats)
 
     # === IH2P ADAPTATIONS (ALL DISABLED — capital rebuild mode) ===
     # DCA caused double-betting ($6.80 + $3.78 topup = $10.58 per market).
@@ -2019,13 +2025,15 @@ class TALiveTrader:
         elif dow == 5 or dow == 6:  # Saturday/Sunday — CSV shows strong weekends
             size *= 1.10
 
-        # === V3.18: SIDE MULTIPLIER (CSV: DOWN=99% WR, UP=82% WR) ===
-        # 10/11 losses are UP trades. DOWN is near-perfect. Adjust sizing accordingly.
-        if hasattr(self, '_current_trade_side'):
-            if self._current_trade_side == "DOWN":
-                size *= 1.30  # V10.11: Boost DOWN — 99% WR in CSV (was 1.15x)
-            elif self._current_trade_side == "UP":
-                size *= 0.70  # V10.11: Reduce UP further — 82% WR, 10/11 losses are UP (was 0.85x)
+        # === V3.18: SIDE MULTIPLIER — V10.16: NEUTRALIZED ===
+        # Was: DOWN=1.3x, UP=0.7x based on early CSV data (99% DOWN WR).
+        # Problem: When market goes UP, the 1.3x DOWN boost amplifies losses massively
+        # ($11.80 ETH DOWN exposure with -$6.55 loss). Neutralize until more data.
+        # if hasattr(self, '_current_trade_side'):
+        #     if self._current_trade_side == "DOWN":
+        #         size *= 1.30
+        #     elif self._current_trade_side == "UP":
+        #         size *= 0.70
 
         # === V10.9: SWEET SPOT BOOST ($0.45-$0.55 = 63% WR, +$32.76) ===
         if hasattr(self, '_current_entry_price'):
@@ -2462,6 +2470,14 @@ class TALiveTrader:
 
                         open_count = sum(1 for t in self.trades.values() if t.status == "open" and not t.features.get("_is_hedge"))
                         if open_count >= self.MAX_CONCURRENT_POSITIONS:
+                            continue
+
+                        # V10.16: PER-ASSET EXPOSURE CAP — prevents $11.80 ETH DOWN repeats
+                        # Multiple 15-min markets on same asset stack up silently.
+                        asset_exposure = sum(t.size_usd for t in self.trades.values()
+                                           if t.status == "open" and f"[{asset}]" in t.market_title)
+                        if asset_exposure >= self.MAX_PER_ASSET_EXPOSURE:
+                            print(f"  [{asset}] ASSET CAP: ${asset_exposure:.2f} >= ${self.MAX_PER_ASSET_EXPOSURE:.2f} open — skipping")
                             continue
 
                         # V3.13: CLOB position check — catch ghost positions from dead processes
