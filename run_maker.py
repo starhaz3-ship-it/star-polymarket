@@ -61,13 +61,13 @@ class MakerConfig:
     BID_OFFSET: float = 0.02             # Bid this much below best ask
 
     # Position sizing
-    SIZE_PER_SIDE_USD: float = 5.0       # $ per side per market
-    MAX_PAIR_EXPOSURE: float = 10.0      # Max $ per market pair (both sides)
-    MAX_TOTAL_EXPOSURE: float = 50.0     # Max $ across all active pairs
+    SIZE_PER_SIDE_USD: float = 3.0       # V1.4: $3/side for live safety (was $5)
+    MAX_PAIR_EXPOSURE: float = 6.0       # V1.4: $6/pair (was $10)
+    MAX_TOTAL_EXPOSURE: float = 30.0     # V1.4: $30 max (was $50)
     MIN_SHARES: int = 5                  # CLOB minimum order size
 
     # Risk
-    DAILY_LOSS_LIMIT: float = 10.0       # Stop for the day after this loss
+    DAILY_LOSS_LIMIT: float = 8.0        # V1.4: Tighter for live (was $10)
     MAX_CONCURRENT_PAIRS: int = 5        # Max simultaneous market pairs
     MAX_SINGLE_SIDED: int = 2            # V1.1: Was 3. Partial fills = directional risk. Allow max 2.
 
@@ -326,10 +326,18 @@ class CryptoMarketMaker:
         self.daily_pnl = 0.0
         self.daily_date = date_today()
 
+        # V1.4: Capital loss circuit breaker (40% net loss -> auto-switch to paper)
+        self.circuit_breaker_pct = 0.40  # 40% of starting capital
+        self.starting_pnl = None  # Set after _load() from total_pnl at launch
+        self.circuit_tripped = False
+
         if not paper:
             self._init_client()
 
         self._load()
+
+        # Record PnL at launch as baseline for circuit breaker
+        self.starting_pnl = self.stats.get("total_pnl", 0.0)
 
     def _init_client(self):
         """Initialize CLOB client for live trading."""
@@ -1036,6 +1044,24 @@ class CryptoMarketMaker:
 
     def check_risk(self) -> bool:
         """Check if we should continue trading. Returns True if OK."""
+        # V1.4: Capital loss circuit breaker (40% net loss -> auto-switch to paper)
+        if not self.paper and not self.circuit_tripped and self.starting_pnl is not None:
+            session_pnl = self.stats["total_pnl"] - self.starting_pnl
+            # Calculate 40% of the CLOB balance we started with (~$42)
+            # Use a fixed $15 threshold (40% of ~$38 CLOB balance)
+            capital_loss_limit = 15.0  # ~40% of starting capital
+            if session_pnl < -capital_loss_limit:
+                print(f"\n{'='*70}")
+                print(f"[CIRCUIT BREAKER] NET CAPITAL LOSS EXCEEDED 40%!")
+                print(f"  Session PnL: ${session_pnl:+.2f} (limit: -${capital_loss_limit:.0f})")
+                print(f"  Switching to PAPER MODE to protect remaining capital.")
+                print(f"{'='*70}\n")
+                self.paper = True
+                self.circuit_tripped = True
+                self._cancel_all_open()
+                self._save()
+                return False
+
         # Daily loss limit
         if self.daily_pnl < -self.config.DAILY_LOSS_LIMIT:
             print(f"[RISK] Daily loss limit hit (${self.daily_pnl:.2f}). Pausing.")
@@ -1090,6 +1116,8 @@ class CryptoMarketMaker:
         print(f"Strategy: Buy BOTH Up+Down at combined < ${self.config.MAX_COMBINED_PRICE}")
         print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Max pairs: {self.config.MAX_CONCURRENT_PAIRS}")
         print(f"Daily loss limit: ${self.config.DAILY_LOSS_LIMIT}")
+        if not self.paper:
+            print(f"CIRCUIT BREAKER: Auto-switch to paper on $15 net session loss (~40% capital)")
         print(f"Skip hours (UTC): {sorted(self.config.SKIP_HOURS_UTC)}")
         print("=" * 70)
 
@@ -1176,9 +1204,12 @@ class CryptoMarketMaker:
         partial = sum(1 for p in self.positions.values() if p.is_partial)
         hour = datetime.now(timezone.utc).hour
 
-        print(f"\n--- Cycle {cycle} | UTC {hour:02d} | "
+        mode_tag = "PAPER" if self.paper else "LIVE"
+        cb_tag = " [CIRCUIT TRIPPED]" if self.circuit_tripped else ""
+        session_pnl = self.stats["total_pnl"] - (self.starting_pnl or 0)
+        print(f"\n--- Cycle {cycle} | {mode_tag}{cb_tag} | UTC {hour:02d} | "
               f"Active: {active} ({paired} paired, {partial} partial) | "
-              f"Daily: ${self.daily_pnl:+.4f} | Total: ${self.stats['total_pnl']:+.4f} | "
+              f"Daily: ${self.daily_pnl:+.4f} | Session: ${session_pnl:+.4f} | Total: ${self.stats['total_pnl']:+.4f} | "
               f"Resolved: {len(self.resolved)} ---")
 
         if self.stats["pairs_completed"] > 0:
