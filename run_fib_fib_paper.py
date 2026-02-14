@@ -107,10 +107,10 @@ def signal_fib_confluence(close, high, low, open_, end_idx):
         wh, wl = h[-(swing_lb+1):-1], l[-(swing_lb+1):-1]
         sh, sl_v = float(np.max(wh)), float(np.min(wl))
         sr = sh - sl_v
-        if sr <= 0 or sh <= 0 or (sr / sh) < 0.0015:
+        if sr <= 0 or sh <= 0 or (sr / sh) < 0.0006:  # PAPER: loosened from 0.0015
             continue
         f786, f618, f500 = sh - 0.786*sr, sh - 0.618*sr, sh - 0.500*sr
-        tol = sh * 0.0015
+        tol = sh * 0.003  # PAPER: widened from 0.0015 for more signals
         touched, tk = False, -1
         for k in range(min(n-2, n-2), max(0, n-16)-1, -1):
             if l[k] <= f786+tol and l[k] >= f786-tol*2 and c[k] > f786:
@@ -141,7 +141,7 @@ def signal_fib_confluence(close, high, low, open_, end_idx):
             wh, wl = h[-(swing_lb+1):-1], l[-(swing_lb+1):-1]
             sh, sl_v = float(np.max(wh)), float(np.min(wl))
             sr = sh - sl_v
-            if sr <= 0 or sl_v <= 0 or (sr / sl_v) < 0.0015:
+            if sr <= 0 or sl_v <= 0 or (sr / sl_v) < 0.0006:  # PAPER: loosened from 0.0015
                 continue
             f786, f618 = sl_v + 0.786*sr, sl_v + 0.618*sr
             tol = sl_v * 0.0015
@@ -442,9 +442,9 @@ class FibFibPaperTrader:
 
         side_5m, conf_5m = signal_fib_confluence(c5m, h5m, l5m, o5m, len(c5m))
         if side_5m != side_1m:
-            return  # No dual-TF confirmation
+            conf_5m = 0.0  # PAPER: allow 1m-only signals, reduce confidence instead of blocking
 
-        # Both timeframes agree - strong signal
+        # Fib signal detected (1m required, 5m optional for paper data collection)
         poly_side = "UP" if side_1m == "LONG" else "DOWN"
 
         # Compute fair prob + indicators

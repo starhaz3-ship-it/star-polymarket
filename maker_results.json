@@ -123,50 +123,6 @@
       "resolved_at": "2026-02-14T20:50:18.064030+00:00"
     }
   ],
-  "active_positions": [
-    {
-      "market_id": "0x44720b03ca9ee02f871168cf230856835003e254a936e37aec3cc3ed5e8b0b16",
-      "market_num_id": "1374271",
-      "question": "Bitcoin Up or Down - February 14, 3:45PM-4:00PM ET",
-      "asset": "BTC",
-      "up_order": {
-        "order_id": "0x3c9e15127b5d9ad49b79bd3a1bcfff27504d1170d7b9a62dd1cd034d310d54ac",
-        "market_id": "0x44720b03ca9ee02f871168cf230856835003e254a936e37aec3cc3ed5e8b0b16",
-        "token_id": "53490655289171980766113703678687067448104426809460364438913590639612686595588",
-        "side_label": "UP",
-        "price": 0.48,
-        "size_shares": 31.0,
-        "size_usd": 14.879999999999999,
-        "placed_at": "2026-02-14T20:37:37.695993+00:00",
-        "status": "filled",
-        "fill_price": 0.48,
-        "fill_shares": 31.0
-      },
-      "down_order": {
-        "order_id": "0x9fe41492b9d8e5e9edce73afd7bab8685952e9fb807d4c6ca46ed98b8ad406bf",
-        "market_id": "0x44720b03ca9ee02f871168cf230856835003e254a936e37aec3cc3ed5e8b0b16",
-        "token_id": "92510094479811964828470040236719032118022193057701503681736707813966861666045",
-        "side_label": "DOWN",
-        "price": 0.47,
-        "size_shares": 31.0,
-        "size_usd": 14.569999999999999,
-        "placed_at": "2026-02-14T20:37:37.695993+00:00",
-        "status": "filled",
-        "fill_price": 0.47,
-        "fill_shares": 31.0
-      },
-      "up_filled": true,
-      "down_filled": true,
-      "combined_cost": 29.449999999999996,
-      "outcome": null,
-      "pnl": 0.0,
-      "status": "paired",
-      "created_at": "2026-02-14T20:37:37.695993+00:00",
-      "bid_offset_used": 0.02,
-      "hour_utc": 20,
-      "first_fill_time": "2026-02-14T20:44:33.481617+00:00",
-      "duration_min": 15
-    }
-  ],
-  "last_updated": "2026-02-14T21:02:53.916145+00:00"
+  "active_positions": [],
+  "last_updated": "2026-02-14T21:37:40.950155+00:00"
 }

@@ -484,10 +484,10 @@ class TAPaperTrader:
     # ONLY profitable single-side bucket: $0.50-0.60 (55% WR, +$10)
     # $0.40-0.50 = -$183 (-30% ROI). <$0.20 = -$101 (-73% ROI). UP = 32% WR.
     # ETH = 33% WR (-$172). Both-sides = 90% WR (+$53, only consistent winner).
-    UP_MAX_PRICE = 0.38           # V3.17: TIGHTENED — CSV UP@$0.40-0.50 = coin flip
-    UP_MIN_CONFIDENCE = 0.72      # V3.17: TIGHTENED — CSV UP = 32% WR overall
-    DOWN_MAX_PRICE = 0.38         # V3.17: TIGHTENED — CSV $0.40-0.50 = -30% ROI death zone
-    DOWN_MIN_CONFIDENCE = 0.62    # V3.17: TIGHTENED — CSV DOWN = 39% WR overall
+    UP_MAX_PRICE = 0.58           # PAPER: loosened from 0.38 to collect data
+    UP_MIN_CONFIDENCE = 0.52      # PAPER: loosened from 0.72 to collect data
+    DOWN_MAX_PRICE = 0.58         # PAPER: loosened from 0.38 to collect data
+    DOWN_MIN_CONFIDENCE = 0.48    # PAPER: loosened from 0.62 to collect data
     DOWN_MIN_MOMENTUM_DROP = -0.003  # V3.17: TIGHTENED — need STRONG falling price
 
     # Risk management
@@ -497,7 +497,7 @@ class TAPaperTrader:
     # ADDED to skip (losing): 1(40%WR -$21), 3(45%WR -$128), 16(25%WR -$236), 17(33%WR -$133), 22(33%WR -$23)
     # Best hours: 2(78%WR), 4(56%WR), 13(62%WR), 18(57%WR), 21(100%WR)
     # V3.14: CSV 326 trades — hours 5,6,8,9,10,12,14,16 = 14.2% WR, -$499
-    SKIP_HOURS_UTC = {5, 6, 8, 9, 10, 12, 14, 16}
+    SKIP_HOURS_UTC = set()  # PAPER: no skip hours — collect data from all hours
 
     def __init__(self, bankroll: float = 93.27):
         self.generator = TASignalGenerator()
@@ -888,7 +888,7 @@ class TAPaperTrader:
         self.UP_MIN_CONFIDENCE = params["up_min_confidence"]
         self.DOWN_MAX_PRICE = params["down_max_price"]
         self.DOWN_MIN_CONFIDENCE = params["down_min_confidence"]
-        self.MIN_EDGE = max(params["min_edge"], 0.35)  # V3.17: floor at 0.35 (CSV: 0.30 not enough edge)
+        self.MIN_EDGE = min(max(params["min_edge"], 0.08), 0.12)  # PAPER: clamped 0.08-0.12 to collect data
         self.DOWN_MIN_MOMENTUM_DROP = params["down_momentum_threshold"]
         # Systematic Trading Features V3.5
         self.OVERNIGHT_BTC_BOOST = params.get("overnight_btc_boost", 0.05)
@@ -918,8 +918,9 @@ class TAPaperTrader:
                 self.losses = data.get("losses", 0)
                 self.signals_count = data.get("signals_count", 0)
                 self.start_time = data.get("start_time", self.start_time)
-                # Load arb state
-                self.arb_trades = data.get("arb_trades", {})
+                # Load arb state (handle legacy list format)
+                _arb = data.get("arb_trades", {})
+                self.arb_trades = _arb if isinstance(_arb, dict) else {}
                 self.arb_stats = data.get("arb_stats", {"wins": 0, "losses": 0, "total_pnl": 0.0})
                 # Load hourly stats
                 saved_hourly = data.get("hourly_stats", {})
@@ -1202,11 +1203,11 @@ class TAPaperTrader:
             return default
 
     # Conviction thresholds - prevent flip-flopping
-    MIN_MODEL_CONFIDENCE = 0.68  # V3.17: TIGHTENED — CSV 40% WR means model is wrong too often
-    MIN_EDGE = 0.35              # V3.17: TIGHTENED from 0.25 — need bigger edge to overcome taker disadvantage
-    MIN_KL_DIVERGENCE = 0.18     # V3.17: TIGHTENED from 0.12 — small divergences = coin flips
+    MIN_MODEL_CONFIDENCE = 0.52  # PAPER: loosened from 0.68 to collect data
+    MIN_EDGE = 0.12              # PAPER: loosened from 0.35 to collect data
+    MIN_KL_DIVERGENCE = 0.06     # PAPER: loosened from 0.18 to collect data
     MIN_TIME_REMAINING = 5.0     # V3.4: 2-5min = 47% WR; 5-12min = 83% WR (96 paper trades)
-    MAX_ENTRY_PRICE = 0.42       # V3.17: TIGHTENED — CSV $0.40-0.50 = -30% ROI
+    MAX_ENTRY_PRICE = 0.58       # PAPER: loosened from 0.42 to collect data
     MIN_ENTRY_PRICE = 0.25       # V3.17: REVERTED — CSV <$0.20 = -73% ROI death
     CANDLE_LOOKBACK = 120        # V3.6b: Was 15 — killed MACD(35), TTM(25), EMA Cross(20), RSI slope. Now all 9 indicators active.
 
@@ -2567,12 +2568,9 @@ class TAPaperTrader:
                     elif momentum < -0.001:
                         skip_reason = f"UP_momentum_negative_{momentum:.3%}"
             elif signal.side == "DOWN":
-                # V3.17: FULL death zone restored — CSV $0.40-0.50 = -$183, -30% ROI
-                if 0.38 <= down_price < 0.50:
-                    skip_reason = f"DOWN_DEATH_ZONE_{down_price:.2f}_(CSV:-30%ROI)"
-                # V3.17: Cheap DOWN block at $0.30 — CSV <$0.30 = 24% WR
-                elif down_price < 0.30:
-                    skip_reason = f"DOWN_cheap_{down_price:.2f}_(CSV:24%WR)"
+                # PAPER: death zone and cheap block disabled to collect data
+                if False:
+                    pass
                 else:
                     down_conf_req = self.DOWN_MIN_CONFIDENCE
                     # Break-even aware confidence: at price P, need P prob to break even
@@ -2642,8 +2640,8 @@ class TAPaperTrader:
                     # Simulate realistic fill: offset +$0.03 toward ask to match live spread
                     entry_price = round(mid_price + 0.03, 2)
 
-                    # V3.17: TIGHTENED to 0.45 — CSV $0.40-0.50 = -30% ROI, $0.50+ = 55% but thin edge
-                    MAX_ACTUAL_ENTRY = 0.45
+                    # PAPER: loosened from 0.45 to collect data across price buckets
+                    MAX_ACTUAL_ENTRY = 0.60
                     if entry_price > MAX_ACTUAL_ENTRY:
                         print(f"[V3.17] {asset} {signal.side} entry ${entry_price:.2f} > ${MAX_ACTUAL_ENTRY} after spread — SKIP")
                         continue

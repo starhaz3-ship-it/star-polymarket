@@ -58,14 +58,14 @@ SCAN_INTERVAL = 30          # seconds between cycles
 SIZE_STRONG = 5.0           # momentum_strong bet size
 SIZE_WEAK = 3.0             # momentum (weak) bet size
 MAX_CONCURRENT = 3          # max open positions
-MIN_MOMENTUM_10M = 0.0003   # 0.03% price change over 10 min
+MIN_MOMENTUM_10M = 0.0001   # PAPER: loosened from 0.03% to 0.01% to collect data
 MIN_ENTRY = 0.10            # minimum entry price (avoid noise)
 MAX_ENTRY = 0.60            # maximum entry price (avoid paying premium)
-TIME_WINDOW = (0.5, 4.8)    # minutes before expiry to enter
+TIME_WINDOW = (0.5, 8.0)    # PAPER: widened from 4.8 to 8.0 min to catch more entries
 SPREAD_OFFSET = 0.02        # paper fill spread simulation
 RESOLVE_AGE_MIN = 6.0       # minutes before forcing resolution via API
 # V1.1: Chop filter — reject ranging markets where momentum is noise
-EMA_GAP_MIN_BP = 6          # EMA(9)-EMA(21) gap must be >= 6 basis points
+EMA_GAP_MIN_BP = 2          # PAPER: loosened from 6bp to 2bp to collect data in ranging markets
 RESULTS_FILE = Path(__file__).parent / "momentum_5m_results.json"
 
 # ============================================================================
