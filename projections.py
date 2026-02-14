@@ -65,7 +65,7 @@ maker_btc_eth_net = btc_pnl + eth_pnl
 maker_btc_eth_hourly = maker_btc_eth_net / maker_hours
 
 # === Current balance ===
-current_balance = 80.0  # from TA live startup log
+current_balance = 100.0  # updated 2026-02-14
 
 # === Compute daily PnL from CSV (last 3 days = most recent trend) ===
 sorted_days = sorted(by_day.keys())

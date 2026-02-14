@@ -1,5 +1,5 @@
 """
-Momentum 5M Directional Paper Trader V1.0
+Momentum 5M Directional Paper Trader V1.1 — Chop Filter
 
 Standalone implementation of the 5M momentum strategy from run_ta_paper.py.
 Paper-proven: 155 trades, 64.5% WR, +$269 PnL.
@@ -64,6 +64,8 @@ MAX_ENTRY = 0.60            # maximum entry price (avoid paying premium)
 TIME_WINDOW = (0.5, 4.8)    # minutes before expiry to enter
 SPREAD_OFFSET = 0.02        # paper fill spread simulation
 RESOLVE_AGE_MIN = 6.0       # minutes before forcing resolution via API
+# V1.1: Chop filter — reject ranging markets where momentum is noise
+EMA_GAP_MIN_BP = 6          # EMA(9)-EMA(21) gap must be >= 6 basis points
 RESULTS_FILE = Path(__file__).parent / "momentum_5m_results.json"
 
 # ============================================================================
@@ -398,6 +400,24 @@ class Momentum5MTrader:
         momentum_10m = (recent_closes[-1] - recent_closes[0]) / recent_closes[0]
         momentum_5m = (recent_closes[-1] - recent_closes[-2]) / recent_closes[-2]
         btc_price = recent_closes[-1]
+
+        # V1.1: EMA chop filter — reject ranging markets
+        all_closes = [c["close"] for c in candles]
+        if len(all_closes) >= 21:
+            # EMA(9)
+            ema9 = sum(all_closes[:9]) / 9
+            m9 = 2 / (9 + 1)
+            for p in all_closes[9:]:
+                ema9 = (p - ema9) * m9 + ema9
+            # EMA(21)
+            ema21 = sum(all_closes[:21]) / 21
+            m21 = 2 / (21 + 1)
+            for p in all_closes[21:]:
+                ema21 = (p - ema21) * m21 + ema21
+            ema_gap_bp = abs(ema9 - ema21) / btc_price * 10000.0
+            if ema_gap_bp < EMA_GAP_MIN_BP:
+                print(f"[CHOP] EMA gap {ema_gap_bp:.1f}bp < {EMA_GAP_MIN_BP}bp — ranging market, skipping cycle")
+                return
 
         # Debug: show momentum state
         has_momentum = abs(momentum_10m) > MIN_MOMENTUM_10M

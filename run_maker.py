@@ -198,9 +198,9 @@ class MakerConfig:
     # Assets
     ASSETS: dict = field(default_factory=lambda: {
         "BTC": {"keywords": ["bitcoin", "btc"], "enabled": True},
-        "ETH": {"keywords": ["ethereum", "eth"], "enabled": True},
-        "SOL": {"keywords": ["solana", "sol"], "enabled": False},  # V1.5: Disabled again — 64% pair rate, -$16.77 PnL
-        "XRP": {"keywords": ["xrp", "ripple"], "enabled": False},  # V1.7: Disabled — thin books, same partial risk as SOL
+        "ETH": {"keywords": ["ethereum", "eth"], "enabled": False},  # V1.8: Disabled — CSV: 86% WR but -$8.05 PnL. Partial fills bleeding.
+        "SOL": {"keywords": ["solana", "sol"], "enabled": True},   # V1.8: Re-enabled — CSV: 100% WR, +$13.70. BTC+SOL only.
+        "XRP": {"keywords": ["xrp", "ripple"], "enabled": False},  # V1.7: Disabled — thin books, -$20.03 PnL
     })
 
     # V1.5: Per-asset risk tiers — SOL/XRP have thinner books, need tighter spreads
@@ -558,13 +558,17 @@ class CryptoMarketMaker:
                         title = event.get("title", "").lower()
                         matched_asset = None
                         for asset, cfg in self.config.ASSETS.items():
-                            if not cfg["enabled"]:
+                            if not cfg.get("enabled", False):
                                 continue
                             if any(kw in title for kw in cfg["keywords"]):
                                 matched_asset = asset
                                 break
 
                         if not matched_asset:
+                            continue
+
+                        # V1.7: Hard block on disabled assets (safety net)
+                        if matched_asset in ("SOL", "XRP"):
                             continue
 
                         for m in event.get("markets", []):

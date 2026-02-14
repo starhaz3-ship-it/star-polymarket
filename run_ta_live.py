@@ -1,7 +1,11 @@
 """
-TA Live Trading with ML Optimization — V10.19 "Full Unblock"
+TA Live Trading with ML Optimization — V10.22 "5M Only"
 
-Live trades BTC/SOL 5m+15m markets using TA+Bregman signals.
+Live trades BTC/SOL 5m markets using TA+Bregman signals. 15M paused to shadow.
+V10.22: PAUSE 15M directional (CSV: 31% WR, -$182, 78% of losses). Shadow-only until 65%+ WR.
+        Only 5M directional trades go live. 15M auto-promotes when shadow hits 65% WR over 30+ trades.
+V10.21: Add ATR impulse gate (>=0.6x ATR 10min move) and EMA chop filter (>=6bp gap) for 5M markets.
+        From EMA/RSI 5M strategy analysis: rejects weak/choppy 5M entries before shadow or live execution.
 V10.19: Unblock v39_btc_down_contrarian (8T, 62% WR, +$9.29) and v314_eth_conf (19T, 58% WR, +$29.27).
 V10.18: Unblock v33_conviction filter for all except ETH UP.
         Shadow data: 72T, 62% WR, +$71.21 blocked profit. BTC DOWN 60% WR, SOL UP 75% WR.
@@ -393,6 +397,11 @@ class TALiveTrader:
     FLASH_CRASH_DROP = 0.08         # 8-cent drop triggers flash crash entry
     FLASH_CRASH_LOOKBACK = 120      # Look back 2 minutes
     FLASH_CRASH_SIZE = 5.0          # $5 on flash crash (high conviction mean reversion)
+    # V10.21: 5M ATR impulse gate + EMA chop filter (from EMA/RSI 5M strategy)
+    # Rejects weak/choppy 5M entries. ATR impulse: price must move >= 0.6x ATR in 10min.
+    # EMA chop: EMA(9)-EMA(21) gap must be >= 6 basis points (trending, not ranging).
+    FIVEMIN_IMPULSE_MIN_ATR = 0.6   # Min ATR-normalized 10m impulse for 5M entry
+    FIVEMIN_EMA_GAP_MIN_BP = 6      # Min EMA(9)-EMA(21) gap in basis points
 
     def __init__(self, dry_run: bool = False, bankroll: float = 73.14):
         self.dry_run = dry_run
@@ -988,6 +997,14 @@ class TALiveTrader:
     BTC_UP_BLOCKED = True  # Auto-unblock when shadow WR > 55% over 15+ trades
     # V10.16: SOL DOWN BLOCKED. CSV: 35.7% WR, -$101. SOL UP is profitable (unblocked above).
     SOL_DOWN_BLOCKED = True  # Auto-unblock when shadow WR > 55% over 15+ trades
+    # V10.20: 5M SHADOW-ONLY. Live data: 0W/2L (-$0.73), shadow: 46% WR (-$0.35).
+    # 15M is where the edge is (53% WR, +$154 shadow). Shadow-track 5M with ML auto-promote.
+    FIVEMIN_SHADOW_ONLY = False  # V10.21: ENABLED with impulse+chop quality gates. Monitor 10 trades, pause if WR < 50%.
+    # V10.22: 15M PAUSED. CSV Feb 14: 15M directional = 31% WR, -$182 (78% of ALL losses).
+    # Shadow-track until ML tunes to 65%+ WR. Only 5M directional trades go live.
+    FIFTEENMIN_SHADOW_ONLY = True
+    FIFTEENMIN_PROMOTE_WR = 0.65   # Auto-promote when 15M shadow WR >= 65% over 30+ trades
+    FIFTEENMIN_PROMOTE_MIN_TRADES = 30
     # SOL DOWN constraint (V3.10): Paper data shows SOL_DOWN = 50% WR (coin flip)
     # Require higher edge for SOL DOWN trades (edge >= 0.35 lifts to ~71% WR per paper analysis)
     SOL_DOWN_MIN_EDGE = 0.20  # V3.15: Was 0.35, blocked +$5.50 in winners. Loosened.
@@ -2457,6 +2474,64 @@ class TALiveTrader:
                                 "edge": edge, "status": "open", "reason": "shadow_asset",
                             }
                             continue
+                        # === V10.21: 5M IMPULSE + CHOP FILTER ===
+                        # From EMA/RSI 5M strategy: reject weak/choppy entries on 5M markets.
+                        # ATR impulse: price must move >= 0.6x ATR in last 10 min (trending, not noise).
+                        # EMA chop: EMA(9)-EMA(21) gap must be >= 6bp (clear trend, not ranging).
+                        market_tf = market.get("_timeframe", "15m")
+                        if market_tf == "5m" and len(candles) >= 12:
+                            atr_5m = self._compute_atr(candles, 14)
+                            if atr_5m > 0:
+                                price_now = candles[-1].close
+                                price_10m = candles[-11].close if len(candles) >= 11 else candles[0].close
+                                impulse_atr = abs(price_now - price_10m) / atr_5m
+
+                                ema9 = self._ema(candles, 9)
+                                ema21 = self._ema(candles, 21)
+                                ema_gap_bp = abs(ema9 - ema21) / price_now * 10000.0
+
+                                if impulse_atr < self.FIVEMIN_IMPULSE_MIN_ATR:
+                                    print(f"  [{asset}] 5M IMPULSE WEAK: {impulse_atr:.2f}x ATR < {self.FIVEMIN_IMPULSE_MIN_ATR}x (need stronger move)")
+                                    self._record_filter_shadow(asset, signal.side,
+                                        up_price if signal.side == "UP" else down_price,
+                                        market_id, question, "v1021_5m_impulse", market_numeric_id=market_numeric_id)
+                                    continue
+                                if ema_gap_bp < self.FIVEMIN_EMA_GAP_MIN_BP:
+                                    print(f"  [{asset}] 5M CHOP: EMA gap {ema_gap_bp:.1f}bp < {self.FIVEMIN_EMA_GAP_MIN_BP}bp (ranging market)")
+                                    self._record_filter_shadow(asset, signal.side,
+                                        up_price if signal.side == "UP" else down_price,
+                                        market_id, question, "v1021_5m_chop", market_numeric_id=market_numeric_id)
+                                    continue
+                                print(f"  [{asset}] 5M QUALITY: impulse={impulse_atr:.2f}x ATR, gap={ema_gap_bp:.0f}bp (PASS)")
+
+                        # V10.20: 5M SHADOW-ONLY — track but don't execute until ML promotes
+                        if self.FIVEMIN_SHADOW_ONLY and market_tf == "5m":
+                            entry_price = up_price if signal.side == "UP" else down_price
+                            edge = signal.edge_up if signal.side == "UP" else signal.edge_down
+                            print(f"  [{asset}] 5M SHADOW: {signal.side} @ ${entry_price:.3f} edge={edge:.1%} (15m-only mode)")
+                            shadow_key = f"shadow_{market_id}_{signal.side}"
+                            self.shadow_trades[shadow_key] = {
+                                "asset": asset, "side": signal.side, "entry_price": entry_price,
+                                "entry_time": datetime.now(timezone.utc).isoformat(),
+                                "market_title": f"[{asset}] {question[:75]}",
+                                "edge": edge, "status": "open", "reason": "5m_shadow",
+                                "timeframe": "5m",
+                            }
+                            continue
+                        # V10.22: 15M SHADOW-ONLY — CSV shows 31% WR, -$182. Paper-only until ML hits 65%+ WR.
+                        if self.FIFTEENMIN_SHADOW_ONLY and market_tf == "15m":
+                            entry_price = up_price if signal.side == "UP" else down_price
+                            edge = signal.edge_up if signal.side == "UP" else signal.edge_down
+                            print(f"  [{asset}] 15M SHADOW: {signal.side} @ ${entry_price:.3f} edge={edge:.1%} (5m-only mode, 15m paused)")
+                            shadow_key = f"shadow_{market_id}_{signal.side}"
+                            self.shadow_trades[shadow_key] = {
+                                "asset": asset, "side": signal.side, "entry_price": entry_price,
+                                "entry_time": datetime.now(timezone.utc).isoformat(),
+                                "market_title": f"[{asset}] {question[:75]}",
+                                "edge": edge, "status": "open", "reason": "15m_shadow",
+                                "timeframe": "15m",
+                            }
+                            continue
                         # DUPLICATE PROTECTION - skip if we already traded this market this cycle
                         if market_id in self.recently_traded_markets:
                             continue
@@ -3738,6 +3813,42 @@ class TALiveTrader:
                 else:
                     changes.append(f"[EVOLVE] SOL DOWN still blocked: {sdwr:.0f}% WR, ${sdpnl:+.2f} over {sdt} shadows")
 
+        # V10.20: 5M auto-promote check — shadow-track until profitable
+        if self.FIVEMIN_SHADOW_ONLY:
+            fivemin_shadows = [s for s in self.shadow_trades.values()
+                              if s.get("reason") == "5m_shadow" and s.get("status") == "closed"
+                              and s.get("pnl") is not None]
+            fw = sum(1 for s in fivemin_shadows if s.get("pnl", 0) > 0)
+            ft = len(fivemin_shadows)
+            if ft >= 20:
+                fwr = fw / ft * 100
+                fpnl = sum(s.get("pnl", 0) for s in fivemin_shadows)
+                if fwr >= 55 and fpnl > 0:
+                    self.FIVEMIN_SHADOW_ONLY = False
+                    changes.append(f"[ML-PROMOTE] 5M PROMOTED to live! {fwr:.0f}% WR, ${fpnl:+.2f} over {ft} shadow trades")
+                else:
+                    changes.append(f"[EVOLVE] 5M still shadow-only: {fwr:.0f}% WR, ${fpnl:+.2f} over {ft} shadows (need 55%+ WR & positive PnL)")
+            else:
+                changes.append(f"[EVOLVE] 5M shadow collecting data: {ft}/20 trades ({fw}W)")
+
+        # V10.22: 15M auto-promote check — shadow-track until 65%+ WR
+        if self.FIFTEENMIN_SHADOW_ONLY:
+            fifteenmin_shadows = [s for s in self.shadow_trades.values()
+                                  if s.get("reason") == "15m_shadow" and s.get("status") == "closed"
+                                  and s.get("pnl") is not None]
+            f15w = sum(1 for s in fifteenmin_shadows if s.get("pnl", 0) > 0)
+            f15t = len(fifteenmin_shadows)
+            if f15t >= self.FIFTEENMIN_PROMOTE_MIN_TRADES:
+                f15wr = f15w / f15t * 100
+                f15pnl = sum(s.get("pnl", 0) for s in fifteenmin_shadows)
+                if f15wr >= self.FIFTEENMIN_PROMOTE_WR * 100 and f15pnl > 0:
+                    self.FIFTEENMIN_SHADOW_ONLY = False
+                    changes.append(f"[ML-PROMOTE] 15M PROMOTED to live! {f15wr:.0f}% WR, ${f15pnl:+.2f} over {f15t} shadow trades (>={self.FIFTEENMIN_PROMOTE_WR:.0%} threshold)")
+                else:
+                    changes.append(f"[EVOLVE] 15M still shadow-only: {f15wr:.0f}% WR, ${f15pnl:+.2f} over {f15t} shadows (need {self.FIFTEENMIN_PROMOTE_WR:.0%}+ WR & positive PnL)")
+            else:
+                changes.append(f"[EVOLVE] 15M shadow collecting data: {f15t}/{self.FIFTEENMIN_PROMOTE_MIN_TRADES} trades ({f15w}W)")
+
         # 4. OVERALL HEALTH: Warn if WR is declining
         if total_trades >= 10:
             overall_wr = self.wins / total_trades * 100
@@ -4041,7 +4152,7 @@ class TALiveTrader:
         """Main loop."""
         print("=" * 70)
         mode = "LIVE" if not self.dry_run else "DRY RUN"
-        print(f"TA + BREGMAN + ML {mode} TRADER V10.16 — 'Stop the Bleeding'")
+        print(f"TA + BREGMAN + ML {mode} TRADER V10.22 — '5M Only'")
         print("=" * 70)
         print(f"BET LIMITS: 15m=${self.MIN_POSITION_SIZE} | 5m weak=${self.FIVEMIN_WEAK_SIZE} | 5m strong=${self.FIVEMIN_STRONG_SIZE} (max ${self.HARD_MAX_BET})")
         print(f"PID LOCK: ENABLED — prevents ghost double-instances")
@@ -4053,6 +4164,7 @@ class TALiveTrader:
         blocked = []
         if self.BTC_UP_BLOCKED: blocked.append("BTC_UP")
         if self.SOL_DOWN_BLOCKED: blocked.append("SOL_DOWN")
+        if self.FIVEMIN_SHADOW_ONLY: blocked.append("5M_ALL")
         if blocked:
             print(f"BLOCKED combos (ML shadow auto-promote): {', '.join(blocked)}")
         print(f"Max {self.MAX_CONCURRENT_POSITIONS} concurrent | Edge>={self.MIN_EDGE:.0%}")
