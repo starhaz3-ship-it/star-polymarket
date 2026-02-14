@@ -1,8 +1,8 @@
 """Nautilus Backtest Runner - simple bar-by-bar loop for binary outcome backtesting.
 
 Does NOT use nautilus_trader's BacktestEngine. Instead, fetches BTC 1-min candles
-from Binance and loops through each bar, feeding data to 5 strategies at 2 horizons
-(5-min and 15-min) for 10 strategy instances total. Signals are scored as binary
+from Binance and loops through each bar, feeding data to 8 strategies at 2 horizons
+(5-min and 15-min) for 16 strategy instances total. Signals are scored as binary
 outcomes (Polymarket-style PnL).
 
 Usage:
@@ -28,6 +28,9 @@ from nautilus_backtest.strategies.tdi_squeeze import TdiSqueeze
 from nautilus_backtest.strategies.fisher_cascade import FisherCascade
 from nautilus_backtest.strategies.volcano_breakout import VolcanoBreakout
 from nautilus_backtest.strategies.wyckoff_vortex import WyckoffVortex
+from nautilus_backtest.strategies.momentum_regime import MomentumRegime
+from nautilus_backtest.strategies.mean_revert_extreme import MeanRevertExtreme
+from nautilus_backtest.strategies.divergence_hunter import DivergenceHunter
 from nautilus_backtest.config import DEFAULT_ENTRY_PRICE, DEFAULT_SPREAD
 
 
@@ -65,7 +68,7 @@ def ascii_chart(series: dict[str, list[float]], width: int = 60, height: int = 1
         return "  (no data to chart)\n"
 
     # Assign markers to strategies
-    markers = "ATFVW*#@%&"
+    markers = "ATFVWMRD*#@%&^~+"
     strat_names = sorted(series.keys())
     marker_map = {}
     for idx, name in enumerate(strat_names):
@@ -137,7 +140,7 @@ def ascii_chart(series: dict[str, list[float]], width: int = 60, height: int = 1
 # ── Strategy Instance Factory ────────────────────────────────────────────────
 
 def create_strategy_instances() -> list:
-    """Create all 10 strategy instances (5 strategies x 2 horizons)."""
+    """Create all 16 strategy instances (8 strategies x 2 horizons)."""
     strategies = []
 
     # Each strategy class, instantiated at 5-min and 15-min horizons
@@ -147,6 +150,9 @@ def create_strategy_instances() -> list:
         FisherCascade,
         VolcanoBreakout,
         WyckoffVortex,
+        MomentumRegime,
+        MeanRevertExtreme,
+        DivergenceHunter,
     ]
 
     for cls in strategy_classes:
