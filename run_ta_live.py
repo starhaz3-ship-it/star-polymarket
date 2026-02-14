@@ -377,12 +377,15 @@ class TALiveTrader:
     OUTPUT_FILE = Path(__file__).parent / "ta_live_results.json"
     PID_FILE = Path(__file__).parent / "ta_live.pid"
 
-    # === HARD BET LIMITS (V3.12c: $3 FLAT — ULTRA CONSERVATIVE RESTART) ===
-    # Restarting live after liquidity shutdown. Minimal size, prove fills work.
-    HARD_MAX_BET = 3.0         # ABSOLUTE CEILING — $3 flat, no exceptions
-    BASE_POSITION_SIZE = 3.0   # Standard bet
+    # === HARD BET LIMITS (V10.16: 5m strong=$5, default=$3) ===
+    HARD_MAX_BET = 5.0         # V10.16: Raised from $3. 5m strong signals get $5.
+    BASE_POSITION_SIZE = 3.0   # Standard bet (15m and weak 5m signals)
     MIN_POSITION_SIZE = 3.0    # Floor $3
-    MAX_POSITION_SIZE = 3.0    # Hard cap $3 — same as floor. Every trade = $3.
+    MAX_POSITION_SIZE = 5.0    # V10.16: Allow up to $5 for strong 5m momentum
+    # 5m momentum thresholds (matched to paper trader's momentum_strong)
+    FIVEMIN_STRONG_MOMENTUM = 0.05  # 10m momentum > 0.05% = strong signal = $5
+    FIVEMIN_STRONG_SIZE = 5.0       # Size for strong 5m momentum
+    FIVEMIN_WEAK_SIZE = 3.0         # Size for weak 5m momentum
 
     def __init__(self, dry_run: bool = False, bankroll: float = 73.14):
         self.dry_run = dry_run
@@ -2694,8 +2697,20 @@ class TALiveTrader:
                             position_size = self.MIN_POSITION_SIZE
                             hour_tag += ", LOW-EDGE=$5"
 
+                        # === V10.16: 5m MOMENTUM SIZING ===
+                        # Paper: momentum_strong 72%WR +$168, momentum 54%WR +$52
+                        # Strong 5m momentum = $5, weak = $3
+                        market_tf = market.get("_timeframe", "15m")
+                        if market_tf == "5m" and len(candles) >= 12:
+                            mom_10m = abs((price - candles[-11].close) / candles[-11].close * 100)
+                            if mom_10m >= self.FIVEMIN_STRONG_MOMENTUM:
+                                position_size = self.FIVEMIN_STRONG_SIZE
+                                print(f"  [{asset}] 5m STRONG: mom={mom_10m:.3f}% >= {self.FIVEMIN_STRONG_MOMENTUM}% -> ${position_size}")
+                            else:
+                                position_size = self.FIVEMIN_WEAK_SIZE
+                                print(f"  [{asset}] 5m weak: mom={mom_10m:.3f}% < {self.FIVEMIN_STRONG_MOMENTUM}% -> ${position_size}")
+
                         # === HARD_MAX_BET ENFORCEMENT — ABSOLUTE CEILING ===
-                        # Nothing can exceed $8. Not DCA, not boost, not anything.
                         position_size = min(position_size, self.HARD_MAX_BET)
                         position_size = max(self.MIN_POSITION_SIZE, position_size)
 
@@ -3941,7 +3956,7 @@ class TALiveTrader:
         mode = "LIVE" if not self.dry_run else "DRY RUN"
         print(f"TA + BREGMAN + ML {mode} TRADER V10.16 — 'Stop the Bleeding'")
         print("=" * 70)
-        print(f"HARD BET LIMITS: ${self.MIN_POSITION_SIZE}-${self.HARD_MAX_BET} (ABSOLUTE CEILING, NO EXCEPTIONS)")
+        print(f"BET LIMITS: 15m=${self.MIN_POSITION_SIZE} | 5m weak=${self.FIVEMIN_WEAK_SIZE} | 5m strong=${self.FIVEMIN_STRONG_SIZE} (max ${self.HARD_MAX_BET})")
         print(f"PID LOCK: ENABLED — prevents ghost double-instances")
         print(f"OVERLAP CHECK: ENABLED — queries account before every trade")
         ih2p_status = f"Bond={'ON' if self.BOND_MODE_ENABLED else 'OFF'} | DCA={'ON' if self.DCA_ENABLED else 'OFF'} | Hedge={'ON' if self.HEDGE_ENABLED else 'OFF'}"
