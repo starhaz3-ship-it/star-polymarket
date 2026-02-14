@@ -1,8 +1,9 @@
 """
-TA Live Trading with ML Optimization
+TA Live Trading with ML Optimization — V10.16 "Stop the Bleeding"
 
-Live trades BTC 15m markets using TA+Bregman signals.
-Includes ML feature tracking to optimize win rate.
+Live trades BTC/SOL 5m+15m markets using TA+Bregman signals.
+V10.16: Block losing combos (ETH all, BTC UP, SOL DOWN) with ML shadow auto-promote.
+        Cheap-side-only ($0.28-$0.38), hedge enabled, 5m market support.
 """
 import sys
 import asyncio
@@ -652,13 +653,13 @@ class TALiveTrader:
                     if self.filter_mode == "STRICT":
                         self.MIN_EDGE = 0.35           # V3.17
                         self.LOW_EDGE_THRESHOLD = 0.30  # V3.17
-                        self.MAX_ENTRY_PRICE = 0.42    # V3.17
-                        self.MIN_ENTRY_PRICE = 0.25    # V3.17
+                        self.MAX_ENTRY_PRICE = 0.38    # V10.16: Cheap side only
+                        self.MIN_ENTRY_PRICE = 0.28    # V10.16: Floor raised
                         self.ETH_MIN_CONFIDENCE = 0.75  # V3.17: ETH 33% WR, need higher bar
                         self.SOL_DOWN_MIN_EDGE = 0.30  # V3.17: tightened from 0.20
                         self.SKIP_HOURS_UTC = {8, 12, 15, 19}  # V10.15: Match class default
-                        self.MIN_TIME_REMAINING = 5.0
-                        self.MAX_TIME_REMAINING = 9.0
+                        self.MIN_TIME_REMAINING = 2.0  # V10.16: 5m support
+                        self.MAX_TIME_REMAINING = 12.0 # V10.16: wider window
                         self.use_nyu_model = True
                 hl = data.get("hydra_live", {})
                 saved_promoted = hl.get("promoted", [])
@@ -789,7 +790,7 @@ class TALiveTrader:
                                 # SEVERE: <30% WR over last 10 → max tighten
                                 self.loss_cascade_level = 2
                                 self.loss_cascade_active = True
-                                self.MAX_ENTRY_PRICE = 0.35
+                                self.MAX_ENTRY_PRICE = 0.32  # V10.16: was 0.35
                                 self.SOL_DOWN_MIN_EDGE = 0.40
                                 self.UP_MIN_CONFIDENCE = 0.80
                                 self.MIN_EDGE = 0.40
@@ -797,14 +798,14 @@ class TALiveTrader:
                                 # MILD: <40% WR → moderate tighten
                                 self.loss_cascade_level = 1
                                 self.loss_cascade_active = True
-                                self.MAX_ENTRY_PRICE = 0.40
+                                self.MAX_ENTRY_PRICE = 0.35  # V10.16: was 0.40
                                 self.SOL_DOWN_MIN_EDGE = 0.35
                                 self.UP_MIN_CONFIDENCE = 0.78
                                 self.MIN_EDGE = 0.38
                             else:
-                                # NORMAL: >=40% WR → V3.17 defaults (no more loose resets)
+                                # NORMAL: >=40% WR → V10.16 defaults
                                 if self.loss_cascade_active:
-                                    self.MAX_ENTRY_PRICE = 0.42  # V3.17
+                                    self.MAX_ENTRY_PRICE = 0.38  # V10.16: cheap side only
                                     self.SOL_DOWN_MIN_EDGE = 0.25
                                     self.UP_MIN_CONFIDENCE = 0.75
                                     self.MIN_EDGE = 0.35
@@ -951,21 +952,27 @@ class TALiveTrader:
             "symbol": "SOLUSDT",
             "keywords": ["solana", "sol"],
         },
+        # V10.16: ETH moved to SHADOW_ASSETS (CSV: -$172, 33.7% WR). Auto-promotes back when shadow WR > 55%.
+    }
+    # Shadow-only assets: fetched + signals generated + logged, but NEVER executed
+    # V10.16: ETH moved to shadow. CSV: -$172, 33.7% WR across ALL directions. Auto-promote when shadow WR > 55%.
+    SHADOW_ASSETS = {
         "ETH": {
             "symbol": "ETHUSDT",
             "keywords": ["ethereum", "eth"],
         },
     }
-    # Shadow-only assets: fetched + signals generated + logged, but NEVER executed
-    SHADOW_ASSETS = {
-    }
-    # ETH-specific constraints (V3.9)
+    # ETH-specific constraints (V3.9) — kept for when ETH auto-promotes back
     ETH_UP_ONLY = True  # Only allow UP trades on ETH (70% WR vs 47% DOWN)
     ETH_MAX_PRICE = 0.70  # V3.18: Was 0.55, shadow 23W/10L 70% WR blocked (+$24.97 missed)
     ETH_MIN_CONFIDENCE = 0.70  # V3.16: Restored to 0.70. ETH is -$3.87 live (50% WR, only loser asset).
     # V10.12: SOL DOWN-ONLY. CSV: SOL UP = heavy losses. SOL DOWN = 42.3% WR, manageable.
     # BTC-DOWN is the ONLY profitable combo (+$82.79). SOL UP blocked, shadow-tracked.
     SOL_DOWN_ONLY = False  # V10.15: Shadow shows blocked SOL UP at 70% WR, +$245.55 missed. UNBLOCKED.
+    # V10.16: BTC UP BLOCKED. CSV: 26.2% WR, -$107. Only BTC DOWN is profitable (44.3% WR, +$82.79).
+    BTC_UP_BLOCKED = True  # Auto-unblock when shadow WR > 55% over 15+ trades
+    # V10.16: SOL DOWN BLOCKED. CSV: 35.7% WR, -$101. SOL UP is profitable (unblocked above).
+    SOL_DOWN_BLOCKED = True  # Auto-unblock when shadow WR > 55% over 15+ trades
     # SOL DOWN constraint (V3.10): Paper data shows SOL_DOWN = 50% WR (coin flip)
     # Require higher edge for SOL DOWN trades (edge >= 0.35 lifts to ~71% WR per paper analysis)
     SOL_DOWN_MIN_EDGE = 0.20  # V3.15: Was 0.35, blocked +$5.50 in winners. Loosened.
@@ -1911,13 +1918,13 @@ class TALiveTrader:
     MIN_MODEL_CONFIDENCE = 0.68  # V3.17: Was 0.60. CSV: need higher conviction (40% WR overall)
     MIN_EDGE = 0.35              # V3.17: Was 0.12. CSV: low-edge trades are coin flips
     LOW_EDGE_THRESHOLD = 0.30    # V3.17: Was 0.18, match tighter floor
-    MAX_ENTRY_PRICE = 0.42       # V3.17: Was 0.65. CSV: $0.40-0.50 = -30% ROI death zone
+    MAX_ENTRY_PRICE = 0.38       # V10.16: Was 0.42. CSV: death zone starts at $0.38. Cheap side only.
     DOWN_MAX_PRICE = 0.38        # V3.17: Was 0.72. CSV: $0.38-0.50 = coin flip territory
     DOWN_EXPENSIVE_TRADES = 0    # ML auto-tighten: count trades where DOWN > $0.45
     DOWN_EXPENSIVE_WINS = 0      # ML auto-tighten: wins where DOWN > $0.45
     DOWN_EXPENSIVE_LOSSES = 0    # ML auto-tighten: losses where DOWN > $0.45
     DOWN_EXPENSIVE_PNL = 0.0     # ML auto-tighten: cumulative PnL for DOWN > $0.45
-    MIN_ENTRY_PRICE = 0.25       # V3.17: Was 0.20. CSV: <$0.20 = 24% WR, -73% ROI
+    MIN_ENTRY_PRICE = 0.28       # V10.16: Was 0.25. CSV: $0.20-0.28 weak zone. Cheap sweet spot = $0.28-0.38.
     MIN_KL_DIVERGENCE = 0.18     # V3.17: Was 0.08. CSV: need stronger divergence signal
 
     # Paper trades both sides successfully (UP 81% WR in paper)
@@ -1942,7 +1949,7 @@ class TALiveTrader:
     MAX_CONCURRENT_POSITIONS = 1 # V3.5: Max 1 — single best signal only (multi-asset was -$207)
     MAX_PER_ASSET_EXPOSURE = 6.0 # V10.16: Max $6 open exposure per asset (prevents $11.80 ETH DOWN repeats)
 
-    # === IH2P ADAPTATIONS (ALL DISABLED — capital rebuild mode) ===
+    # === IH2P ADAPTATIONS ===
     # DCA caused double-betting ($6.80 + $3.78 topup = $10.58 per market).
     # With 7 ghost processes, each one doing DCA = $21+ per market. NEVER AGAIN.
     BOND_MODE_ENABLED = True      # V3.15c: Enabled for directional markets ($0.80+ sides)
@@ -1951,12 +1958,12 @@ class TALiveTrader:
     DCA_ENABLED = False           # DISABLED: No DCA stacking during capital rebuild
     DCA_INITIAL_RATIO = 0.60      # First entry: 60% of position
     DCA_TOPUP_RATIO = 0.40        # Second entry: 40% (next scan, same or better price)
-    HEDGE_ENABLED = False         # DISABLED: No hedges during capital rebuild
-    HEDGE_MAX_PRICE = 0.15        # Only hedge if opposite side <= $0.15
-    HEDGE_SIZE = 1.50             # $1.50 hedge bet
+    HEDGE_ENABLED = True          # V10.16: ENABLED. CSV: both-sides = 100% WR, +$58. Insurance on directional trades.
+    HEDGE_MAX_PRICE = 0.20        # V10.16: Was 0.15. Wider hedge window for more insurance coverage.
+    HEDGE_SIZE = 2.00             # V10.16: Was $1.50. Scale up proven profitable hedge.
 
-    # Entry window - V3.15: widened for more trade flow
-    MIN_TIME_REMAINING = 4.0     # V3.15: Was 5.0, loosened slightly
+    # Entry window - V10.16: widened for 5m market support
+    MIN_TIME_REMAINING = 2.0     # V10.16: Was 4.0. 5m markets need lower floor (paper: 64% WR on 5m).
     MAX_TIME_REMAINING = 12.0    # V3.15: Was 9.0, widened for more opportunities
 
     # Kelly position sizing - CONSERVATIVE: slow churn, protect capital
@@ -2209,6 +2216,18 @@ class TALiveTrader:
                     self._record_filter_shadow(asset, signal.side, up_price, market_id, question, "v1012_sol_up_block", market_numeric_id=market_numeric_id)
                     continue  # Shadow tracked
 
+                # === V10.16: BTC UP BLOCKED ===
+                # CSV: BTC UP = 26.2% WR, -$107. Only BTC DOWN profitable. Shadow-track for ML auto-promote.
+                if asset == "BTC" and self.BTC_UP_BLOCKED and signal.side == "UP":
+                    self._record_filter_shadow(asset, signal.side, up_price, market_id, question, "v1016_btc_up_block", market_numeric_id=market_numeric_id)
+                    continue  # Shadow tracked — auto-unblock when WR > 55%
+
+                # === V10.16: SOL DOWN BLOCKED ===
+                # CSV: SOL DOWN = 35.7% WR, -$101. Shadow-track for ML auto-promote.
+                if asset == "SOL" and self.SOL_DOWN_BLOCKED and signal.side == "DOWN":
+                    self._record_filter_shadow(asset, signal.side, down_price, market_id, question, "v1016_sol_down_block", market_numeric_id=market_numeric_id)
+                    continue  # Shadow tracked — auto-unblock when WR > 55%
+
                 # === V3.9: ETH UP-ONLY + BTC DOWN CONTRARIAN BLOCK ===
                 # ETH DOWN = 47.1% WR in paper. Only allow UP (70% WR).
                 if asset == "ETH" and self.ETH_UP_ONLY and signal.side == "DOWN":
@@ -2247,9 +2266,11 @@ class TALiveTrader:
                 is_bond_trade = False
                 bond_override_side = None
                 if self.BOND_MODE_ENABLED:
-                    # V10.14b: Bond must respect SOL_DOWN_ONLY and ETH shadow-only
-                    bond_up_allowed = not (asset == "SOL" and self.SOL_DOWN_ONLY)
-                    bond_down_allowed = not (asset == "ETH" and self.ETH_UP_ONLY)
+                    # V10.16: Bond must respect ALL asset/side blocks
+                    bond_up_allowed = (not (asset == "SOL" and self.SOL_DOWN_ONLY) and
+                                       not (asset == "BTC" and self.BTC_UP_BLOCKED))
+                    bond_down_allowed = (not (asset == "ETH" and self.ETH_UP_ONLY) and
+                                         not (asset == "SOL" and self.SOL_DOWN_BLOCKED))
                     # V10.14b: Require model confidence > market price (positive edge)
                     # Old: BOND_MIN_CONFIDENCE=40% → took -36% edge trades. Now: model must beat market.
                     if (bond_up_allowed and up_price >= self.BOND_MIN_PRICE
@@ -2294,48 +2315,27 @@ class TALiveTrader:
                 momentum = self._get_price_momentum(candles, lookback=5)
 
                 if signal.side == "UP":
-                    # V3.5b: Block ALL UP < $0.20 — paper showed -$20 on SOL UP@$0.21
-                    if up_price < 0.20:
-                        skip_reason = f"UP_ultra_cheap_{up_price:.2f}_(V3.5b_block)"
-                    # TREND FILTER: Don't take ultra-cheap UP (<$0.15) during downtrends
-                    elif up_price < 0.15 and hasattr(signal, 'regime') and signal.regime.value == 'trend_down':
-                        skip_reason = f"UP_cheap_contrarian_{up_price:.2f}_in_downtrend"
+                    # V10.16: Cheap-side-only strategy. UP sweet spot = $0.28-$0.38.
+                    if up_price < self.MIN_ENTRY_PRICE:
+                        skip_reason = f"UP_below_floor_{up_price:.2f}<{self.MIN_ENTRY_PRICE}"
+                    elif up_price > self.MAX_ENTRY_PRICE:
+                        skip_reason = f"UP_above_cap_{up_price:.2f}>{self.MAX_ENTRY_PRICE}_(cheap_side_only)"
                     else:
-                        # Scaled confidence for cheap UP prices (V3.3)
+                        # Confidence check
                         up_conf_req = self.UP_MIN_CONFIDENCE
-                        if up_price < 0.25:
-                            up_conf_req = max(0.45, up_conf_req - 0.15)
-                        elif up_price < 0.35:
+                        if up_price < 0.32:
                             up_conf_req = max(0.50, up_conf_req - 0.10)
-
-                        # Dynamic UP max price: confidence unlocks higher prices (V3.3, softened V3.9)
-                        # V10.11: Tightened aggressively. UP>$0.50 = 3 losses ($0.51/$0.53/$0.57).
-                        # Strategy recs say cap UP at $0.45. Compromise: $0.48 max for 85%+ confidence.
-                        effective_up_max = 0.45  # V10.11: Base UP cap $0.45 (was $0.52)
-                        if signal.model_up >= 0.85:
-                            effective_up_max = 0.48  # V10.11: Was 0.55. Hard cap below danger zone.
-                        elif signal.model_up >= 0.75:
-                            effective_up_max = 0.46  # V10.11: Was 0.52
-                        elif signal.model_up >= 0.65:
-                            effective_up_max = 0.44  # V10.11: Was 0.48
-
                         if signal.model_up < up_conf_req:
                             skip_reason = f"UP_conf_{signal.model_up:.0%}<{up_conf_req:.0%}"
-                        elif up_price > effective_up_max:
-                            skip_reason = f"UP_price_{up_price:.2f}>{effective_up_max:.2f}"
-                        # V3.15: UP momentum check REMOVED — was blocking winners in v33_conviction
 
                 elif signal.side == "DOWN":
-                    # V3.17: Death zone RESTORED. CSV proved $0.38-0.50 = -30% ROI.
-                    # Shadow data was misleading — Polymarket losses have no Redeem row.
-                    if 0.38 <= down_price < 0.50:
+                    # V10.16: Cheap-side-only strategy. DOWN sweet spot = $0.28-$0.38.
+                    if down_price < self.MIN_ENTRY_PRICE:
+                        skip_reason = f"DOWN_below_floor_{down_price:.2f}<{self.MIN_ENTRY_PRICE}"
+                    elif down_price >= 0.38:
                         skip_reason = f"DOWN_DEATH_ZONE_{down_price:.2f}_(CSV:-30%ROI)"
-                    elif down_price < 0.25:
-                        skip_reason = f"DOWN_cheap_{down_price:.2f}_(CSV:24%WR)"
                     elif signal.model_down < self.MIN_MODEL_CONFIDENCE:
                         skip_reason = f"DOWN_conf_{signal.model_down:.0%}<{self.MIN_MODEL_CONFIDENCE:.0%}"
-                    elif down_price > self.MAX_ENTRY_PRICE:
-                        skip_reason = f"DOWN_price_{down_price:.2f}>{self.MAX_ENTRY_PRICE:.2f}"
 
                 if skip_reason and not is_bond_trade:
                     print(f"  [{asset}] V3.3 filter: {skip_reason}")
@@ -3376,13 +3376,13 @@ class TALiveTrader:
                 # Restore strict filter values
                 self.MIN_EDGE = 0.25
                 self.LOW_EDGE_THRESHOLD = 0.25
-                self.MAX_ENTRY_PRICE = 0.65  # V10.15: Match class default.
-                self.MIN_ENTRY_PRICE = 0.20  # V10.15: Match class default.
+                self.MAX_ENTRY_PRICE = 0.38  # V10.16: Cheap side only
+                self.MIN_ENTRY_PRICE = 0.28  # V10.16: Floor raised
                 self.ETH_MIN_CONFIDENCE = 0.70
                 self.SOL_DOWN_MIN_EDGE = 0.20  # V10.9: Was 0.35. Match class default.
                 self.SKIP_HOURS_UTC = {8, 12, 15, 19}  # V10.15: Match class default
-                self.MIN_TIME_REMAINING = 5.0
-                self.MAX_TIME_REMAINING = 9.0
+                self.MIN_TIME_REMAINING = 2.0  # V10.16: 5m support
+                self.MAX_TIME_REMAINING = 12.0 # V10.16: wider window
                 self.use_nyu_model = True  # Re-enable NYU filter
                 # Also auto-promote top hydra strategy from paper quarantine
                 self._auto_promote_top_hydra()
@@ -3497,7 +3497,7 @@ class TALiveTrader:
                     changes.append(f"[ML-EVOLVE] {fname}: Already tag-only (V3.18)")
                 elif fname == "v33_conviction" and not self.loss_cascade_active:
                     old = self.MAX_ENTRY_PRICE
-                    self.MAX_ENTRY_PRICE = min(old + 0.02, 0.58)
+                    self.MAX_ENTRY_PRICE = min(old + 0.02, 0.38)  # V10.16: Hard cap at $0.38 (cheap side only)
                     changes.append(f"[ML-EVOLVE] {fname}: MAX_ENTRY_PRICE {old:.2f} -> {self.MAX_ENTRY_PRICE:.2f}")
                     adjusted = True
                 elif fname == "v310_sol_down_edge" and not self.loss_cascade_active:
@@ -3603,6 +3603,38 @@ class TALiveTrader:
                     changes.append(f"[ML-UNBLOCK] SOL UP UNBLOCKED! {suwr:.0f}% WR over {sut} shadow trades")
                 else:
                     changes.append(f"[EVOLVE] SOL UP still blocked: {suwr:.0f}% WR over {sut} shadows")
+
+        # V10.16: BTC UP auto-unblock check
+        if self.BTC_UP_BLOCKED:
+            btc_up_shadows = [s for s in self.shadow_trades.values()
+                             if s.get("asset") == "BTC" and s.get("side") == "UP"
+                             and s.get("status") == "closed" and s.get("pnl") is not None]
+            buw = sum(1 for s in btc_up_shadows if s.get("pnl", 0) > 0)
+            but = len(btc_up_shadows)
+            if but >= 15:
+                buwr = buw / but * 100
+                bpnl = sum(s.get("pnl", 0) for s in btc_up_shadows)
+                if buwr >= 55 and bpnl > 0:
+                    self.BTC_UP_BLOCKED = False
+                    changes.append(f"[ML-UNBLOCK] BTC UP UNBLOCKED! {buwr:.0f}% WR, ${bpnl:+.2f} over {but} shadow trades")
+                else:
+                    changes.append(f"[EVOLVE] BTC UP still blocked: {buwr:.0f}% WR, ${bpnl:+.2f} over {but} shadows")
+
+        # V10.16: SOL DOWN auto-unblock check
+        if self.SOL_DOWN_BLOCKED:
+            sol_down_shadows = [s for s in self.shadow_trades.values()
+                               if s.get("asset") == "SOL" and s.get("side") == "DOWN"
+                               and s.get("status") == "closed" and s.get("pnl") is not None]
+            sdw = sum(1 for s in sol_down_shadows if s.get("pnl", 0) > 0)
+            sdt = len(sol_down_shadows)
+            if sdt >= 15:
+                sdwr = sdw / sdt * 100
+                sdpnl = sum(s.get("pnl", 0) for s in sol_down_shadows)
+                if sdwr >= 55 and sdpnl > 0:
+                    self.SOL_DOWN_BLOCKED = False
+                    changes.append(f"[ML-UNBLOCK] SOL DOWN UNBLOCKED! {sdwr:.0f}% WR, ${sdpnl:+.2f} over {sdt} shadow trades")
+                else:
+                    changes.append(f"[EVOLVE] SOL DOWN still blocked: {sdwr:.0f}% WR, ${sdpnl:+.2f} over {sdt} shadows")
 
         # 4. OVERALL HEALTH: Warn if WR is declining
         if total_trades >= 10:
@@ -3907,24 +3939,28 @@ class TALiveTrader:
         """Main loop."""
         print("=" * 70)
         mode = "LIVE" if not self.dry_run else "DRY RUN"
-        print(f"TA + BREGMAN + ML {mode} TRADER - Multi-Asset 15-Minute Markets")
+        print(f"TA + BREGMAN + ML {mode} TRADER V10.16 — 'Stop the Bleeding'")
         print("=" * 70)
         print(f"HARD BET LIMITS: ${self.MIN_POSITION_SIZE}-${self.HARD_MAX_BET} (ABSOLUTE CEILING, NO EXCEPTIONS)")
         print(f"PID LOCK: ENABLED — prevents ghost double-instances")
         print(f"OVERLAP CHECK: ENABLED — queries account before every trade")
-        print(f"IH2P: ALL DISABLED (Bond/DCA/Hedge off during capital rebuild)")
+        ih2p_status = f"Bond={'ON' if self.BOND_MODE_ENABLED else 'OFF'} | DCA={'ON' if self.DCA_ENABLED else 'OFF'} | Hedge={'ON' if self.HEDGE_ENABLED else 'OFF'}"
+        print(f"IH2P: {ih2p_status}")
         print(f"ML Optimization: ENABLED")
         print(f"Live Assets: {', '.join(self.ASSETS.keys())} | Shadow: {', '.join(self.SHADOW_ASSETS.keys())}")
+        blocked = []
+        if self.BTC_UP_BLOCKED: blocked.append("BTC_UP")
+        if self.SOL_DOWN_BLOCKED: blocked.append("SOL_DOWN")
+        if blocked:
+            print(f"BLOCKED combos (ML shadow auto-promote): {', '.join(blocked)}")
         print(f"Max {self.MAX_CONCURRENT_POSITIONS} concurrent | Edge>={self.MIN_EDGE:.0%}")
-        print(f"HOURLY ML SIZING: Bayesian WR per hour -> reduce bad hours, boost good (after 10 trades)")
-        print(f"Filters: Edge>={self.MIN_EDGE:.0%} | Conf>={self.MIN_MODEL_CONFIDENCE:.0%} | KL>={self.MIN_KL_DIVERGENCE} | ATR(14)x1.5 | NYU>0.10")
-        print(f"UP: Dynamic max price (70%->$0.42, 80%->$0.48, 85%->$0.55) | Scaled conf for cheap entries")
-        print(f"DOWN: Ultra-cheap <$0.15 block | Max price ${self.MAX_ENTRY_PRICE} (dynamic) | Min conf {self.MIN_MODEL_CONFIDENCE:.0%}")
-        print(f"NYU model: edge_score>0.15 (avoid 50% zone)")
+        print(f"Price range: ${self.MIN_ENTRY_PRICE}-${self.MAX_ENTRY_PRICE} (cheap side only)")
+        print(f"Hedge: {'ENABLED' if self.HEDGE_ENABLED else 'OFF'} (max ${self.HEDGE_MAX_PRICE}, size ${self.HEDGE_SIZE})")
+        print(f"Filters: Edge>={self.MIN_EDGE:.0%} | Conf>={self.MIN_MODEL_CONFIDENCE:.0%} | KL>={self.MIN_KL_DIVERGENCE}")
         print(f"Skip Hours (UTC): {sorted(self.SKIP_HOURS_UTC)}")
         session = self._get_session()
         print(f"Session: {session['name']} ({session['style']}) | Size mult: {session.get('size_mult', 1.0):.2f}x")
-        print(f"Entry Window: {self.MIN_TIME_REMAINING}-{self.MAX_TIME_REMAINING} min")
+        print(f"Entry Window: {self.MIN_TIME_REMAINING}-{self.MAX_TIME_REMAINING} min (5m + 15m markets)")
         print(f"Scan interval: 30 seconds (+ auto-redeem every 30s)")
         print("=" * 70)
 
