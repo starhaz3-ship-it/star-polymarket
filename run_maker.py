@@ -200,7 +200,7 @@ class MakerConfig:
         "BTC": {"keywords": ["bitcoin", "btc"], "enabled": True},
         "ETH": {"keywords": ["ethereum", "eth"], "enabled": True},
         "SOL": {"keywords": ["solana", "sol"], "enabled": False},  # V1.5: Disabled again — 64% pair rate, -$16.77 PnL
-        "XRP": {"keywords": ["xrp", "ripple"], "enabled": True},   # V1.5: New
+        "XRP": {"keywords": ["xrp", "ripple"], "enabled": False},  # V1.7: Disabled — thin books, same partial risk as SOL
     })
 
     # V1.5: Per-asset risk tiers — SOL/XRP have thinner books, need tighter spreads

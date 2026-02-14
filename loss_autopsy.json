@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "total_losses_analyzed": 27,
+  "total_losses_analyzed": 28,
   "reports": [
     {
       "timestamp": "2026-02-10T03:47:19.792026+00:00",
@@ -861,6 +861,37 @@
           "win_average": 8.1371,
           "z_score": -2.33,
           "note": "time_remaining is 2.3 std devs below winning average"
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-02-14T06:59:59.464075+00:00",
+      "trade_id": "0xbe7fd8c2014ced1de424ab421fa8b4e769b488f9bfd5e8f5a1ced0e3d128a73e_UP",
+      "asset": "BTC",
+      "side": "UP",
+      "entry_price": 0.36,
+      "exit_price": 0.335,
+      "pnl": -0.34722222222222143,
+      "size_usd": 5.0,
+      "entry_hour": 6,
+      "triggers": [],
+      "diagnosis": "No known pattern matched - novel loss type. Needs manual review.",
+      "recommendation": "",
+      "severity": "LOW",
+      "deviations_from_winners": [
+        {
+          "field": "kl_divergence",
+          "loss_value": 0.6887,
+          "win_average": 0.2944,
+          "z_score": 3.37,
+          "note": "kl_divergence is 3.4 std devs above winning average"
+        },
+        {
+          "field": "time_remaining",
+          "loss_value": 2.9653,
+          "win_average": 8.1371,
+          "z_score": -2.48,
+          "note": "time_remaining is 2.5 std devs below winning average"
         }
       ]
     }

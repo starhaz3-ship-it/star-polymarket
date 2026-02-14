@@ -1,7 +1,8 @@
 """
-TA Live Trading with ML Optimization — V10.18 "Conviction Unblock"
+TA Live Trading with ML Optimization — V10.19 "Full Unblock"
 
 Live trades BTC/SOL 5m+15m markets using TA+Bregman signals.
+V10.19: Unblock v39_btc_down_contrarian (8T, 62% WR, +$9.29) and v314_eth_conf (19T, 58% WR, +$29.27).
 V10.18: Unblock v33_conviction filter for all except ETH UP.
         Shadow data: 72T, 62% WR, +$71.21 blocked profit. BTC DOWN 60% WR, SOL UP 75% WR.
 V10.16: Block losing combos (ETH all, BTC UP, SOL DOWN) with ML shadow auto-promote.
@@ -2270,21 +2271,22 @@ class TALiveTrader:
                     print(f"  [{asset}] V3.9: ETH UP price ${up_price:.2f} > ${self.ETH_MAX_PRICE} cap")
                     self._record_filter_shadow(asset, signal.side, up_price, market_id, question, "v39_eth_price", market_numeric_id=market_numeric_id)
                     continue
-                # V3.14: ETH = worst asset (29.4% WR in 326 CSV trades). Require higher confidence.
+                # V3.14: ETH confidence filter. V10.19: Lowered to 60% — shadow: 19T, 58% WR, +$29.27
+                # ML auto-evolution also promoted ETH to live (63% WR over 30 shadows)
                 if asset == "ETH":
                     eth_conf = signal.model_up if signal.side == "UP" else signal.model_down
-                    if eth_conf < self.ETH_MIN_CONFIDENCE:
-                        print(f"  [{asset}] V3.14: ETH needs {self.ETH_MIN_CONFIDENCE:.0%} conf, got {eth_conf:.0%} (29.4% WR overall)")
+                    eth_conf_floor = 0.60  # V10.19: Was ETH_MIN_CONFIDENCE (0.70-0.75). Shadow shows profitable at 58%+ WR.
+                    if eth_conf < eth_conf_floor:
+                        print(f"  [{asset}] V10.19: ETH conf {eth_conf:.0%} < {eth_conf_floor:.0%}")
                         self._record_filter_shadow(asset, signal.side, up_price if signal.side == "UP" else down_price, market_id, question, "v314_eth_conf", market_numeric_id=market_numeric_id)
                         continue
-                # BTC DOWN contrarian: both live BTC DOWN losses were against uptrend.
-                # Require with-trend OR entry > $0.50 for BTC DOWN.
+                # BTC DOWN contrarian: V10.19 UNBLOCKED — shadow: 8T, 62% WR, +$9.29
+                # Was blocking profitable mean-reversion trades in bullish trends.
                 if asset == "BTC" and signal.side == "DOWN":
                     btc_trend = self._get_trend_bias(candles, price)
                     if btc_trend in ("BULLISH", "RISING") and down_price < 0.50:
-                        print(f"  [{asset}] V3.9: BTC DOWN contrarian (trend=BULLISH, price=${down_price:.2f}<$0.50)")
-                        self._record_filter_shadow(asset, signal.side, down_price, market_id, question, "v39_btc_down_contrarian", market_numeric_id=market_numeric_id)
-                        continue
+                        print(f"  [{asset}] V10.19: BTC DOWN contrarian bypass (trend={btc_trend}, ${down_price:.2f}) — shadow: 62%WR +$9")
+                        # continue  # V10.19: Unblocked — 8T, 62% WR, +$9.29 shadow PnL
                 # V3.10: SOL DOWN = 50% WR in paper (coin flip). Require higher edge.
                 if asset == "SOL" and signal.side == "DOWN":
                     sol_edge = signal.edge_down if signal.edge_down else 0

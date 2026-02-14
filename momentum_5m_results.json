@@ -90,13 +90,49 @@
       "pnl": 0.61,
       "exit_price": 0.625,
       "exit_time": "2026-02-14T06:43:37.364249+00:00"
+    },
+    {
+      "side": "UP",
+      "entry_price": 0.53,
+      "size_usd": 5.0,
+      "entry_time": "2026-02-14T06:52:32.932202+00:00",
+      "condition_id": "0x1d051b5fa2280b7d6e119ddd401be5dee45264948cc00386cb1b8a170e9be9e8",
+      "market_numeric_id": "1371688",
+      "title": "Bitcoin Up or Down - February 14, 1:50AM-1:55AM ET",
+      "strategy": "momentum_strong",
+      "momentum_10m": 0.000357,
+      "momentum_5m": 0.000298,
+      "btc_price": 68931.99,
+      "order_id": null,
+      "status": "closed",
+      "pnl": 3.49,
+      "exit_price": 0.9,
+      "exit_time": "2026-02-14T06:58:49.271895+00:00"
+    },
+    {
+      "side": "DOWN",
+      "entry_price": 0.53,
+      "size_usd": 5.0,
+      "entry_time": "2026-02-14T06:55:41.080596+00:00",
+      "condition_id": "0xbe7fd8c2014ced1de424ab421fa8b4e769b488f9bfd5e8f5a1ced0e3d128a73e",
+      "market_numeric_id": "1371694",
+      "title": "Bitcoin Up or Down - February 14, 1:55AM-2:00AM ET",
+      "strategy": "momentum_strong",
+      "momentum_10m": -0.000303,
+      "momentum_5m": -0.000157,
+      "btc_price": 68903.11,
+      "order_id": null,
+      "status": "closed",
+      "pnl": -0.24,
+      "exit_price": 0.505,
+      "exit_time": "2026-02-14T07:01:58.589509+00:00"
     }
   ],
   "stats": {
-    "wins": 2,
-    "losses": 3,
-    "pnl": 4.25,
+    "wins": 3,
+    "losses": 4,
+    "pnl": 7.5,
     "start_time": "2026-02-14T05:57:09.120081+00:00"
   },
-  "last_updated": "2026-02-14T06:45:44.919446+00:00"
+  "last_updated": "2026-02-14T07:05:40.169683+00:00"
 }

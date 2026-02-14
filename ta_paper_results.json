@@ -1,6 +1,6 @@
 {
   "start_time": "2026-02-09T04:35:00.000000+00:00",
-  "last_updated": "2026-02-14T06:44:38.825193+00:00",
+  "last_updated": "2026-02-14T07:03:44.537736+00:00",
   "trades": {
     "0xac1734961ddc60260e8535df0dd070e4ae4297b5f8d8776bad946f92c9f9a2f4_UP": {
       "trade_id": "0xac1734961ddc60260e8535df0dd070e4ae4297b5f8d8776bad946f92c9f9a2f4_UP",
@@ -2233,12 +2233,30 @@
       "exit_time": "2026-02-14T04:59:52.523600+00:00",
       "pnl": -1.857096475694373,
       "status": "closed"
+    },
+    "0x0483c0c74c89371e6ec8cdb2bf43c165d7533d6e382db4016358056eeda4d4aa_UP": {
+      "trade_id": "0x0483c0c74c89371e6ec8cdb2bf43c165d7533d6e382db4016358056eeda4d4aa_UP",
+      "market_title": "Bitcoin Up or Down - February 14, 2:00AM-2:05AM ET",
+      "side": "UP",
+      "entry_price": 0.3,
+      "entry_time": "2026-02-14T07:03:44.537736+00:00",
+      "size_usd": 15.481295512423381,
+      "signal_strength": "strong",
+      "edge_at_entry": 0.5067936204475308,
+      "kl_divergence": 0.6279212019028385,
+      "kelly_fraction": 0.25,
+      "guaranteed_profit": 0.6279212019028385,
+      "market_numeric_id": "1371695",
+      "exit_price": null,
+      "exit_time": null,
+      "pnl": 0.0,
+      "status": "open"
     }
   },
   "total_pnl": 1053.84947102036,
   "wins": 82,
   "losses": 42,
-  "signals_count": 1970,
+  "signals_count": 1979,
   "arb_trades": {},
   "arb_stats": {
     "wins": 0,
@@ -3299,9 +3317,10 @@
       "size_usd": 16.839982888433273,
       "edge": 0.5962302245299147,
       "p_correct": 0.9668738797434113,
-      "status": "open",
-      "exit_price": null,
-      "pnl": 0.0
+      "status": "closed",
+      "exit_price": 0.0,
+      "pnl": -16.839982888433273,
+      "exit_time": "2026-02-14T06:48:51.868792+00:00"
     },
     "shadow_0x8632d540d4a449021946f3ac7035326967afa9104c5df06479dc42517a76ddb5_UP": {
       "trade_key": "shadow_0x8632d540d4a449021946f3ac7035326967afa9104c5df06479dc42517a76ddb5_UP",
@@ -3355,8 +3374,8 @@
     },
     "6": {
       "wins": 6,
-      "losses": 2,
-      "pnl": 122.44470749647553
+      "losses": 3,
+      "pnl": 105.60472460804226
     },
     "7": {
       "wins": 0,
@@ -3452,8 +3471,8 @@
       "pnl": 52.257324130869115
     },
     "invvol": {
-      "total_scale": 223.56069582838427,
-      "trades_scaled": 208
+      "total_scale": 224.8935683563557,
+      "trades_scaled": 209
     },
     "mtf_agree": {
       "trades": 110,
@@ -4434,14 +4453,23 @@
       "vol_regime": "normal",
       "invvol_scale": 1.06,
       "market_tf": "5m"
+    },
+    "0x0483c0c74c89371e6ec8cdb2bf43c165d7533d6e382db4016358056eeda4d4aa_UP": {
+      "overnight": false,
+      "mtf_agree": true,
+      "volspike": "low",
+      "volregime_match": true,
+      "vol_regime": "low",
+      "invvol_scale": 1.33,
+      "market_tf": "5m"
     }
   },
   "hydra_quarantine": {
     "TRENDLINE_BREAK": {
-      "predictions": 394,
+      "predictions": 396,
       "correct": 272,
-      "wrong": 122,
-      "pnl": 1535.0674769550048,
+      "wrong": 124,
+      "pnl": 1515.0674769550048,
       "status": "PROMOTED"
     },
     "MFI_DIVERGENCE": {
@@ -4459,17 +4487,17 @@
       "status": "QUARANTINE"
     },
     "MULTI_SMA_TREND": {
-      "predictions": 322,
-      "correct": 257,
+      "predictions": 323,
+      "correct": 258,
       "wrong": 65,
-      "pnl": 1878.6998543968818,
+      "pnl": 1882.1226731888282,
       "status": "PROMOTED"
     },
     "ALIGNMENT": {
-      "predictions": 198,
-      "correct": 116,
+      "predictions": 199,
+      "correct": 117,
       "wrong": 82,
-      "pnl": 80.94157645698517,
+      "pnl": 95.03796199915385,
       "status": "PROMOTED"
     },
     "DC03_KALMAN_ADX": {
@@ -4494,17 +4522,17 @@
       "status": "QUARANTINE"
     },
     "FVG_RETEST": {
-      "predictions": 633,
-      "correct": 395,
+      "predictions": 634,
+      "correct": 396,
       "wrong": 238,
-      "pnl": 1410.2045558376187,
+      "pnl": 1411.0153666484296,
       "status": "PROMOTED"
     },
     "BB_BOUNCE": {
-      "predictions": 71,
-      "correct": 16,
-      "wrong": 55,
-      "pnl": -392.0439004237997,
+      "predictions": 74,
+      "correct": 18,
+      "wrong": 56,
+      "pnl": -391.6554112151666,
       "status": "DEMOTED"
     },
     "EXTREME_MOMENTUM": {
@@ -4524,10 +4552,10 @@
   },
   "hydra_quarantine_raw": {
     "TRENDLINE_BREAK": {
-      "predictions": 438,
+      "predictions": 440,
       "correct": 294,
-      "wrong": 144,
-      "pnl": 1469.1313789394756
+      "wrong": 146,
+      "pnl": 1449.1313789394756
     },
     "MFI_DIVERGENCE": {
       "predictions": 7,
@@ -4542,16 +4570,16 @@
       "pnl": -80.0
     },
     "MULTI_SMA_TREND": {
-      "predictions": 324,
-      "correct": 257,
+      "predictions": 325,
+      "correct": 258,
       "wrong": 67,
-      "pnl": 1773.3700277342375
+      "pnl": 1776.792846526184
     },
     "ALIGNMENT": {
-      "predictions": 197,
-      "correct": 115,
+      "predictions": 198,
+      "correct": 116,
       "wrong": 82,
-      "pnl": 32.348167637668155
+      "pnl": 46.44455317983683
     },
     "DC03_KALMAN_ADX": {
       "predictions": 103,
@@ -4572,16 +4600,16 @@
       "pnl": -132.06170812130267
     },
     "FVG_RETEST": {
-      "predictions": 649,
-      "correct": 409,
+      "predictions": 650,
+      "correct": 410,
       "wrong": 240,
-      "pnl": 1374.6620144928045
+      "pnl": 1375.4728253036153
     },
     "BB_BOUNCE": {
-      "predictions": 209,
-      "correct": 69,
-      "wrong": 140,
-      "pnl": -707.7242398314762
+      "predictions": 213,
+      "correct": 71,
+      "wrong": 142,
+      "pnl": -717.3357506228431
     },
     "EXTREME_MOMENTUM": {
       "predictions": 1,
@@ -4590,10 +4618,10 @@
       "pnl": -10.0
     },
     "RUBBER_BAND": {
-      "predictions": 20,
+      "predictions": 21,
       "correct": 3,
-      "wrong": 17,
-      "pnl": -145.75778356475104
+      "wrong": 18,
+      "pnl": -155.75778356475104
     }
   },
   "hydra_filter_stats": {
@@ -4604,10 +4632,10 @@
       "saved_pnl": -1.4005769830583539
     },
     "TREND_CONFLICT": {
-      "blocked": 177,
+      "blocked": 179,
       "would_win": 58,
-      "would_lose": 119,
-      "saved_pnl": 621.7824581912753
+      "would_lose": 121,
+      "saved_pnl": 641.7824581912753
     },
     "TL_VOL_FILTER": {
       "blocked": 30,
@@ -4623,196 +4651,6 @@
     }
   },
   "hydra_pending": {
-    "hydra_TRENDLINE_BREAK_BTC_DOWN_0x0ca8fa1c34cf4984bd77b06c3c573b183a8bb4aaca12cf3b89586a6f02b8c1e1": {
-      "strategy": "TRENDLINE_BREAK",
-      "asset": "BTC",
-      "direction": "DOWN",
-      "confidence": 0.81,
-      "details": "RSI=45 vol=0.0x below_ema50=True",
-      "market_id": "0x0ca8fa1c34cf4984bd77b06c3c573b183a8bb4aaca12cf3b89586a6f02b8c1e1",
-      "market_numeric_id": "1371554",
-      "market_title": "Bitcoin Up or Down - February 14, 12:45AM-12:50AM ET",
-      "up_price": 0.455,
-      "down_price": 0.545,
-      "entry_time": "2026-02-14T05:47:11.207760+00:00",
-      "time_left": 2.8132747166666667,
-      "status": "resolved",
-      "filtered": false,
-      "filter_reason": "",
-      "correct": false,
-      "shadow_pnl": -10.0
-    },
-    "hydra_DC03_KALMAN_ADX_BTC_DOWN_0x687b623627bc431d4b11405bb7ac024bd54ffbeb0641710ed0117e5fd986679a": {
-      "strategy": "DC03_KALMAN_ADX",
-      "asset": "BTC",
-      "direction": "DOWN",
-      "confidence": 0.72,
-      "details": "Kalman_vel=-2.8760 ADX=25 -DI=36",
-      "market_id": "0x687b623627bc431d4b11405bb7ac024bd54ffbeb0641710ed0117e5fd986679a",
-      "market_numeric_id": "1371555",
-      "market_title": "Bitcoin Up or Down - February 14, 12:45AM-1:00AM ET",
-      "up_price": 0.505,
-      "down_price": 0.495,
-      "entry_time": "2026-02-14T05:51:26.676291+00:00",
-      "time_left": 8.55548305,
-      "status": "resolved",
-      "filtered": false,
-      "filter_reason": "",
-      "correct": true,
-      "shadow_pnl": 10.2020202020202
-    },
-    "hydra_TRENDLINE_BREAK_SOL_DOWN_0x2fff7f25c0ccc5ed1ccc6988ab2141af803eba425ded3d3e72d8bb4c05de18a0": {
-      "strategy": "TRENDLINE_BREAK",
-      "asset": "SOL",
-      "direction": "DOWN",
-      "confidence": 0.81,
-      "details": "RSI=48 vol=0.1x below_ema50=True",
-      "market_id": "0x2fff7f25c0ccc5ed1ccc6988ab2141af803eba425ded3d3e72d8bb4c05de18a0",
-      "market_numeric_id": "1371556",
-      "market_title": "Solana Up or Down - February 14, 12:45AM-1:00AM ET",
-      "up_price": 0.53,
-      "down_price": 0.47,
-      "entry_time": "2026-02-14T05:51:26.676291+00:00",
-      "time_left": 8.55548305,
-      "status": "resolved",
-      "filtered": false,
-      "filter_reason": "",
-      "correct": true,
-      "shadow_pnl": 11.27659574468085
-    },
-    "hydra_TRENDLINE_BREAK_ETH_DOWN_0xa34e0772785ce890875436396dce814136c16b31e14b961fdb58686e388bc654": {
-      "strategy": "TRENDLINE_BREAK",
-      "asset": "ETH",
-      "direction": "DOWN",
-      "confidence": 0.8700000000000001,
-      "details": "RSI=48 vol=3.0x below_ema50=True",
-      "market_id": "0xa34e0772785ce890875436396dce814136c16b31e14b961fdb58686e388bc654",
-      "market_numeric_id": "1371553",
-      "market_title": "Ethereum Up or Down - February 14, 12:45AM-1:00AM ET",
-      "up_price": 0.675,
-      "down_price": 0.325,
-      "entry_time": "2026-02-14T05:53:35.436987+00:00",
-      "time_left": 6.409400266666666,
-      "status": "resolved",
-      "filtered": false,
-      "filter_reason": "",
-      "correct": true,
-      "shadow_pnl": 20.769230769230766
-    },
-    "hydra_MULTI_SMA_TREND_ETH_DOWN_0xa34e0772785ce890875436396dce814136c16b31e14b961fdb58686e388bc654": {
-      "strategy": "MULTI_SMA_TREND",
-      "asset": "ETH",
-      "direction": "DOWN",
-      "confidence": 0.9,
-      "details": "SMA_score=0.00 mom=-0.10% RSI=48",
-      "market_id": "0xa34e0772785ce890875436396dce814136c16b31e14b961fdb58686e388bc654",
-      "market_numeric_id": "1371553",
-      "market_title": "Ethereum Up or Down - February 14, 12:45AM-1:00AM ET",
-      "up_price": 0.675,
-      "down_price": 0.325,
-      "entry_time": "2026-02-14T05:53:35.436987+00:00",
-      "time_left": 6.409400266666666,
-      "status": "resolved",
-      "filtered": false,
-      "filter_reason": "",
-      "correct": true,
-      "shadow_pnl": 20.769230769230766
-    },
-    "hydra_TRENDLINE_BREAK_BTC_DOWN_0x62dfb40021f3d4be5577fee5a138ea654cb57004d6b9fe93f37fb67001022f32": {
-      "strategy": "TRENDLINE_BREAK",
-      "asset": "BTC",
-      "direction": "DOWN",
-      "confidence": 0.8600000000000001,
-      "details": "RSI=36 vol=0.6x below_ema50=True",
-      "market_id": "0x62dfb40021f3d4be5577fee5a138ea654cb57004d6b9fe93f37fb67001022f32",
-      "market_numeric_id": "1371659",
-      "market_title": "Bitcoin Up or Down - February 14, 12:55AM-1:00AM ET",
-      "up_price": 0.505,
-      "down_price": 0.495,
-      "entry_time": "2026-02-14T05:55:42.264641+00:00",
-      "time_left": 4.2956413499999995,
-      "status": "resolved",
-      "filtered": false,
-      "filter_reason": "",
-      "correct": true,
-      "shadow_pnl": 10.2020202020202
-    },
-    "hydra_BB_BOUNCE_BTC_UP_0x62dfb40021f3d4be5577fee5a138ea654cb57004d6b9fe93f37fb67001022f32": {
-      "strategy": "BB_BOUNCE",
-      "asset": "BTC",
-      "direction": "UP",
-      "confidence": 0.6352056476366147,
-      "details": "BB_lower_touch RSI=36 bb_pos=-0.07",
-      "market_id": "0x62dfb40021f3d4be5577fee5a138ea654cb57004d6b9fe93f37fb67001022f32",
-      "market_numeric_id": "1371659",
-      "market_title": "Bitcoin Up or Down - February 14, 12:55AM-1:00AM ET",
-      "up_price": 0.505,
-      "down_price": 0.495,
-      "entry_time": "2026-02-14T05:55:42.264641+00:00",
-      "time_left": 4.2956413499999995,
-      "status": "resolved",
-      "filtered": true,
-      "filter_reason": "TREND_CONFLICT(TRENDLINE_BREAK_DOWN_overrides)",
-      "correct": false,
-      "shadow_pnl": -10.0
-    },
-    "hydra_TRENDLINE_BREAK_BTC_DOWN_0x6bd42a6b528988620557e2cc5f4d2e362df30a90902c69324a4095352bc6106d": {
-      "strategy": "TRENDLINE_BREAK",
-      "asset": "BTC",
-      "direction": "DOWN",
-      "confidence": 0.8600000000000001,
-      "details": "RSI=33 vol=0.0x below_ema50=True",
-      "market_id": "0x6bd42a6b528988620557e2cc5f4d2e362df30a90902c69324a4095352bc6106d",
-      "market_numeric_id": "1371660",
-      "market_title": "Bitcoin Up or Down - February 14, 1:00AM-1:05AM ET",
-      "up_price": 0.505,
-      "down_price": 0.495,
-      "entry_time": "2026-02-14T06:02:09.026059+00:00",
-      "time_left": 2.84961585,
-      "status": "resolved",
-      "filtered": false,
-      "filter_reason": "",
-      "correct": false,
-      "shadow_pnl": -10.0
-    },
-    "hydra_ALIGNMENT_BTC_DOWN_0x6bd42a6b528988620557e2cc5f4d2e362df30a90902c69324a4095352bc6106d": {
-      "strategy": "ALIGNMENT",
-      "asset": "BTC",
-      "direction": "DOWN",
-      "confidence": 0.8,
-      "details": "6/7 bearish RSI=33 ADX=19",
-      "market_id": "0x6bd42a6b528988620557e2cc5f4d2e362df30a90902c69324a4095352bc6106d",
-      "market_numeric_id": "1371660",
-      "market_title": "Bitcoin Up or Down - February 14, 1:00AM-1:05AM ET",
-      "up_price": 0.505,
-      "down_price": 0.495,
-      "entry_time": "2026-02-14T06:02:09.026059+00:00",
-      "time_left": 2.84961585,
-      "status": "resolved",
-      "filtered": false,
-      "filter_reason": "",
-      "correct": false,
-      "shadow_pnl": -10.0
-    },
-    "hydra_BB_BOUNCE_BTC_UP_0x6bd42a6b528988620557e2cc5f4d2e362df30a90902c69324a4095352bc6106d": {
-      "strategy": "BB_BOUNCE",
-      "asset": "BTC",
-      "direction": "UP",
-      "confidence": 0.6661303298471517,
-      "details": "BB_lower_touch RSI=33 bb_pos=0.33",
-      "market_id": "0x6bd42a6b528988620557e2cc5f4d2e362df30a90902c69324a4095352bc6106d",
-      "market_numeric_id": "1371660",
-      "market_title": "Bitcoin Up or Down - February 14, 1:00AM-1:05AM ET",
-      "up_price": 0.505,
-      "down_price": 0.495,
-      "entry_time": "2026-02-14T06:02:09.026059+00:00",
-      "time_left": 2.84961585,
-      "status": "resolved",
-      "filtered": true,
-      "filter_reason": "TREND_CONFLICT(TRENDLINE_BREAK_DOWN_overrides)",
-      "correct": true,
-      "shadow_pnl": 9.801980198019802
-    },
     "hydra_TRENDLINE_BREAK_BTC_DOWN_0xebef3c032d4c4f7372bb6b11084458367e9e8cccba8c0c190d5d8c3da67d72a9": {
       "strategy": "TRENDLINE_BREAK",
       "asset": "BTC",
@@ -5206,9 +5044,11 @@
       "down_price": 0.695,
       "entry_time": "2026-02-14T06:31:54.107466+00:00",
       "time_left": 3.0982590666666665,
-      "status": "open",
+      "status": "resolved",
       "filtered": false,
-      "filter_reason": ""
+      "filter_reason": "",
+      "correct": true,
+      "shadow_pnl": 4.388489208633095
     },
     "hydra_ALIGNMENT_ETH_UP_0xc7d806fb46e872693d8c7672f35e8bb617c9b4f365c8a668d3fea4f126c7cadb": {
       "strategy": "ALIGNMENT",
@@ -5261,9 +5101,11 @@
       "down_price": 0.585,
       "entry_time": "2026-02-14T06:36:08.730782+00:00",
       "time_left": 8.854737833333333,
-      "status": "open",
+      "status": "resolved",
       "filtered": false,
-      "filter_reason": ""
+      "filter_reason": "",
+      "correct": true,
+      "shadow_pnl": 14.096385542168676
     },
     "hydra_BB_BOUNCE_BTC_DOWN_0x8632d540d4a449021946f3ac7035326967afa9104c5df06479dc42517a76ddb5": {
       "strategy": "BB_BOUNCE",
@@ -5278,9 +5120,11 @@
       "down_price": 0.625,
       "entry_time": "2026-02-14T06:38:17.042008+00:00",
       "time_left": 6.716001233333333,
-      "status": "open",
+      "status": "resolved",
       "filtered": false,
-      "filter_reason": ""
+      "filter_reason": "",
+      "correct": true,
+      "shadow_pnl": 6.0
     },
     "hydra_BB_BOUNCE_SOL_DOWN_0xfaeb9e5afc62bb11ee418936f81030166506608fc8f51cda4ca4df375d78e213": {
       "strategy": "BB_BOUNCE",
@@ -5295,6 +5139,207 @@
       "down_price": 0.585,
       "entry_time": "2026-02-14T06:38:17.042008+00:00",
       "time_left": 6.716001233333333,
+      "status": "resolved",
+      "filtered": false,
+      "filter_reason": "",
+      "correct": false,
+      "shadow_pnl": -10.0
+    },
+    "hydra_TRENDLINE_BREAK_BTC_DOWN_0x2002bd4c80dce8e8dbd59f6aa74560fc21c9368b506726f74f965345356575ba": {
+      "strategy": "TRENDLINE_BREAK",
+      "asset": "BTC",
+      "direction": "DOWN",
+      "confidence": 0.8,
+      "details": "RSI=49 vol=0.5x below_ema50=False",
+      "market_id": "0x2002bd4c80dce8e8dbd59f6aa74560fc21c9368b506726f74f965345356575ba",
+      "market_numeric_id": "1371684",
+      "market_title": "Bitcoin Up or Down - February 14, 1:45AM-1:50AM ET",
+      "up_price": 0.495,
+      "down_price": 0.505,
+      "entry_time": "2026-02-14T06:46:45.264776+00:00",
+      "time_left": 3.2456206,
+      "status": "resolved",
+      "filtered": false,
+      "filter_reason": "",
+      "correct": false,
+      "shadow_pnl": -10.0
+    },
+    "hydra_TRENDLINE_BREAK_BTC_DOWN_0x0dfa6398660cc3abbe2ddfda77cd73bffacc88d98b3b8e175a9422b7dba3488f": {
+      "strategy": "TRENDLINE_BREAK",
+      "asset": "BTC",
+      "direction": "DOWN",
+      "confidence": 0.8,
+      "details": "RSI=50 vol=0.2x below_ema50=False",
+      "market_id": "0x0dfa6398660cc3abbe2ddfda77cd73bffacc88d98b3b8e175a9422b7dba3488f",
+      "market_numeric_id": "1371683",
+      "market_title": "Bitcoin Up or Down - February 14, 1:45AM-2:00AM ET",
+      "up_price": 0.615,
+      "down_price": 0.385,
+      "entry_time": "2026-02-14T06:51:01.008913+00:00",
+      "time_left": 8.983218233333334,
+      "status": "resolved",
+      "filtered": false,
+      "filter_reason": "",
+      "correct": false,
+      "shadow_pnl": -10.0
+    },
+    "hydra_FVG_RETEST_ETH_UP_0xaba6dcdd5a530a49406488ca47f34c0642f3299ef6d921d6fa6c75eeee0130ec": {
+      "strategy": "FVG_RETEST",
+      "asset": "ETH",
+      "direction": "UP",
+      "confidence": 0.72,
+      "details": "bullish_fvg_retest RSI=67",
+      "market_id": "0xaba6dcdd5a530a49406488ca47f34c0642f3299ef6d921d6fa6c75eeee0130ec",
+      "market_numeric_id": "1371685",
+      "market_title": "Ethereum Up or Down - February 14, 1:45AM-2:00AM ET",
+      "up_price": 0.445,
+      "down_price": 0.555,
+      "entry_time": "2026-02-14T06:51:01.008913+00:00",
+      "time_left": 8.983218233333334,
+      "status": "open",
+      "filtered": false,
+      "filter_reason": ""
+    },
+    "hydra_BB_BOUNCE_ETH_DOWN_0xaba6dcdd5a530a49406488ca47f34c0642f3299ef6d921d6fa6c75eeee0130ec": {
+      "strategy": "BB_BOUNCE",
+      "asset": "ETH",
+      "direction": "DOWN",
+      "confidence": 0.6743589743589459,
+      "details": "BB_upper_touch RSI=67 bb_pos=0.82",
+      "market_id": "0xaba6dcdd5a530a49406488ca47f34c0642f3299ef6d921d6fa6c75eeee0130ec",
+      "market_numeric_id": "1371685",
+      "market_title": "Ethereum Up or Down - February 14, 1:45AM-2:00AM ET",
+      "up_price": 0.445,
+      "down_price": 0.555,
+      "entry_time": "2026-02-14T06:51:01.008913+00:00",
+      "time_left": 8.983218233333334,
+      "status": "open",
+      "filtered": false,
+      "filter_reason": ""
+    },
+    "hydra_MULTI_SMA_TREND_SOL_UP_0xd7ebe35ba3eb4eb47ad72dbfeffc19481a393336f0113a2398026d690109200a": {
+      "strategy": "MULTI_SMA_TREND",
+      "asset": "SOL",
+      "direction": "UP",
+      "confidence": 0.9,
+      "details": "SMA_score=1.00 mom=0.12% RSI=68",
+      "market_id": "0xd7ebe35ba3eb4eb47ad72dbfeffc19481a393336f0113a2398026d690109200a",
+      "market_numeric_id": "1371687",
+      "market_title": "Solana Up or Down - February 14, 1:45AM-2:00AM ET",
+      "up_price": 0.745,
+      "down_price": 0.255,
+      "entry_time": "2026-02-14T06:51:01.008913+00:00",
+      "time_left": 8.983218233333334,
+      "status": "resolved",
+      "filtered": false,
+      "filter_reason": "",
+      "correct": true,
+      "shadow_pnl": 3.422818791946309
+    },
+    "hydra_BB_BOUNCE_SOL_DOWN_0xd7ebe35ba3eb4eb47ad72dbfeffc19481a393336f0113a2398026d690109200a": {
+      "strategy": "BB_BOUNCE",
+      "asset": "SOL",
+      "direction": "DOWN",
+      "confidence": 0.6799999999999476,
+      "details": "BB_upper_touch RSI=68 bb_pos=1.23",
+      "market_id": "0xd7ebe35ba3eb4eb47ad72dbfeffc19481a393336f0113a2398026d690109200a",
+      "market_numeric_id": "1371687",
+      "market_title": "Solana Up or Down - February 14, 1:45AM-2:00AM ET",
+      "up_price": 0.745,
+      "down_price": 0.255,
+      "entry_time": "2026-02-14T06:51:01.008913+00:00",
+      "time_left": 8.983218233333334,
+      "status": "resolved",
+      "filtered": true,
+      "filter_reason": "TREND_CONFLICT(MULTI_SMA_TREND_UP_overrides)",
+      "correct": false,
+      "shadow_pnl": -10.0
+    },
+    "hydra_RUBBER_BAND_SOL_DOWN_0xd7ebe35ba3eb4eb47ad72dbfeffc19481a393336f0113a2398026d690109200a": {
+      "strategy": "RUBBER_BAND",
+      "asset": "SOL",
+      "direction": "DOWN",
+      "confidence": 0.9,
+      "details": "z=2.90 RSI=68 mean_revert",
+      "market_id": "0xd7ebe35ba3eb4eb47ad72dbfeffc19481a393336f0113a2398026d690109200a",
+      "market_numeric_id": "1371687",
+      "market_title": "Solana Up or Down - February 14, 1:45AM-2:00AM ET",
+      "up_price": 0.745,
+      "down_price": 0.255,
+      "entry_time": "2026-02-14T06:51:01.008913+00:00",
+      "time_left": 8.983218233333334,
+      "status": "resolved",
+      "filtered": true,
+      "filter_reason": "TREND_CONFLICT(MULTI_SMA_TREND_UP_overrides)",
+      "correct": false,
+      "shadow_pnl": -10.0
+    },
+    "hydra_FVG_RETEST_SOL_UP_0xd7ebe35ba3eb4eb47ad72dbfeffc19481a393336f0113a2398026d690109200a": {
+      "strategy": "FVG_RETEST",
+      "asset": "SOL",
+      "direction": "UP",
+      "confidence": 0.7,
+      "details": "bullish_fvg_retest RSI=79",
+      "market_id": "0xd7ebe35ba3eb4eb47ad72dbfeffc19481a393336f0113a2398026d690109200a",
+      "market_numeric_id": "1371687",
+      "market_title": "Solana Up or Down - February 14, 1:45AM-2:00AM ET",
+      "up_price": 0.925,
+      "down_price": 0.075,
+      "entry_time": "2026-02-14T06:53:08.012365+00:00",
+      "time_left": 6.8665114833333325,
+      "status": "resolved",
+      "filtered": false,
+      "filter_reason": "",
+      "correct": true,
+      "shadow_pnl": 0.8108108108108105
+    },
+    "hydra_ALIGNMENT_BTC_UP_0xbe7fd8c2014ced1de424ab421fa8b4e769b488f9bfd5e8f5a1ced0e3d128a73e": {
+      "strategy": "ALIGNMENT",
+      "asset": "BTC",
+      "direction": "UP",
+      "confidence": 0.75,
+      "details": "5/7 bullish RSI=67 ADX=12",
+      "market_id": "0xbe7fd8c2014ced1de424ab421fa8b4e769b488f9bfd5e8f5a1ced0e3d128a73e",
+      "market_numeric_id": "1371694",
+      "market_title": "Bitcoin Up or Down - February 14, 1:55AM-2:00AM ET",
+      "up_price": 0.335,
+      "down_price": 0.665,
+      "entry_time": "2026-02-14T06:57:23.092848+00:00",
+      "time_left": 2.61515385,
+      "status": "open",
+      "filtered": false,
+      "filter_reason": ""
+    },
+    "hydra_BB_BOUNCE_BTC_DOWN_0xbe7fd8c2014ced1de424ab421fa8b4e769b488f9bfd5e8f5a1ced0e3d128a73e": {
+      "strategy": "BB_BOUNCE",
+      "asset": "BTC",
+      "direction": "DOWN",
+      "confidence": 0.6722025316456168,
+      "details": "BB_upper_touch RSI=67 bb_pos=0.66",
+      "market_id": "0xbe7fd8c2014ced1de424ab421fa8b4e769b488f9bfd5e8f5a1ced0e3d128a73e",
+      "market_numeric_id": "1371694",
+      "market_title": "Bitcoin Up or Down - February 14, 1:55AM-2:00AM ET",
+      "up_price": 0.335,
+      "down_price": 0.665,
+      "entry_time": "2026-02-14T06:57:23.092848+00:00",
+      "time_left": 2.61515385,
+      "status": "open",
+      "filtered": false,
+      "filter_reason": ""
+    },
+    "hydra_BB_BOUNCE_BTC_DOWN_0x0483c0c74c89371e6ec8cdb2bf43c165d7533d6e382db4016358056eeda4d4aa": {
+      "strategy": "BB_BOUNCE",
+      "asset": "BTC",
+      "direction": "DOWN",
+      "confidence": 0.6274784039490412,
+      "details": "BB_upper_touch RSI=63 bb_pos=0.64",
+      "market_id": "0x0483c0c74c89371e6ec8cdb2bf43c165d7533d6e382db4016358056eeda4d4aa",
+      "market_numeric_id": "1371695",
+      "market_title": "Bitcoin Up or Down - February 14, 2:00AM-2:05AM ET",
+      "up_price": 0.495,
+      "down_price": 0.505,
+      "entry_time": "2026-02-14T07:01:35.804148+00:00",
+      "time_left": 3.403382683333333,
       "status": "open",
       "filtered": false,
       "filter_reason": ""
@@ -15614,6 +15659,46 @@
       "pnl": 9.23076923076923,
       "exit_price": 1.0,
       "exit_time": "2026-02-14T06:36:08.939506+00:00"
+    },
+    "spill_0xbe7fd8c2014ced1de424ab421fa8b4e769b488f9bfd5e8f5a1ced0e3d128a73e_UP": {
+      "side": "UP",
+      "entry_price": 0.36,
+      "size_usd": 10.0,
+      "entry_time": "2026-02-14T06:57:23.145298+00:00",
+      "condition_id": "0xbe7fd8c2014ced1de424ab421fa8b4e769b488f9bfd5e8f5a1ced0e3d128a73e",
+      "market_numeric_id": "1371694",
+      "title": "Bitcoin Up or Down - February 14, 1:55AM-2:00AM ET",
+      "asset": "BTC",
+      "strategy": "spillover",
+      "leader_asset": "SOL",
+      "beta": 0.3512,
+      "delta_leader": 0.001534,
+      "expected_delta": 0.000539,
+      "actual_delta": 9.3e-05,
+      "residual": -0.000446,
+      "z_score": -1.77,
+      "status": "open",
+      "pnl": 0.0
+    },
+    "spill_0x0483c0c74c89371e6ec8cdb2bf43c165d7533d6e382db4016358056eeda4d4aa_UP": {
+      "side": "UP",
+      "entry_price": 0.52,
+      "size_usd": 10.0,
+      "entry_time": "2026-02-14T06:57:23.145298+00:00",
+      "condition_id": "0x0483c0c74c89371e6ec8cdb2bf43c165d7533d6e382db4016358056eeda4d4aa",
+      "market_numeric_id": "1371695",
+      "title": "Bitcoin Up or Down - February 14, 2:00AM-2:05AM ET",
+      "asset": "BTC",
+      "strategy": "spillover",
+      "leader_asset": "SOL",
+      "beta": 0.3512,
+      "delta_leader": 0.001534,
+      "expected_delta": 0.000539,
+      "actual_delta": 9.3e-05,
+      "residual": -0.000446,
+      "z_score": -1.77,
+      "status": "open",
+      "pnl": 0.0
     }
   },
   "spillover_stats": {
