@@ -1,5 +1,22 @@
 {
-  "active": {},
+  "active": {
+    "5m_0x97e8b1d4b2f6cdd26f43c81d25a7217454f1c5865bde7f2470d23e99b9f91978_DOWN": {
+      "side": "DOWN",
+      "entry_price": 0.53,
+      "size_usd": 5.0,
+      "entry_time": "2026-02-14T07:20:34.349383+00:00",
+      "condition_id": "0x97e8b1d4b2f6cdd26f43c81d25a7217454f1c5865bde7f2470d23e99b9f91978",
+      "market_numeric_id": "1371710",
+      "title": "Bitcoin Up or Down - February 14, 2:20AM-2:25AM ET",
+      "strategy": "momentum_strong",
+      "momentum_10m": -0.000414,
+      "momentum_5m": -0.000285,
+      "btc_price": 68899.28,
+      "order_id": null,
+      "status": "open",
+      "pnl": 0.0
+    }
+  },
   "resolved": [
     {
       "side": "UP",
@@ -126,13 +143,49 @@
       "pnl": -0.24,
       "exit_price": 0.505,
       "exit_time": "2026-02-14T07:01:58.589509+00:00"
+    },
+    {
+      "side": "UP",
+      "entry_price": 0.44,
+      "size_usd": 3.0,
+      "entry_time": "2026-02-14T07:08:18.560718+00:00",
+      "condition_id": "0xa6fc12c8d9fee75d2d787f2915ecd7e6e8c491df9d84c569190d1bdc706c76c0",
+      "market_numeric_id": "1371703",
+      "title": "Bitcoin Up or Down - February 14, 2:05AM-2:10AM ET",
+      "strategy": "momentum",
+      "momentum_10m": 0.000305,
+      "momentum_5m": 0.0,
+      "btc_price": 68931.93,
+      "order_id": null,
+      "status": "closed",
+      "pnl": 3.82,
+      "exit_price": 0.995,
+      "exit_time": "2026-02-14T07:14:39.583226+00:00"
+    },
+    {
+      "side": "DOWN",
+      "entry_price": 0.53,
+      "size_usd": 5.0,
+      "entry_time": "2026-02-14T07:10:55.728963+00:00",
+      "condition_id": "0xccd4f323176fca623bf273bc4a1063e45fa278a2753807a800b4b506bba30d22",
+      "market_numeric_id": "1371704",
+      "title": "Bitcoin Up or Down - February 14, 2:10AM-2:15AM ET",
+      "strategy": "momentum_strong",
+      "momentum_10m": -0.000371,
+      "momentum_5m": -0.000248,
+      "btc_price": 68906.3,
+      "order_id": null,
+      "status": "closed",
+      "pnl": 1.27,
+      "exit_price": 0.665,
+      "exit_time": "2026-02-14T07:17:20.851773+00:00"
     }
   ],
   "stats": {
-    "wins": 3,
+    "wins": 5,
     "losses": 4,
-    "pnl": 7.5,
+    "pnl": 12.59,
     "start_time": "2026-02-14T05:57:09.120081+00:00"
   },
-  "last_updated": "2026-02-14T07:05:40.169683+00:00"
+  "last_updated": "2026-02-14T07:23:14.270018+00:00"
 }
