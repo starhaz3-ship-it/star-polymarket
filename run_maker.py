@@ -382,13 +382,13 @@ class MakerConfig:
     BID_OFFSET: float = 0.02             # Bid this much below best ask
 
     # Position sizing
-    SIZE_PER_SIDE_USD: float = 15.0      # V2.0: $15/side (was $10). Recoup directional losses.
-    MAX_PAIR_EXPOSURE: float = 30.0      # V2.0: $30/pair (was $20)
-    MAX_TOTAL_EXPOSURE: float = 180.0    # V2.0: $180 max for 6 concurrent pairs
+    SIZE_PER_SIDE_USD: float = 20.0      # V2.3: $20/side (was $15). $220 capital, 5m-only, 100% WR.
+    MAX_PAIR_EXPOSURE: float = 40.0      # V2.3: $40/pair (was $30)
+    MAX_TOTAL_EXPOSURE: float = 200.0    # V2.3: $200 max for 5 concurrent pairs ($220 cap - $20 buffer)
     MIN_SHARES: int = 5                  # CLOB minimum order size
 
     # Risk
-    DAILY_LOSS_LIMIT: float = 24.0       # V2.0: Scaled with $15/side (was $16)
+    DAILY_LOSS_LIMIT: float = 32.0       # V2.3: Scaled with $20/side (was $24)
     MAX_CONCURRENT_PAIRS: int = 12       # V1.5: 4 assets x 15M + BTC 5M = needs ~12 slots
     MAX_SINGLE_SIDED: int = 2            # V1.1: Was 3. Partial fills = directional risk. Allow max 2.
 
@@ -745,10 +745,12 @@ class CryptoMarketMaker:
     # ========================================================================
 
     async def discover_markets(self) -> List[MarketPair]:
-        """Find all active 5-min and 15-min crypto Up/Down markets."""
+        """Find all active 5-min crypto Up/Down markets (15m dropped — CSV shows -$47.71).
+        All markets live under tag_slug=15M. We parse actual duration from the title
+        and skip anything > 5 minutes."""
         pairs = []
         async with httpx.AsyncClient(timeout=15) as client:
-            for tag_slug, duration in [("5M", 5), ("15M", 15)]:
+            for tag_slug, duration in [("15M", 5)]:
                 try:
                     r = await client.get(
                         "https://gamma-api.polymarket.com/events",
@@ -793,7 +795,22 @@ class CryptoMarketMaker:
                                 except Exception:
                                     pass
 
-                            pair = self._parse_market(m, event, matched_asset, duration)
+                            # V2.2: Parse actual duration from title, skip 15m markets
+                            # Title format: "Bitcoin Up or Down - February 14, 1:30PM-1:45PM ET"
+                            import re
+                            q = m.get("question", "") or event.get("title", "")
+                            time_match = re.search(r"(\d{1,2}):(\d{2})(AM|PM)-(\d{1,2}):(\d{2})(AM|PM)", q)
+                            actual_dur = duration
+                            if time_match:
+                                h1, m1, p1 = int(time_match.group(1)), int(time_match.group(2)), time_match.group(3)
+                                h2, m2, p2 = int(time_match.group(4)), int(time_match.group(5)), time_match.group(6)
+                                t1 = (h1 % 12 + (12 if p1 == "PM" else 0)) * 60 + m1
+                                t2 = (h2 % 12 + (12 if p2 == "PM" else 0)) * 60 + m2
+                                actual_dur = t2 - t1 if t2 > t1 else t2 + 1440 - t1
+                            if actual_dur > 5:
+                                continue  # Skip 15m+ markets (CSV: -$47.71)
+
+                            pair = self._parse_market(m, event, matched_asset, actual_dur)
                             if pair:
                                 pairs.append(pair)
 
@@ -1454,9 +1471,8 @@ class CryptoMarketMaker:
         # V1.4: Capital loss circuit breaker (40% net loss -> auto-switch to paper)
         if not self.paper and not self.circuit_tripped and self.starting_pnl is not None:
             session_pnl = self.stats["total_pnl"] - self.starting_pnl
-            # Calculate 40% of the CLOB balance we started with (~$42)
-            # Use a fixed $15 threshold (40% of ~$38 CLOB balance)
-            capital_loss_limit = 15.0  # ~40% of starting capital
+            # Calculate 40% of the CLOB balance we started with (~$220)
+            capital_loss_limit = 88.0  # 40% of ~$220 CLOB balance
             if session_pnl < -capital_loss_limit:
                 print(f"\n{'='*70}")
                 print(f"[CIRCUIT BREAKER] NET CAPITAL LOSS EXCEEDED 40%!")
@@ -1524,7 +1540,7 @@ class CryptoMarketMaker:
         print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Max pairs: {self.config.MAX_CONCURRENT_PAIRS}")
         print(f"Daily loss limit: ${self.config.DAILY_LOSS_LIMIT}")
         if not self.paper:
-            print(f"CIRCUIT BREAKER: Auto-switch to paper on $15 net session loss (~40% capital)")
+            print(f"CIRCUIT BREAKER: Auto-switch to paper on $88 net session loss (~40% capital)")
         print(f"Skip hours (UTC): {sorted(self.config.SKIP_HOURS_UTC)}")
         print("=" * 70)
 
