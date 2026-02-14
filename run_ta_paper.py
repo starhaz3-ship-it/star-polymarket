@@ -1315,11 +1315,12 @@ class TAPaperTrader:
                 # Resolve
                 price = up_p if trade["side"] == "UP" else down_p
                 if price >= 0.95:
-                    exit_val = trade["size_usd"] / trade["entry_price"]
+                    shares = trade["size_usd"] / trade["entry_price"]
+                    exit_val = shares  # WIN: $1/share
                 elif price <= 0.05:
-                    exit_val = 0
+                    exit_val = 0  # LOSS: $0/share
                 else:
-                    exit_val = (trade["size_usd"] / trade["entry_price"]) * price
+                    continue  # Not resolved yet - skip
                 trade["exit_price"] = price
                 trade["exit_time"] = now.isoformat()
                 trade["pnl"] = exit_val - trade["size_usd"]
@@ -1376,11 +1377,12 @@ class TAPaperTrader:
                                 if up_p is not None:
                                     price = up_p if trade["side"] == "UP" else down_p
                                     if price >= 0.95:
-                                        exit_val = trade["size_usd"] / trade["entry_price"]
+                                        shares = trade["size_usd"] / trade["entry_price"]
+                                        exit_val = shares  # WIN: $1/share
                                     elif price <= 0.05:
-                                        exit_val = 0
+                                        exit_val = 0  # LOSS: $0/share
                                     else:
-                                        exit_val = (trade["size_usd"] / trade["entry_price"]) * price
+                                        continue  # Not resolved yet - skip
                                     trade["exit_price"] = price
                                     trade["exit_time"] = now.isoformat()
                                     trade["pnl"] = exit_val - trade["size_usd"]
@@ -1699,11 +1701,12 @@ class TAPaperTrader:
                     continue
                 price = up_p if trade["side"] == "UP" else down_p
                 if price >= 0.95:
-                    exit_val = trade["size_usd"] / trade["entry_price"]
+                    shares = trade["size_usd"] / trade["entry_price"]
+                    exit_val = shares  # WIN: $1/share
                 elif price <= 0.05:
-                    exit_val = 0
+                    exit_val = 0  # LOSS: $0/share
                 else:
-                    exit_val = (trade["size_usd"] / trade["entry_price"]) * price
+                    continue  # Not resolved yet - skip
                 trade["exit_price"] = price
                 trade["exit_time"] = now.isoformat()
                 trade["pnl"] = exit_val - trade["size_usd"]
@@ -1749,11 +1752,12 @@ class TAPaperTrader:
                                 if up_p is not None:
                                     price = up_p if trade["side"] == "UP" else down_p
                                     if price >= 0.95:
-                                        exit_val = trade["size_usd"] / trade["entry_price"]
+                                        shares = trade["size_usd"] / trade["entry_price"]
+                                        exit_val = shares  # WIN: $1/share
                                     elif price <= 0.05:
-                                        exit_val = 0
+                                        exit_val = 0  # LOSS: $0/share
                                     else:
-                                        exit_val = (trade["size_usd"] / trade["entry_price"]) * price
+                                        continue  # Not resolved yet - skip
                                     trade["exit_price"] = price
                                     trade["exit_time"] = now.isoformat()
                                     trade["pnl"] = exit_val - trade["size_usd"]
@@ -1991,11 +1995,12 @@ class TAPaperTrader:
                     continue
                 price = up_p if trade["side"] == "UP" else down_p
                 if price >= 0.95:
-                    exit_val = trade["size_usd"] / trade["entry_price"]
+                    shares = trade["size_usd"] / trade["entry_price"]
+                    exit_val = shares  # WIN: $1/share
                 elif price <= 0.05:
-                    exit_val = 0
+                    exit_val = 0  # LOSS: $0/share
                 else:
-                    exit_val = (trade["size_usd"] / trade["entry_price"]) * price
+                    continue  # Not resolved yet - skip
                 trade["exit_price"] = price
                 trade["exit_time"] = now.isoformat()
                 trade["pnl"] = exit_val - trade["size_usd"]
@@ -2042,11 +2047,12 @@ class TAPaperTrader:
                                 if up_p is not None:
                                     price = up_p if trade["side"] == "UP" else down_p
                                     if price >= 0.95:
-                                        exit_val = trade["size_usd"] / trade["entry_price"]
+                                        shares = trade["size_usd"] / trade["entry_price"]
+                                        exit_val = shares  # WIN: $1/share
                                     elif price <= 0.05:
-                                        exit_val = 0
+                                        exit_val = 0  # LOSS: $0/share
                                     else:
-                                        exit_val = (trade["size_usd"] / trade["entry_price"]) * price
+                                        continue  # Not resolved yet - skip
                                     trade["exit_price"] = price
                                     trade["exit_time"] = now.isoformat()
                                     trade["pnl"] = exit_val - trade["size_usd"]
@@ -2863,11 +2869,11 @@ class TAPaperTrader:
 
                         # Determine outcome
                         if price >= 0.95:
-                            exit_val = trade.size_usd / trade.entry_price
+                            exit_val = trade.size_usd / trade.entry_price  # WIN: $1/share
                         elif price <= 0.05:
-                            exit_val = 0
+                            exit_val = 0  # LOSS: $0/share
                         else:
-                            exit_val = (trade.size_usd / trade.entry_price) * price
+                            continue  # Not resolved yet - skip
 
                         trade.exit_price = price
                         trade.exit_time = datetime.now(timezone.utc).isoformat()
@@ -2938,11 +2944,11 @@ class TAPaperTrader:
                     if trade.status == "open" and mkt_id in tid:
                         price = up_p if trade.side == "UP" else down_p
                         if price >= 0.95:
-                            exit_val = trade.size_usd / trade.entry_price
+                            exit_val = trade.size_usd / trade.entry_price  # WIN: $1/share
                         elif price <= 0.05:
-                            exit_val = 0
+                            exit_val = 0  # LOSS: $0/share
                         else:
-                            exit_val = (trade.size_usd / trade.entry_price) * price
+                            continue  # Not resolved yet - skip
                         trade.exit_price = price
                         trade.exit_time = datetime.now(timezone.utc).isoformat()
                         trade.pnl = exit_val - trade.size_usd
@@ -3043,11 +3049,11 @@ class TAPaperTrader:
                             if up_p is not None and down_p is not None:
                                 price = up_p if open_trade.side == "UP" else down_p
                                 if price >= 0.95:
-                                    exit_val = open_trade.size_usd / open_trade.entry_price
+                                    exit_val = open_trade.size_usd / open_trade.entry_price  # WIN
                                 elif price <= 0.05:
-                                    exit_val = 0
+                                    exit_val = 0  # LOSS
                                 else:
-                                    exit_val = (open_trade.size_usd / open_trade.entry_price) * price
+                                    continue  # Not resolved yet - skip
                                 open_trade.exit_price = price
                                 open_trade.exit_time = now.isoformat()
                                 open_trade.pnl = exit_val - open_trade.size_usd
@@ -3142,11 +3148,11 @@ class TAPaperTrader:
                             continue
                         price = up_p if shadow["side"] == "UP" else down_p
                         if price >= 0.95:
-                            exit_val = shadow["size_usd"] / shadow["entry_price"]
+                            exit_val = shadow["size_usd"] / shadow["entry_price"]  # WIN
                         elif price <= 0.05:
-                            exit_val = 0
+                            exit_val = 0  # LOSS
                         else:
-                            exit_val = (shadow["size_usd"] / shadow["entry_price"]) * price
+                            continue  # Not resolved yet - skip
                         shadow["exit_price"] = price
                         shadow["exit_time"] = now.isoformat()
                         shadow["pnl"] = exit_val - shadow["size_usd"]
@@ -3179,11 +3185,11 @@ class TAPaperTrader:
                             if up_p is not None and down_p is not None:
                                 price = up_p if shadow["side"] == "UP" else down_p
                                 if price >= 0.95:
-                                    exit_val = shadow["size_usd"] / shadow["entry_price"]
+                                    exit_val = shadow["size_usd"] / shadow["entry_price"]  # WIN
                                 elif price <= 0.05:
-                                    exit_val = 0
+                                    exit_val = 0  # LOSS
                                 else:
-                                    exit_val = (shadow["size_usd"] / shadow["entry_price"]) * price
+                                    continue  # Not resolved yet - skip
                                 shadow["exit_price"] = price
                                 shadow["exit_time"] = now.isoformat()
                                 shadow["pnl"] = exit_val - shadow["size_usd"]
