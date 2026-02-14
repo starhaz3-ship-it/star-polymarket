@@ -99,6 +99,7 @@ class CopyTrader:
         "MuseumOfBees": "0x61276aba49117fd9299707d5d573652949d5c977",  # $13.6K PnL, $1.28M vol, 344 mkts, 1-day-old acct, 100% BTC 5m only, burst trader (3K fills/hr), hold-to-expiry
         # --- Diversified Whale (added 2026-02-13) ---
         "Female-Bongo": "0x0eA574F3204C5c9C0cdEad90392ea0990F4D17e4",  # $378K PnL, $51.5M vol, 4,163 mkts, crypto+sports+politics, largest win $38K
+        "Same-Folk": "0x5e5bf17f2387232deb056cabcaa1f6ad8d60969b",  # $24K PnL, $548K vol, 57 mkts, 2-day-old acct, largest win $8.3K, via kyledewriter
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]

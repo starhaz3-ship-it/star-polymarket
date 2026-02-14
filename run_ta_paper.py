@@ -657,6 +657,20 @@ class TAPaperTrader:
         self.FLASH_CRASH_MAX_HISTORY = 20       # Keep last 20 price points per market
         self.FLASH_CRASH_SIZE = 10.0            # Paper position size for flash crash trades
 
+        # === CROSS-MARKET SPILLOVER ARBITRAGE (V3.21) ===
+        # When BTC moves and SOL/ETH Polymarket odds haven't adjusted, buy the lagging side.
+        # Uses covariance matrix between crypto assets to predict expected moves.
+        # Math: β = Σᵢⱼ/σᵢ² → expected_Δj = β * Δi → residual = actual_Δj - expected_Δj
+        # Trade when |residual| > k * σⱼ (the follower is mispriced)
+        self.spillover_trades: Dict[str, dict] = {}
+        self.spillover_stats = {"wins": 0, "losses": 0, "pnl": 0.0, "trades": []}
+        self.SPILLOVER_SIZE = 10.0              # Paper position size
+        self.SPILLOVER_MIN_LEADER_MOVE = 0.0015 # Leader must move >0.15% in 10 min
+        self.SPILLOVER_K_THRESHOLD = 1.5        # Z-score threshold for residual
+        self.SPILLOVER_BETA_WINDOW = 60         # Rolling window: 60 candle returns
+        self.SPILLOVER_MAX_CONCURRENT = 3       # Max open spillover positions
+        self.SPILLOVER_TIME_WINDOW = (1.5, 12.0)  # Minutes before expiry
+
         # === BTC ML PREDICTORS (V3.19) ===
         # LightGBM models trained on Binance candle data
         # 3 models per timeframe: direction, volatility, momentum quality
@@ -947,13 +961,20 @@ class TAPaperTrader:
                 saved_15m_stats = data.get("shadow_15m_mom_stats", None)
                 if saved_15m_stats:
                     self.shadow_15m_mom_stats = saved_15m_stats
+                # Load spillover state (V3.21)
+                self.spillover_trades = data.get("spillover_trades", {})
+                saved_spill = data.get("spillover_stats", None)
+                if saved_spill:
+                    self.spillover_stats = saved_spill
                 arb_open = sum(1 for a in self.arb_trades.values() if a.get("status") == "open")
                 hydra_total = sum(q["predictions"] for q in self.hydra_quarantine.values())
                 s5 = self.shadow_5m_stats
                 s15 = self.shadow_15m_mom_stats
+                sp = self.spillover_stats
                 print(f"Loaded {len(self.trades)} trades + {len(self.arb_trades)} arb ({arb_open} open) + {hydra_total} hydra + "
                       f"5m:{s5['wins']}W/{s5['losses']}L ${s5['pnl']:+.2f} + "
-                      f"15m-mom:{s15['wins']}W/{s15['losses']}L ${s15['pnl']:+.2f}")
+                      f"15m-mom:{s15['wins']}W/{s15['losses']}L ${s15['pnl']:+.2f} + "
+                      f"spill:{sp['wins']}W/{sp['losses']}L ${sp['pnl']:+.2f}")
             except Exception as e:
                 print(f"Error loading state: {e}")
 
@@ -981,6 +1002,8 @@ class TAPaperTrader:
             "shadow_5m_stats": self.shadow_5m_stats,
             "shadow_15m_mom_trades": self.shadow_15m_mom_trades,
             "shadow_15m_mom_stats": self.shadow_15m_mom_stats,
+            "spillover_trades": self.spillover_trades,
+            "spillover_stats": self.spillover_stats,
         }
         with open(self.OUTPUT_FILE, 'w') as f:
             json.dump(data, f, indent=2)
@@ -1881,6 +1904,296 @@ class TAPaperTrader:
         # Save state
         self._save()
 
+    def _compute_asset_betas(self):
+        """Compute rolling betas between all asset pairs from Binance candles.
+
+        β_ij = Cov(Rᵢ, Rⱼ) / Var(Rᵢ)  — how much j moves per unit move in i.
+        Also computes σⱼ for z-score normalization of residuals.
+        """
+        asset_data = getattr(self, '_asset_data', {})
+        if not asset_data:
+            return {}, {}
+
+        # Compute 1-min returns for each asset
+        asset_returns = {}
+        for asset_name, data in asset_data.items():
+            candles = data.get("candles", [])
+            if len(candles) < self.SPILLOVER_BETA_WINDOW:
+                continue
+            closes = []
+            for c in candles[-self.SPILLOVER_BETA_WINDOW:]:
+                p = c.close if hasattr(c, 'close') else float(c.get("c", c.get("close", 0)))
+                closes.append(p)
+            returns = []
+            for i in range(1, len(closes)):
+                if closes[i - 1] != 0:
+                    returns.append((closes[i] - closes[i - 1]) / closes[i - 1])
+            if len(returns) >= 20:
+                asset_returns[asset_name] = returns
+
+        # Compute betas for all pairs
+        betas = {}
+        assets = list(asset_returns.keys())
+        for i_name in assets:
+            for j_name in assets:
+                if i_name == j_name:
+                    continue
+                ri = asset_returns[i_name]
+                rj = asset_returns[j_name]
+                n = min(len(ri), len(rj))
+                ri_n, rj_n = ri[-n:], rj[-n:]
+
+                mean_i = sum(ri_n) / n
+                mean_j = sum(rj_n) / n
+                cov_ij = sum((ri_n[k] - mean_i) * (rj_n[k] - mean_j) for k in range(n)) / n
+                var_i = sum((ri_n[k] - mean_i) ** 2 for k in range(n)) / n
+                sigma_j = (sum((rj_n[k] - mean_j) ** 2 for k in range(n)) / n) ** 0.5
+
+                if var_i > 1e-12:
+                    beta = cov_ij / var_i
+                    betas[(i_name, j_name)] = {"beta": beta, "sigma_j": sigma_j, "n": n}
+
+        return betas, asset_returns
+
+    async def _trade_spillover_arb(self, markets):
+        """V3.21: Cross-market spillover arbitrage.
+
+        When BTC moves significantly and SOL/ETH Polymarket odds haven't adjusted,
+        buy the lagging side. Uses β = Σᵢⱼ/σᵢ² to predict expected moves.
+        """
+        try:
+            await self._trade_spillover_arb_inner(markets)
+        except Exception as e:
+            print(f"[SPILLOVER ERROR] {type(e).__name__}: {e}")
+
+    async def _trade_spillover_arb_inner(self, markets):
+        now = datetime.now(timezone.utc)
+        asset_data = getattr(self, '_asset_data', {})
+        if len(asset_data) < 2:
+            return
+
+        # Count open spillover positions
+        open_spill = sum(1 for t in self.spillover_trades.values() if t["status"] == "open")
+
+        # --- RESOLVE expired spillover trades ---
+        for tid, trade in list(self.spillover_trades.items()):
+            if trade["status"] != "open":
+                continue
+            # Resolve by market match
+            for mkt in markets:
+                if mkt.get("conditionId", "") != trade.get("condition_id"):
+                    continue
+                time_left = self.get_time_remaining(mkt)
+                if time_left > 0.5:
+                    continue
+                up_p, down_p = self.get_market_prices(mkt)
+                if up_p is None or down_p is None:
+                    continue
+                price = up_p if trade["side"] == "UP" else down_p
+                if price >= 0.95:
+                    exit_val = trade["size_usd"] / trade["entry_price"]
+                elif price <= 0.05:
+                    exit_val = 0
+                else:
+                    exit_val = (trade["size_usd"] / trade["entry_price"]) * price
+                trade["exit_price"] = price
+                trade["exit_time"] = now.isoformat()
+                trade["pnl"] = exit_val - trade["size_usd"]
+                trade["status"] = "closed"
+                won = trade["pnl"] > 0
+                self.spillover_stats["wins" if won else "losses"] += 1
+                self.spillover_stats["pnl"] += trade["pnl"]
+                self.spillover_stats["trades"].append({
+                    "side": trade["side"], "entry": trade["entry_price"],
+                    "exit": price, "pnl": trade["pnl"],
+                    "strategy": trade.get("strategy", "spillover"),
+                    "asset": trade.get("asset", "?"), "time": trade["entry_time"],
+                    "leader": trade.get("leader_asset", "?"),
+                })
+                open_spill -= 1
+                w = self.spillover_stats["wins"]
+                l = self.spillover_stats["losses"]
+                wr = w / (w + l) * 100 if (w + l) > 0 else 0
+                tag = "WIN" if won else "LOSS"
+                print(f"[SPILL {tag}] {trade['asset']} {trade['side']} ${trade['pnl']:+.2f} | "
+                      f"leader={trade.get('leader_asset','?')} z={trade.get('z_score',0):.1f} | "
+                      f"spill: {w}W/{l}L {wr:.0f}%WR ${self.spillover_stats['pnl']:+.2f}")
+                break
+
+        # Resolve by age (>18 min)
+        for tid, trade in list(self.spillover_trades.items()):
+            if trade["status"] != "open":
+                continue
+            try:
+                entry_dt = datetime.fromisoformat(trade["entry_time"])
+                age_min = (now - entry_dt).total_seconds() / 60
+            except:
+                age_min = 999
+            if age_min > 18:
+                nid = trade.get("market_numeric_id")
+                if nid:
+                    try:
+                        async with httpx.AsyncClient(timeout=8) as cl:
+                            r = await cl.get(f"https://gamma-api.polymarket.com/markets/{nid}",
+                                           headers={"User-Agent": "Mozilla/5.0"})
+                            if r.status_code == 200:
+                                rm = r.json()
+                                up_p, down_p = self.get_market_prices(rm)
+                                if up_p is not None:
+                                    price = up_p if trade["side"] == "UP" else down_p
+                                    if price >= 0.95:
+                                        exit_val = trade["size_usd"] / trade["entry_price"]
+                                    elif price <= 0.05:
+                                        exit_val = 0
+                                    else:
+                                        exit_val = (trade["size_usd"] / trade["entry_price"]) * price
+                                    trade["exit_price"] = price
+                                    trade["exit_time"] = now.isoformat()
+                                    trade["pnl"] = exit_val - trade["size_usd"]
+                                    trade["status"] = "closed"
+                                    won = trade["pnl"] > 0
+                                    self.spillover_stats["wins" if won else "losses"] += 1
+                                    self.spillover_stats["pnl"] += trade["pnl"]
+                                    self.spillover_stats["trades"].append({
+                                        "side": trade["side"], "entry": trade["entry_price"],
+                                        "exit": price, "pnl": trade["pnl"],
+                                        "strategy": trade.get("strategy", "spillover"),
+                                        "asset": trade.get("asset", "?"), "time": trade["entry_time"],
+                                        "leader": trade.get("leader_asset", "?"),
+                                    })
+                                    open_spill -= 1
+                    except Exception:
+                        pass
+                else:
+                    trade["status"] = "closed"
+                    trade["pnl"] = -trade["size_usd"]
+                    self.spillover_stats["losses"] += 1
+                    self.spillover_stats["pnl"] += trade["pnl"]
+                    open_spill -= 1
+
+        # --- ENTRY: Detect cross-asset spillover opportunities ---
+        if open_spill >= self.SPILLOVER_MAX_CONCURRENT:
+            self._save()
+            return
+
+        betas, asset_returns = self._compute_asset_betas()
+        if not betas:
+            return
+
+        # Check each asset as potential "leader" (the one that moved)
+        for leader_asset, leader_data in asset_data.items():
+            candles = leader_data.get("candles", [])
+            if len(candles) < 12:
+                continue
+            price_now = candles[-1].close if hasattr(candles[-1], 'close') else float(candles[-1].get("c", 0))
+            price_10m = candles[-10].close if hasattr(candles[-10], 'close') else float(candles[-10].get("c", 0))
+            if price_10m == 0:
+                continue
+            delta_leader = (price_now - price_10m) / price_10m
+
+            # Leader must move significantly
+            if abs(delta_leader) < self.SPILLOVER_MIN_LEADER_MOVE:
+                continue
+
+            # Check each follower asset
+            for follower_asset, follower_data in asset_data.items():
+                if follower_asset == leader_asset:
+                    continue
+
+                pair_key = (leader_asset, follower_asset)
+                if pair_key not in betas:
+                    continue
+
+                beta_info = betas[pair_key]
+                beta = beta_info["beta"]
+                sigma_j = beta_info["sigma_j"]
+                if sigma_j < 1e-8:
+                    continue
+
+                # Expected move in follower (Binance spot)
+                expected_delta = beta * delta_leader
+
+                # Actual move in follower (Binance spot)
+                f_candles = follower_data.get("candles", [])
+                if len(f_candles) < 12:
+                    continue
+                f_now = f_candles[-1].close if hasattr(f_candles[-1], 'close') else float(f_candles[-1].get("c", 0))
+                f_10m = f_candles[-10].close if hasattr(f_candles[-10], 'close') else float(f_candles[-10].get("c", 0))
+                if f_10m == 0:
+                    continue
+                actual_delta = (f_now - f_10m) / f_10m
+
+                # Residual: how much follower diverged from prediction
+                residual = actual_delta - expected_delta
+                z_score = residual / sigma_j
+
+                if abs(z_score) < self.SPILLOVER_K_THRESHOLD:
+                    continue
+
+                # Follower is mispriced! Determine direction:
+                # If expected_delta < 0 (should drop) but actual didn't drop enough (residual > 0):
+                #   → follower odds are stale-high → buy DOWN
+                # If expected_delta > 0 (should rise) but actual didn't rise enough (residual < 0):
+                #   → follower odds are stale-low → buy UP
+                if residual > 0:
+                    predicted_side = "DOWN"  # Follower should have dropped more
+                else:
+                    predicted_side = "UP"    # Follower should have risen more
+
+                # Find the follower's nearest eligible market
+                for mkt in markets:
+                    mkt_asset = mkt.get("_asset", "")
+                    if mkt_asset != follower_asset:
+                        continue
+                    time_left = self.get_time_remaining(mkt)
+                    if time_left < self.SPILLOVER_TIME_WINDOW[0] or time_left > self.SPILLOVER_TIME_WINDOW[1]:
+                        continue
+                    up_p, down_p = self.get_market_prices(mkt)
+                    if up_p is None or down_p is None:
+                        continue
+
+                    entry_price = up_p if predicted_side == "UP" else down_p
+                    if entry_price < 0.10 or entry_price > 0.60:
+                        continue
+                    entry_price = round(entry_price + 0.02, 2)  # Spread simulation
+
+                    cid = mkt.get("conditionId", "")
+                    nid = mkt.get("id")
+                    question = mkt.get("question", "")
+                    trade_key = f"spill_{cid}_{predicted_side}"
+
+                    if trade_key in self.spillover_trades:
+                        continue
+
+                    self.spillover_trades[trade_key] = {
+                        "side": predicted_side, "entry_price": entry_price,
+                        "size_usd": self.SPILLOVER_SIZE,
+                        "entry_time": now.isoformat(), "condition_id": cid,
+                        "market_numeric_id": nid, "title": question,
+                        "asset": follower_asset, "strategy": "spillover",
+                        "leader_asset": leader_asset, "beta": round(beta, 4),
+                        "delta_leader": round(delta_leader, 6),
+                        "expected_delta": round(expected_delta, 6),
+                        "actual_delta": round(actual_delta, 6),
+                        "residual": round(residual, 6), "z_score": round(z_score, 2),
+                        "status": "open", "pnl": 0.0,
+                    }
+                    open_spill += 1
+                    print(f"[SPILLOVER ENTRY] {follower_asset} {predicted_side} ${entry_price:.2f} | "
+                          f"leader={leader_asset} moved {delta_leader:+.3%} | "
+                          f"beta={beta:.2f} expected={expected_delta:+.3%} actual={actual_delta:+.3%} | "
+                          f"residual={residual:+.3%} z={z_score:.1f} | "
+                          f"time={time_left:.1f}m | {question[:40]}")
+
+                    if open_spill >= self.SPILLOVER_MAX_CONCURRENT:
+                        break
+                if open_spill >= self.SPILLOVER_MAX_CONCURRENT:
+                    break
+            if open_spill >= self.SPILLOVER_MAX_CONCURRENT:
+                break
+
+        self._save()
+
     def _scan_arbitrage(self, eligible_markets):
         """Scan for both-sides arbitrage: UP + DOWN < threshold for guaranteed profit."""
         if not self.ARB_ENABLED:
@@ -2132,6 +2445,10 @@ class TAPaperTrader:
         # === 15M MOMENTUM SHADOW PAPER TRADING (V3.20) ===
         # Same momentum strategy as 5m, applied to 15m markets for A/B comparison
         await self._trade_15m_momentum_shadow(markets, candles, btc_price)
+
+        # === CROSS-MARKET SPILLOVER ARBITRAGE (V3.21) ===
+        # BTC moves → SOL/ETH odds should adjust. If they haven't, buy the lag.
+        await self._trade_spillover_arb(markets)
 
         # === DIRECTIONAL TRADING (Phase 1: Collect candidates) ===
         # Gather all trades that pass filters, then allocate via multi-outcome Kelly
@@ -3341,6 +3658,31 @@ class TAPaperTrader:
             tot = ss["w"] + ss["l"]
             wr = ss["w"] / tot * 100 if tot > 0 else 0
             print(f"    {st:20s} {ss['w']}W/{ss['l']}L {wr:.0f}%WR ${ss['pnl']:+.2f}")
+
+        # Spillover Arb Stats (V3.21)
+        sp = self.spillover_stats
+        open_sp = sum(1 for t in self.spillover_trades.values() if t.get("status") == "open")
+        total_sp = sp["wins"] + sp["losses"]
+        wr_sp = sp["wins"] / total_sp * 100 if total_sp > 0 else 0
+        print(f"\nSPILLOVER ARB (V3.21 cross-market):")
+        print(f"  {sp['wins']}W/{sp['losses']}L ({total_sp}T) | {wr_sp:.0f}% WR | PnL: ${sp['pnl']:+.2f} | {open_sp} open")
+        # Per-leader breakdown
+        leader_stats = {}
+        for t in sp.get("trades", []):
+            ldr = t.get("leader", "?")
+            ast = t.get("asset", "?")
+            key = f"{ldr}->{ast}"
+            if key not in leader_stats:
+                leader_stats[key] = {"w": 0, "l": 0, "pnl": 0.0}
+            if t.get("pnl", 0) > 0:
+                leader_stats[key]["w"] += 1
+            else:
+                leader_stats[key]["l"] += 1
+            leader_stats[key]["pnl"] += t.get("pnl", 0)
+        for key, ss in sorted(leader_stats.items(), key=lambda x: -x[1]["pnl"]):
+            tot = ss["w"] + ss["l"]
+            wr = ss["w"] / tot * 100 if tot > 0 else 0
+            print(f"    {key:20s} {ss['w']}W/{ss['l']}L {wr:.0f}%WR ${ss['pnl']:+.2f}")
 
         print("=" * 70)
         print()
