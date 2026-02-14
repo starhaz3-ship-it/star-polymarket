@@ -401,7 +401,7 @@ class TALiveTrader:
     # Rejects weak/choppy 5M entries. ATR impulse: price must move >= 0.6x ATR in 10min.
     # EMA chop: EMA(9)-EMA(21) gap must be >= 6 basis points (trending, not ranging).
     FIVEMIN_IMPULSE_MIN_ATR = 0.6   # Min ATR-normalized 10m impulse for 5M entry
-    FIVEMIN_EMA_GAP_MIN_BP = 6      # Min EMA(9)-EMA(21) gap in basis points
+    FIVEMIN_EMA_GAP_MIN_BP = 2      # Min EMA(9)-EMA(21) gap in basis points (lowered from 6: 71%WR blocked = too aggressive for Polymarket)
 
     def __init__(self, dry_run: bool = False, bankroll: float = 73.14):
         self.dry_run = dry_run
@@ -999,9 +999,9 @@ class TALiveTrader:
     SOL_DOWN_BLOCKED = True  # Auto-unblock when shadow WR > 55% over 15+ trades
     # V10.20: 5M SHADOW-ONLY. Live data: 0W/2L (-$0.73), shadow: 46% WR (-$0.35).
     # 15M is where the edge is (53% WR, +$154 shadow). Shadow-track 5M with ML auto-promote.
-    FIVEMIN_SHADOW_ONLY = False  # V10.21: ENABLED with impulse+chop quality gates. Monitor 10 trades, pause if WR < 50%.
+    FIVEMIN_SHADOW_ONLY = True   # V10.23: PAUSED. CSV Feb 14: 5M directional -$12, 15M -$204. ALL directional paused.
     # V10.22: 15M PAUSED. CSV Feb 14: 15M directional = 31% WR, -$182 (78% of ALL losses).
-    # Shadow-track until ML tunes to 65%+ WR. Only 5M directional trades go live.
+    # Shadow-track until ML tunes to 65%+ WR. No directional trades go live — MAKER ONLY.
     FIFTEENMIN_SHADOW_ONLY = True
     FIFTEENMIN_PROMOTE_WR = 0.65   # Auto-promote when 15M shadow WR >= 65% over 30+ trades
     FIFTEENMIN_PROMOTE_MIN_TRADES = 30
@@ -4152,7 +4152,7 @@ class TALiveTrader:
         """Main loop."""
         print("=" * 70)
         mode = "LIVE" if not self.dry_run else "DRY RUN"
-        print(f"TA + BREGMAN + ML {mode} TRADER V10.22 — '5M Only'")
+        print(f"TA + BREGMAN + ML {mode} TRADER V10.23 — 'Maker Only'")
         print("=" * 70)
         print(f"BET LIMITS: 15m=${self.MIN_POSITION_SIZE} | 5m weak=${self.FIVEMIN_WEAK_SIZE} | 5m strong=${self.FIVEMIN_STRONG_SIZE} (max ${self.HARD_MAX_BET})")
         print(f"PID LOCK: ENABLED — prevents ghost double-instances")
