@@ -174,13 +174,13 @@ class MakerConfig:
     BID_OFFSET: float = 0.02             # Bid this much below best ask
 
     # Position sizing
-    SIZE_PER_SIDE_USD: float = 10.0      # V1.9: $10/side (was $5). $168 balance scales to ~8 concurrent.
-    MAX_PAIR_EXPOSURE: float = 20.0      # V1.9: $20/pair (was $10)
-    MAX_TOTAL_EXPOSURE: float = 160.0    # V1.9: $160 max for 8 concurrent pairs
+    SIZE_PER_SIDE_USD: float = 15.0      # V2.0: $15/side (was $10). Recoup directional losses.
+    MAX_PAIR_EXPOSURE: float = 30.0      # V2.0: $30/pair (was $20)
+    MAX_TOTAL_EXPOSURE: float = 180.0    # V2.0: $180 max for 6 concurrent pairs
     MIN_SHARES: int = 5                  # CLOB minimum order size
 
     # Risk
-    DAILY_LOSS_LIMIT: float = 16.0       # V1.9: Scaled with $10/side (was $8)
+    DAILY_LOSS_LIMIT: float = 24.0       # V2.0: Scaled with $15/side (was $16)
     MAX_CONCURRENT_PAIRS: int = 12       # V1.5: 4 assets x 15M + BTC 5M = needs ~12 slots
     MAX_SINGLE_SIDED: int = 2            # V1.1: Was 3. Partial fills = directional risk. Allow max 2.
 
