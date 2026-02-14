@@ -1,14 +1,13 @@
 """
-New Strategies Paper Trader V1.0
+New Strategies Paper Trader V1.1
 
-Runs MEAN_REVERT_EXTREME + MOMENTUM_REGIME on 15M Polymarket BTC markets.
-Both use 1-minute BTC candles for signal generation.
+Runs MEAN_REVERT_EXTREME + MOMENTUM_REGIME + VWAP_REVERSION on Polymarket BTC markets.
+All use 1-minute BTC candles for signal generation.
 
 Backtest results (14-day):
   MEAN_REVERT_EXTREME_5m: 62.9% WR, +$6.90, 70 trades (BEST strategy)
-  MEAN_REVERT_EXTREME_15m: 56.5% WR, +$2.43, 69 trades
-  MOMENTUM_REGIME_5m: 53.2% WR, +$0.34, 222 trades
-  With hour filter: MRE_5m 64.4%, MOM_5m 56.7%
+  VWAP_REVERSION_5m: 59.3% WR, +$3.73, 59 trades (64.2% with hour filter)
+  MOMENTUM_REGIME_5m: 53.2% WR, +$0.34, 222 trades (56.7% with hour filter)
 
 Usage:
     python run_new_strategies_paper.py
@@ -33,13 +32,14 @@ from pid_lock import acquire_pid_lock, release_pid_lock
 # Import our backtest strategies (stateful, bar-by-bar)
 from nautilus_backtest.strategies.mean_revert_extreme import MeanRevertExtreme
 from nautilus_backtest.strategies.momentum_regime import MomentumRegime
+from nautilus_backtest.strategies.vwap_reversion import VwapReversion
 
 # ============================================================================
 # CONFIG
 # ============================================================================
 SCAN_INTERVAL = 25
 MAX_CONCURRENT_PER_STRAT = 2
-MAX_CONCURRENT_TOTAL = 4
+MAX_CONCURRENT_TOTAL = 6
 TIME_WINDOW = (2.0, 12.0)
 SPREAD_OFFSET = 0.03
 MIN_ENTRY_PRICE = 0.10
@@ -67,6 +67,12 @@ STRAT_CONFIG = {
         "base_size": 3.0,
         "max_size": 6.0,
     },
+    "VWAP_REVERSION": {
+        "min_confidence": 0.72,  # Same as MRE — similar selectivity (59 trades / 14d)
+        "min_edge": 0.005,
+        "base_size": 4.0,       # 59.3% WR raw, 64.2% filtered — strong
+        "max_size": 8.0,
+    },
 }
 
 
@@ -89,6 +95,7 @@ class NewStrategiesPaperTrader:
         self.strategies = {
             "MEAN_REVERT_EXTREME": MeanRevertExtreme(horizon_bars=5),
             "MOMENTUM_REGIME": MomentumRegime(horizon_bars=5),
+            "VWAP_REVERSION": VwapReversion(horizon_bars=5),
         }
 
         # Track which bars we've already processed to avoid duplicate signals
@@ -151,7 +158,7 @@ class NewStrategiesPaperTrader:
         markets = []
         try:
             r = httpx.get("https://gamma-api.polymarket.com/events",
-                          params={"tag_slug": "15M", "active": "true", "closed": "false", "limit": 50},
+                          params={"tag_slug": "5M", "active": "true", "closed": "false", "limit": 50},
                           headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
             if r.status_code != 200:
                 return markets

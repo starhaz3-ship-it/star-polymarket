@@ -2,7 +2,7 @@
 
 Does NOT use nautilus_trader's BacktestEngine. Instead, fetches BTC 1-min candles
 from Binance and loops through each bar, feeding data to 8 strategies at 2 horizons
-(5-min and 15-min) for 16 strategy instances total. Signals are scored as binary
+(5-min and 15-min) for 24 strategy instances total. Signals are scored as binary
 outcomes (Polymarket-style PnL).
 
 Usage:
@@ -31,6 +31,10 @@ from nautilus_backtest.strategies.wyckoff_vortex import WyckoffVortex
 from nautilus_backtest.strategies.momentum_regime import MomentumRegime
 from nautilus_backtest.strategies.mean_revert_extreme import MeanRevertExtreme
 from nautilus_backtest.strategies.divergence_hunter import DivergenceHunter
+from nautilus_backtest.strategies.exhaustion_bar import ExhaustionBar
+from nautilus_backtest.strategies.vwap_reversion import VwapReversion
+from nautilus_backtest.strategies.squeeze_fail import SqueezeFail
+from nautilus_backtest.strategies.multi_extreme import MultiExtreme
 from nautilus_backtest.config import DEFAULT_ENTRY_PRICE, DEFAULT_SPREAD
 
 
@@ -140,7 +144,7 @@ def ascii_chart(series: dict[str, list[float]], width: int = 60, height: int = 1
 # ── Strategy Instance Factory ────────────────────────────────────────────────
 
 def create_strategy_instances() -> list:
-    """Create all 16 strategy instances (8 strategies x 2 horizons)."""
+    """Create all 24 strategy instances (12 strategies x 2 horizons)."""
     strategies = []
 
     # Each strategy class, instantiated at 5-min and 15-min horizons
@@ -153,6 +157,10 @@ def create_strategy_instances() -> list:
         MomentumRegime,
         MeanRevertExtreme,
         DivergenceHunter,
+        ExhaustionBar,
+        VwapReversion,
+        SqueezeFail,
+        MultiExtreme,
     ]
 
     for cls in strategy_classes:

@@ -745,12 +745,11 @@ class CryptoMarketMaker:
     # ========================================================================
 
     async def discover_markets(self) -> List[MarketPair]:
-        """Find all active 5-min crypto Up/Down markets (15m dropped — CSV shows -$47.71).
-        All markets live under tag_slug=15M. We parse actual duration from the title
-        and skip anything > 5 minutes."""
+        """Find all active 5-min BTC Up/Down markets.
+        V2.4: 5M markets moved to tag_slug='5M' (was under '15M' before)."""
         pairs = []
         async with httpx.AsyncClient(timeout=15) as client:
-            for tag_slug, duration in [("15M", 5)]:
+            for tag_slug, duration in [("5M", 5)]:
                 try:
                     r = await client.get(
                         "https://gamma-api.polymarket.com/events",
@@ -808,7 +807,7 @@ class CryptoMarketMaker:
                                 t2 = (h2 % 12 + (12 if p2 == "PM" else 0)) * 60 + m2
                                 actual_dur = t2 - t1 if t2 > t1 else t2 + 1440 - t1
                             if actual_dur > 5:
-                                continue  # Skip 15m+ markets (CSV: -$47.71)
+                                continue  # Skip markets longer than 5m
 
                             pair = self._parse_market(m, event, matched_asset, actual_dur)
                             if pair:
@@ -1310,6 +1309,133 @@ class CryptoMarketMaker:
                                 pass
                         print(f"  [EXPIRE] Cancelled unfilled {order.side_label} order on {pos.asset}")
 
+    async def harvest_extreme_prices(self):
+        """V2.4: Vague-sourdough pattern — sell paired positions at extreme prices
+        in the final 90 seconds instead of holding to settlement.
+
+        When a paired position has one side trading at 0.85+, sell BOTH sides:
+        - Winning side at 0.85-0.97 (lock in profit early)
+        - Losing side at 0.03-0.15 (salvage what we can)
+
+        This captures the "harvesting" pattern: extreme prices near close
+        offer nearly guaranteed profit without waiting for settlement risk.
+        Only triggers on PAIRED positions in LIVE mode with < 90s left.
+        """
+        if self.paper:
+            return  # Paper mode uses settlement resolution
+
+        now = datetime.now(timezone.utc)
+        for market_id, pos in list(self.positions.items()):
+            if pos.status != "paired" or not pos.is_paired:
+                continue
+
+            # Check time remaining
+            created = datetime.fromisoformat(pos.created_at)
+            age_sec = (now - created).total_seconds()
+            time_left_sec = pos.duration_min * 60 - age_sec
+
+            # Only harvest in final 90 seconds
+            if time_left_sec > 90 or time_left_sec < 10:
+                continue
+
+            # Fetch current prices
+            try:
+                up_book = await self.get_order_book(pos.up_order.token_id) if pos.up_order else None
+                down_book = await self.get_order_book(pos.down_order.token_id) if pos.down_order else None
+            except Exception:
+                continue
+
+            if not up_book or not down_book:
+                continue
+
+            up_bid = up_book.get("best_bid", 0)
+            down_bid = down_book.get("best_bid", 0)
+
+            # Check if either side is extreme enough to harvest
+            # Need at least one side at 0.82+ (strong directional move confirmed)
+            extreme_side = None
+            if up_bid >= 0.82:
+                extreme_side = "UP"
+            elif down_bid >= 0.82:
+                extreme_side = "DOWN"
+
+            if not extreme_side:
+                continue
+
+            # Calculate harvest PnL vs settlement PnL
+            up_cost = pos.up_order.fill_price * pos.up_order.fill_shares if pos.up_order else 0
+            down_cost = pos.down_order.fill_price * pos.down_order.fill_shares if pos.down_order else 0
+            total_cost = up_cost + down_cost
+
+            # If we sell both sides now at bid prices
+            harvest_revenue = (up_bid * pos.up_order.fill_shares +
+                               down_bid * pos.down_order.fill_shares)
+            harvest_pnl = harvest_revenue - total_cost
+
+            # Only harvest if profitable (combined sell > combined cost)
+            if harvest_pnl <= 0:
+                continue
+
+            # Execute harvest: sell both sides
+            from py_clob_client.clob_types import OrderArgs, OrderType
+            from py_clob_client.order_builder.constants import SELL
+
+            sold_both = True
+            actual_revenue = 0
+            for order, bid_price in [(pos.up_order, up_bid), (pos.down_order, down_bid)]:
+                if not order or not order.fill_shares:
+                    continue
+                sell_price = max(0.01, round(bid_price - 0.01, 2))  # 1c below bid for fast fill
+                try:
+                    sell_args = OrderArgs(
+                        price=sell_price,
+                        size=order.fill_shares,
+                        side=SELL,
+                        token_id=order.token_id,
+                    )
+                    sell_signed = self.client.create_order(sell_args)
+                    sell_resp = self.client.post_order(sell_signed, OrderType.GTC)
+                    if sell_resp.get("success"):
+                        actual_revenue += sell_price * order.fill_shares
+                    else:
+                        sold_both = False
+                except Exception as e:
+                    sold_both = False
+
+            if sold_both and actual_revenue > 0:
+                actual_pnl = actual_revenue - total_cost
+                pos.status = "resolved"
+                pos.pnl = actual_pnl
+                pos.outcome = f"HARVESTED_{extreme_side}"
+                self.stats["total_pnl"] += actual_pnl
+                self.daily_pnl += actual_pnl
+                self.stats["pairs_completed"] += 1
+                self.stats["paired_pnl"] += actual_pnl
+                self.stats["best_pair_pnl"] = max(self.stats["best_pair_pnl"], actual_pnl)
+
+                self.ml_optimizer.record(
+                    hour=pos.hour_utc if pos.hour_utc >= 0 else now.hour,
+                    offset=pos.bid_offset_used,
+                    paired=True, partial=False, pnl=actual_pnl
+                )
+                self.resolved.append({
+                    "market_id": market_id,
+                    "question": pos.question,
+                    "asset": pos.asset,
+                    "outcome": f"HARVESTED_{extreme_side}",
+                    "paired": True, "partial": False,
+                    "combined_cost": total_cost,
+                    "pnl": actual_pnl,
+                    "bid_offset": pos.bid_offset_used,
+                    "hour_utc": pos.hour_utc,
+                    "up_sell": up_bid, "down_sell": down_bid,
+                    "resolved_at": now.isoformat(),
+                })
+                print(f"  [HARVEST] {pos.asset} {extreme_side} dominant | "
+                      f"Sold UP@${up_bid:.2f} DN@${down_bid:.2f} | "
+                      f"Cost=${total_cost:.2f} Rev=${actual_revenue:.2f} | "
+                      f"PnL=${actual_pnl:+.4f} | {time_left_sec:.0f}s left")
+
     async def resolve_positions(self):
         """Check if markets have resolved and calculate PnL."""
         now = datetime.now(timezone.utc)
@@ -1559,7 +1685,10 @@ class CryptoMarketMaker:
                 # Phase 1: Cancel expiring unfilled orders
                 await self.manage_expiring_orders()
 
-                # Phase 2: Resolve completed markets
+                # Phase 2a: V2.4 Harvest paired positions at extreme prices (last 90s)
+                await self.harvest_extreme_prices()
+
+                # Phase 2b: Resolve completed markets
                 await self.resolve_positions()
 
                 # Phase 3: Check fills on active orders

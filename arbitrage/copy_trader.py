@@ -100,6 +100,8 @@ class CopyTrader:
         # --- Diversified Whale (added 2026-02-13) ---
         "Female-Bongo": "0x0eA574F3204C5c9C0cdEad90392ea0990F4D17e4",  # $378K PnL, $51.5M vol, 4,163 mkts, crypto+sports+politics, largest win $38K
         "Same-Folk": "0x5e5bf17f2387232deb056cabcaa1f6ad8d60969b",  # $24K PnL, $548K vol, 57 mkts, 2-day-old acct, largest win $8.3K, via kyledewriter
+        # --- 5m BTC Scalper/MM (added 2026-02-14) ---
+        "vague-sourdough": "0x70ec235a31eb35f243e2618d6ea3b5b8962bbb5d",  # $37K PnL in 3 days, $1.8M vol, 397 mkts, 100% BTC 5m both-sides, active scalper (buys early, harvests final 60s at extreme prices)
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]
