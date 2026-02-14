@@ -237,7 +237,7 @@ class Momentum5MTrader:
             async with httpx.AsyncClient(timeout=15) as client:
                 r = await client.get(
                     "https://gamma-api.polymarket.com/events",
-                    params={"tag_slug": "5M", "active": "true", "closed": "false",
+                    params={"tag_slug": "15M", "active": "true", "closed": "false",
                             "limit": 200},
                     headers={"User-Agent": "Mozilla/5.0"}
                 )
@@ -341,15 +341,21 @@ class Momentum5MTrader:
                             up_p, down_p = self.get_prices(rm)
                             if up_p is not None:
                                 price = up_p if trade["side"] == "UP" else down_p
+                                # BINARY ONLY: wait for full resolution
                                 if price >= 0.95:
-                                    exit_val = trade["size_usd"] / trade["entry_price"]
+                                    # WIN: shares pay $1 each
+                                    shares = trade["size_usd"] / trade["entry_price"]
+                                    trade["pnl"] = round(shares - trade["size_usd"], 2)
+                                    trade["exit_price"] = 1.0
                                 elif price <= 0.05:
-                                    exit_val = 0
+                                    # LOSS: shares worth $0
+                                    trade["pnl"] = round(-trade["size_usd"], 2)
+                                    trade["exit_price"] = 0.0
                                 else:
-                                    exit_val = (trade["size_usd"] / trade["entry_price"]) * price
-                                trade["exit_price"] = price
+                                    # Not resolved yet - skip
+                                    continue
+
                                 trade["exit_time"] = now.isoformat()
-                                trade["pnl"] = round(exit_val - trade["size_usd"], 2)
                                 trade["status"] = "closed"
 
                                 won = trade["pnl"] > 0
@@ -362,7 +368,7 @@ class Momentum5MTrader:
                                 wr = w / (w + l) * 100 if (w + l) > 0 else 0
                                 tag = "WIN" if won else "LOSS"
                                 print(f"[{tag}] {trade['side']} ${trade['pnl']:+.2f} | "
-                                      f"entry=${trade['entry_price']:.2f} exit=${price:.2f} | "
+                                      f"entry=${trade['entry_price']:.2f} exit=${trade['exit_price']:.2f} | "
                                       f"strat={trade.get('strategy', '?')} | "
                                       f"{w}W/{l}L {wr:.0f}%WR ${self.stats['pnl']:+.2f} | "
                                       f"{trade.get('title', '')[:40]}")

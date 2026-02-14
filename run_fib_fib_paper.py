@@ -304,10 +304,12 @@ class FibFibPaperTrader:
         return []
 
     def discover_5m_markets(self):
+        """Discover BTC markets from 15M tag (5M tag is dead since Dec 2025).
+        Uses time_left filter to find markets in our trading window."""
         markets = []
         try:
             r = httpx.get("https://gamma-api.polymarket.com/events",
-                          params={"tag_slug": "5M", "active": "true", "closed": "false", "limit": 50},
+                          params={"tag_slug": "15M", "active": "true", "closed": "false", "limit": 50},
                           headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
             if r.status_code != 200:
                 return markets
@@ -371,14 +373,16 @@ class FibFibPaperTrader:
                         up_p, dn_p = self.get_prices(rm)
                         if up_p is not None:
                             price = up_p if trade["side"] == "UP" else dn_p
+                            # BINARY ONLY: wait for full resolution
                             if price >= 0.95:
-                                exit_val = trade["size_usd"] / trade["entry_price"]
+                                shares = trade["size_usd"] / trade["entry_price"]
+                                trade["pnl"] = round(shares - trade["size_usd"], 2)
+                                trade["exit_price"] = 1.0
                             elif price <= 0.05:
-                                exit_val = 0
+                                trade["pnl"] = round(-trade["size_usd"], 2)
+                                trade["exit_price"] = 0.0
                             else:
-                                exit_val = (trade["size_usd"] / trade["entry_price"]) * price
-                            trade["pnl"] = round(exit_val - trade["size_usd"], 2)
-                            trade["exit_price"] = price
+                                continue  # Not resolved yet
                             trade["exit_time"] = now.isoformat()
                             trade["status"] = "closed"
                             won = trade["pnl"] > 0
