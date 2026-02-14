@@ -648,6 +648,15 @@ class TAPaperTrader:
         self.SHADOW_15M_MOM_TIME_WINDOW = (2.0, 12.0)  # Minutes before expiry
         self.SHADOW_15M_MOM_MAX_CONCURRENT = 5
 
+        # === FLASH CRASH DETECTION (V3.20 - from discountry/polymarket-trading-bot) ===
+        # Track Polymarket odds over time. When a side drops >threshold in lookback window,
+        # buy the crash (mean reversion). Inspired by MuseumOfBees whale ($13.6K from 5m BTC).
+        self._market_price_history: Dict[str, Dict[str, list]] = {}  # {condition_id: {"up": [(ts, price), ...], "down": [...]}}
+        self.FLASH_CRASH_DROP_THRESHOLD = 0.08  # 8-cent drop triggers flash crash (ref repo uses 0.30 — too aggressive)
+        self.FLASH_CRASH_LOOKBACK_SEC = 120     # Look back 2 minutes (4 cycles at 30s)
+        self.FLASH_CRASH_MAX_HISTORY = 20       # Keep last 20 price points per market
+        self.FLASH_CRASH_SIZE = 10.0            # Paper position size for flash crash trades
+
         # === BTC ML PREDICTORS (V3.19) ===
         # LightGBM models trained on Binance candle data
         # 3 models per timeframe: direction, volatility, momentum quality
@@ -1194,6 +1203,53 @@ class TAPaperTrader:
             self.daily_pnl = 0.0
             self.last_reset_day = today
 
+    def _record_market_prices(self, markets):
+        """Record current Polymarket odds for flash crash detection."""
+        now = time.time()
+        for market in markets:
+            cid = market.get("conditionId", "")
+            if not cid:
+                continue
+            up_p, down_p = self.get_market_prices(market)
+            if up_p is None or down_p is None:
+                continue
+            if cid not in self._market_price_history:
+                self._market_price_history[cid] = {"up": [], "down": []}
+            hist = self._market_price_history[cid]
+            hist["up"].append((now, up_p))
+            hist["down"].append((now, down_p))
+            # Trim to max history
+            if len(hist["up"]) > self.FLASH_CRASH_MAX_HISTORY:
+                hist["up"] = hist["up"][-self.FLASH_CRASH_MAX_HISTORY:]
+            if len(hist["down"]) > self.FLASH_CRASH_MAX_HISTORY:
+                hist["down"] = hist["down"][-self.FLASH_CRASH_MAX_HISTORY:]
+
+    def _detect_flash_crash(self, condition_id: str) -> Optional[tuple]:
+        """Detect flash crash on a market. Returns (side, old_price, new_price, drop) or None."""
+        if condition_id not in self._market_price_history:
+            return None
+        hist = self._market_price_history[condition_id]
+        now = time.time()
+        cutoff = now - self.FLASH_CRASH_LOOKBACK_SEC
+
+        for side in ["up", "down"]:
+            points = hist.get(side, [])
+            if len(points) < 2:
+                continue
+            current_price = points[-1][1]
+            # Find oldest price within lookback window
+            old_price = None
+            for ts, price in points:
+                if ts >= cutoff:
+                    old_price = price
+                    break
+            if old_price is None:
+                continue
+            drop = old_price - current_price
+            if drop >= self.FLASH_CRASH_DROP_THRESHOLD:
+                return (side, old_price, current_price, drop)
+        return None
+
     async def _trade_5m_shadow(self, markets, candles, btc_price):
         """V3.18: Dedicated 5-minute market shadow paper trading."""
         try:
@@ -1524,6 +1580,26 @@ class TAPaperTrader:
                     entry_price = round(down_price + 0.02, 2)
                     strategy = "extreme_cheap"
 
+            # === STRATEGY 4: FLASH CRASH (mean reversion on probability drops) ===
+            # Inspired by discountry/polymarket-trading-bot + MuseumOfBees whale
+            if not side:
+                crash = self._detect_flash_crash(cid)
+                if crash:
+                    crash_side, old_p, new_p, drop = crash
+                    # Buy the crashed side (mean reversion)
+                    if crash_side == "up" and self.SHADOW_5M_MIN_ENTRY <= up_price <= self.SHADOW_5M_MAX_ENTRY:
+                        side = "UP"
+                        entry_price = round(up_price + 0.02, 2)
+                        strategy = "flash_crash"
+                    elif crash_side == "down" and self.SHADOW_5M_MIN_ENTRY <= down_price <= self.SHADOW_5M_MAX_ENTRY:
+                        side = "DOWN"
+                        entry_price = round(down_price + 0.02, 2)
+                        strategy = "flash_crash"
+                    if side:
+                        print(f"[5M FLASH CRASH] {asset} {crash_side.upper()} dropped {drop:.2f} "
+                              f"({old_p:.2f}->{new_p:.2f}) in {self.FLASH_CRASH_LOOKBACK_SEC}s | "
+                              f"Buying {side} @ ${entry_price:.2f}")
+
             if side and entry_price and entry_price <= self.SHADOW_5M_MAX_ENTRY:
                 # V3.19: ML-adjusted position size
                 trade_size = ml_size if ml_pred else self.shadow_5m_SIZE
@@ -1746,6 +1822,23 @@ class TAPaperTrader:
                     entry_price = round(down_price + 0.02, 2)
                     if momentum_5m < 0:
                         strategy = "momentum_strong"
+
+            # === FLASH CRASH (mean reversion on 15m probability drops) ===
+            if not side:
+                crash = self._detect_flash_crash(cid)
+                if crash:
+                    crash_side, old_p, new_p, drop = crash
+                    if crash_side == "up" and self.SHADOW_15M_MOM_MIN_ENTRY <= up_price <= self.SHADOW_15M_MOM_MAX_ENTRY:
+                        side = "UP"
+                        entry_price = round(up_price + 0.02, 2)
+                        strategy = "flash_crash"
+                    elif crash_side == "down" and self.SHADOW_15M_MOM_MIN_ENTRY <= down_price <= self.SHADOW_15M_MOM_MAX_ENTRY:
+                        side = "DOWN"
+                        entry_price = round(down_price + 0.02, 2)
+                        strategy = "flash_crash"
+                    if side:
+                        print(f"[15M-MOM FLASH CRASH] {asset} {crash_side.upper()} dropped {drop:.2f} "
+                              f"({old_p:.2f}->{new_p:.2f}) | Buying {side} @ ${entry_price:.2f}")
 
             # === BOTH-SIDES ARB (same as 5m) ===
             combined = up_price + down_price
@@ -2026,6 +2119,10 @@ class TAPaperTrader:
         # === ARBITRAGE SCAN ===
         # Check ALL eligible markets for both-sides arb (UP + DOWN < $0.97)
         self._scan_arbitrage(eligible_markets)
+
+        # === FLASH CRASH PRICE RECORDING (V3.20) ===
+        # Record Polymarket odds for flash crash detection across all shadow systems
+        self._record_market_prices(markets)
 
         # === 5M SHADOW PAPER TRADING (V3.18) ===
         # Separate momentum-based system for 5-minute markets

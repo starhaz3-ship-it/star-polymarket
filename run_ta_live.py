@@ -1,5 +1,5 @@
 """
-TA Live Trading with ML Optimization — V10.16 "Stop the Bleeding"
+TA Live Trading with ML Optimization — V10.17 "Flash Crash"
 
 Live trades BTC/SOL 5m+15m markets using TA+Bregman signals.
 V10.16: Block losing combos (ETH all, BTC UP, SOL DOWN) with ML shadow auto-promote.
@@ -386,6 +386,10 @@ class TALiveTrader:
     FIVEMIN_STRONG_MOMENTUM = 0.05  # 10m momentum > 0.05% = strong signal = $5
     FIVEMIN_STRONG_SIZE = 5.0       # Size for strong 5m momentum
     FIVEMIN_WEAK_SIZE = 3.0         # Size for weak 5m momentum
+    # Flash crash detection (V10.17 - from discountry/polymarket-trading-bot + MuseumOfBees whale)
+    FLASH_CRASH_DROP = 0.08         # 8-cent drop triggers flash crash entry
+    FLASH_CRASH_LOOKBACK = 120      # Look back 2 minutes
+    FLASH_CRASH_SIZE = 5.0          # $5 on flash crash (high conviction mean reversion)
 
     def __init__(self, dry_run: bool = False, bankroll: float = 73.14):
         self.dry_run = dry_run
@@ -445,6 +449,9 @@ class TALiveTrader:
 
         # === IH2P ADAPTATIONS STATE ===
         self.pending_topups: Dict[str, dict] = {}  # DCA top-up orders waiting for next scan
+
+        # === FLASH CRASH PRICE HISTORY (V10.17) ===
+        self._market_price_history: Dict[str, Dict[str, list]] = {}  # {cid: {"up": [(ts,p),...], "down": [...]}}
 
         # === SHADOW TRADE TRACKER ===
         # Records trades blocked by ATR filter + counterfactual trend bias sizing
@@ -2106,6 +2113,10 @@ class TALiveTrader:
             counts_str = " | ".join(f"{a}:{c}" for a, c in asset_counts.items())
             print(f"[Markets] {total_markets} total ({counts_str})")
 
+        # V10.17: Record all market prices for flash crash detection
+        for ad in asset_data.values():
+            self._record_market_prices(ad.get("markets", []))
+
         self.signals_count += 1
         main_signal = None
 
@@ -2197,6 +2208,24 @@ class TALiveTrader:
                     time_remaining_min=time_left
                 )
 
+                # === V10.17: FLASH CRASH DETECTION (mean reversion on probability drops) ===
+                # Inspired by discountry/polymarket-trading-bot + MuseumOfBees whale ($13.6K on 5m BTC)
+                # If probability crashed > threshold in lookback window, override signal to buy crashed side
+                is_flash_crash = False
+                flash_crash_data = self._detect_flash_crash(market_id)
+                if flash_crash_data:
+                    crash_side, old_p, new_p, drop_amt = flash_crash_data
+                    crash_buy_side = crash_side.upper()
+                    crash_entry = up_price if crash_buy_side == "UP" else down_price
+                    if 0.10 <= crash_entry <= 0.60:
+                        is_flash_crash = True
+                        # Override signal to buy the crashed side
+                        signal.side = crash_buy_side
+                        signal.confidence = 0.80  # High conviction for mean reversion
+                        print(f"  [{asset}] FLASH CRASH: {crash_buy_side} dropped {drop_amt:.2f} "
+                              f"({old_p:.2f}->{new_p:.2f}) in {self.FLASH_CRASH_LOOKBACK}s | "
+                              f"Overriding to BUY {crash_buy_side} @ ${crash_entry:.2f}")
+
                 trade_key = f"{market_id}_{signal.side}" if signal.side else None
 
                 # === AUTO-ENABLE UP TRADES when criteria met ===
@@ -2209,25 +2238,22 @@ class TALiveTrader:
                         self.DOWN_ONLY_MODE = False
                         print(f"[MODE] UP TRADES RE-ENABLED! ({self.wins}W/{self.losses}L = {win_rate:.0%} WR, ${self.total_pnl:.2f} PnL)")
 
-                # === DOWN ONLY MODE - skip UP trades ===
-                if self.DOWN_ONLY_MODE and signal.side == "UP":
+                # === DOWN ONLY MODE - skip UP trades (flash crash overrides) ===
+                if self.DOWN_ONLY_MODE and signal.side == "UP" and not is_flash_crash:
                     continue  # Silent skip - don't spam logs
 
-                # === V10.12: SOL DOWN-ONLY ===
-                # CSV: SOL UP = heavy losses. Block UP, shadow-track for ML.
-                if asset == "SOL" and self.SOL_DOWN_ONLY and signal.side == "UP":
+                # === V10.12: SOL DOWN-ONLY (flash crash overrides) ===
+                if asset == "SOL" and self.SOL_DOWN_ONLY and signal.side == "UP" and not is_flash_crash:
                     self._record_filter_shadow(asset, signal.side, up_price, market_id, question, "v1012_sol_up_block", market_numeric_id=market_numeric_id)
                     continue  # Shadow tracked
 
-                # === V10.16: BTC UP BLOCKED ===
-                # CSV: BTC UP = 26.2% WR, -$107. Only BTC DOWN profitable. Shadow-track for ML auto-promote.
-                if asset == "BTC" and self.BTC_UP_BLOCKED and signal.side == "UP":
+                # === V10.16: BTC UP BLOCKED (flash crash overrides) ===
+                if asset == "BTC" and self.BTC_UP_BLOCKED and signal.side == "UP" and not is_flash_crash:
                     self._record_filter_shadow(asset, signal.side, up_price, market_id, question, "v1016_btc_up_block", market_numeric_id=market_numeric_id)
                     continue  # Shadow tracked — auto-unblock when WR > 55%
 
-                # === V10.16: SOL DOWN BLOCKED ===
-                # CSV: SOL DOWN = 35.7% WR, -$101. Shadow-track for ML auto-promote.
-                if asset == "SOL" and self.SOL_DOWN_BLOCKED and signal.side == "DOWN":
+                # === V10.16: SOL DOWN BLOCKED (flash crash overrides) ===
+                if asset == "SOL" and self.SOL_DOWN_BLOCKED and signal.side == "DOWN" and not is_flash_crash:
                     self._record_filter_shadow(asset, signal.side, down_price, market_id, question, "v1016_sol_down_block", market_numeric_id=market_numeric_id)
                     continue  # Shadow tracked — auto-unblock when WR > 55%
 
@@ -2697,11 +2723,17 @@ class TALiveTrader:
                             position_size = self.MIN_POSITION_SIZE
                             hour_tag += ", LOW-EDGE=$5"
 
+                        # === V10.17: FLASH CRASH SIZING ===
+                        # Flash crash = high conviction mean reversion -> max size
+                        if is_flash_crash:
+                            position_size = self.FLASH_CRASH_SIZE
+                            print(f"  [{asset}] FLASH CRASH SIZE: ${position_size} (mean reversion)")
+
                         # === V10.16: 5m MOMENTUM SIZING ===
                         # Paper: momentum_strong 72%WR +$168, momentum 54%WR +$52
                         # Strong 5m momentum = $5, weak = $3
                         market_tf = market.get("_timeframe", "15m")
-                        if market_tf == "5m" and len(candles) >= 12:
+                        if market_tf == "5m" and len(candles) >= 12 and not is_flash_crash:
                             mom_10m = abs((price - candles[-11].close) / candles[-11].close * 100)
                             if mom_10m >= self.FIVEMIN_STRONG_MOMENTUM:
                                 position_size = self.FIVEMIN_STRONG_SIZE
@@ -3429,6 +3461,50 @@ class TALiveTrader:
                 print(f"[AUTO-PROMOTE] {best_name} added to live hydra strategies (score={best_score:.1f})")
         except Exception as e:
             print(f"[AUTO-PROMOTE] Error reading paper data: {e}")
+
+    def _record_market_prices(self, markets):
+        """Record Polymarket odds for flash crash detection (V10.17)."""
+        now = time.time()
+        for market in markets:
+            cid = market.get("conditionId", "")
+            if not cid:
+                continue
+            up_p, down_p = self.get_market_prices(market)
+            if up_p is None or down_p is None:
+                continue
+            if cid not in self._market_price_history:
+                self._market_price_history[cid] = {"up": [], "down": []}
+            hist = self._market_price_history[cid]
+            hist["up"].append((now, up_p))
+            hist["down"].append((now, down_p))
+            if len(hist["up"]) > 20:
+                hist["up"] = hist["up"][-20:]
+            if len(hist["down"]) > 20:
+                hist["down"] = hist["down"][-20:]
+
+    def _detect_flash_crash(self, condition_id: str):
+        """Detect flash crash. Returns (side, old_price, new_price, drop) or None."""
+        if condition_id not in self._market_price_history:
+            return None
+        hist = self._market_price_history[condition_id]
+        now = time.time()
+        cutoff = now - self.FLASH_CRASH_LOOKBACK
+        for side in ["up", "down"]:
+            points = hist.get(side, [])
+            if len(points) < 2:
+                continue
+            current_price = points[-1][1]
+            old_price = None
+            for ts, price in points:
+                if ts >= cutoff:
+                    old_price = price
+                    break
+            if old_price is None:
+                continue
+            drop = old_price - current_price
+            if drop >= self.FLASH_CRASH_DROP:
+                return (side, old_price, current_price, drop)
+        return None
 
     def _record_filter_shadow(self, asset: str, side: str, entry_price: float,
                               market_id: str, market_title: str, filter_name: str,
