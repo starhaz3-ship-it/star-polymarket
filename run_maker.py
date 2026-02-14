@@ -49,17 +49,17 @@ load_dotenv()
 
 
 # ============================================================================
-# AUTO-REDEEM (gasless relayer)
+# AUTO-REDEEM (gasless relayer primary, direct on-chain fallback)
 # ============================================================================
 
 _poly_web3_service = None
+_relayer_quota_reset_at = 0  # timestamp when relayer quota resets
 
 def _get_poly_web3_service():
-    """Get or create a cached PolyWeb3Service instance for gasless relayer redemptions."""
+    """Get or create PolyWeb3Service for gasless relayer redemptions."""
     global _poly_web3_service
     if _poly_web3_service is not None:
         return _poly_web3_service
-
     try:
         from py_clob_client.client import ClobClient
         from py_builder_relayer_client.client import RelayClient
@@ -71,89 +71,297 @@ def _get_poly_web3_service():
         password = os.getenv("POLYMARKET_PASSWORD", "")
         if not password:
             return None
-
         pk = os.getenv("POLYMARKET_PRIVATE_KEY", "")
         if pk.startswith("ENC:"):
             pk = decrypt_key(pk[4:], os.getenv("POLYMARKET_KEY_SALT", ""), password)
         if not pk:
             return None
-
         proxy_address = os.getenv("POLYMARKET_PROXY_ADDRESS", "")
 
-        client = ClobClient(
-            host="https://clob.polymarket.com",
-            key=pk,
-            chain_id=137,
-            signature_type=1,
-            funder=proxy_address if proxy_address else None,
-        )
+        client = ClobClient(host="https://clob.polymarket.com", key=pk, chain_id=137,
+                            signature_type=1, funder=proxy_address if proxy_address else None)
         creds = client.derive_api_key()
         client.set_api_creds(creds)
 
-        builder_key = decrypt_key(
-            os.getenv("POLY_BUILDER_API_KEY", "")[4:],
-            os.getenv("POLY_BUILDER_API_KEY_SALT", ""), password)
-        builder_secret = decrypt_key(
-            os.getenv("POLY_BUILDER_SECRET", "")[4:],
-            os.getenv("POLY_BUILDER_SECRET_SALT", ""), password)
-        builder_passphrase = decrypt_key(
-            os.getenv("POLY_BUILDER_PASSPHRASE", "")[4:],
-            os.getenv("POLY_BUILDER_PASSPHRASE_SALT", ""), password)
+        bk = decrypt_key(os.getenv("POLY_BUILDER_API_KEY", "")[4:], os.getenv("POLY_BUILDER_API_KEY_SALT", ""), password)
+        bs = decrypt_key(os.getenv("POLY_BUILDER_SECRET", "")[4:], os.getenv("POLY_BUILDER_SECRET_SALT", ""), password)
+        bp = decrypt_key(os.getenv("POLY_BUILDER_PASSPHRASE", "")[4:], os.getenv("POLY_BUILDER_PASSPHRASE_SALT", ""), password)
 
-        builder_config = BuilderConfig(
-            local_builder_creds=BuilderApiKeyCreds(
-                key=builder_key, secret=builder_secret, passphrase=builder_passphrase))
+        bc = BuilderConfig(local_builder_creds=BuilderApiKeyCreds(key=bk, secret=bs, passphrase=bp))
+        rc = RelayClient(relayer_url="https://relayer-v2.polymarket.com", chain_id=137, private_key=pk, builder_config=bc)
 
-        relay_client = RelayClient(
-            relayer_url="https://relayer-v2.polymarket.com",
-            chain_id=137,
-            private_key=pk,
-            builder_config=builder_config,
-        )
-
-        _poly_web3_service = PolyWeb3Service(
-            clob_client=client,
-            relayer_client=relay_client,
-            rpc_url="https://polygon-bor.publicnode.com",
-        )
-        print(f"[REDEEM] PolyWeb3Service initialized (gasless relayer)")
+        _poly_web3_service = PolyWeb3Service(clob_client=client, relayer_client=rc,
+                                              rpc_url="https://polygon-bor.publicnode.com")
+        print("[REDEEM] Gasless relayer initialized")
         return _poly_web3_service
     except Exception as e:
-        print(f"[REDEEM] Failed to init PolyWeb3Service: {str(e)[:80]}")
+        print(f"[REDEEM] Relayer init failed: {str(e)[:80]}")
         return None
 
 
+def _try_gasless_redeem():
+    """Try gasless relayer. Returns (success: bool, claimed_shares: float).
+    Monkey-patches the broken _submit_transactions to handle error responses."""
+    global _relayer_quota_reset_at
+    if time.time() < _relayer_quota_reset_at:
+        return False, 0.0
+
+    svc = _get_poly_web3_service()
+    if not svc:
+        return False, 0.0
+
+    try:
+        import requests as req_lib
+        from poly_web3.const import RELAYER_URL, SUBMIT_TRANSACTION
+        from poly_web3.web3_service.proxy_service import ProxyWeb3Service
+        from eth_utils import to_checksum_address
+
+        # Monkey-patch _submit_transactions to handle error responses
+        _original_submit = ProxyWeb3Service._submit_transactions
+
+        def _patched_submit(self_svc, txs, metadata):
+            if self_svc.clob_client is None:
+                raise Exception("signer not found")
+            _from = to_checksum_address(self_svc.clob_client.get_address())
+            from poly_web3.const import GET_RELAY_PAYLOAD
+            from poly_web3.schema import WalletType
+            rp = self_svc._get_relay_payload(_from, self_svc.wallet_type)
+            args = {
+                "from": _from, "gasPrice": "0",
+                "data": self_svc.encode_proxy_transaction_data(txs),
+                "relay": rp["address"], "nonce": rp["nonce"],
+            }
+            req_body = self_svc.build_proxy_transaction_request(args, metadata=metadata)
+            headers = self_svc.relayer_client._generate_builder_headers("POST", SUBMIT_TRANSACTION, req_body)
+            response = req_lib.post(RELAYER_URL + SUBMIT_TRANSACTION, json=req_body, headers=headers)
+            resp_json = response.json()
+
+            # Check for errors BEFORE accessing transactionID
+            if "error" in resp_json:
+                raise Exception(f"Relayer: {resp_json['error']}")
+            if "transactionID" not in resp_json:
+                raise Exception(f"Relayer missing transactionID: {list(resp_json.keys())}")
+
+            from poly_web3.const import STATE_MINED, STATE_CONFIRMED, STATE_FAILED
+            return self_svc.relayer_client.poll_until_state(
+                transaction_id=resp_json["transactionID"],
+                states=[STATE_MINED, STATE_CONFIRMED],
+                fail_state=STATE_FAILED, max_polls=100,
+            )
+
+        # Apply patch
+        ProxyWeb3Service._submit_transactions = _patched_submit
+
+        proxy = os.getenv("POLYMARKET_PROXY_ADDRESS", "")
+        positions = svc.fetch_positions(user_address=proxy)
+        if not positions:
+            ProxyWeb3Service._submit_transactions = _original_submit
+            return True, 0.0
+
+        total = sum(float(p.get("size", 0) or 0) for p in positions)
+        results = svc.redeem_all(batch_size=5)
+
+        # Restore original
+        ProxyWeb3Service._submit_transactions = _original_submit
+
+        if results:
+            print(f"[REDEEM] Gasless OK: {len(results)} batch(es), ~${total:.0f}")
+            return True, total
+        # Results empty but positions exist = relayer failed silently
+        return False, 0.0
+
+    except Exception as e:
+        err = str(e)
+        if "quota exceeded" in err:
+            import re
+            m = re.search(r"resets in (\d+)", err)
+            wait = int(m.group(1)) if m else 3600
+            _relayer_quota_reset_at = time.time() + wait
+            print(f"[REDEEM] Relayer quota exceeded, retry in {wait//60}min")
+        elif "Relayer:" in err:
+            _relayer_quota_reset_at = time.time() + 300
+            print(f"[REDEEM] Relayer error: {err[:80]}, retry in 5min")
+        elif "No winning" not in err:
+            print(f"[REDEEM] Gasless error: {err[:80]}")
+        return False, 0.0
+
+
+# Contract addresses on Polygon (for direct on-chain fallback)
+USDC_ADDRESS = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"
+CTF_ADDRESS = "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045"
+PROXY_FACTORY_ADDRESS = "0xaB45c5A4B0c941a2F231C04C3f49182e1A254052"
+
+CTF_ABI = [{
+    "inputs": [
+        {"name": "collateralToken", "type": "address"},
+        {"name": "parentCollectionId", "type": "bytes32"},
+        {"name": "conditionId", "type": "bytes32"},
+        {"name": "indexSets", "type": "uint256[]"},
+    ],
+    "name": "redeemPositions", "outputs": [],
+    "stateMutability": "nonpayable", "type": "function",
+}]
+
+PROXY_FACTORY_ABI = [{
+    "inputs": [{
+        "components": [
+            {"name": "to", "type": "address"},
+            {"name": "typeCode", "type": "uint256"},
+            {"name": "data", "type": "bytes"},
+            {"name": "value", "type": "uint256"},
+        ],
+        "name": "_txns", "type": "tuple[]",
+    }],
+    "name": "proxy", "outputs": [],
+    "stateMutability": "nonpayable", "type": "function",
+}]
+
+_redeem_w3 = None
+_redeem_account = None
+
+def _init_redeem():
+    """Initialize Web3 + account for direct on-chain redemptions."""
+    global _redeem_w3, _redeem_account
+    if _redeem_w3 is not None and _redeem_account is not None:
+        return True
+    try:
+        from web3 import Web3
+        from crypto_utils import decrypt_key
+
+        password = os.getenv("POLYMARKET_PASSWORD", "")
+        if not password:
+            return False
+        pk = os.getenv("POLYMARKET_PRIVATE_KEY", "")
+        if pk.startswith("ENC:"):
+            pk = decrypt_key(pk[4:], os.getenv("POLYMARKET_KEY_SALT", ""), password)
+        if not pk:
+            return False
+        if not pk.startswith("0x"):
+            pk = "0x" + pk
+
+        rpcs = [
+            "https://polygon.llamarpc.com",
+            "https://polygon-bor.publicnode.com",
+            "https://polygon-rpc.com",
+        ]
+        for rpc in rpcs:
+            try:
+                w3 = Web3(Web3.HTTPProvider(rpc, request_kwargs={"timeout": 30}))
+                if w3.is_connected():
+                    _redeem_w3 = w3
+                    _redeem_account = w3.eth.account.from_key(pk)
+                    print(f"[REDEEM] Direct on-chain initialized via {rpc}")
+                    return True
+            except Exception:
+                continue
+        return False
+    except Exception as e:
+        print(f"[REDEEM] Init error: {str(e)[:80]}")
+        return False
+
+
 def auto_redeem_winnings():
-    """Auto-redeem resolved WINNING positions to USDC via Polymarket's gasless relayer.
+    """Auto-redeem: try gasless relayer first, fall back to direct on-chain.
+    Skips direct on-chain if gas > 200 gwei to preserve MATIC.
     Returns: float amount of USDC claimed (0.0 if nothing claimed)."""
+    # Try gasless relayer first (free, no MATIC needed)
+    success, claimed = _try_gasless_redeem()
+    if success:
+        return claimed
+
+    # Fallback: direct on-chain CTF contract call
     try:
         proxy_address = os.getenv("POLYMARKET_PROXY_ADDRESS", "")
         if not proxy_address:
             return 0.0
 
-        service = _get_poly_web3_service()
-        if not service:
+        # Fetch redeemable positions from data API
+        r = httpx.get(
+            "https://data-api.polymarket.com/positions",
+            params={"user": proxy_address, "sizeThreshold": "0"},
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=15,
+        )
+        positions = r.json()
+        redeemable = [p for p in positions if p.get("redeemable", False)]
+        if not redeemable:
             return 0.0
 
-        positions = service.fetch_positions(user_address=proxy_address)
-        if not positions:
+        total_shares = sum(float(p.get("size", 0) or 0) for p in redeemable)
+        print(f"[REDEEM] Found {len(redeemable)} redeemable ({total_shares:.0f} shares, ~${total_shares:.2f})")
+
+        if not _init_redeem():
+            print("[REDEEM] Failed to init Web3")
             return 0.0
 
-        total_shares = sum(float(p.get("size", 0) or 0) for p in positions)
-        print(f"[REDEEM] Found {len(positions)} winning positions ({total_shares:.0f} shares, ~${total_shares:.2f} USDC)")
+        from web3 import Web3
 
-        results = service.redeem_all(batch_size=10)
-        if results:
-            print(f"[REDEEM] Claimed {len(results)} batch(es) (~${total_shares:.2f} USDC)")
-            for r in results:
-                if r and isinstance(r, dict):
-                    tx_hash = r.get("transactionHash", "?")[:20]
-                    state = r.get("state", "?")
-                    print(f"[REDEEM]   tx={tx_hash}... state={state}")
-            return total_shares
+        # Check gas price — skip if too expensive (> 200 gwei base fee)
+        gas_price = _redeem_w3.eth.gas_price
+        gas_gwei = gas_price / 1e9
+        if gas_gwei > 200:
+            print(f"[REDEEM] Gas too high ({gas_gwei:.0f} gwei > 200), skipping")
+            return 0.0
+
+        # Check for stuck pending TXs
+        try:
+            nonce_latest = _redeem_w3.eth.get_transaction_count(_redeem_account.address, "latest")
+            nonce_pending = _redeem_w3.eth.get_transaction_count(_redeem_account.address, "pending")
+            if nonce_pending > nonce_latest:
+                print(f"[REDEEM] Pending TX (nonce {nonce_latest}->{nonce_pending}), waiting...")
+                return 0.0
+        except Exception:
+            pass
+
+        ctf = _redeem_w3.eth.contract(
+            address=Web3.to_checksum_address(CTF_ADDRESS), abi=CTF_ABI)
+        factory = _redeem_w3.eth.contract(
+            address=Web3.to_checksum_address(PROXY_FACTORY_ADDRESS), abi=PROXY_FACTORY_ABI)
+
+        # Redeem 1 position per cycle to keep things simple and reliable
+        cid = redeemable[0].get("conditionId", "")
+        if not cid:
+            return 0.0
+
+        redeem_data = ctf.encode_abi(
+            "redeemPositions",
+            args=[
+                Web3.to_checksum_address(USDC_ADDRESS),
+                bytes(32),
+                Web3.to_bytes(hexstr=cid),
+                [1, 2],
+            ],
+        )
+        proxy_txn = (
+            Web3.to_checksum_address(CTF_ADDRESS),
+            1,
+            Web3.to_bytes(hexstr=redeem_data),
+            0,
+        )
+        nonce = _redeem_w3.eth.get_transaction_count(_redeem_account.address, "latest")
+        use_gas_price = min(int(gas_price * 1.5), _redeem_w3.to_wei(300, "gwei"))
+        txn = factory.functions.proxy([proxy_txn]).build_transaction({
+            "from": _redeem_account.address,
+            "nonce": nonce,
+            "gasPrice": use_gas_price,
+            "gas": 300000,
+        })
+        signed = _redeem_w3.eth.account.sign_transaction(txn, _redeem_account.key)
+        tx_hash = _redeem_w3.eth.send_raw_transaction(signed.raw_transaction)
+        receipt = _redeem_w3.eth.wait_for_transaction_receipt(tx_hash, timeout=90)
+        if receipt["status"] == 1:
+            size = float(redeemable[0].get("size", 0) or 0)
+            print(f"[REDEEM] OK {tx_hash.hex()[:16]}... {size:.0f} shares redeemed")
+            return size
         else:
-            print(f"[REDEEM] No claims succeeded this cycle")
+            print(f"[REDEEM] REVERTED {tx_hash.hex()[:16]}...")
             return 0.0
+
+    except Exception as e:
+        err = str(e)
+        if "No winning" not in err and "already known" not in err:
+            print(f"[REDEEM] Error: {err[:100]}")
+        return 0.0
 
     except Exception as e:
         if "No winning" not in str(e):
@@ -1376,7 +1584,7 @@ class CryptoMarketMaker:
                     print(self.ml_optimizer.get_summary())
 
                 # Phase 9: Auto-redeem winnings every 45 seconds (live only)
-                if not self.paper and now_ts - last_redeem_check >= 45:
+                if not self.paper and now_ts - last_redeem_check >= 120:
                     try:
                         claimed = auto_redeem_winnings()
                         if claimed > 0:

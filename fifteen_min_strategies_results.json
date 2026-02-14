@@ -1,0 +1,42 @@
+{
+  "stats": {
+    "EMA_STOCHRSI": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "FRAMA_CMO": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "ICHI_ADXR_SMI": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "VIDYA_AROON": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "VORTEX_RVI": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "FIB_EMA_CONFIRM": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "_total": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    }
+  },
+  "resolved": [],
+  "active": {},
+  "last_updated": "2026-02-14T18:39:53.909596+00:00"
+}
