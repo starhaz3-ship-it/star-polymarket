@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "total_losses_analyzed": 24,
+  "total_losses_analyzed": 27,
   "reports": [
     {
       "timestamp": "2026-02-10T03:47:19.792026+00:00",
@@ -787,10 +787,86 @@
           "note": "kl_divergence is 2.4 std devs above winning average"
         }
       ]
+    },
+    {
+      "timestamp": "2026-02-14T02:18:31.489760+00:00",
+      "trade_id": "0x7c3e3e2d3799797887d6afe802cb640b2992e24c02e6c85e9f113c015e9a05db_UP",
+      "asset": "SOL",
+      "side": "UP",
+      "entry_price": 0.35,
+      "exit_price": 0.265,
+      "pnl": -0.7285714285714286,
+      "size_usd": 3.0,
+      "entry_hour": 2,
+      "triggers": [],
+      "diagnosis": "No known pattern matched - novel loss type. Needs manual review.",
+      "recommendation": "",
+      "severity": "LOW",
+      "deviations_from_winners": [
+        {
+          "field": "kl_divergence",
+          "loss_value": 0.5327,
+          "win_average": 0.2944,
+          "z_score": 2.04,
+          "note": "kl_divergence is 2.0 std devs above winning average"
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-02-14T03:29:53.423117+00:00",
+      "trade_id": "0xe3c873d0b894f1adbdc88a0e2566b9384f497cbda743cfb7635cb53653d67cf7_UP",
+      "asset": "BTC",
+      "side": "UP",
+      "entry_price": 0.33,
+      "exit_price": 0.17,
+      "pnl": -2.4242424242424243,
+      "size_usd": 5.0,
+      "entry_hour": 3,
+      "triggers": [
+        {
+          "pattern": "counter_trend",
+          "fix": "Counter-trend trades have lower WR, reduce size or skip",
+          "value": false
+        }
+      ],
+      "diagnosis": "MEDIUM: counter_trend - Counter-trend trades have lower WR, reduce size or skip",
+      "recommendation": "[FIX #7] Counter-trend trades have lower WR, reduce size or skip (triggered 7x total)",
+      "severity": "MEDIUM"
+    },
+    {
+      "timestamp": "2026-02-14T06:34:48.622755+00:00",
+      "trade_id": "0xaf0098300eee6d985be5c49592e6e3cabe7ef155fbc32d4e0773bd9ae60f1471_UP",
+      "asset": "BTC",
+      "side": "UP",
+      "entry_price": 0.33,
+      "exit_price": 0.305,
+      "pnl": -0.3787878787878789,
+      "size_usd": 5.0,
+      "entry_hour": 6,
+      "triggers": [],
+      "diagnosis": "No known pattern matched - novel loss type. Needs manual review.",
+      "recommendation": "",
+      "severity": "LOW",
+      "deviations_from_winners": [
+        {
+          "field": "kl_divergence",
+          "loss_value": 0.7166,
+          "win_average": 0.2944,
+          "z_score": 3.61,
+          "note": "kl_divergence is 3.6 std devs above winning average"
+        },
+        {
+          "field": "time_remaining",
+          "loss_value": 3.2696,
+          "win_average": 8.1371,
+          "z_score": -2.33,
+          "note": "time_remaining is 2.3 std devs below winning average"
+        }
+      ]
     }
   ],
   "pattern_counts": {
-    "counter_trend": 6,
+    "counter_trend": 7,
     "heiken_contradiction_UP": 1,
     "late_entry": 5,
     "VWAP_dislocated": 7,

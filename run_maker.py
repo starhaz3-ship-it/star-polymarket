@@ -49,6 +49,119 @@ load_dotenv()
 
 
 # ============================================================================
+# AUTO-REDEEM (gasless relayer)
+# ============================================================================
+
+_poly_web3_service = None
+
+def _get_poly_web3_service():
+    """Get or create a cached PolyWeb3Service instance for gasless relayer redemptions."""
+    global _poly_web3_service
+    if _poly_web3_service is not None:
+        return _poly_web3_service
+
+    try:
+        from py_clob_client.client import ClobClient
+        from py_builder_relayer_client.client import RelayClient
+        from py_builder_signing_sdk.config import BuilderConfig
+        from py_builder_signing_sdk.sdk_types import BuilderApiKeyCreds
+        from poly_web3 import PolyWeb3Service
+        from crypto_utils import decrypt_key
+
+        password = os.getenv("POLYMARKET_PASSWORD", "")
+        if not password:
+            return None
+
+        pk = os.getenv("POLYMARKET_PRIVATE_KEY", "")
+        if pk.startswith("ENC:"):
+            pk = decrypt_key(pk[4:], os.getenv("POLYMARKET_KEY_SALT", ""), password)
+        if not pk:
+            return None
+
+        proxy_address = os.getenv("POLYMARKET_PROXY_ADDRESS", "")
+
+        client = ClobClient(
+            host="https://clob.polymarket.com",
+            key=pk,
+            chain_id=137,
+            signature_type=1,
+            funder=proxy_address if proxy_address else None,
+        )
+        creds = client.derive_api_key()
+        client.set_api_creds(creds)
+
+        builder_key = decrypt_key(
+            os.getenv("POLY_BUILDER_API_KEY", "")[4:],
+            os.getenv("POLY_BUILDER_API_KEY_SALT", ""), password)
+        builder_secret = decrypt_key(
+            os.getenv("POLY_BUILDER_SECRET", "")[4:],
+            os.getenv("POLY_BUILDER_SECRET_SALT", ""), password)
+        builder_passphrase = decrypt_key(
+            os.getenv("POLY_BUILDER_PASSPHRASE", "")[4:],
+            os.getenv("POLY_BUILDER_PASSPHRASE_SALT", ""), password)
+
+        builder_config = BuilderConfig(
+            local_builder_creds=BuilderApiKeyCreds(
+                key=builder_key, secret=builder_secret, passphrase=builder_passphrase))
+
+        relay_client = RelayClient(
+            relayer_url="https://relayer-v2.polymarket.com",
+            chain_id=137,
+            private_key=pk,
+            builder_config=builder_config,
+        )
+
+        _poly_web3_service = PolyWeb3Service(
+            clob_client=client,
+            relayer_client=relay_client,
+            rpc_url="https://polygon-bor.publicnode.com",
+        )
+        print(f"[REDEEM] PolyWeb3Service initialized (gasless relayer)")
+        return _poly_web3_service
+    except Exception as e:
+        print(f"[REDEEM] Failed to init PolyWeb3Service: {str(e)[:80]}")
+        return None
+
+
+def auto_redeem_winnings():
+    """Auto-redeem resolved WINNING positions to USDC via Polymarket's gasless relayer.
+    Returns: float amount of USDC claimed (0.0 if nothing claimed)."""
+    try:
+        proxy_address = os.getenv("POLYMARKET_PROXY_ADDRESS", "")
+        if not proxy_address:
+            return 0.0
+
+        service = _get_poly_web3_service()
+        if not service:
+            return 0.0
+
+        positions = service.fetch_positions(user_address=proxy_address)
+        if not positions:
+            return 0.0
+
+        total_shares = sum(float(p.get("size", 0) or 0) for p in positions)
+        print(f"[REDEEM] Found {len(positions)} winning positions ({total_shares:.0f} shares, ~${total_shares:.2f} USDC)")
+
+        results = service.redeem_all(batch_size=10)
+        if results:
+            print(f"[REDEEM] Claimed {len(results)} batch(es) (~${total_shares:.2f} USDC)")
+            for r in results:
+                if r and isinstance(r, dict):
+                    tx_hash = r.get("transactionHash", "?")[:20]
+                    state = r.get("state", "?")
+                    print(f"[REDEEM]   tx={tx_hash}... state={state}")
+            return total_shares
+        else:
+            print(f"[REDEEM] No claims succeeded this cycle")
+            return 0.0
+
+    except Exception as e:
+        if "No winning" not in str(e):
+            print(f"[REDEEM] Error: {str(e)[:80]}")
+        return 0.0
+
+
+# ============================================================================
 # CONFIGURATION
 # ============================================================================
 
@@ -61,14 +174,14 @@ class MakerConfig:
     BID_OFFSET: float = 0.02             # Bid this much below best ask
 
     # Position sizing
-    SIZE_PER_SIDE_USD: float = 3.0       # V1.4: $3/side for live safety (was $5)
-    MAX_PAIR_EXPOSURE: float = 6.0       # V1.4: $6/pair (was $10)
-    MAX_TOTAL_EXPOSURE: float = 30.0     # V1.4: $30 max (was $50)
+    SIZE_PER_SIDE_USD: float = 5.0       # V1.5: $5/side (was $3)
+    MAX_PAIR_EXPOSURE: float = 10.0      # V1.5: $10/pair (was $6)
+    MAX_TOTAL_EXPOSURE: float = 80.0     # V1.5: $80 max for 12 concurrent pairs
     MIN_SHARES: int = 5                  # CLOB minimum order size
 
     # Risk
     DAILY_LOSS_LIMIT: float = 8.0        # V1.4: Tighter for live (was $10)
-    MAX_CONCURRENT_PAIRS: int = 8        # V1.5: Increased for 5m+15m markets (was 5)
+    MAX_CONCURRENT_PAIRS: int = 12       # V1.5: 4 assets x 15M + BTC 5M = needs ~12 slots
     MAX_SINGLE_SIDED: int = 2            # V1.1: Was 3. Partial fills = directional risk. Allow max 2.
 
     # Timing
@@ -86,7 +199,18 @@ class MakerConfig:
     ASSETS: dict = field(default_factory=lambda: {
         "BTC": {"keywords": ["bitcoin", "btc"], "enabled": True},
         "ETH": {"keywords": ["ethereum", "eth"], "enabled": True},
-        "SOL": {"keywords": ["solana", "sol"], "enabled": False},  # V1.2: Disabled - 22% partial rate vs 0% BTC/ETH
+        "SOL": {"keywords": ["solana", "sol"], "enabled": False},  # V1.5: Disabled again — 64% pair rate, -$16.77 PnL
+        "XRP": {"keywords": ["xrp", "ripple"], "enabled": True},   # V1.5: New
+    })
+
+    # V1.5: Per-asset risk tiers — SOL/XRP have thinner books, need tighter spreads
+    # "max_combined" = maximum combined bid price (lower = more edge required)
+    # "balance_range" = (min, max) for each side price (tighter = more balanced)
+    ASSET_TIERS: dict = field(default_factory=lambda: {
+        "BTC": {"max_combined": 0.98, "balance_range": (0.38, 0.62)},  # Liquid, standard
+        "ETH": {"max_combined": 0.98, "balance_range": (0.38, 0.62)},  # Liquid, standard
+        "SOL": {"max_combined": 0.98, "balance_range": (0.40, 0.60)},  # Tight balance + fast partial cancel = safety
+        "XRP": {"max_combined": 0.98, "balance_range": (0.40, 0.60)},  # Tight balance + fast partial cancel = safety
     })
 
 
@@ -420,7 +544,8 @@ class CryptoMarketMaker:
                 try:
                     r = await client.get(
                         "https://gamma-api.polymarket.com/events",
-                        params={"tag_slug": tag_slug, "active": "true", "closed": "false", "limit": 50},
+                        params={"tag_slug": tag_slug, "active": "true", "closed": "false",
+                                "limit": 200, "order": "endDate", "ascending": "true"},
                         headers={"User-Agent": "Mozilla/5.0"}
                     )
                     if r.status_code != 200:
@@ -428,6 +553,7 @@ class CryptoMarketMaker:
                         continue
 
                     events = r.json()
+                    now = datetime.now(timezone.utc)
                     for event in events:
                         title = event.get("title", "").lower()
                         matched_asset = None
@@ -444,6 +570,16 @@ class CryptoMarketMaker:
                         for m in event.get("markets", []):
                             if m.get("closed", True):
                                 continue
+
+                            # V1.5: Skip stale markets (API returns old unresolved events)
+                            end_date = m.get("endDate", "")
+                            if end_date:
+                                try:
+                                    end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+                                    if end_dt < now:
+                                        continue
+                                except Exception:
+                                    pass
 
                             pair = self._parse_market(m, event, matched_asset, duration)
                             if pair:
@@ -562,6 +698,10 @@ class CryptoMarketMaker:
         """Evaluate a market pair for maker opportunity."""
         offset = self._get_bid_offset()
 
+        # V1.6: 5M markets use half offset (bid closer to mid for faster fills)
+        if pair.duration_min <= 5:
+            offset = max(0.01, round(offset / 2, 2))
+
         # Our target bid prices
         up_bid = round(pair.up_mid - offset, 2)
         down_bid = round(pair.down_mid - offset, 2)
@@ -581,6 +721,13 @@ class CryptoMarketMaker:
 
         # Min time left scales with duration: 5min markets need 2min, 15min need 5min
         min_time = 2.0 if pair.duration_min <= 5 else self.config.MIN_TIME_LEFT_MIN
+        # V1.5: Max time left — don't lock capital in far-future markets
+        max_time = pair.duration_min * 1.5  # e.g. 7.5min for 5M, 22.5min for 15M
+
+        # V1.5: Per-asset tier thresholds
+        tier = self.config.ASSET_TIERS.get(pair.asset, {"max_combined": 0.96, "balance_range": (0.40, 0.60)})
+        max_combined = tier["max_combined"]
+        bal_min, bal_max = tier["balance_range"]
 
         return {
             "up_bid": up_bid,
@@ -591,13 +738,14 @@ class CryptoMarketMaker:
             "offset": offset,
             "mins_left": mins_left,
             "viable": (
-                combined < self.config.MAX_COMBINED_PRICE
+                combined < max_combined              # Per-asset edge requirement
                 and edge >= self.config.MIN_SPREAD_EDGE
-                and mins_left > min_time  # Need time for fills
-                and up_bid >= 0.38  # V1.1: Balanced markets only. Skewed = partial fill risk
-                and down_bid >= 0.38  # Both sides must have reasonable fill probability
-                and up_bid <= 0.62  # Symmetric range ensures both sides are near 50/50
-                and down_bid <= 0.62
+                and mins_left > min_time             # Need time for fills
+                and mins_left < max_time             # Don't enter far-future markets
+                and up_bid >= bal_min                 # Balanced markets only
+                and down_bid >= bal_min
+                and up_bid <= bal_max                 # Symmetric range
+                and down_bid <= bal_max
             ),
         }
 
@@ -852,10 +1000,17 @@ class CryptoMarketMaker:
             age_min = (now - created).total_seconds() / 60
 
             # V1.3: FAST partial protection — if one side fills and the other doesn't
-            # within 2 minutes of the first fill, cancel the ENTIRE position.
+            # within grace period, cancel the ENTIRE position.
             # Holding a one-sided bet = pure directional gamble. One partial loss (-$5)
             # wipes ~10 paired wins (+$0.50 each). Better to cancel than gamble.
-            PARTIAL_GRACE_MINUTES = 2.0
+            # V1.5: SOL/XRP get 1min grace (thinner books), BTC/ETH get 2min
+            # V1.6: 5M markets get 3.5min grace (need more time on thin books)
+            if pos.duration_min <= 5:
+                PARTIAL_GRACE_MINUTES = 3.5
+            elif pos.asset in ("SOL", "XRP"):
+                PARTIAL_GRACE_MINUTES = 1.0
+            else:
+                PARTIAL_GRACE_MINUTES = 2.0
             if pos.is_partial and not pos.first_fill_time:
                 pos.first_fill_time = pos.created_at  # Backfill for old positions
             if pos.is_partial and pos.first_fill_time:
@@ -912,8 +1067,9 @@ class CryptoMarketMaker:
                         paired=False, partial=True, pnl=0.0
                     )
 
-            # If approaching close (duration - 2 min buffer), cancel unfilled orders
-            expire_at = pos.duration_min - 2
+            # If approaching close, cancel unfilled orders
+            # V1.6: 5M gets 1min buffer (was 2), 15M keeps 2min
+            expire_at = pos.duration_min - 1 if pos.duration_min <= 5 else pos.duration_min - 2
             if age_min > expire_at:
                 for order, attr in [(pos.up_order, "up_filled"), (pos.down_order, "down_filled")]:
                     if order and not getattr(pos, attr) and order.status == "open":
@@ -1165,9 +1321,11 @@ class CryptoMarketMaker:
                   f"Pairs: {self.stats['pairs_completed']} complete, {self.stats['pairs_partial']} partial")
 
         cycle = 0
+        last_redeem_check = 0
         while True:
             try:
                 cycle += 1
+                now_ts = time.time()
                 self.reset_daily()
 
                 # Phase 1: Cancel expiring unfilled orders
@@ -1185,6 +1343,8 @@ class CryptoMarketMaker:
                     markets = await self.discover_markets()
 
                     # Phase 6: Evaluate and place orders on best pairs
+                    # 5M markets get priority (shorter duration = higher priority)
+                    markets.sort(key=lambda p: p.duration_min)
                     for pair in markets:
                         if not self.check_risk():
                             break
@@ -1210,6 +1370,16 @@ class CryptoMarketMaker:
                 if cycle % 50 == 0 and cycle > 0:
                     print(f"\n[ML OFFSET] Current optimal offsets:")
                     print(self.ml_optimizer.get_summary())
+
+                # Phase 9: Auto-redeem winnings every 45 seconds (live only)
+                if not self.paper and now_ts - last_redeem_check >= 45:
+                    try:
+                        claimed = auto_redeem_winnings()
+                        if claimed > 0:
+                            print(f"[REDEEM] Claimed ${claimed:.2f} back to USDC")
+                    except Exception as e:
+                        print(f"[REDEEM] Error: {e}")
+                    last_redeem_check = now_ts
 
                 await asyncio.sleep(self.config.SCAN_INTERVAL)
 

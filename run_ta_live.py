@@ -1,7 +1,9 @@
 """
-TA Live Trading with ML Optimization — V10.17 "Flash Crash"
+TA Live Trading with ML Optimization — V10.18 "Conviction Unblock"
 
 Live trades BTC/SOL 5m+15m markets using TA+Bregman signals.
+V10.18: Unblock v33_conviction filter for all except ETH UP.
+        Shadow data: 72T, 62% WR, +$71.21 blocked profit. BTC DOWN 60% WR, SOL UP 75% WR.
 V10.16: Block losing combos (ETH all, BTC UP, SOL DOWN) with ML shadow auto-promote.
         Cheap-side-only ($0.28-$0.38), hedge enabled, 5m market support.
 """
@@ -958,18 +960,20 @@ class TALiveTrader:
             "symbol": "BTCUSDT",
             "keywords": ["bitcoin", "btc"],
         },
-        "SOL": {
-            "symbol": "SOLUSDT",
-            "keywords": ["solana", "sol"],
-        },
         # V10.16: ETH moved to SHADOW_ASSETS (CSV: -$172, 33.7% WR). Auto-promotes back when shadow WR > 55%.
+        # V10.17: SOL moved to SHADOW_ASSETS. Recent: 3 losses in a row, dragging PnL.
     }
     # Shadow-only assets: fetched + signals generated + logged, but NEVER executed
     # V10.16: ETH moved to shadow. CSV: -$172, 33.7% WR across ALL directions. Auto-promote when shadow WR > 55%.
+    # V10.17: SOL moved to shadow. Live losses on SOL UP (-$3.00 x2, -$0.73).
     SHADOW_ASSETS = {
         "ETH": {
             "symbol": "ETHUSDT",
             "keywords": ["ethereum", "eth"],
+        },
+        "SOL": {
+            "symbol": "SOLUSDT",
+            "keywords": ["solana", "sol"],
         },
     }
     # ETH-specific constraints (V3.9) — kept for when ETH auto-promotes back
@@ -2367,10 +2371,15 @@ class TALiveTrader:
                         skip_reason = f"DOWN_conf_{signal.model_down:.0%}<{self.MIN_MODEL_CONFIDENCE:.0%}"
 
                 if skip_reason and not is_bond_trade:
-                    print(f"  [{asset}] V3.3 filter: {skip_reason}")
-                    ep = up_price if signal.side == "UP" else down_price
-                    self._record_filter_shadow(asset, signal.side, ep, market_id, question, "v33_conviction", market_numeric_id=market_numeric_id)
-                    continue
+                    # V10.18: Unblock v33_conviction for all EXCEPT ETH UP
+                    # Shadow: 72T, 62% WR, +$71.21. BTC DOWN 60%WR +$21.93, SOL UP 75%WR +$27.17
+                    if asset == "ETH" and signal.side == "UP":
+                        print(f"  [{asset}] V3.3 filter: {skip_reason}")
+                        ep = up_price if signal.side == "UP" else down_price
+                        self._record_filter_shadow(asset, signal.side, ep, market_id, question, "v33_conviction", market_numeric_id=market_numeric_id)
+                        continue
+                    else:
+                        print(f"  [{asset}] V10.18: conviction bypass ({skip_reason}) — shadow: 62%WR +$71")
 
                 # === EDGE FILTER (with low-edge circuit breaker) ===
                 # Bond mode skips edge filter (high-price entries have small edge by design)
