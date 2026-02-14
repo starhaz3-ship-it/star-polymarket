@@ -636,6 +636,18 @@ class TAPaperTrader:
         self.SHADOW_5M_TIME_WINDOW = (0.5, 4.8)  # Minutes before expiry
         self.SHADOW_5M_MAX_CONCURRENT = 5     # Max open 5m positions
 
+        # === 15M MOMENTUM SHADOW PAPER TRADING (V3.20) ===
+        # Same momentum continuation strategy as 5m, applied to 15-minute markets
+        # Purpose: A/B test whether momentum edge holds on longer timeframe
+        self.shadow_15m_mom_trades: Dict[str, dict] = {}  # {trade_key: trade_dict}
+        self.shadow_15m_mom_stats = {"wins": 0, "losses": 0, "pnl": 0.0, "trades": []}
+        self.shadow_15m_mom_SIZE = 10.0  # Paper position size (same as 5m for fair comparison)
+        self.SHADOW_15M_MOM_MIN_MOMENTUM = 0.0005  # 0.05% price move (slightly higher than 5m's 0.03%)
+        self.SHADOW_15M_MOM_MAX_ENTRY = 0.60
+        self.SHADOW_15M_MOM_MIN_ENTRY = 0.10
+        self.SHADOW_15M_MOM_TIME_WINDOW = (2.0, 12.0)  # Minutes before expiry
+        self.SHADOW_15M_MOM_MAX_CONCURRENT = 5
+
         # === BTC ML PREDICTORS (V3.19) ===
         # LightGBM models trained on Binance candle data
         # 3 models per timeframe: direction, volatility, momentum quality
@@ -921,11 +933,18 @@ class TAPaperTrader:
                 saved_5m_stats = data.get("shadow_5m_stats", None)
                 if saved_5m_stats:
                     self.shadow_5m_stats = saved_5m_stats
+                # Load 15m momentum shadow state (V3.20)
+                self.shadow_15m_mom_trades = data.get("shadow_15m_mom_trades", {})
+                saved_15m_stats = data.get("shadow_15m_mom_stats", None)
+                if saved_15m_stats:
+                    self.shadow_15m_mom_stats = saved_15m_stats
                 arb_open = sum(1 for a in self.arb_trades.values() if a.get("status") == "open")
                 hydra_total = sum(q["predictions"] for q in self.hydra_quarantine.values())
                 s5 = self.shadow_5m_stats
+                s15 = self.shadow_15m_mom_stats
                 print(f"Loaded {len(self.trades)} trades + {len(self.arb_trades)} arb ({arb_open} open) + {hydra_total} hydra + "
-                      f"5m:{s5['wins']}W/{s5['losses']}L ${s5['pnl']:+.2f}")
+                      f"5m:{s5['wins']}W/{s5['losses']}L ${s5['pnl']:+.2f} + "
+                      f"15m-mom:{s15['wins']}W/{s15['losses']}L ${s15['pnl']:+.2f}")
             except Exception as e:
                 print(f"Error loading state: {e}")
 
@@ -951,6 +970,8 @@ class TAPaperTrader:
             "hydra_pending": self.hydra_pending,
             "shadow_5m_trades": self.shadow_5m_trades,
             "shadow_5m_stats": self.shadow_5m_stats,
+            "shadow_15m_mom_trades": self.shadow_15m_mom_trades,
+            "shadow_15m_mom_stats": self.shadow_15m_mom_stats,
         }
         with open(self.OUTPUT_FILE, 'w') as f:
             json.dump(data, f, indent=2)
@@ -1537,6 +1558,236 @@ class TAPaperTrader:
         # Save 5m state
         self._save()
 
+    async def _trade_15m_momentum_shadow(self, markets, candles, btc_price):
+        """V3.20: 15-minute momentum continuation shadow paper trading.
+
+        Same momentum strategy as 5m shadow, applied to 15m markets.
+        Purpose: A/B test whether the momentum continuation edge that works
+        on 5m (64% WR, +$220) also holds on 15m timeframe.
+
+        Key differences from 5m:
+        - Filters for _timeframe == "15m" markets
+        - Slightly higher momentum threshold (0.05% vs 0.03%)
+        - Wider time window (2-12 min vs 0.5-4.8 min)
+        - No ML integration (pure momentum for clean comparison)
+        - Resolve via age >18 min (vs >6 min for 5m)
+        """
+        try:
+            await self._trade_15m_momentum_shadow_inner(markets, candles, btc_price)
+        except Exception as e:
+            print(f"[15M-MOM ERROR] {type(e).__name__}: {e}")
+
+    async def _trade_15m_momentum_shadow_inner(self, markets, candles, btc_price):
+        now = datetime.now(timezone.utc)
+        n15 = sum(1 for m in markets if m.get("_timeframe") == "15m")
+
+        # Count open 15m momentum positions
+        open_15m = sum(1 for t in self.shadow_15m_mom_trades.values() if t["status"] == "open")
+
+        # --- RESOLVE expired 15m momentum trades ---
+        for tid, trade in list(self.shadow_15m_mom_trades.items()):
+            if trade["status"] != "open":
+                continue
+            for mkt in markets:
+                mkt_id = mkt.get("conditionId", "")
+                if mkt_id != trade.get("condition_id"):
+                    continue
+                time_left = self.get_time_remaining(mkt)
+                if time_left > 0.5:
+                    continue
+                up_p, down_p = self.get_market_prices(mkt)
+                if up_p is None or down_p is None:
+                    continue
+                price = up_p if trade["side"] == "UP" else down_p
+                if price >= 0.95:
+                    exit_val = trade["size_usd"] / trade["entry_price"]
+                elif price <= 0.05:
+                    exit_val = 0
+                else:
+                    exit_val = (trade["size_usd"] / trade["entry_price"]) * price
+                trade["exit_price"] = price
+                trade["exit_time"] = now.isoformat()
+                trade["pnl"] = exit_val - trade["size_usd"]
+                trade["status"] = "closed"
+
+                won = trade["pnl"] > 0
+                self.shadow_15m_mom_stats["wins" if won else "losses"] += 1
+                self.shadow_15m_mom_stats["pnl"] += trade["pnl"]
+                self.shadow_15m_mom_stats["trades"].append({
+                    "side": trade["side"], "entry": trade["entry_price"],
+                    "exit": price, "pnl": trade["pnl"], "strategy": trade.get("strategy", "momentum"),
+                    "asset": trade.get("asset", "BTC"), "time": trade["entry_time"],
+                })
+                open_15m -= 1
+
+                w = self.shadow_15m_mom_stats["wins"]
+                l = self.shadow_15m_mom_stats["losses"]
+                wr = w / (w + l) * 100 if (w + l) > 0 else 0
+                tag = "WIN" if won else "LOSS"
+                print(f"[15M-MOM {tag}] {trade['side']} ${trade['pnl']:+.2f} | entry=${trade['entry_price']:.2f} exit=${price:.2f} | "
+                      f"15m-mom: {w}W/{l}L {wr:.0f}%WR ${self.shadow_15m_mom_stats['pnl']:+.2f} | {trade['title'][:40]}")
+                break
+
+        # Resolve via age (>18 min old = definitely expired for 15m markets)
+        for tid, trade in list(self.shadow_15m_mom_trades.items()):
+            if trade["status"] != "open":
+                continue
+            try:
+                entry_dt = datetime.fromisoformat(trade["entry_time"])
+                age_min = (now - entry_dt).total_seconds() / 60
+            except:
+                age_min = 999
+            if age_min > 18:
+                nid = trade.get("market_numeric_id")
+                if nid:
+                    try:
+                        async with httpx.AsyncClient(timeout=8) as cl:
+                            r = await cl.get(f"https://gamma-api.polymarket.com/markets/{nid}",
+                                           headers={"User-Agent": "Mozilla/5.0"})
+                            if r.status_code == 200:
+                                rm = r.json()
+                                up_p, down_p = self.get_market_prices(rm)
+                                if up_p is not None:
+                                    price = up_p if trade["side"] == "UP" else down_p
+                                    if price >= 0.95:
+                                        exit_val = trade["size_usd"] / trade["entry_price"]
+                                    elif price <= 0.05:
+                                        exit_val = 0
+                                    else:
+                                        exit_val = (trade["size_usd"] / trade["entry_price"]) * price
+                                    trade["exit_price"] = price
+                                    trade["exit_time"] = now.isoformat()
+                                    trade["pnl"] = exit_val - trade["size_usd"]
+                                    trade["status"] = "closed"
+                                    won = trade["pnl"] > 0
+                                    self.shadow_15m_mom_stats["wins" if won else "losses"] += 1
+                                    self.shadow_15m_mom_stats["pnl"] += trade["pnl"]
+                                    self.shadow_15m_mom_stats["trades"].append({
+                                        "side": trade["side"], "entry": trade["entry_price"],
+                                        "exit": price, "pnl": trade["pnl"],
+                                        "strategy": trade.get("strategy", "momentum"),
+                                        "asset": trade.get("asset", "BTC"), "time": trade["entry_time"],
+                                    })
+                                    open_15m -= 1
+                                    w = self.shadow_15m_mom_stats["wins"]
+                                    l = self.shadow_15m_mom_stats["losses"]
+                                    wr = w / (w + l) * 100 if (w + l) > 0 else 0
+                                    tag = "WIN" if won else "LOSS"
+                                    print(f"[15M-MOM-API {tag}] {trade['side']} ${trade['pnl']:+.2f} | "
+                                          f"15m-mom: {w}W/{l}L {wr:.0f}%WR ${self.shadow_15m_mom_stats['pnl']:+.2f}")
+                    except Exception as e:
+                        print(f"[15M-MOM] API resolve error: {e}")
+                else:
+                    trade["status"] = "closed"
+                    trade["pnl"] = -trade["size_usd"]
+                    self.shadow_15m_mom_stats["losses"] += 1
+                    self.shadow_15m_mom_stats["pnl"] += trade["pnl"]
+                    open_15m -= 1
+
+        # --- ENTRY: Find new 15m momentum trades ---
+        if open_15m >= self.SHADOW_15M_MOM_MAX_CONCURRENT:
+            return
+
+        # Calculate short-term momentum from candles
+        if len(candles) < 3:
+            return
+
+        try:
+            recent_closes = [c.close if hasattr(c, 'close') else float(c.get("c", c.get("close", 0))) for c in candles[-3:]]
+            if recent_closes[-1] == 0 or recent_closes[0] == 0:
+                return
+            momentum_10m = (recent_closes[-1] - recent_closes[0]) / recent_closes[0]
+            momentum_5m = (recent_closes[-1] - recent_closes[-2]) / recent_closes[-2]
+        except (IndexError, ValueError, ZeroDivisionError, AttributeError):
+            return
+
+        # Scan 15m markets
+        for market in markets:
+            tf = market.get("_timeframe", "15m")
+            if tf != "15m":
+                continue
+
+            time_left = self.get_time_remaining(market)
+            up_price, down_price = self.get_market_prices(market)
+
+            if time_left < self.SHADOW_15M_MOM_TIME_WINDOW[0] or time_left > self.SHADOW_15M_MOM_TIME_WINDOW[1]:
+                continue
+
+            if up_price is None or down_price is None:
+                continue
+
+            asset = market.get("_asset", "BTC")
+            cid = market.get("conditionId", "")
+            question = market.get("question", "")
+            nid = market.get("id")
+
+            # Skip if already trading this market
+            trade_key_up = f"15m_mom_{cid}_UP"
+            trade_key_down = f"15m_mom_{cid}_DOWN"
+            if trade_key_up in self.shadow_15m_mom_trades or trade_key_down in self.shadow_15m_mom_trades:
+                continue
+
+            # === PURE MOMENTUM STRATEGY (same logic as 5m, no ML) ===
+            side = None
+            entry_price = None
+            strategy = "momentum"
+
+            if momentum_10m > self.SHADOW_15M_MOM_MIN_MOMENTUM:
+                # Upward momentum -- buy UP
+                if self.SHADOW_15M_MOM_MIN_ENTRY <= up_price <= self.SHADOW_15M_MOM_MAX_ENTRY:
+                    side = "UP"
+                    entry_price = round(up_price + 0.02, 2)  # Spread simulation
+                    if momentum_5m > 0:
+                        strategy = "momentum_strong"
+            elif momentum_10m < -self.SHADOW_15M_MOM_MIN_MOMENTUM:
+                # Downward momentum -- buy DOWN
+                if self.SHADOW_15M_MOM_MIN_ENTRY <= down_price <= self.SHADOW_15M_MOM_MAX_ENTRY:
+                    side = "DOWN"
+                    entry_price = round(down_price + 0.02, 2)
+                    if momentum_5m < 0:
+                        strategy = "momentum_strong"
+
+            # === BOTH-SIDES ARB (same as 5m) ===
+            combined = up_price + down_price
+            if combined < 0.96 and not side:
+                up_entry = round(up_price + 0.01, 2)
+                down_entry = round(down_price + 0.01, 2)
+                if up_entry + down_entry < 0.98:
+                    for s, ep in [("UP", up_entry), ("DOWN", down_entry)]:
+                        tk = f"15m_mom_{cid}_{s}"
+                        self.shadow_15m_mom_trades[tk] = {
+                            "side": s, "entry_price": ep, "size_usd": self.shadow_15m_mom_SIZE / 2,
+                            "entry_time": now.isoformat(), "condition_id": cid,
+                            "market_numeric_id": nid, "title": question,
+                            "asset": asset, "strategy": "both_sides_15m",
+                            "status": "open", "pnl": 0.0,
+                        }
+                    print(f"[15M-MOM ARB] {asset} BOTH SIDES | UP=${up_entry:.2f} DOWN=${down_entry:.2f} | "
+                          f"combined=${combined:.2f} | {question[:50]}")
+                    open_15m += 2
+                    continue
+
+            if side and entry_price and entry_price <= self.SHADOW_15M_MOM_MAX_ENTRY:
+                trade_key = f"15m_mom_{cid}_{side}"
+                self.shadow_15m_mom_trades[trade_key] = {
+                    "side": side, "entry_price": entry_price, "size_usd": self.shadow_15m_mom_SIZE,
+                    "entry_time": now.isoformat(), "condition_id": cid,
+                    "market_numeric_id": nid, "title": question,
+                    "asset": asset, "strategy": strategy,
+                    "momentum_10m": momentum_10m, "momentum_5m": momentum_5m,
+                    "status": "open", "pnl": 0.0,
+                }
+                open_15m += 1
+                print(f"[15M-MOM ENTRY] {asset} {side} ${entry_price:.2f} $10 | strat={strategy} | "
+                      f"mom_10m={momentum_10m:+.3%} mom_5m={momentum_5m:+.3%} | "
+                      f"time={time_left:.1f}m | {question[:50]}")
+
+                if open_15m >= self.SHADOW_15M_MOM_MAX_CONCURRENT:
+                    break
+
+        # Save state
+        self._save()
+
     def _scan_arbitrage(self, eligible_markets):
         """Scan for both-sides arbitrage: UP + DOWN < threshold for guaranteed profit."""
         if not self.ARB_ENABLED:
@@ -1780,6 +2031,10 @@ class TAPaperTrader:
         # Separate momentum-based system for 5-minute markets
         # Bypasses the heavy 15m filter pipeline entirely
         await self._trade_5m_shadow(markets, candles, btc_price)
+
+        # === 15M MOMENTUM SHADOW PAPER TRADING (V3.20) ===
+        # Same momentum strategy as 5m, applied to 15m markets for A/B comparison
+        await self._trade_15m_momentum_shadow(markets, candles, btc_price)
 
         # === DIRECTIONAL TRADING (Phase 1: Collect candidates) ===
         # Gather all trades that pass filters, then allocate via multi-outcome Kelly
@@ -2963,6 +3218,29 @@ class TAPaperTrader:
                 strat_stats[st]["l"] += 1
             strat_stats[st]["pnl"] += t.get("pnl", 0)
         for st, ss in sorted(strat_stats.items(), key=lambda x: -x[1]["pnl"]):
+            tot = ss["w"] + ss["l"]
+            wr = ss["w"] / tot * 100 if tot > 0 else 0
+            print(f"    {st:20s} {ss['w']}W/{ss['l']}L {wr:.0f}%WR ${ss['pnl']:+.2f}")
+
+        # 15M Momentum Shadow Stats (V3.20)
+        s15m = self.shadow_15m_mom_stats
+        open_15m = sum(1 for t in self.shadow_15m_mom_trades.values() if t.get("status") == "open")
+        total_15m = s15m["wins"] + s15m["losses"]
+        wr_15m = s15m["wins"] / total_15m * 100 if total_15m > 0 else 0
+        print(f"\n15M MOMENTUM SHADOW (V3.20 A/B test vs 5m):")
+        print(f"  {s15m['wins']}W/{s15m['losses']}L ({total_15m}T) | {wr_15m:.0f}% WR | PnL: ${s15m['pnl']:+.2f} | {open_15m} open")
+        # Per-strategy breakdown
+        strat_15m = {}
+        for t in s15m.get("trades", []):
+            st = t.get("strategy", "unknown")
+            if st not in strat_15m:
+                strat_15m[st] = {"w": 0, "l": 0, "pnl": 0.0}
+            if t.get("pnl", 0) > 0:
+                strat_15m[st]["w"] += 1
+            else:
+                strat_15m[st]["l"] += 1
+            strat_15m[st]["pnl"] += t.get("pnl", 0)
+        for st, ss in sorted(strat_15m.items(), key=lambda x: -x[1]["pnl"]):
             tot = ss["w"] + ss["l"]
             wr = ss["w"] / tot * 100 if tot > 0 else 0
             print(f"    {st:20s} {ss['w']}W/{ss['l']}L {wr:.0f}%WR ${ss['pnl']:+.2f}")

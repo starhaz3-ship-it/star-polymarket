@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "total_losses_analyzed": 22,
+  "total_losses_analyzed": 24,
   "reports": [
     {
       "timestamp": "2026-02-10T03:47:19.792026+00:00",
@@ -733,6 +733,60 @@
           "note": "kl_divergence is 1.7 std devs above winning average"
         }
       ]
+    },
+    {
+      "timestamp": "2026-02-14T01:03:38.565559+00:00",
+      "trade_id": "0x9fed9e57843eb98115c831c81b8e770121ca0ec544eaf6359fe3cb8f99c5e408_UP",
+      "asset": "SOL",
+      "side": "UP",
+      "entry_price": 0.31,
+      "exit_price": 0.005,
+      "pnl": -3.0,
+      "size_usd": 3.0,
+      "entry_hour": 0,
+      "triggers": [
+        {
+          "pattern": "RSI_extreme_UP",
+          "fix": "RSI>75 UP = overbought, price likely to reverse DOWN",
+          "value": 76.36363636363706
+        }
+      ],
+      "diagnosis": "MEDIUM: RSI_extreme_UP - RSI>75 UP = overbought, price likely to reverse DOWN",
+      "recommendation": "[FIX #2] RSI>75 UP = overbought, price likely to reverse DOWN (triggered 2x total)",
+      "severity": "MEDIUM",
+      "deviations_from_winners": [
+        {
+          "field": "kl_divergence",
+          "loss_value": 0.6028,
+          "win_average": 0.2944,
+          "z_score": 2.64,
+          "note": "kl_divergence is 2.6 std devs above winning average"
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-02-14T01:18:41.771937+00:00",
+      "trade_id": "0x011f5db601465b866e83b78c4791819a45583a3b8fc867f0299c3b568a608113_UP",
+      "asset": "SOL",
+      "side": "UP",
+      "entry_price": 0.33,
+      "exit_price": 0.005,
+      "pnl": -3.0,
+      "size_usd": 3.0,
+      "entry_hour": 1,
+      "triggers": [],
+      "diagnosis": "No known pattern matched - novel loss type. Needs manual review.",
+      "recommendation": "",
+      "severity": "LOW",
+      "deviations_from_winners": [
+        {
+          "field": "kl_divergence",
+          "loss_value": 0.5739,
+          "win_average": 0.2944,
+          "z_score": 2.39,
+          "note": "kl_divergence is 2.4 std devs above winning average"
+        }
+      ]
     }
   ],
   "pattern_counts": {
@@ -741,7 +795,7 @@
     "late_entry": 5,
     "VWAP_dislocated": 7,
     "UP_expensive": 6,
-    "RSI_extreme_UP": 1,
+    "RSI_extreme_UP": 2,
     "low_edge": 4
   },
   "active_recommendations": [
