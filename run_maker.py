@@ -68,7 +68,7 @@ class MakerConfig:
 
     # Risk
     DAILY_LOSS_LIMIT: float = 8.0        # V1.4: Tighter for live (was $10)
-    MAX_CONCURRENT_PAIRS: int = 5        # Max simultaneous market pairs
+    MAX_CONCURRENT_PAIRS: int = 8        # V1.5: Increased for 5m+15m markets (was 5)
     MAX_SINGLE_SIDED: int = 2            # V1.1: Was 3. Partial fills = directional risk. Allow max 2.
 
     # Timing
@@ -217,7 +217,7 @@ class OffsetOptimizer:
 
 @dataclass
 class MarketPair:
-    """A pair of Up/Down tokens for one 15-min market."""
+    """A pair of Up/Down tokens for one 5-min or 15-min market."""
     market_id: str           # conditionId (used as unique key)
     market_num_id: str       # Numeric market ID (used for gamma-api lookup)
     question: str
@@ -235,6 +235,7 @@ class MarketPair:
     # Timing
     end_time: Optional[datetime] = None
     created_at: Optional[datetime] = None
+    duration_min: int = 15   # 5 or 15
 
 
 @dataclass
@@ -272,6 +273,7 @@ class PairPosition:
     bid_offset_used: float = 0.02  # Track which offset was used
     hour_utc: int = -1             # Hour when position was created
     first_fill_time: Optional[str] = None  # V1.3: When first side filled (for fast partial-protect)
+    duration_min: int = 15   # 5 or 15
 
     @property
     def is_paired(self) -> bool:
@@ -411,47 +413,48 @@ class CryptoMarketMaker:
     # ========================================================================
 
     async def discover_markets(self) -> List[MarketPair]:
-        """Find all active 15-min crypto Up/Down markets."""
+        """Find all active 5-min and 15-min crypto Up/Down markets."""
         pairs = []
         async with httpx.AsyncClient(timeout=15) as client:
-            try:
-                r = await client.get(
-                    "https://gamma-api.polymarket.com/events",
-                    params={"tag_slug": "15M", "active": "true", "closed": "false", "limit": 50},
-                    headers={"User-Agent": "Mozilla/5.0"}
-                )
-                if r.status_code != 200:
-                    print(f"[DISCOVER] API error: {r.status_code}")
-                    return pairs
-
-                events = r.json()
-                for event in events:
-                    title = event.get("title", "").lower()
-                    matched_asset = None
-                    for asset, cfg in self.config.ASSETS.items():
-                        if not cfg["enabled"]:
-                            continue
-                        if any(kw in title for kw in cfg["keywords"]):
-                            matched_asset = asset
-                            break
-
-                    if not matched_asset:
+            for tag_slug, duration in [("5M", 5), ("15M", 15)]:
+                try:
+                    r = await client.get(
+                        "https://gamma-api.polymarket.com/events",
+                        params={"tag_slug": tag_slug, "active": "true", "closed": "false", "limit": 50},
+                        headers={"User-Agent": "Mozilla/5.0"}
+                    )
+                    if r.status_code != 200:
+                        print(f"[DISCOVER] {tag_slug} API error: {r.status_code}")
                         continue
 
-                    for m in event.get("markets", []):
-                        if m.get("closed", True):
+                    events = r.json()
+                    for event in events:
+                        title = event.get("title", "").lower()
+                        matched_asset = None
+                        for asset, cfg in self.config.ASSETS.items():
+                            if not cfg["enabled"]:
+                                continue
+                            if any(kw in title for kw in cfg["keywords"]):
+                                matched_asset = asset
+                                break
+
+                        if not matched_asset:
                             continue
 
-                        pair = self._parse_market(m, event, matched_asset)
-                        if pair:
-                            pairs.append(pair)
+                        for m in event.get("markets", []):
+                            if m.get("closed", True):
+                                continue
 
-            except Exception as e:
-                print(f"[DISCOVER] Error: {e}")
+                            pair = self._parse_market(m, event, matched_asset, duration)
+                            if pair:
+                                pairs.append(pair)
+
+                except Exception as e:
+                    print(f"[DISCOVER] {tag_slug} Error: {e}")
 
         return pairs
 
-    def _parse_market(self, market: dict, event: dict, asset: str) -> Optional[MarketPair]:
+    def _parse_market(self, market: dict, event: dict, asset: str, duration: int = 15) -> Optional[MarketPair]:
         """Parse a market into a MarketPair."""
         try:
             condition_id = market.get("conditionId", "")
@@ -511,6 +514,7 @@ class CryptoMarketMaker:
                 up_mid=up_price,
                 down_mid=down_price,
                 end_time=end_time,
+                duration_min=duration,
             )
             return pair
 
@@ -570,10 +574,13 @@ class CryptoMarketMaker:
         edge = 1.0 - combined  # How much < $1.00 our total cost is
 
         # Time remaining
-        mins_left = 15.0
+        mins_left = float(pair.duration_min)
         if pair.end_time:
             delta = (pair.end_time - datetime.now(timezone.utc)).total_seconds() / 60
             mins_left = max(0, delta)
+
+        # Min time left scales with duration: 5min markets need 2min, 15min need 5min
+        min_time = 2.0 if pair.duration_min <= 5 else self.config.MIN_TIME_LEFT_MIN
 
         return {
             "up_bid": up_bid,
@@ -586,7 +593,7 @@ class CryptoMarketMaker:
             "viable": (
                 combined < self.config.MAX_COMBINED_PRICE
                 and edge >= self.config.MIN_SPREAD_EDGE
-                and mins_left > self.config.MIN_TIME_LEFT_MIN  # Need time for fills
+                and mins_left > min_time  # Need time for fills
                 and up_bid >= 0.38  # V1.1: Balanced markets only. Skewed = partial fill risk
                 and down_bid >= 0.38  # Both sides must have reasonable fill probability
                 and up_bid <= 0.62  # Symmetric range ensures both sides are near 50/50
@@ -617,6 +624,7 @@ class CryptoMarketMaker:
             status="pending",
             bid_offset_used=eval_result.get("offset", self.config.BID_OFFSET),
             hour_utc=datetime.now(timezone.utc).hour,
+            duration_min=pair.duration_min,
         )
 
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -788,9 +796,11 @@ class CryptoMarketMaker:
             # Time decay: closer to expiry = more desperate sellers = higher fills
             created = datetime.fromisoformat(pos.created_at)
             age_min = (datetime.now(timezone.utc) - created).total_seconds() / 60
-            if age_min > 10:
-                fill_prob *= 1.5  # Last 5 min of market = more urgent flow
-            elif age_min > 12:
+            # Scale thresholds by market duration (5 or 15 min)
+            dur = pos.duration_min
+            if age_min > dur * 0.67:
+                fill_prob *= 1.5  # Last third of market = more urgent flow
+            elif age_min > dur * 0.80:
                 fill_prob *= 2.0  # Very end = aggressive selling
 
             fill_prob = min(fill_prob, 0.60)  # Cap at 60%
@@ -863,11 +873,38 @@ class CryptoMarketMaker:
                                     pass
                     # V1.3: Cancel the FILLED side too — don't hold directional risk!
                     # In paper mode: mark entire position cancelled (PnL = 0, not resolved)
-                    # In live mode: would need to sell the filled shares (TODO for live)
+                    # In live mode: sell filled shares back at market to exit
                     filled_side = "UP" if pos.up_filled else "DOWN"
                     print(f"  [PARTIAL-CANCEL] {pos.asset} {filled_side}-only after {since_first_fill:.0f}min — cancelling entire position (no directional gamble)")
+
+                    # V1.5: Sell back filled shares in live mode
+                    partial_sell_pnl = 0.0
+                    if not self.paper and self.client:
+                        filled_order = pos.up_order if pos.up_filled else pos.down_order
+                        if filled_order and filled_order.fill_shares > 0:
+                            try:
+                                from py_clob_client.clob_types import OrderArgs, OrderType
+                                from py_clob_client.order_builder.constants import SELL
+                                # Sell at market (bid -1 cent to ensure fill)
+                                sell_price = max(0.01, round(filled_order.fill_price - 0.01, 2))
+                                sell_args = OrderArgs(
+                                    price=sell_price,
+                                    size=filled_order.fill_shares,
+                                    side=SELL,
+                                    token_id=filled_order.token_id,
+                                )
+                                sell_signed = self.client.create_order(sell_args)
+                                sell_resp = self.client.post_order(sell_signed, OrderType.GTC)
+                                if sell_resp.get("success"):
+                                    partial_sell_pnl = (sell_price - filled_order.fill_price) * filled_order.fill_shares
+                                    print(f"  [PARTIAL-SELL] Sold {filled_order.fill_shares:.0f} {filled_side} @ ${sell_price:.2f} | PnL: ${partial_sell_pnl:+.2f}")
+                                else:
+                                    print(f"  [PARTIAL-SELL] Sell failed: {sell_resp.get('errorMsg', '?')}")
+                            except Exception as e:
+                                print(f"  [PARTIAL-SELL] Error: {e}")
+
                     pos.status = "cancelled"
-                    pos.pnl = 0.0
+                    pos.pnl = partial_sell_pnl
                     # ML: record as partial for offset learning
                     self.ml_optimizer.record(
                         hour=pos.hour_utc if pos.hour_utc >= 0 else now.hour,
@@ -875,8 +912,9 @@ class CryptoMarketMaker:
                         paired=False, partial=True, pnl=0.0
                     )
 
-            # If approaching close (>13 min for a 15-min market), cancel unfilled orders
-            if age_min > 13:
+            # If approaching close (duration - 2 min buffer), cancel unfilled orders
+            expire_at = pos.duration_min - 2
+            if age_min > expire_at:
                 for order, attr in [(pos.up_order, "up_filled"), (pos.down_order, "down_filled")]:
                     if order and not getattr(pos, attr) and order.status == "open":
                         order.status = "cancelled"
@@ -895,16 +933,17 @@ class CryptoMarketMaker:
             if pos.status == "resolved":
                 continue
 
-            # Check if market has expired (15 min + buffer)
+            # Check if market has expired (duration + 1 min buffer)
             created = datetime.fromisoformat(pos.created_at)
             age_min = (now - created).total_seconds() / 60
-            if age_min < 16:  # Wait for resolution
+            resolve_after = pos.duration_min + 1
+            if age_min < resolve_after:  # Wait for resolution
                 continue
 
             # Fetch outcome using numeric market ID
             outcome = await self._fetch_outcome(pos.market_num_id)
             if not outcome:
-                if age_min > 30:  # Give up after 30 min
+                if age_min > pos.duration_min * 2:  # Give up after 2x duration
                     pos.status = "cancelled"
                     self._cancel_position_orders(pos)
                     # ML: record unfilled/cancelled attempt
@@ -1154,7 +1193,8 @@ class CryptoMarketMaker:
                         if not eval_result["viable"]:
                             continue
 
-                        print(f"\n[{pair.asset}] {pair.question[:60]}")
+                        tag = f"{pair.duration_min}m"
+                        print(f"\n[{pair.asset} {tag}] {pair.question[:55]}")
                         print(f"  Mid: UP ${pair.up_mid:.2f} / DOWN ${pair.down_mid:.2f} | "
                               f"Mins left: {eval_result['mins_left']:.1f}")
 
