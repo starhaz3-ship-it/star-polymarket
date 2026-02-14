@@ -97,6 +97,8 @@ class CopyTrader:
         "Bidou28old": "0x4460bf2c0aa59db412a6493c2c08970797b62970",  # $88.5K PnL in 1 day, $524K vol, aggressive directional 5m/15m scalper
         # --- 5m BTC Scalper (added 2026-02-13) ---
         "MuseumOfBees": "0x61276aba49117fd9299707d5d573652949d5c977",  # $13.6K PnL, $1.28M vol, 344 mkts, 1-day-old acct, 100% BTC 5m only, burst trader (3K fills/hr), hold-to-expiry
+        # --- Diversified Whale (added 2026-02-13) ---
+        "Female-Bongo": "0x0eA574F3204C5c9C0cdEad90392ea0990F4D17e4",  # $378K PnL, $51.5M vol, 4,163 mkts, crypto+sports+politics, largest win $38K
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]
