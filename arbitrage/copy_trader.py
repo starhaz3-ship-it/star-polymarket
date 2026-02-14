@@ -95,6 +95,8 @@ class CopyTrader:
         # --- 5m/15m Crypto Scalpers (added 2026-02-13) ---
         "Canine-Commandment": "0x1d0034134e339a309700ff2d34e99fa2d48b0313",  # $173K PnL in 18d, 4,595 trades, $19.7M vol, both-sides MM on 5m/15m crypto
         "Bidou28old": "0x4460bf2c0aa59db412a6493c2c08970797b62970",  # $88.5K PnL in 1 day, $524K vol, aggressive directional 5m/15m scalper
+        # --- 5m BTC Scalper (added 2026-02-13) ---
+        "MuseumOfBees": "0x61276aba49117fd9299707d5d573652949d5c977",  # $13.6K PnL, $1.28M vol, 344 mkts, 1-day-old acct, 100% BTC 5m only, burst trader (3K fills/hr), hold-to-expiry
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]
