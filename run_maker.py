@@ -427,7 +427,7 @@ class MakerConfig:
     # Watch Binance BTC for first 2-3 min of each 5-min round. If momentum > threshold,
     # buy the predicted direction. Backtested: 72-90% accuracy depending on threshold.
     MOMENTUM_ENABLED: bool = True
-    MOMENTUM_SIZE_USD: float = 5.0       # $ per directional trade
+    MOMENTUM_SIZE_USD: float = 3.0       # $ per directional trade
     MOMENTUM_THRESHOLD_BPS: float = 15.0 # Minimum momentum in basis points to trigger
     MOMENTUM_WAIT_SECONDS: float = 120.0 # Wait this long after market opens (2 min)
     MOMENTUM_MAX_WAIT_SECONDS: float = 210.0  # Don't enter after 3.5 min (too late)
@@ -707,6 +707,8 @@ class BinanceMomentum:
                      shares: float, cost_usd: float, momentum_bps: float,
                      question: str, market_num_id: str = ""):
         """Record a momentum trade for tracking."""
+        now = datetime.now(timezone.utc)
+        tracking = self.tracked_markets.get(market_id, {})
         self.momentum_trades.append({
             "market_id": market_id,
             "market_num_id": market_num_id,
@@ -716,7 +718,12 @@ class BinanceMomentum:
             "cost_usd": cost_usd,
             "momentum_bps": momentum_bps,
             "question": question,
-            "placed_at": datetime.now(timezone.utc).isoformat(),
+            "placed_at": now.isoformat(),
+            "hour_utc": now.hour,
+            "minute_utc": now.minute,
+            "btc_open_price": tracking.get("open_price", 0),
+            "btc_signal_price": tracking.get("signal_price", 0),
+            "elapsed_sec": (now - tracking["open_time"]).total_seconds() if "open_time" in tracking else 0,
             "outcome": None,
             "pnl": None,
         })
@@ -1788,6 +1795,17 @@ class CryptoMarketMaker:
         """
         if not self.momentum or not self.config.MOMENTUM_ENABLED:
             return
+
+        # Lifetime circuit breaker: pause if <30% WR AND -$20 running PnL
+        resolved = [t for t in self.momentum.momentum_trades if t.get("outcome") is not None]
+        if len(resolved) >= 5:  # need minimum sample
+            wins = sum(1 for t in resolved if t.get("pnl", 0) > 0)
+            wr = wins / len(resolved)
+            total_pnl = sum(t.get("pnl", 0) for t in resolved)
+            if wr < 0.30 and total_pnl < -20.0:
+                print(f"  [MOM PAUSED] WR {wr:.0%} < 30% and PnL ${total_pnl:.2f} < -$20 — momentum disabled")
+                self.config.MOMENTUM_ENABLED = False
+                return
 
         # Fetch current BTC price
         btc_price = await self.momentum.fetch_btc_price()
