@@ -159,7 +159,7 @@ def _try_gasless_redeem():
             return True, 0.0
 
         total = sum(float(p.get("size", 0) or 0) for p in positions)
-        results = svc.redeem_all(batch_size=5)
+        results = svc.redeem_all(batch_size=1)
 
         # Restore original
         ProxyWeb3Service._submit_transactions = _original_submit
@@ -296,11 +296,11 @@ def auto_redeem_winnings():
 
         from web3 import Web3
 
-        # Check gas price — skip if too expensive (> 200 gwei base fee)
+        # Check gas price — skip if too expensive (> 400 gwei base fee)
         gas_price = _redeem_w3.eth.gas_price
         gas_gwei = gas_price / 1e9
-        if gas_gwei > 200:
-            print(f"[REDEEM] Gas too high ({gas_gwei:.0f} gwei > 200), skipping")
+        if gas_gwei > 400:
+            print(f"[REDEEM] Gas too high ({gas_gwei:.0f} gwei > 400), skipping")
             return 0.0
 
         # Check for stuck pending TXs
@@ -339,7 +339,7 @@ def auto_redeem_winnings():
             0,
         )
         nonce = _redeem_w3.eth.get_transaction_count(_redeem_account.address, "latest")
-        use_gas_price = min(int(gas_price * 1.5), _redeem_w3.to_wei(300, "gwei"))
+        use_gas_price = min(int(gas_price * 1.5), _redeem_w3.to_wei(500, "gwei"))
         txn = factory.functions.proxy([proxy_txn]).build_transaction({
             "from": _redeem_account.address,
             "nonce": nonce,
@@ -1729,7 +1729,7 @@ class CryptoMarketMaker:
                     print(self.ml_optimizer.get_summary())
 
                 # Phase 9: Auto-redeem winnings every 45 seconds (live only)
-                if not self.paper and now_ts - last_redeem_check >= 120:
+                if not self.paper and now_ts - last_redeem_check >= 45:
                     try:
                         claimed = auto_redeem_winnings()
                         if claimed > 0:
