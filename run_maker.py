@@ -31,6 +31,7 @@ import time
 import os
 import math
 import asyncio
+import statistics
 import argparse
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -382,7 +383,7 @@ class MakerConfig:
     BID_OFFSET: float = 0.02             # Bid this much below best ask
 
     # Position sizing
-    SIZE_PER_SIDE_USD: float = 3.0       # V2.9: $3/side. Scaling down after stacking bug losses.
+    SIZE_PER_SIDE_USD: float = 5.0       # V3.0: $5/side
     MAX_PAIR_EXPOSURE: float = 70.0      # V2.5: $70/pair ($35 x 2 sides)
     MAX_TOTAL_EXPOSURE: float = 250.0    # V2.5: $250 max (~$280 cap - $30 buffer)
     MIN_SHARES: int = 5                  # CLOB minimum order size
@@ -427,7 +428,8 @@ class MakerConfig:
     # Watch Binance BTC for first 2-3 min of each 5-min round. If momentum > threshold,
     # buy the predicted direction. Backtested: 72-90% accuracy depending on threshold.
     MOMENTUM_ENABLED: bool = True
-    MOMENTUM_SIZE_USD: float = 3.0       # $ per directional trade
+    MOMENTUM_SIZE_USD: float = 5.0       # $ per directional trade (base)
+    MOMENTUM_CONFIRMED_SIZE_USD: float = 10.0  # $ when V5 regime confirms (2x)
     MOMENTUM_THRESHOLD_BPS: float = 15.0 # Minimum momentum in basis points to trigger
     MOMENTUM_WAIT_SECONDS: float = 120.0 # Wait this long after market opens (2 min)
     MOMENTUM_MAX_WAIT_SECONDS: float = 210.0  # Don't enter after 3.5 min (too late)
@@ -584,6 +586,11 @@ class BinanceMomentum:
         self.momentum_trades: List[dict] = []
         self.momentum_daily_pnl: float = 0.0
         self.momentum_daily_date: str = date_today()
+        # V5 regime confirmation: rolling 5m candle history
+        self.btc_5m_closes: List[float] = []
+        self.btc_5m_highs: List[float] = []
+        self.btc_5m_lows: List[float] = []
+        self.last_5m_bar_ts: int = 0
         self._load()
 
     def _load(self):
@@ -737,6 +744,94 @@ class BinanceMomentum:
                 trade["resolved_at"] = datetime.now(timezone.utc).isoformat()
                 self.momentum_daily_pnl += pnl
                 break
+
+    def update_5m_candle(self, price: float):
+        """Append a 5m candle snapshot. Called every ~30s, we bucket by 5-min window."""
+        now_ts = int(time.time())
+        bar_ts = now_ts - (now_ts % 300)  # floor to 5-min boundary
+        if bar_ts != self.last_5m_bar_ts:
+            # New 5m bar — push previous bar's data
+            if self.last_5m_bar_ts > 0 and price > 0:
+                self.btc_5m_closes.append(price)
+                self.btc_5m_highs.append(price)
+                self.btc_5m_lows.append(price)
+            self.last_5m_bar_ts = bar_ts
+            # Keep last 50 bars
+            self.btc_5m_closes = self.btc_5m_closes[-50:]
+            self.btc_5m_highs = self.btc_5m_highs[-50:]
+            self.btc_5m_lows = self.btc_5m_lows[-50:]
+        else:
+            # Update current bar's high/low
+            if self.btc_5m_highs and price > 0:
+                self.btc_5m_highs[-1] = max(self.btc_5m_highs[-1], price)
+                self.btc_5m_lows[-1] = min(self.btc_5m_lows[-1], price)
+
+    def v5_confirms(self, direction: str) -> bool:
+        """V5 regime confirmation: ATR%, EMA trend, BB bandwidth, z-score.
+
+        When this returns True, the momentum signal is higher confidence (90.6% vs 88.6% WR).
+        Used to double position size.
+        """
+        closes = self.btc_5m_closes
+        highs = self.btc_5m_highs
+        lows = self.btc_5m_lows
+        n = len(closes)
+        if n < 25:  # need enough history for EMA21 + ATR14
+            return False
+
+        # ATR% (14-period)
+        trs = [highs[0] - lows[0]]
+        for i in range(1, n):
+            tr = max(highs[i] - lows[i],
+                     abs(highs[i] - closes[i-1]),
+                     abs(lows[i] - closes[i-1]))
+            trs.append(tr)
+        # Simple EMA of TR
+        a = 2.0 / 15.0
+        atr_val = trs[0]
+        for i in range(1, len(trs)):
+            atr_val = a * trs[i] + (1 - a) * atr_val
+        atrp = atr_val / closes[-1] if closes[-1] > 0 else 0
+
+        if atrp < 0.0008 or atrp > 0.012:
+            return False
+
+        # EMA 9/21 trend
+        a9 = 2.0 / 10.0
+        a21 = 2.0 / 22.0
+        ema9 = closes[0]
+        ema21 = closes[0]
+        for c in closes[1:]:
+            ema9 = a9 * c + (1 - a9) * ema9
+            ema21 = a21 * c + (1 - a21) * ema21
+
+        if direction == "UP" and ema9 <= ema21:
+            return False
+        if direction == "DOWN" and ema9 >= ema21:
+            return False
+
+        # BB bandwidth
+        if n >= 20:
+            window = closes[-20:]
+            mid = sum(window) / 20
+            std = (sum((x - mid)**2 for x in window) / 20) ** 0.5
+            bb_bw = (4.0 * std) / mid if mid > 0 else 0
+            if bb_bw < 0.005 or bb_bw > 0.06:
+                return False
+
+        # Z-score of 10m momentum
+        if n >= 12:
+            rets = [(closes[i] - closes[i-1]) / closes[i-1]
+                    for i in range(max(1, n-12), n) if closes[i-1] > 0]
+            if len(rets) >= 2:
+                vol = statistics.stdev(rets)
+                if vol > 1e-8:
+                    mom_10m = (closes[-1] - closes[-3]) / closes[-3] if n >= 3 and closes[-3] > 0 else 0
+                    mom_z = mom_10m / vol
+                    if abs(mom_z) < 0.8:
+                        return False
+
+        return True
 
     def cleanup_old(self):
         """Remove tracking data for markets > 30 minutes old."""
@@ -1827,6 +1922,7 @@ class CryptoMarketMaker:
             return
 
         self.momentum.reset_daily()
+        self.momentum.update_5m_candle(btc_price)  # V5 regime tracking
 
         # Check daily loss limit for momentum
         if self.momentum.momentum_daily_pnl < -self.config.MOMENTUM_DAILY_LOSS_LIMIT:
@@ -1880,16 +1976,21 @@ class CryptoMarketMaker:
                 # Market might have been discovered earlier but not in current scan
                 continue
 
-            # Place directional order
+            # V5 regime confirmation -> double size
+            confirmed = self.momentum.v5_confirms(signal)
             mom_bps = tracking.get("momentum_bps", 0)
-            await self._place_momentum_order(target_pair, signal, mom_bps)
+            await self._place_momentum_order(target_pair, signal, mom_bps, confirmed)
             active_mom += 1
 
         # Cleanup old tracking data
         self.momentum.cleanup_old()
 
-    async def _place_momentum_order(self, pair: MarketPair, direction: str, momentum_bps: float):
-        """Place a directional BUY order based on momentum signal."""
+    async def _place_momentum_order(self, pair: MarketPair, direction: str,
+                                    momentum_bps: float, confirmed: bool = False):
+        """Place a directional BUY order based on momentum signal.
+
+        If confirmed=True (V5 regime alignment), uses MOMENTUM_CONFIRMED_SIZE_USD (2x).
+        """
         token_id = pair.up_token_id if direction == "UP" else pair.down_token_id
         mid_price = pair.up_mid if direction == "UP" else pair.down_mid
 
@@ -1897,12 +1998,16 @@ class CryptoMarketMaker:
         buy_price = round(min(0.95, mid_price + 0.01), 2)
         buy_price = max(0.05, buy_price)
 
-        shares = max(self.config.MIN_SHARES, math.floor(self.config.MOMENTUM_SIZE_USD / buy_price))
+        # V5 tiered sizing: double down when regime confirms
+        size_usd = self.config.MOMENTUM_CONFIRMED_SIZE_USD if confirmed else self.config.MOMENTUM_SIZE_USD
+        tag = "2x" if confirmed else "1x"
+
+        shares = max(self.config.MIN_SHARES, math.floor(size_usd / buy_price))
         cost_usd = buy_price * shares
 
         if self.paper:
             order_id = f"mom_{direction.lower()}_{pair.market_id[:12]}_{int(time.time())}"
-            print(f"  [MOM PAPER] {pair.asset} {direction} @ ${buy_price:.2f} x {shares} "
+            print(f"  [MOM PAPER {tag}] {pair.asset} {direction} @ ${buy_price:.2f} x {shares} "
                   f"(${cost_usd:.2f}) | momentum: {momentum_bps:+.1f}bp")
         else:
             try:
@@ -1923,7 +2028,7 @@ class CryptoMarketMaker:
                     return
 
                 order_id = resp.get("orderID", "")
-                print(f"  [MOM LIVE] {pair.asset} {direction} @ ${buy_price:.2f} x {shares} "
+                print(f"  [MOM LIVE {tag}] {pair.asset} {direction} @ ${buy_price:.2f} x {shares} "
                       f"(${cost_usd:.2f}) | momentum: {momentum_bps:+.1f}bp | oid={order_id[:16]}...")
             except Exception as e:
                 print(f"  [MOM LIVE] Error: {e}")
