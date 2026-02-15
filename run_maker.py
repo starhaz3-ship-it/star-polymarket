@@ -1,16 +1,19 @@
 """
-Both-Sides Market Maker for 15-min Crypto Up/Down Markets (V3.3)
+Both-Sides Accumulation Maker for BTC 5-min Up/Down Markets (V4)
 
 Strategy:
-  Place passive BUY limit orders (post_only) on BOTH Up and Down tokens.
-  When both fill at combined price < $1.00, guaranteed profit.
+  Bid deep on BOTH Up and Down tokens ($0.47/$0.46 = combined $0.93).
+  Natural pairs: 7.5% guaranteed edge ($0.21/pair on 6 shares).
+  Partials: sell back at market after 120s timeout (small spread loss).
+  No hedge. No rides. Cut partials fast.
 
-  V3.3 "No Hedge" — Data showed hedging was our #1 PnL destroyer:
-    - Hedged pairs: -$0.60 guaranteed loss (3-5c overpay to taker fill)
-    - Natural pairs: +$0.40 guaranteed profit (2% edge)
-    - Rides: +$0.20 EV at 50% WR (buying at $0.48 < fair $0.50)
+  Inspired by MuseumOfBees + k9Q2 whale analysis:
+    - Both-sides arb with directional tilt (75% correct side)
+    - Late-candle entries when direction is 70-80% clear
+    - Limit order accumulation (many small orders, not one big hit)
+    - Merge recycling to free capital mid-market
 
-  New approach: ride unpaired fills instead of hedge. Kill the bleed.
+  V4 vs V3: deeper bids (7.5% vs 2% edge), BTC 5M only, sell partials.
 
 Modes:
   --paper  : Shadow mode - simulates fills from order book, no execution
@@ -368,23 +371,27 @@ def auto_redeem_winnings():
 
 @dataclass
 class MakerConfig:
-    """Market maker configuration."""
+    """Market maker configuration — V4 Accumulation Maker."""
     # Spread targets
-    MAX_COMBINED_PRICE: float = 0.98     # Only pair if Up+Down bids < this
-    MIN_SPREAD_EDGE: float = 0.01        # Minimum edge per pair (combined discount)
-    BID_OFFSET: float = 0.03             # V3.3: 3c offset (was 2c). Bids at ~$0.48 for more edge on naturals.
+    MAX_COMBINED_PRICE: float = 0.97     # V4: 3% minimum edge (was 0.98)
+    MIN_SPREAD_EDGE: float = 0.03        # V4: 3% minimum edge (was 0.01)
+    BID_OFFSET: float = 0.03             # V4: 3c offset floor. Bids at ~$0.47 for 3%+ edge.
+    MIN_BID_OFFSET: float = 0.03         # V4: ML optimizer cannot go below this
 
     # Position sizing
-    SIZE_PER_SIDE_USD: float = 10.0      # V3.3: $10/side
-    MAX_PAIR_EXPOSURE: float = 70.0      # V2.5: $70/pair ($35 x 2 sides)
-    MAX_TOTAL_EXPOSURE: float = 250.0    # V2.5: $250 max (~$280 cap - $30 buffer)
+    SIZE_PER_SIDE_USD: float = 3.0       # V4: $3/side (was $10)
+    MAX_PAIR_EXPOSURE: float = 20.0      # V4: $20/pair (scaled for $3/side)
+    MAX_TOTAL_EXPOSURE: float = 50.0     # V4: $50 max (scaled for $43 account)
     MIN_SHARES: int = 5                  # CLOB minimum order size
 
     # Risk
-    DAILY_LOSS_LIMIT: float = 15.0       # $15 daily loss limit (scaled for $3/side)
-    MAX_CONCURRENT_PAIRS: int = 12       # V1.5: 4 assets x 15M + BTC 5M = needs ~12 slots
-    MAX_SINGLE_SIDED: int = 4            # V3.3: raised from 2. Rides are +EV, allow more.
-    RIDE_AFTER_SEC: float = 45.0         # V3.3: cancel unfilled side after 45s and ride. No hedge.
+    DAILY_LOSS_LIMIT: float = 5.0        # V4: $5 daily loss limit (scaled for $3/side)
+    MAX_CONCURRENT_PAIRS: int = 6        # V4: 5M BTC only, fewer slots needed
+    MAX_SINGLE_SIDED: int = 2            # V4: limit partial exposure
+    RIDE_AFTER_SEC: float = 120.0        # V4: 2min timeout on partials (was 45s)
+
+    # V4: Partial fill handling
+    PARTIAL_TIMEOUT_ACTION: str = "sell"  # V4: "sell" = dump filled side at market, "ride" = hold to resolution
 
     # Timing
     SCAN_INTERVAL: int = 30              # Seconds between market scans
@@ -401,7 +408,7 @@ class MakerConfig:
     ASSETS: dict = field(default_factory=lambda: {
         "BTC": {"keywords": ["bitcoin", "btc"], "enabled": True},
         "ETH": {"keywords": ["ethereum", "eth"], "enabled": False},  # V1.8: Disabled — CSV: 86% WR but -$8.05 PnL. Partial fills bleeding.
-        "SOL": {"keywords": ["solana", "sol"], "enabled": True},   # V1.8: Re-enabled — CSV: 100% WR, +$13.70. BTC+SOL only.
+        "SOL": {"keywords": ["solana", "sol"], "enabled": False},  # V4: Disabled — BTC only for now
         "XRP": {"keywords": ["xrp", "ripple"], "enabled": False},  # V1.7: Disabled — thin books, -$20.03 PnL
     })
 
@@ -458,7 +465,7 @@ class OffsetOptimizer:
     Tracks per-hour, per-offset-bucket stats and uses Thompson Sampling
     to balance exploration vs exploitation of bid offsets.
     """
-    OFFSET_BUCKETS = [0.01, 0.015, 0.02, 0.025, 0.03]
+    OFFSET_BUCKETS = [0.03, 0.035, 0.04, 0.045, 0.05]  # V4: floor at 3c for 3%+ edge
     STATE_FILE = Path(__file__).parent / "maker_ml_state.json"
     EXPLORE_RATE = 0.15  # 15% explore, 85% exploit
 
@@ -509,7 +516,7 @@ class OffsetOptimizer:
             return random.choice(self.OFFSET_BUCKETS)
 
         # Exploit: pick offset with best avg profit per attempt
-        best_offset = 0.02
+        best_offset = 0.03  # V4: default to 3c (was 2c)
         best_score = -999.0
         for off in self.OFFSET_BUCKETS:
             key = f"{off:.3f}"
@@ -1277,7 +1284,7 @@ class CryptoMarketMaker:
         V2.4: 5M markets moved to tag_slug='5M' (was under '15M' before)."""
         pairs = []
         async with httpx.AsyncClient(timeout=15) as client:
-            for tag_slug, duration in [("5M", 5), ("15M", 15)]:
+            for tag_slug, duration in [("5M", 5)]:  # V4: 5M only, killed 15M (break-even after fees)
                 try:
                     r = await client.get(
                         "https://gamma-api.polymarket.com/events",
@@ -1448,19 +1455,19 @@ class CryptoMarketMaker:
         """ML-optimized bid offset. Maximizes profit = fill_rate x edge."""
         hour = datetime.now(timezone.utc).hour
         offset = self.ml_optimizer.get_offset(hour)
-        return offset
+        # V4: enforce minimum offset floor for 3%+ margin
+        return max(self.config.MIN_BID_OFFSET, offset)
 
     def evaluate_pair(self, pair: MarketPair) -> dict:
         """Evaluate a market pair for maker opportunity."""
         offset = self._get_bid_offset()
 
-        # V1.6: 5M markets use half offset (bid closer to mid for faster fills)
-        if pair.duration_min <= 5:
-            offset = max(0.01, round(offset / 2, 2))
+        # V4: REMOVED half-offset for 5M — this was ROOT CAUSE of 1% margins.
+        # Full offset on 5M gives proper 3%+ edge.
+        # Enforce minimum offset floor
+        offset = max(self.config.MIN_BID_OFFSET, offset)
 
-        # Our target bid prices
-        # V3.3: Symmetric offsets on both sides. No hedge = no need to
-        # favor one side filling faster. Both at full offset for max edge.
+        # Our target bid prices — symmetric offsets on both sides for max edge.
         # e.g. mid $0.51/$0.49, offset 0.03 → bids $0.48/$0.46 → combined $0.94
         up_bid = round(pair.up_mid - offset, 2)
         down_bid = round(pair.down_mid - offset, 2)
@@ -1807,7 +1814,31 @@ class CryptoMarketMaker:
                     filled_order = pos.up_order if pos.up_filled else pos.down_order
                     shares = filled_order.fill_shares if filled_order else 0
 
-                    # V3.3: Just ride — no hedge attempt. Accept the coin flip.
+                    # V4: Sell-on-timeout — dump filled side at market to cut losses.
+                    # Small guaranteed loss (spread) is better than 50/50 coin flip on entire stake.
+                    if self.config.PARTIAL_TIMEOUT_ACTION == "sell" and not self.paper and filled_order:
+                        sell_pnl = await self._sell_partial_at_market(pos, filled_order)
+                        if sell_pnl is not None:
+                            pos.status = "resolved"
+                            pos.pnl = sell_pnl
+                            pos.outcome = f"SOLD_{filled_side}"
+                            self.stats["total_pnl"] += sell_pnl
+                            self.daily_pnl += sell_pnl
+                            self.stats["pairs_partial"] += 1
+                            self.stats["partial_pnl"] += sell_pnl
+                            self.ml_optimizer.record(
+                                hour=pos.hour_utc if pos.hour_utc >= 0 else now.hour,
+                                offset=pos.bid_offset_used,
+                                paired=False, partial=True, pnl=sell_pnl
+                            )
+                            print(f"  [SELL-CUT] {pos.asset} {filled_side} {shares:.0f}sh — "
+                                  f"sold at market | PnL: ${sell_pnl:+.4f}")
+                            continue
+                        else:
+                            # Sell failed — fall through to ride
+                            print(f"  [SELL-FAIL] {pos.asset} {filled_side} — sell failed, falling back to ride")
+
+                    # Fallback: ride to resolution (V3.3 behavior)
                     print(f"  [RIDE] {pos.asset} {filled_side} {shares:.0f}sh @ ${filled_order.fill_price:.2f} — "
                           f"riding to resolution (win=${(1.0 - filled_order.fill_price) * shares:.2f}, "
                           f"lose=${filled_order.fill_price * shares:.2f})")
@@ -2552,6 +2583,54 @@ class CryptoMarketMaker:
                 except Exception:
                     pass
 
+    async def _sell_partial_at_market(self, pos: PairPosition, filled_order: MakerOrder) -> Optional[float]:
+        """V4: Sell a partially-filled position at market to cut losses.
+        Returns PnL if sold successfully, None if sell failed."""
+        if not self.client or not filled_order:
+            return None
+
+        try:
+            from py_clob_client.clob_types import OrderArgs, OrderType, BalanceAllowanceParams, AssetType
+            from py_clob_client.order_builder.constants import SELL
+
+            # Get current best bid for the filled token
+            book = await self.get_order_book(filled_order.token_id)
+            if not book or book.get("best_bid", 0) <= 0:
+                return None
+
+            best_bid = book["best_bid"]
+            sell_price = max(0.01, round(best_bid - 0.01, 2))  # 1c below bid for fast fill
+
+            # Approve conditional token for selling
+            try:
+                self.client.update_balance_allowance(
+                    BalanceAllowanceParams(asset_type=AssetType.CONDITIONAL, token_id=filled_order.token_id))
+            except Exception:
+                pass
+
+            sell_args = OrderArgs(
+                price=sell_price,
+                size=filled_order.fill_shares,
+                side=SELL,
+                token_id=filled_order.token_id,
+            )
+            sell_signed = self.client.create_order(sell_args)
+            sell_resp = self.client.post_order(sell_signed, OrderType.GTC)
+
+            if sell_resp.get("success"):
+                # PnL = sell revenue - buy cost
+                sell_revenue = sell_price * filled_order.fill_shares
+                buy_cost = filled_order.fill_price * filled_order.fill_shares
+                pnl = round(sell_revenue - buy_cost, 6)
+                return pnl
+            else:
+                print(f"  [SELL-CUT] Order failed: {sell_resp.get('errorMsg', '?')}")
+                return None
+
+        except Exception as e:
+            print(f"  [SELL-CUT] Error: {e}")
+            return None
+
     # ========================================================================
     # RISK MANAGEMENT
     # ========================================================================
@@ -2625,9 +2704,11 @@ class CryptoMarketMaker:
         """Main market maker loop."""
         print("=" * 70)
         mode = "PAPER" if self.paper else "LIVE"
-        print(f"BOTH-SIDES MARKET MAKER V3.3 - {mode} MODE")
-        print(f"Strategy: Buy BOTH Up+Down, ride unpaired fills (NO HEDGE)")
-        print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Bid offset: {self.config.BID_OFFSET}c | Ride after: {self.config.RIDE_AFTER_SEC}s")
+        print(f"ACCUMULATION MAKER V4.0 - {mode} MODE")
+        print(f"Strategy: Buy BOTH Up+Down @ 3c+ offset, sell-on-timeout (5M BTC only)")
+        print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Min offset: {self.config.MIN_BID_OFFSET}c | "
+              f"Timeout: {self.config.RIDE_AFTER_SEC}s -> {self.config.PARTIAL_TIMEOUT_ACTION}")
+        print(f"Max combined: ${self.config.MAX_COMBINED_PRICE} | Min edge: {self.config.MIN_SPREAD_EDGE*100:.0f}%")
         print(f"Daily loss limit: ${self.config.DAILY_LOSS_LIMIT}")
         if not self.paper:
             print(f"CIRCUIT BREAKER: Auto-switch to paper on $88 net session loss (~40% capital)")
