@@ -630,9 +630,9 @@ class BinanceMomentum:
         try:
             # Calculate stats
             trades = self.momentum_trades
-            wins = sum(1 for t in trades if t.get("pnl", 0) > 0)
+            wins = sum(1 for t in trades if (t.get("pnl") or 0) > 0)
             total = len(trades)
-            total_pnl = sum(t.get("pnl", 0) for t in trades)
+            total_pnl = sum((t.get("pnl") or 0) for t in trades)
 
             data = {
                 "trades": trades[-500:],
