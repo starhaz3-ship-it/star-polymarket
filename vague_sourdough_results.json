@@ -1,0 +1,306 @@
+{
+  "timestamp": "2026-02-14T22:53:25.729243",
+  "data_range": "2026-02-08 05:54:00 to 2026-02-15 05:53:00",
+  "bars_1m": 10080,
+  "bars_5m": 2017,
+  "test_bars": 1966,
+  "natural_up_pct": 51.67853509664293,
+  "strategies": [
+    {
+      "name": "WILLIAMS_R",
+      "accuracy": 51.322482197355036,
+      "trades": 1966,
+      "gabagool_pnl": -434547.1698113215,
+      "directional_pnl": -280018.8679245283,
+      "directional_wr": 51.322482197355036,
+      "volume": 8847000,
+      "max_win_streak": 9,
+      "max_loss_streak": 12,
+      "avg_pnl_per_trade": -221.031113840957
+    },
+    {
+      "name": "VWAP",
+      "accuracy": 50.25432349949135,
+      "trades": 1966,
+      "gabagool_pnl": -488037.7358490573,
+      "directional_pnl": -458320.7547169812,
+      "directional_wr": 50.25432349949135,
+      "volume": 8847000,
+      "max_win_streak": 12,
+      "max_loss_streak": 7,
+      "avg_pnl_per_trade": -248.2389297299376
+    },
+    {
+      "name": "CVD_DIVERGENCE",
+      "accuracy": 49.79654120040692,
+      "trades": 1966,
+      "gabagool_pnl": -510962.2641509441,
+      "directional_pnl": -534735.8490566036,
+      "directional_wr": 49.79654120040692,
+      "volume": 8847000,
+      "max_win_streak": 7,
+      "max_loss_streak": 12,
+      "avg_pnl_per_trade": -259.8994222537864
+    },
+    {
+      "name": "STOCH_RSI",
+      "accuracy": 49.643947100712104,
+      "trades": 1966,
+      "gabagool_pnl": -518603.77358490636,
+      "directional_pnl": -560207.5471698116,
+      "directional_wr": 49.643947100712104,
+      "volume": 8847000,
+      "max_win_streak": 9,
+      "max_loss_streak": 9,
+      "avg_pnl_per_trade": -263.78625309506936
+    },
+    {
+      "name": "MOMENTUM_5BAR",
+      "accuracy": 49.08443540183113,
+      "trades": 1966,
+      "gabagool_pnl": -546622.6415094347,
+      "directional_pnl": -653603.7735849058,
+      "directional_wr": 49.08443540183113,
+      "volume": 8847000,
+      "max_win_streak": 10,
+      "max_loss_streak": 9,
+      "avg_pnl_per_trade": -278.0379661797735
+    },
+    {
+      "name": "MULTI_CONFLUENCE",
+      "accuracy": 49.03357070193286,
+      "trades": 1966,
+      "gabagool_pnl": -549169.8113207554,
+      "directional_pnl": -662094.3396226412,
+      "directional_wr": 49.03357070193286,
+      "volume": 8847000,
+      "max_win_streak": 10,
+      "max_loss_streak": 8,
+      "avg_pnl_per_trade": -279.33357646020113
+    },
+    {
+      "name": "TAKER_RATIO",
+      "accuracy": 48.83011190233978,
+      "trades": 1966,
+      "gabagool_pnl": -559358.4905660384,
+      "directional_pnl": -696056.6037735848,
+      "directional_wr": 48.83011190233978,
+      "volume": 8847000,
+      "max_win_streak": 10,
+      "max_loss_streak": 12,
+      "avg_pnl_per_trade": -284.5160175819117
+    },
+    {
+      "name": "EMA_CROSS_8_21",
+      "accuracy": 48.677517802644964,
+      "trades": 1966,
+      "gabagool_pnl": -567000.0000000007,
+      "directional_pnl": -721528.3018867922,
+      "directional_wr": 48.677517802644964,
+      "volume": 8847000,
+      "max_win_streak": 12,
+      "max_loss_streak": 10,
+      "avg_pnl_per_trade": -288.40284842319465
+    },
+    {
+      "name": "MACD_HISTOGRAM",
+      "accuracy": 48.626653102746694,
+      "trades": 1966,
+      "gabagool_pnl": -569547.1698113214,
+      "directional_pnl": -730018.8679245283,
+      "directional_wr": 48.626653102746694,
+      "volume": 8847000,
+      "max_win_streak": 8,
+      "max_loss_streak": 10,
+      "avg_pnl_per_trade": -289.6984587036223
+    },
+    {
+      "name": "RSI_14",
+      "accuracy": 48.575788402848424,
+      "trades": 1966,
+      "gabagool_pnl": -572094.3396226423,
+      "directional_pnl": -738509.4339622642,
+      "directional_wr": 48.575788402848424,
+      "volume": 8847000,
+      "max_win_streak": 12,
+      "max_loss_streak": 8,
+      "avg_pnl_per_trade": -290.99406898405
+    },
+    {
+      "name": "MACD_CROSS_8_21",
+      "accuracy": 48.42319430315361,
+      "trades": 1966,
+      "gabagool_pnl": -579735.8490566044,
+      "directional_pnl": -763981.1320754713,
+      "directional_wr": 48.42319430315361,
+      "volume": 8847000,
+      "max_win_streak": 8,
+      "max_loss_streak": 10,
+      "avg_pnl_per_trade": -294.8808998253329
+    },
+    {
+      "name": "CANDLE_BODY",
+      "accuracy": 48.11800610376399,
+      "trades": 1966,
+      "gabagool_pnl": -595018.867924529,
+      "directional_pnl": -814924.5283018867,
+      "directional_wr": 48.11800610376399,
+      "volume": 8847000,
+      "max_win_streak": 11,
+      "max_loss_streak": 9,
+      "avg_pnl_per_trade": -302.6545615078988
+    },
+    {
+      "name": "RSI_6_MOMENTUM",
+      "accuracy": 48.06714140386571,
+      "trades": 1966,
+      "gabagool_pnl": -597566.0377358497,
+      "directional_pnl": -823415.0943396224,
+      "directional_wr": 48.06714140386571,
+      "volume": 8847000,
+      "max_win_streak": 10,
+      "max_loss_streak": 9,
+      "avg_pnl_per_trade": -303.95017178832643
+    },
+    {
+      "name": "CVD",
+      "accuracy": 48.01627670396745,
+      "trades": 1966,
+      "gabagool_pnl": -600113.2075471705,
+      "directional_pnl": -831905.6603773586,
+      "directional_wr": 48.01627670396745,
+      "volume": 8847000,
+      "max_win_streak": 7,
+      "max_loss_streak": 9,
+      "avg_pnl_per_trade": -305.24578206875407
+    },
+    {
+      "name": "EMA_CROSS_3_8",
+      "accuracy": 47.96541200406917,
+      "trades": 1966,
+      "gabagool_pnl": -602660.3773584913,
+      "directional_pnl": -840396.2264150945,
+      "directional_wr": 47.96541200406917,
+      "volume": 8847000,
+      "max_win_streak": 10,
+      "max_loss_streak": 8,
+      "avg_pnl_per_trade": -306.54139234918176
+    },
+    {
+      "name": "EMA_CROSS_5_15",
+      "accuracy": 47.76195320447609,
+      "trades": 1966,
+      "gabagool_pnl": -612849.0566037743,
+      "directional_pnl": -874358.4905660374,
+      "directional_wr": 47.76195320447609,
+      "volume": 8847000,
+      "max_win_streak": 10,
+      "max_loss_streak": 11,
+      "avg_pnl_per_trade": -311.7238334708923
+    },
+    {
+      "name": "MOMENTUM_3BAR",
+      "accuracy": 47.71108850457782,
+      "trades": 1966,
+      "gabagool_pnl": -615396.226415095,
+      "directional_pnl": -882849.0566037736,
+      "directional_wr": 47.71108850457782,
+      "volume": 8847000,
+      "max_win_streak": 10,
+      "max_loss_streak": 11,
+      "avg_pnl_per_trade": -313.01944375131995
+    },
+    {
+      "name": "BB_MEAN_REVERT",
+      "accuracy": 47.60935910478128,
+      "trades": 1966,
+      "gabagool_pnl": -620490.5660377366,
+      "directional_pnl": -899830.1886792454,
+      "directional_wr": 47.60935910478128,
+      "volume": 8847000,
+      "max_win_streak": 9,
+      "max_loss_streak": 9,
+      "avg_pnl_per_trade": -315.6106643121753
+    },
+    {
+      "name": "OBV_TREND",
+      "accuracy": 47.60935910478128,
+      "trades": 1966,
+      "gabagool_pnl": -620490.5660377366,
+      "directional_pnl": -899830.1886792452,
+      "directional_wr": 47.60935910478128,
+      "volume": 8847000,
+      "max_win_streak": 10,
+      "max_loss_streak": 13,
+      "avg_pnl_per_trade": -315.6106643121753
+    },
+    {
+      "name": "PRICE_ACTION",
+      "accuracy": 47.558494404883014,
+      "trades": 1966,
+      "gabagool_pnl": -623037.7358490573,
+      "directional_pnl": -908320.7547169812,
+      "directional_wr": 47.558494404883014,
+      "volume": 8847000,
+      "max_win_streak": 10,
+      "max_loss_streak": 14,
+      "avg_pnl_per_trade": -316.9062745926029
+    },
+    {
+      "name": "BB_BREAKOUT",
+      "accuracy": 47.456765005086474,
+      "trades": 1966,
+      "gabagool_pnl": -628132.0754716988,
+      "directional_pnl": -925301.8867924528,
+      "directional_wr": 47.456765005086474,
+      "volume": 8847000,
+      "max_win_streak": 8,
+      "max_loss_streak": 9,
+      "avg_pnl_per_trade": -319.4974951534582
+    },
+    {
+      "name": "ADX_TREND",
+      "accuracy": 47.20244150559512,
+      "trades": 1966,
+      "gabagool_pnl": -640867.9245283026,
+      "directional_pnl": -967754.7169811322,
+      "directional_wr": 47.20244150559512,
+      "volume": 8847000,
+      "max_win_streak": 10,
+      "max_loss_streak": 10,
+      "avg_pnl_per_trade": -325.97554655559645
+    }
+  ],
+  "param_sweep": {
+    "best_ema": {
+      "fast": 6,
+      "slow": 25,
+      "accuracy": 49.08443540183113
+    },
+    "best_rsi": {
+      "period": 3,
+      "threshold": 60,
+      "accuracy": 48.98270600203459
+    },
+    "best_macd": {
+      "fast": 6,
+      "slow": 16,
+      "signal": 7,
+      "accuracy": 49.23702950152594
+    },
+    "best_momentum": {
+      "period": 5,
+      "accuracy": 49.08443540183113
+    }
+  },
+  "overall_best": {
+    "strategy": "MACD_CROSS",
+    "params": "fast=6, slow=16, sig=7",
+    "accuracy": 49.23702950152594
+  },
+  "benchmark": {
+    "target_pnl": 38711.74,
+    "target_trades": 441,
+    "target_volume": 1950000
+  }
+}

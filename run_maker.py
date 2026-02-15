@@ -1549,6 +1549,20 @@ class CryptoMarketMaker:
                                 except Exception:
                                     pass
 
+                    # Re-check fills after cancel — the passive order may have filled
+                    # between our last fill check and the cancel (race condition).
+                    # If both sides now filled, it's already paired — skip hedge.
+                    if not self.paper:
+                        await self._check_fills_live(pos)
+                        if pos.up_filled and pos.down_filled:
+                            pos.combined_cost = (
+                                (pos.up_order.fill_price * pos.up_order.fill_shares if pos.up_order else 0) +
+                                (pos.down_order.fill_price * pos.down_order.fill_shares if pos.down_order else 0)
+                            )
+                            pos.status = "paired"
+                            print(f"  [HEDGE-SKIP] {pos.asset} — both sides filled naturally, no hedge needed")
+                            continue
+
                     filled_side = "UP" if pos.up_filled else "DOWN"
                     unfilled_side = "DOWN" if pos.up_filled else "UP"
                     filled_order = pos.up_order if pos.up_filled else pos.down_order

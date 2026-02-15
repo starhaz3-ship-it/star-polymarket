@@ -1,0 +1,334 @@
+{
+  "timestamp": "2026-02-14T22:56:09.612265",
+  "next_bar_strategies": [
+    {
+      "name": "RSI6_1M_52",
+      "accuracy": 83.22580645161291
+    },
+    {
+      "name": "RSI6_1M_50",
+      "accuracy": 83.22580645161291
+    },
+    {
+      "name": "LAST_4MIN_MOM",
+      "accuracy": 81.48883374689827
+    },
+    {
+      "name": "RSI6_1M_55",
+      "accuracy": 80.89330024813896
+    },
+    {
+      "name": "LAST_3MIN_MOM",
+      "accuracy": 73.74689826302729
+    },
+    {
+      "name": "COMBO_MOM_TAKER",
+      "accuracy": 73.74689826302729
+    },
+    {
+      "name": "EMA_5_15_1M",
+      "accuracy": 67.89081885856079
+    },
+    {
+      "name": "LAST_3MIN_TAKER",
+      "accuracy": 65.70719602977667
+    },
+    {
+      "name": "LAST_2MIN_TAKER",
+      "accuracy": 64.26799007444168
+    },
+    {
+      "name": "LAST_2MIN_MOM",
+      "accuracy": 63.374689826302735
+    },
+    {
+      "name": "LAST_1MIN_TAKER",
+      "accuracy": 63.126550868486355
+    },
+    {
+      "name": "WICK_SIGNAL",
+      "accuracy": 62.531017369727046
+    },
+    {
+      "name": "MEAN_REVERT",
+      "accuracy": 52.95285359801489
+    },
+    {
+      "name": "LAST_1MIN_MOM",
+      "accuracy": 49.33002481389578
+    },
+    {
+      "name": "SERIAL_CORR",
+      "accuracy": 47.04714640198511
+    }
+  ],
+  "selective_strategies": [
+    {
+      "label": "SELECT_3M_30bp",
+      "accuracy": 54.347826086956516,
+      "trades": 46,
+      "trade_pct": 2.284011916583913,
+      "pnl": 5147.1698113207385,
+      "avg_pnl": 111.89499589827692,
+      "mom_bars": 3,
+      "threshold_bps": 30
+    },
+    {
+      "label": "SELECT_2M_30bp",
+      "accuracy": 51.85185185185185,
+      "trades": 27,
+      "trade_pct": 1.3406156901688182,
+      "pnl": -2573.584905660391,
+      "avg_pnl": -95.31795946890337,
+      "mom_bars": 2,
+      "threshold_bps": 30
+    },
+    {
+      "label": "SELECT_3M_20bp",
+      "accuracy": 51.5527950310559,
+      "trades": 161,
+      "trade_pct": 7.994041708043693,
+      "pnl": -19343.396226415178,
+      "avg_pnl": -120.14531817649178,
+      "mom_bars": 3,
+      "threshold_bps": 20
+    },
+    {
+      "label": "SELECT_2M_15bp",
+      "accuracy": 50.28901734104046,
+      "trades": 173,
+      "trade_pct": 8.589870903674282,
+      "pnl": -38935.84905660385,
+      "avg_pnl": -225.06271130984885,
+      "mom_bars": 2,
+      "threshold_bps": 15
+    },
+    {
+      "label": "SELECT_3M_5bp",
+      "accuracy": 49.137148047229786,
+      "trades": 1101,
+      "trade_pct": 54.66732869910626,
+      "pnl": -353079.24528301926,
+      "avg_pnl": -320.68959607903656,
+      "mom_bars": 3,
+      "threshold_bps": 5
+    },
+    {
+      "label": "SELECT_2M_10bp",
+      "accuracy": 48.882681564245814,
+      "trades": 358,
+      "trade_pct": 17.775571002979145,
+      "pnl": -122369.81132075482,
+      "avg_pnl": -341.81511542110286,
+      "mom_bars": 2,
+      "threshold_bps": 10
+    },
+    {
+      "label": "SELECT_2M_20bp",
+      "accuracy": 48.75,
+      "trades": 80,
+      "trade_pct": 3.9721946375372394,
+      "pnl": -28226.415094339638,
+      "avg_pnl": -352.83018867924545,
+      "mom_bars": 2,
+      "threshold_bps": 20
+    },
+    {
+      "label": "SELECT_3M_15bp",
+      "accuracy": 47.87234042553192,
+      "trades": 282,
+      "trade_pct": 14.001986097318769,
+      "pnl": -120045.28301886807,
+      "avg_pnl": -425.69249297470947,
+      "mom_bars": 3,
+      "threshold_bps": 15
+    },
+    {
+      "label": "SELECT_2M_5bp",
+      "accuracy": 47.80748663101605,
+      "trades": 935,
+      "trade_pct": 46.42502482621648,
+      "pnl": -403056.6037735853,
+      "avg_pnl": -431.076581576027,
+      "mom_bars": 2,
+      "threshold_bps": 5
+    },
+    {
+      "label": "SELECT_TAKER_54",
+      "accuracy": 47.61593729588504,
+      "trades": 1531,
+      "trade_pct": 76.01787487586891,
+      "pnl": -684324.5283018872,
+      "avg_pnl": -446.9787905302986
+    },
+    {
+      "label": "SELECT_TAKER_56",
+      "accuracy": 47.41641337386018,
+      "trades": 1316,
+      "trade_pct": 65.34260178748758,
+      "pnl": -610022.6415094342,
+      "avg_pnl": -463.5430406606643
+    },
+    {
+      "label": "SELECT_TAKER_60",
+      "accuracy": 46.91891891891892,
+      "trades": 925,
+      "trade_pct": 45.92850049652433,
+      "pnl": -466981.13207547204,
+      "avg_pnl": -504.8444671086184
+    },
+    {
+      "label": "SELECT_3M_10bp",
+      "accuracy": 46.89165186500888,
+      "trades": 563,
+      "trade_pct": 27.954319761668323,
+      "pnl": -285501.886792453,
+      "avg_pnl": -507.1081470558668,
+      "mom_bars": 3,
+      "threshold_bps": 10
+    },
+    {
+      "label": "SELECT_TAKER_57",
+      "accuracy": 46.70874661857529,
+      "trades": 1109,
+      "trade_pct": 55.064548162859985,
+      "pnl": -579222.6415094344,
+      "avg_pnl": -522.2927335522403
+    }
+  ],
+  "current_bar_strategies": [
+    {
+      "name": "EARLY_1MIN",
+      "accuracy": 46.77579365079365,
+      "trades": 2016,
+      "trade_pct": 100,
+      "pnl": null
+    },
+    {
+      "name": "EARLY_2MIN",
+      "accuracy": 60.66468253968254,
+      "trades": 2016,
+      "trade_pct": 100,
+      "pnl": null
+    },
+    {
+      "name": "EARLY_3MIN",
+      "accuracy": 69.29563492063492,
+      "trades": 2016,
+      "trade_pct": 100,
+      "pnl": null
+    },
+    {
+      "name": "EARLY_1M_5bp",
+      "accuracy": 48.180815876515986,
+      "trades": 907,
+      "trade_pct": 44.99007936507937,
+      "pnl": -362875.4716981135
+    },
+    {
+      "name": "EARLY_1M_10bp",
+      "accuracy": 49.05149051490515,
+      "trades": 369,
+      "trade_pct": 18.303571428571427,
+      "pnl": -120958.49056603783
+    },
+    {
+      "name": "EARLY_1M_15bp",
+      "accuracy": 50.0,
+      "trades": 180,
+      "trade_pct": 8.928571428571429,
+      "pnl": -44830.18867924536
+    },
+    {
+      "name": "EARLY_1M_20bp",
+      "accuracy": 49.43820224719101,
+      "trades": 89,
+      "trade_pct": 4.4146825396825395,
+      "pnl": -26316.98113207551
+    },
+    {
+      "name": "EARLY_1M_30bp",
+      "accuracy": 44.44444444444444,
+      "trades": 27,
+      "trade_pct": 1.3392857142857142,
+      "pnl": -19177.358490566046
+    },
+    {
+      "name": "EARLY_2M_5bp",
+      "accuracy": 66.51982378854625,
+      "trades": 1135,
+      "trade_pct": 56.29960317460318,
+      "pnl": 1273924.5283018863
+    },
+    {
+      "name": "EARLY_2M_10bp",
+      "accuracy": 69.31818181818183,
+      "trades": 616,
+      "trade_pct": 30.555555555555557,
+      "pnl": 834505.6603773581
+    },
+    {
+      "name": "EARLY_2M_15bp",
+      "accuracy": 72.5609756097561,
+      "trades": 328,
+      "trade_pct": 16.26984126984127,
+      "pnl": 532649.0566037734
+    },
+    {
+      "name": "EARLY_2M_20bp",
+      "accuracy": 73.2620320855615,
+      "trades": 187,
+      "trade_pct": 9.275793650793652,
+      "pnl": 314558.4905660376
+    },
+    {
+      "name": "EARLY_2M_30bp",
+      "accuracy": 71.21212121212122,
+      "trades": 66,
+      "trade_pct": 3.273809523809524,
+      "pnl": 99788.67924528298
+    },
+    {
+      "name": "EARLY_3M_5bp",
+      "accuracy": 74.76993865030674,
+      "trades": 1304,
+      "trade_pct": 64.68253968253968,
+      "pnl": 2356739.622641509
+    },
+    {
+      "name": "EARLY_3M_10bp",
+      "accuracy": 79.61783439490446,
+      "trades": 785,
+      "trade_pct": 38.93849206349206,
+      "pnl": 1734679.2452830183
+    },
+    {
+      "name": "EARLY_3M_15bp",
+      "accuracy": 82.61851015801355,
+      "trades": 443,
+      "trade_pct": 21.974206349206348,
+      "pnl": 1089290.5660377357
+    },
+    {
+      "name": "EARLY_3M_20bp",
+      "accuracy": 85.65891472868216,
+      "trades": 258,
+      "trade_pct": 12.797619047619047,
+      "pnl": 699516.9811320753
+    },
+    {
+      "name": "EARLY_3M_30bp",
+      "accuracy": 90.19607843137256,
+      "trades": 102,
+      "trade_pct": 5.059523809523809,
+      "pnl": 314973.5849056603
+    },
+    {
+      "name": "EARLY_3M_50bp",
+      "accuracy": 88.88888888888889,
+      "trades": 18,
+      "trade_pct": 0.8928571428571428,
+      "pnl": 53630.18867924527
+    }
+  ]
+}

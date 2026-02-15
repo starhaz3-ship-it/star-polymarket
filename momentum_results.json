@@ -1,0 +1,13 @@
+{
+  "trades": [],
+  "daily_pnl": 0.0,
+  "daily_date": "2026-02-15",
+  "stats": {
+    "total_trades": 0,
+    "wins": 0,
+    "win_rate": 0,
+    "total_pnl": 0,
+    "avg_pnl": 0
+  },
+  "last_updated": "2026-02-15T06:49:36.308573+00:00"
+}
