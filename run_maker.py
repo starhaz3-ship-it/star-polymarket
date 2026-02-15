@@ -1227,18 +1227,17 @@ class CryptoMarketMaker:
             created = datetime.fromisoformat(pos.created_at)
             age_min = (now - created).total_seconds() / 60
 
-            # V1.3: FAST partial protection — if one side fills and the other doesn't
-            # within grace period, cancel the ENTIRE position.
-            # Holding a one-sided bet = pure directional gamble. One partial loss (-$5)
-            # wipes ~10 paired wins (+$0.50 each). Better to cancel than gamble.
-            # V1.5: SOL/XRP get 1min grace (thinner books), BTC/ETH get 2min
-            # V1.6: 5M markets get 3.5min grace (need more time on thin books)
+            # V2.6: AGGRESSIVE partial protection — both sides fill or kill.
+            # CSV analysis: 6 partials lost -$72.26, wiping +$58.57 from 32 paired trades.
+            # Partials are 84% of ALL losses. Kill them within 30 seconds.
+            # If one side fills and the other doesn't within grace, cancel unfilled
+            # and sell back the filled side immediately at market.
             if pos.duration_min <= 5:
-                PARTIAL_GRACE_MINUTES = 3.5
+                PARTIAL_GRACE_MINUTES = 0.333  # 20 seconds
             elif pos.asset in ("SOL", "XRP"):
-                PARTIAL_GRACE_MINUTES = 1.0
+                PARTIAL_GRACE_MINUTES = 0.333  # 20 seconds
             else:
-                PARTIAL_GRACE_MINUTES = 2.0
+                PARTIAL_GRACE_MINUTES = 1.0    # 1 min for 15-min markets
             if pos.is_partial and not pos.first_fill_time:
                 pos.first_fill_time = pos.created_at  # Backfill for old positions
             if pos.is_partial and pos.first_fill_time:
@@ -1268,8 +1267,8 @@ class CryptoMarketMaker:
                             try:
                                 from py_clob_client.clob_types import OrderArgs, OrderType
                                 from py_clob_client.order_builder.constants import SELL
-                                # Sell at market (bid -1 cent to ensure fill)
-                                sell_price = max(0.01, round(filled_order.fill_price - 0.01, 2))
+                                # V2.6: Sell aggressively — 2 cents below fill to guarantee instant fill
+                                sell_price = max(0.01, round(filled_order.fill_price - 0.02, 2))
                                 sell_args = OrderArgs(
                                     price=sell_price,
                                     size=filled_order.fill_shares,
@@ -1277,7 +1276,7 @@ class CryptoMarketMaker:
                                     token_id=filled_order.token_id,
                                 )
                                 sell_signed = self.client.create_order(sell_args)
-                                sell_resp = self.client.post_order(sell_signed, OrderType.GTC)
+                                sell_resp = self.client.post_order(sell_signed, OrderType.FOK)
                                 if sell_resp.get("success"):
                                     partial_sell_pnl = (sell_price - filled_order.fill_price) * filled_order.fill_shares
                                     print(f"  [PARTIAL-SELL] Sold {filled_order.fill_shares:.0f} {filled_side} @ ${sell_price:.2f} | PnL: ${partial_sell_pnl:+.2f}")
