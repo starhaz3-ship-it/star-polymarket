@@ -101,7 +101,11 @@ class CopyTrader:
         "Female-Bongo": "0x0eA574F3204C5c9C0cdEad90392ea0990F4D17e4",  # $378K PnL, $51.5M vol, 4,163 mkts, crypto+sports+politics, largest win $38K
         "Same-Folk": "0x5e5bf17f2387232deb056cabcaa1f6ad8d60969b",  # $24K PnL, $548K vol, 57 mkts, 2-day-old acct, largest win $8.3K, via kyledewriter
         # --- 5m BTC Scalper/MM (added 2026-02-14) ---
-        "vague-sourdough": "0x70ec235a31eb35f243e2618d6ea3b5b8962bbb5d",  # $37K PnL in 3 days, $1.8M vol, 397 mkts, 100% BTC 5m both-sides, active scalper (buys early, harvests final 60s at extreme prices)
+        "vague-sourdough": "0x70ec235a31eb35f243e2618d6ea3b5b8962bbb5d",  # $48K PnL in 4 days, $2.5M vol, 595 mkts, 100% BTC 5m both-sides, active scalper
+        "Giving-Chorus": "0xd0bde12c58772999c61c2b8e0d31ba608c52a5d6",  # $91K PnL, $558K vol, 65 mkts, 16% ROI, selective high-conviction, 4-day-old acct
+        # --- High-volume scalpers (added 2026-02-15) ---
+        "gabagool22": "0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d",  # $849K PnL, $139M vol, 27K mkts, joined Oct 2025
+        "late-to-tomorrow": "0x5924ca480d8b08cd5f3e5811fa378c4082475af6",  # $25.7K PnL, $1.07M vol, 674 trades, joined Feb 2026
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]

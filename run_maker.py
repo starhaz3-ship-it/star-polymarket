@@ -1,5 +1,5 @@
 """
-Both-Sides Accumulation Maker for BTC 5-min Up/Down Markets (V4)
+Both-Sides Accumulation Maker for BTC 5-min Up/Down Markets (V4.1)
 
 Strategy:
   Bid deep on BOTH Up and Down tokens ($0.47/$0.46 = combined $0.93).
@@ -7,12 +7,18 @@ Strategy:
   Partials: sell back at market after 120s timeout (small spread loss).
   No hedge. No rides. Cut partials fast.
 
+  V4.1: Late-candle entry (MuseumOfBees strategy):
+    At T+150s, direction is 70-80% clear. Buy the cheap LOSER side.
+    Completes partials into cheap pairs ($0.67 combined vs $0.93 normal).
+    Standalone loser bets for reversal upside ($0.20 risk, $0.80 reward).
+
   Inspired by MuseumOfBees + k9Q2 whale analysis:
     - Both-sides arb with directional tilt (75% correct side)
     - Late-candle entries when direction is 70-80% clear
     - Limit order accumulation (many small orders, not one big hit)
     - Merge recycling to free capital mid-market
 
+  V4.1 vs V4: + late-candle loser buys, ML monitoring per entry type.
   V4 vs V3: deeper bids (7.5% vs 2% edge), BTC 5M only, sell partials.
 
 Modes:
@@ -443,14 +449,24 @@ class MakerConfig:
     ORDERFLOW_VOL_RATIO_MIN: float = 2.0     # Volume must be >= 2x rolling average
     ORDERFLOW_VOL_SMA_PERIOD: int = 20       # Rolling average period (1m bars)
 
-    # Late Entry: 15m-only momentum strategy
-    # Wait 10 min into a 15m bar, then check momentum direction.
-    # 93.2% WR backtested. Only fires on 15m BTC markets.
+    # Late Entry: 15m-only momentum strategy (LEGACY — disabled)
     LATE_ENTRY_ENABLED: bool = False   # V3.1: disabled — back to paper
     LATE_ENTRY_SIZE_USD: float = 5.0
     LATE_ENTRY_WAIT_SECONDS: float = 600.0    # 10 minutes
     LATE_ENTRY_MAX_WAIT_SECONDS: float = 750.0  # Don't enter after 12.5 min
     LATE_ENTRY_THRESHOLD_BPS: float = 15.0    # Minimum momentum in basis points
+
+    # V4.1: Late-Candle Entry (MuseumOfBees strategy) — 5M markets
+    # At T+150s, direction is 70-80% clear. Buy the CHEAP LOSER side.
+    # Key insight: loser token drops to $0.10-$0.25. Buy it to:
+    #   1. Complete partials into cheap pairs ($0.67 combined vs $0.93 normal)
+    #   2. Standalone reversal bets (small loss if wrong, huge win if BTC reverses)
+    LATE_CANDLE_ENABLED: bool = True
+    LATE_CANDLE_WAIT_SEC: float = 150.0       # 2.5 min into 5-min market
+    LATE_CANDLE_MAX_WAIT_SEC: float = 240.0   # Stop at 4 min (60s before close)
+    LATE_CANDLE_SIZE_USD: float = 3.0         # Same as normal maker
+    LATE_CANDLE_MAX_LOSER_PRICE: float = 0.30 # Only buy loser if <= $0.30
+    LATE_CANDLE_MIN_MOMENTUM_BPS: float = 15.0  # Direction must be this clear
 
 
 # ============================================================================
@@ -1013,6 +1029,46 @@ class BinanceMomentum:
         tracking["signal_type"] = "LATE"
         return signal
 
+    def get_late_candle_signal(self, market_id: str, current_price: float,
+                                config: 'MakerConfig') -> Optional[dict]:
+        """V4.1 Late-Candle: detect clear direction for 5M markets at T+150s.
+
+        Unlike old late entry (buys winner), this identifies the LOSER side
+        for cheap buying. MuseumOfBees strategy: buy dirt cheap loser token.
+
+        Returns dict: {winner, loser, momentum_bps, elapsed_sec} or None.
+        """
+        tracking = self.tracked_markets.get(market_id)
+        if not tracking:
+            return None
+
+        open_price = tracking["open_price"]
+        open_time = tracking["open_time"]
+        now = datetime.now(timezone.utc)
+        elapsed_sec = (now - open_time).total_seconds()
+
+        if elapsed_sec < config.LATE_CANDLE_WAIT_SEC:
+            return None
+        if elapsed_sec > config.LATE_CANDLE_MAX_WAIT_SEC:
+            return None
+        if open_price <= 0:
+            return None
+
+        momentum_bps = (current_price - open_price) / open_price * 10000
+
+        if abs(momentum_bps) < config.LATE_CANDLE_MIN_MOMENTUM_BPS:
+            return None
+
+        winner = "UP" if momentum_bps > 0 else "DOWN"
+        loser = "DOWN" if momentum_bps > 0 else "UP"
+
+        return {
+            "winner": winner,
+            "loser": loser,
+            "momentum_bps": momentum_bps,
+            "elapsed_sec": elapsed_sec,
+        }
+
 
 # ============================================================================
 # DATA CLASSES
@@ -1077,6 +1133,10 @@ class PairPosition:
     hour_utc: int = -1             # Hour when position was created
     first_fill_time: Optional[str] = None  # V1.3: When first side filled (for fast partial-protect)
     duration_min: int = 15   # 5 or 15
+    # V4.1: Late-candle tracking
+    entry_type: str = "maker"    # "maker", "late_candle_pair", "late_candle_standalone"
+    late_candle_pending: bool = False  # True when late-candle order placed, awaiting fill
+    loser_buy_price: float = 0.0      # Price paid for loser side (for ML)
 
     @property
     def is_paired(self) -> bool:
@@ -1102,7 +1162,7 @@ class CryptoMarketMaker:
         self.config = MakerConfig()
         self.client = None  # ClobClient (live only)
         self.ml_optimizer = OffsetOptimizer()
-        self.momentum = BinanceMomentum() if self.config.MOMENTUM_ENABLED else None
+        self.momentum = BinanceMomentum() if (self.config.MOMENTUM_ENABLED or self.config.LATE_CANDLE_ENABLED) else None
 
         # State
         self.positions: Dict[str, PairPosition] = {}  # market_id -> PairPosition
@@ -1127,6 +1187,12 @@ class CryptoMarketMaker:
             "fills_up": 0,
             "fills_down": 0,
             "start_time": datetime.now(timezone.utc).isoformat(),
+            # V4.1: Late-candle stats
+            "late_candle_attempts": 0,
+            "late_candle_paired": 0,       # Partials completed via late candle
+            "late_candle_standalone": 0,    # Standalone loser-side bets
+            "late_candle_pnl": 0.0,
+            "version": "V4.1",
         }
 
         # Daily tracking
@@ -1814,6 +1880,10 @@ class CryptoMarketMaker:
                     filled_order = pos.up_order if pos.up_filled else pos.down_order
                     shares = filled_order.fill_shares if filled_order else 0
 
+                    # V4.1: Skip sell-back if late-candle order is pending
+                    if pos.late_candle_pending:
+                        continue
+
                     # V4: Sell-on-timeout — dump filled side at market to cut losses.
                     # Small guaranteed loss (spread) is better than 50/50 coin flip on entire stake.
                     if self.config.PARTIAL_TIMEOUT_ACTION == "sell" and not self.paper and filled_order:
@@ -2219,6 +2289,345 @@ class CryptoMarketMaker:
 
         self._entered_markets.add(pair.market_id)
 
+    # ========================================================================
+    # V4.1: LATE-CANDLE ENTRY (MuseumOfBees strategy)
+    # ========================================================================
+
+    async def run_late_candle_scanner(self, markets: List[MarketPair]):
+        """V4.1: Scan for late-candle opportunities on 5M BTC markets.
+
+        At T+150s, direction is 70-80% clear. The LOSER token is dirt cheap.
+        Two modes:
+          A) Complete existing partials — if we have winner side filled, buy cheap loser
+          B) Standalone — buy loser side on markets we haven't entered
+        """
+        if not self.momentum:
+            return
+
+        btc_price = await self.momentum.fetch_btc_price()
+        if btc_price <= 0:
+            return
+
+        # Auto-disable: if late candle WR < 30% after 20+ resolved trades
+        lc_resolved = [r for r in self.resolved if r.get("entry_type", "").startswith("late_candle")]
+        if len(lc_resolved) >= 20:
+            lc_wins = sum(1 for r in lc_resolved if r.get("pnl", 0) > 0)
+            lc_wr = lc_wins / len(lc_resolved)
+            if lc_wr < 0.30:
+                lc_pnl = sum(r.get("pnl", 0) for r in lc_resolved)
+                print(f"  [LC AUTO-OFF] Late candle WR {lc_wr:.0%} < 30% over {len(lc_resolved)} trades "
+                      f"(PnL: ${lc_pnl:+.2f}) — disabling")
+                self.config.LATE_CANDLE_ENABLED = False
+                return
+
+        now = datetime.now(timezone.utc)
+
+        # Ensure markets are tracked in momentum tracker
+        for pair in markets:
+            if pair.asset == "BTC" and pair.duration_min == 5:
+                start_time = pair.end_time - timedelta(minutes=5) if pair.end_time else now
+                self.momentum.track_market_open(pair.market_id, btc_price, start_time,
+                                                market_num_id=pair.market_num_id, duration_min=5)
+
+        # Also track markets we have positions on
+        for mid, pos in self.positions.items():
+            if pos.asset == "BTC" and pos.duration_min == 5:
+                created = datetime.fromisoformat(pos.created_at)
+                self.momentum.track_market_open(mid, btc_price, created,
+                                                market_num_id=pos.market_num_id, duration_min=5)
+
+        # --- Case A: Complete existing partial positions ---
+        for market_id, pos in list(self.positions.items()):
+            if pos.late_candle_pending or pos.entry_type != "maker":
+                continue
+            if not pos.is_partial or pos.status in ("resolved", "cancelled"):
+                continue
+            if pos.asset != "BTC" or pos.duration_min != 5:
+                continue
+
+            signal = self.momentum.get_late_candle_signal(market_id, btc_price, self.config)
+            if not signal:
+                continue
+
+            # Check: is our filled side the WINNER side?
+            filled_side = "UP" if pos.up_filled else "DOWN"
+            if filled_side != signal["winner"]:
+                continue  # We hold the loser — can't pair cheaply
+
+            loser_side = signal["loser"]
+            unfilled_order = pos.down_order if loser_side == "DOWN" else pos.up_order
+            if not unfilled_order:
+                continue
+            loser_token_id = unfilled_order.token_id
+
+            # Get loser price
+            if not self.paper:
+                book = await self.get_order_book(loser_token_id)
+                if not book:
+                    continue
+                loser_price = book.get("best_ask", 0)
+                if loser_price <= 0:
+                    loser_price = book.get("mid", 0)
+            else:
+                # Paper: estimate from momentum. Stronger momentum = cheaper loser.
+                loser_price = round(max(0.05, 0.50 - abs(signal["momentum_bps"]) / 100), 2)
+
+            if loser_price <= 0 or loser_price > self.config.LATE_CANDLE_MAX_LOSER_PRICE:
+                continue
+
+            # Place the order to complete the pair
+            success = await self._place_late_candle_order(
+                pos, loser_side, loser_token_id, loser_price, signal, is_pair_completion=True)
+            if success:
+                self.stats["late_candle_attempts"] = self.stats.get("late_candle_attempts", 0) + 1
+                self.stats["late_candle_paired"] = self.stats.get("late_candle_paired", 0) + 1
+
+        # --- Case B: Standalone loser-side bets on unentered markets ---
+        for pair in markets:
+            if pair.market_id in self._entered_markets or pair.market_id in self.positions:
+                continue
+            if pair.asset != "BTC" or pair.duration_min != 5:
+                continue
+
+            signal = self.momentum.get_late_candle_signal(pair.market_id, btc_price, self.config)
+            if not signal:
+                continue
+
+            loser_side = signal["loser"]
+            loser_token_id = pair.down_token_id if loser_side == "DOWN" else pair.up_token_id
+            loser_mid = pair.down_mid if loser_side == "DOWN" else pair.up_mid
+
+            if loser_mid > self.config.LATE_CANDLE_MAX_LOSER_PRICE:
+                continue
+
+            # Create a standalone position for the loser side
+            success = await self._place_standalone_late_candle(
+                pair, loser_side, loser_token_id, loser_mid, signal)
+            if success:
+                self.stats["late_candle_attempts"] = self.stats.get("late_candle_attempts", 0) + 1
+                self.stats["late_candle_standalone"] = self.stats.get("late_candle_standalone", 0) + 1
+
+        self.momentum.cleanup_old()
+
+    async def _place_late_candle_order(self, pos: PairPosition, loser_side: str,
+                                        loser_token_id: str, loser_price: float,
+                                        signal: dict, is_pair_completion: bool = True) -> bool:
+        """V4.1: Buy the cheap loser side to complete a partial into a pair.
+
+        Returns True if order placed successfully.
+        """
+        buy_price = round(min(0.95, loser_price + 0.01), 2)  # 1c above ask for fast fill
+        buy_price = max(0.01, buy_price)
+
+        shares = max(self.config.MIN_SHARES, math.floor(self.config.LATE_CANDLE_SIZE_USD / buy_price))
+        cost_usd = buy_price * shares
+        mom_bps = signal["momentum_bps"]
+
+        # Match shares to existing filled side for clean pairing
+        filled_order = pos.up_order if pos.up_filled else pos.down_order
+        if filled_order and filled_order.fill_shares > 0:
+            shares = int(filled_order.fill_shares)
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        if self.paper:
+            order_id = f"lc_{loser_side.lower()}_{pos.market_id[:12]}_{int(time.time())}"
+            new_order = MakerOrder(
+                order_id=order_id,
+                market_id=pos.market_id,
+                token_id=loser_token_id,
+                side_label=loser_side,
+                price=buy_price,
+                size_shares=float(shares),
+                size_usd=buy_price * shares,
+                placed_at=now_iso,
+                status="filled",  # Paper: instant fill
+                fill_price=buy_price,
+                fill_shares=float(shares),
+            )
+            # Update position
+            if loser_side == "DOWN":
+                pos.down_order = new_order
+                pos.down_filled = True
+            else:
+                pos.up_order = new_order
+                pos.up_filled = True
+
+            filled_cost = (filled_order.fill_price * filled_order.fill_shares) if filled_order else 0
+            pos.combined_cost = filled_cost + (buy_price * shares)
+            pos.status = "paired"
+            pos.entry_type = "late_candle_pair"
+            pos.late_candle_pending = False
+            pos.loser_buy_price = buy_price
+
+            print(f"  [LC PAIR] {pos.asset} bought {loser_side} @ ${buy_price:.2f} x {shares} | "
+                  f"Combined: ${pos.combined_cost:.2f} | Edge: {1.0 - pos.combined_cost / shares:.1%} | "
+                  f"Mom: {mom_bps:+.1f}bp")
+            return True
+        else:
+            # Live: place FOK buy order
+            try:
+                from py_clob_client.clob_types import OrderArgs, OrderType
+                from py_clob_client.order_builder.constants import BUY
+
+                args = OrderArgs(
+                    price=buy_price,
+                    size=float(shares),
+                    side=BUY,
+                    token_id=loser_token_id,
+                )
+                signed = self.client.create_order(args)
+                resp = self.client.post_order(signed, OrderType.FOK)
+
+                if resp.get("success"):
+                    order_id = resp.get("orderID", "")
+                    new_order = MakerOrder(
+                        order_id=order_id,
+                        market_id=pos.market_id,
+                        token_id=loser_token_id,
+                        side_label=loser_side,
+                        price=buy_price,
+                        size_shares=float(shares),
+                        size_usd=buy_price * shares,
+                        placed_at=now_iso,
+                        status="filled",
+                        fill_price=buy_price,
+                        fill_shares=float(shares),
+                    )
+                    if loser_side == "DOWN":
+                        pos.down_order = new_order
+                        pos.down_filled = True
+                    else:
+                        pos.up_order = new_order
+                        pos.up_filled = True
+
+                    filled_cost = (filled_order.fill_price * filled_order.fill_shares) if filled_order else 0
+                    pos.combined_cost = filled_cost + (buy_price * shares)
+                    pos.status = "paired"
+                    pos.entry_type = "late_candle_pair"
+                    pos.late_candle_pending = False
+                    pos.loser_buy_price = buy_price
+
+                    print(f"  [LC PAIR LIVE] {pos.asset} bought {loser_side} @ ${buy_price:.2f} x {shares} | "
+                          f"Combined: ${pos.combined_cost:.2f} | Mom: {mom_bps:+.1f}bp | oid={order_id[:16]}...")
+                    return True
+                else:
+                    # FOK failed — no fill available at this price. Place GTC and mark pending.
+                    args2 = OrderArgs(price=buy_price, size=float(shares), side=BUY, token_id=loser_token_id)
+                    signed2 = self.client.create_order(args2)
+                    resp2 = self.client.post_order(signed2, OrderType.GTC)
+                    if resp2.get("success"):
+                        order_id = resp2.get("orderID", "")
+                        new_order = MakerOrder(
+                            order_id=order_id, market_id=pos.market_id,
+                            token_id=loser_token_id, side_label=loser_side,
+                            price=buy_price, size_shares=float(shares),
+                            size_usd=buy_price * shares, placed_at=now_iso,
+                        )
+                        if loser_side == "DOWN":
+                            pos.down_order = new_order
+                        else:
+                            pos.up_order = new_order
+                        pos.late_candle_pending = True
+                        pos.entry_type = "late_candle_pair"
+                        pos.loser_buy_price = buy_price
+                        print(f"  [LC PENDING] {pos.asset} GTC {loser_side} @ ${buy_price:.2f} x {shares} | "
+                              f"Mom: {mom_bps:+.1f}bp — awaiting fill")
+                        return True
+                    return False
+            except Exception as e:
+                print(f"  [LC ERROR] {e}")
+                return False
+
+    async def _place_standalone_late_candle(self, pair: MarketPair, loser_side: str,
+                                             loser_token_id: str, loser_mid: float,
+                                             signal: dict) -> bool:
+        """V4.1: Standalone loser-side bet — buy cheap loser token for reversal upside."""
+        buy_price = round(min(0.95, loser_mid + 0.01), 2)
+        buy_price = max(0.01, buy_price)
+
+        if not self.paper:
+            book = await self.get_order_book(loser_token_id)
+            if book and book.get("best_ask", 0) > 0:
+                buy_price = round(min(0.95, book["best_ask"]), 2)
+            if buy_price > self.config.LATE_CANDLE_MAX_LOSER_PRICE:
+                return False
+
+        shares = max(self.config.MIN_SHARES, math.floor(self.config.LATE_CANDLE_SIZE_USD / buy_price))
+        cost_usd = buy_price * shares
+        mom_bps = signal["momentum_bps"]
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        # Create position (one-sided: loser only)
+        pos = PairPosition(
+            market_id=pair.market_id,
+            market_num_id=pair.market_num_id,
+            question=pair.question,
+            asset=pair.asset,
+            created_at=now_iso,
+            status="partial",
+            bid_offset_used=0.0,
+            hour_utc=datetime.now(timezone.utc).hour,
+            duration_min=pair.duration_min,
+            entry_type="late_candle_standalone",
+            loser_buy_price=buy_price,
+        )
+
+        if self.paper:
+            order_id = f"lcs_{loser_side.lower()}_{pair.market_id[:12]}_{int(time.time())}"
+            order = MakerOrder(
+                order_id=order_id, market_id=pair.market_id,
+                token_id=loser_token_id, side_label=loser_side,
+                price=buy_price, size_shares=float(shares),
+                size_usd=cost_usd, placed_at=now_iso,
+                status="filled", fill_price=buy_price, fill_shares=float(shares),
+            )
+            if loser_side == "DOWN":
+                pos.down_order = order
+                pos.down_filled = True
+            else:
+                pos.up_order = order
+                pos.up_filled = True
+
+            print(f"  [LC STANDALONE] {pair.asset} {loser_side} @ ${buy_price:.2f} x {shares} "
+                  f"(${cost_usd:.2f}) | Mom: {mom_bps:+.1f}bp — reversal bet")
+        else:
+            try:
+                from py_clob_client.clob_types import OrderArgs, OrderType
+                from py_clob_client.order_builder.constants import BUY
+
+                args = OrderArgs(price=buy_price, size=float(shares), side=BUY, token_id=loser_token_id)
+                signed = self.client.create_order(args)
+                resp = self.client.post_order(signed, OrderType.FOK)
+
+                if resp.get("success"):
+                    oid = resp.get("orderID", "")
+                    order = MakerOrder(
+                        order_id=oid, market_id=pair.market_id,
+                        token_id=loser_token_id, side_label=loser_side,
+                        price=buy_price, size_shares=float(shares),
+                        size_usd=cost_usd, placed_at=now_iso,
+                        status="filled", fill_price=buy_price, fill_shares=float(shares),
+                    )
+                    if loser_side == "DOWN":
+                        pos.down_order = order
+                        pos.down_filled = True
+                    else:
+                        pos.up_order = order
+                        pos.up_filled = True
+
+                    print(f"  [LC STANDALONE LIVE] {pair.asset} {loser_side} @ ${buy_price:.2f} x {shares} "
+                          f"(${cost_usd:.2f}) | Mom: {mom_bps:+.1f}bp | oid={oid[:16]}...")
+                else:
+                    return False
+            except Exception as e:
+                print(f"  [LC STANDALONE ERROR] {e}")
+                return False
+
+        self.positions[pair.market_id] = pos
+        self._entered_markets.add(pair.market_id)
+        return True
+
     async def _place_momentum_order(self, pair: MarketPair, direction: str,
                                     momentum_bps: float, confirmed: bool = False):
         """Place a directional BUY order based on momentum signal.
@@ -2482,6 +2891,10 @@ class CryptoMarketMaker:
             self.stats["best_pair_pnl"] = max(self.stats["best_pair_pnl"], pnl)
             self.stats["worst_pair_pnl"] = min(self.stats["worst_pair_pnl"], pnl)
 
+            # V4.1: Track late-candle stats separately
+            if pos.entry_type.startswith("late_candle"):
+                self.stats["late_candle_pnl"] = self.stats.get("late_candle_pnl", 0) + pnl
+
             # ML: record outcome for offset optimization
             self.ml_optimizer.record(
                 hour=pos.hour_utc if pos.hour_utc >= 0 else datetime.now(timezone.utc).hour,
@@ -2493,8 +2906,9 @@ class CryptoMarketMaker:
 
             # Log
             pair_type = "PAIRED" if pos.is_paired else "PARTIAL" if pos.is_partial else "UNFILLED"
+            lc_tag = f" [LC:{pos.entry_type}]" if pos.entry_type != "maker" else ""
             icon = "+" if pnl > 0 else "-" if pnl < 0 else "="
-            print(f"  [{pair_type}] {pos.asset} {pos.question[:50]} | {outcome} | PnL: {icon}${abs(pnl):.4f} (off={pos.bid_offset_used:.1%})")
+            print(f"  [{pair_type}]{lc_tag} {pos.asset} {pos.question[:50]} | {outcome} | PnL: {icon}${abs(pnl):.4f} (off={pos.bid_offset_used:.1%})")
 
             # Archive
             self.resolved.append({
@@ -2511,6 +2925,9 @@ class CryptoMarketMaker:
                 "up_price": pos.up_order.fill_price if pos.up_order and pos.up_filled else 0,
                 "down_price": pos.down_order.fill_price if pos.down_order and pos.down_filled else 0,
                 "resolved_at": now.isoformat(),
+                # V4.1: ML tracking fields
+                "entry_type": pos.entry_type,
+                "loser_buy_price": pos.loser_buy_price,
             })
 
         # Clean resolved from active
@@ -2704,8 +3121,8 @@ class CryptoMarketMaker:
         """Main market maker loop."""
         print("=" * 70)
         mode = "PAPER" if self.paper else "LIVE"
-        print(f"ACCUMULATION MAKER V4.0 - {mode} MODE")
-        print(f"Strategy: Buy BOTH Up+Down @ 3c+ offset, sell-on-timeout (5M BTC only)")
+        print(f"ACCUMULATION MAKER V4.1 - {mode} MODE")
+        print(f"Strategy: Buy BOTH Up+Down @ 3c+ offset + late-candle loser buys (5M BTC)")
         print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Min offset: {self.config.MIN_BID_OFFSET}c | "
               f"Timeout: {self.config.RIDE_AFTER_SEC}s -> {self.config.PARTIAL_TIMEOUT_ACTION}")
         print(f"Max combined: ${self.config.MAX_COMBINED_PRICE} | Min edge: {self.config.MIN_SPREAD_EDGE*100:.0f}%")
@@ -2722,6 +3139,11 @@ class CryptoMarketMaker:
             print(f"LATE ENTRY 15m: ${self.config.LATE_ENTRY_SIZE_USD}/trade | "
                   f"Threshold: {self.config.LATE_ENTRY_THRESHOLD_BPS}bp | "
                   f"Wait: {self.config.LATE_ENTRY_WAIT_SECONDS}s")
+        if self.config.LATE_CANDLE_ENABLED:
+            print(f"LATE CANDLE 5m: ${self.config.LATE_CANDLE_SIZE_USD}/trade | "
+                  f"Buy loser @ <${self.config.LATE_CANDLE_MAX_LOSER_PRICE} | "
+                  f"Window: {self.config.LATE_CANDLE_WAIT_SEC}-{self.config.LATE_CANDLE_MAX_WAIT_SEC}s | "
+                  f"Min momentum: {self.config.LATE_CANDLE_MIN_MOMENTUM_BPS}bp")
         print("=" * 70)
 
         if self.stats["total_pnl"] != 0:
@@ -2755,6 +3177,10 @@ class CryptoMarketMaker:
                 if self.momentum and self.config.MOMENTUM_ENABLED:
                     await self.run_momentum_scanner(markets)
                     await self.resolve_momentum_trades()
+
+                # Phase 4b: V4.1 Late-candle scanner (buy cheap loser side)
+                if self.momentum and self.config.LATE_CANDLE_ENABLED:
+                    await self.run_late_candle_scanner(markets)
 
                 # Phase 5: Place maker orders if risk allows
                 if self.check_risk():
@@ -2844,6 +3270,18 @@ class CryptoMarketMaker:
             avg = self.stats["paired_pnl"] / self.stats["pairs_completed"]
             print(f"    Paired avg PnL: ${avg:.4f} | Best: ${self.stats['best_pair_pnl']:.4f} | "
                   f"Worst: ${self.stats['worst_pair_pnl']:.4f}")
+
+        # V4.1: Late-candle stats
+        lc_attempts = self.stats.get("late_candle_attempts", 0)
+        if lc_attempts > 0:
+            lc_paired = self.stats.get("late_candle_paired", 0)
+            lc_standalone = self.stats.get("late_candle_standalone", 0)
+            lc_pnl = self.stats.get("late_candle_pnl", 0)
+            lc_resolved = [r for r in self.resolved if r.get("entry_type", "").startswith("late_candle")]
+            lc_wins = sum(1 for r in lc_resolved if r.get("pnl", 0) > 0)
+            lc_wr = lc_wins / len(lc_resolved) * 100 if lc_resolved else 0
+            print(f"    Late candle: {lc_attempts} placed ({lc_paired} pairs, {lc_standalone} standalone) | "
+                  f"Resolved: {len(lc_resolved)} ({lc_wr:.0f}% WR) | PnL: ${lc_pnl:+.4f}")
 
         if self.momentum and self.config.MOMENTUM_ENABLED:
             print(f"    {self.momentum.get_stats_summary()}")
