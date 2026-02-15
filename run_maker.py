@@ -1875,7 +1875,10 @@ class CryptoMarketMaker:
             if pos.is_partial and pos.first_fill_time:
                 first_fill_dt = datetime.fromisoformat(pos.first_fill_time)
                 since_first_fill_sec = (now - first_fill_dt).total_seconds()
-                if since_first_fill_sec > self.config.RIDE_AFTER_SEC:
+                # V4.1: Duration-aware sell-back — 5M markets need faster action
+                # 120s on a 5M market = token already near-worthless
+                sell_timeout = 45.0 if pos.duration_min <= 5 else self.config.RIDE_AFTER_SEC
+                if since_first_fill_sec > sell_timeout:
                     # Cancel the unfilled passive order
                     for order, attr in [(pos.up_order, "up_filled"), (pos.down_order, "down_filled")]:
                         if order and not getattr(pos, attr) and order.status == "open":
@@ -3053,6 +3056,13 @@ class CryptoMarketMaker:
                     return None
 
                 best_bid = book["best_bid"]
+
+                # V4.1: Don't sell for pennies — if token is nearly worthless (<$0.10),
+                # ride instead. Selling at $0.02 saves ~$0.10 vs riding, but kills reversal upside.
+                if best_bid < 0.10:
+                    print(f"  [SELL-SKIP] best_bid=${best_bid:.2f} < $0.10 — too cheap, ride instead")
+                    return None
+
                 sell_price = max(0.01, round(best_bid - 0.01, 2))  # 1c below bid for fast fill
 
                 # Approve conditional token for selling
