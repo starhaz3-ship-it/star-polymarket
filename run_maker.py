@@ -445,6 +445,15 @@ class MakerConfig:
     ORDERFLOW_VOL_RATIO_MIN: float = 2.0     # Volume must be >= 2x rolling average
     ORDERFLOW_VOL_SMA_PERIOD: int = 20       # Rolling average period (1m bars)
 
+    # Late Entry: 15m-only momentum strategy
+    # Wait 10 min into a 15m bar, then check momentum direction.
+    # 93.2% WR backtested. Only fires on 15m BTC markets.
+    LATE_ENTRY_ENABLED: bool = True
+    LATE_ENTRY_SIZE_USD: float = 5.0
+    LATE_ENTRY_WAIT_SECONDS: float = 600.0    # 10 minutes
+    LATE_ENTRY_MAX_WAIT_SECONDS: float = 750.0  # Don't enter after 12.5 min
+    LATE_ENTRY_THRESHOLD_BPS: float = 15.0    # Minimum momentum in basis points
+
 
 # ============================================================================
 # ML OFFSET OPTIMIZER
@@ -667,7 +676,7 @@ class BinanceMomentum:
         return self.last_btc_price
 
     def track_market_open(self, market_id: str, btc_price: float, created_at: datetime,
-                           market_num_id: str = ""):
+                           market_num_id: str = "", duration_min: int = 5):
         """Record the Binance BTC price when a Polymarket market is first seen."""
         if market_id not in self.tracked_markets:
             self.tracked_markets[market_id] = {
@@ -676,6 +685,7 @@ class BinanceMomentum:
                 "traded": False,
                 "signal": None,
                 "market_num_id": market_num_id,
+                "duration_min": duration_min,
             }
 
     def get_momentum_signal(self, market_id: str, current_price: float,
@@ -965,6 +975,45 @@ class BinanceMomentum:
         tracking["flow_vol_ratio"] = vol_ratio
         tracking["flow_signal_time"] = now.isoformat()
         return direction
+
+    def get_late_entry_signal(self, market_id: str, current_price: float,
+                               config: 'MakerConfig') -> Optional[str]:
+        """Late Entry: momentum signal for 15m markets.
+
+        Waits 10 minutes into a 15m bar, then checks if BTC moved > threshold.
+        By minute 10, the direction is locked in 93%+ of the time.
+        Only fires on 15m markets (checked by caller).
+        """
+        tracking = self.tracked_markets.get(market_id)
+        if not tracking or tracking["traded"]:
+            return None
+
+        open_price = tracking["open_price"]
+        open_time = tracking["open_time"]
+        now = datetime.now(timezone.utc)
+        elapsed_sec = (now - open_time).total_seconds()
+
+        # Must wait 10 minutes
+        if elapsed_sec < config.LATE_ENTRY_WAIT_SECONDS:
+            return None
+        # Don't enter too late (last 2.5 min)
+        if elapsed_sec > config.LATE_ENTRY_MAX_WAIT_SECONDS:
+            return None
+
+        if open_price <= 0:
+            return None
+        momentum_bps = (current_price - open_price) / open_price * 10000
+
+        if abs(momentum_bps) < config.LATE_ENTRY_THRESHOLD_BPS:
+            return None
+
+        signal = "UP" if momentum_bps > 0 else "DOWN"
+        tracking["signal"] = signal
+        tracking["momentum_bps"] = momentum_bps
+        tracking["signal_time"] = now.isoformat()
+        tracking["signal_price"] = current_price
+        tracking["signal_type"] = "LATE"
+        return signal
 
 
 # ============================================================================
@@ -1282,7 +1331,7 @@ class CryptoMarketMaker:
                                 except Exception:
                                     pass
 
-                            # V2.2: Parse actual duration from title, skip 15m markets
+                            # V2.2/V3.1: Parse actual duration from title, match to expected tag duration
                             # Title format: "Bitcoin Up or Down - February 14, 1:30PM-1:45PM ET"
                             import re
                             q = m.get("question", "") or event.get("title", "")
@@ -1294,8 +1343,8 @@ class CryptoMarketMaker:
                                 t1 = (h1 % 12 + (12 if p1 == "PM" else 0)) * 60 + m1
                                 t2 = (h2 % 12 + (12 if p2 == "PM" else 0)) * 60 + m2
                                 actual_dur = t2 - t1 if t2 > t1 else t2 + 1440 - t1
-                            if actual_dur > 5:
-                                continue  # Skip markets longer than 5m
+                            if actual_dur != duration:
+                                continue  # Skip markets that don't match expected duration
 
                             pair = self._parse_market(m, event, matched_asset, actual_dur)
                             if pair:
@@ -2041,10 +2090,14 @@ class CryptoMarketMaker:
         if self.momentum.momentum_daily_pnl < -self.config.MOMENTUM_DAILY_LOSS_LIMIT:
             return
 
-        # Track newly discovered markets
+        # Track newly discovered markets (5m for V3.0/V12a, 15m for Late Entry)
         now = datetime.now(timezone.utc)
+        allowed_durations = {5}
+        if self.config.LATE_ENTRY_ENABLED:
+            allowed_durations.add(15)
+
         for pair in markets:
-            if pair.asset != "BTC" or pair.duration_min != 5:
+            if pair.asset != "BTC" or pair.duration_min not in allowed_durations:
                 continue
 
             # Compute approximate start time from end_time
@@ -2054,14 +2107,16 @@ class CryptoMarketMaker:
                 start_time = now  # Fallback: treat as just opened
 
             self.momentum.track_market_open(pair.market_id, btc_price, start_time,
-                                              market_num_id=pair.market_num_id)
+                                              market_num_id=pair.market_num_id,
+                                              duration_min=pair.duration_min)
 
         # Also track markets we already have positions on (from maker)
         for mid, pos in self.positions.items():
-            if pos.asset == "BTC" and pos.duration_min == 5:
+            if pos.asset == "BTC" and pos.duration_min in allowed_durations:
                 created = datetime.fromisoformat(pos.created_at)
                 self.momentum.track_market_open(mid, btc_price, created,
-                                                market_num_id=pos.market_num_id)
+                                                market_num_id=pos.market_num_id,
+                                                duration_min=pos.duration_min)
 
         # Check for signals on tracked markets
         active_mom = self.momentum.get_active_momentum_count()
@@ -2071,6 +2126,8 @@ class CryptoMarketMaker:
         for market_id, tracking in list(self.momentum.tracked_markets.items()):
             if tracking["traded"]:
                 continue
+            if tracking.get("duration_min", 5) != 5:
+                continue  # V3.0 momentum is 5m only
             if active_mom >= self.config.MOMENTUM_MAX_CONCURRENT:
                 break
 
@@ -2095,11 +2152,13 @@ class CryptoMarketMaker:
             await self._place_momentum_order(target_pair, signal, mom_bps, confirmed)
             active_mom += 1
 
-        # V12a: Order flow pass — fires on markets where V3.0 did NOT fire
+        # V12a: Order flow pass — fires on 5m markets where V3.0 did NOT fire
         if self.config.ORDERFLOW_ENABLED:
             for market_id, tracking in list(self.momentum.tracked_markets.items()):
                 if tracking["traded"]:
                     continue
+                if tracking.get("duration_min", 5) != 5:
+                    continue  # V12a is 5m only
                 if active_mom >= self.config.MOMENTUM_MAX_CONCURRENT:
                     break
 
@@ -2122,8 +2181,94 @@ class CryptoMarketMaker:
                 await self._place_orderflow_order(target_pair, flow_signal, buy_ratio, vol_ratio)
                 active_mom += 1
 
+        # Late Entry: 15m markets only — wait 10 min then check momentum
+        if self.config.LATE_ENTRY_ENABLED:
+            for market_id, tracking in list(self.momentum.tracked_markets.items()):
+                if tracking["traded"]:
+                    continue
+                if tracking.get("duration_min", 5) != 15:
+                    continue  # Late entry is 15m only
+                if active_mom >= self.config.MOMENTUM_MAX_CONCURRENT:
+                    break
+
+                late_signal = self.momentum.get_late_entry_signal(
+                    market_id, btc_price, self.config)
+                if not late_signal:
+                    continue
+
+                target_pair = None
+                for pair in markets:
+                    if pair.market_id == market_id:
+                        target_pair = pair
+                        break
+                if not target_pair:
+                    continue
+
+                mom_bps = tracking.get("momentum_bps", 0)
+                print(f"  [LATE] BTC 15m {late_signal} | {mom_bps:+.1f}bp @ 10min")
+                await self._place_late_entry_order(target_pair, late_signal, mom_bps)
+                active_mom += 1
+
         # Cleanup old tracking data
         self.momentum.cleanup_old()
+
+    async def _place_late_entry_order(self, pair: MarketPair, direction: str,
+                                      momentum_bps: float):
+        """Place a directional BUY on 15m market based on late entry signal (10-min momentum)."""
+        token_id = pair.up_token_id if direction == "UP" else pair.down_token_id
+        mid_price = pair.up_mid if direction == "UP" else pair.down_mid
+
+        buy_price = round(min(0.95, mid_price + 0.01), 2)
+        buy_price = max(0.05, buy_price)
+
+        size_usd = self.config.LATE_ENTRY_SIZE_USD
+        shares = max(self.config.MIN_SHARES, math.floor(size_usd / buy_price))
+        cost_usd = buy_price * shares
+
+        if self.paper:
+            order_id = f"late_{direction.lower()}_{pair.market_id[:12]}_{int(time.time())}"
+            print(f"  [LATE PAPER] {pair.asset} 15m {direction} @ ${buy_price:.2f} x {shares} "
+                  f"(${cost_usd:.2f}) | momentum: {momentum_bps:+.1f}bp")
+        else:
+            try:
+                from py_clob_client.clob_types import OrderArgs, OrderType
+                from py_clob_client.order_builder.constants import BUY
+
+                args = OrderArgs(
+                    price=buy_price,
+                    size=float(shares),
+                    side=BUY,
+                    token_id=token_id,
+                )
+                signed = self.client.create_order(args)
+                resp = self.client.post_order(signed, OrderType.GTC)
+
+                if not resp.get("success"):
+                    print(f"  [LATE LIVE] Order failed: {resp.get('errorMsg', '?')}")
+                    return
+
+                order_id = resp.get("orderID", "")
+                print(f"  [LATE LIVE] {pair.asset} 15m {direction} @ ${buy_price:.2f} x {shares} "
+                      f"(${cost_usd:.2f}) | momentum: {momentum_bps:+.1f}bp | oid={order_id[:16]}...")
+            except Exception as e:
+                print(f"  [LATE LIVE] Error: {e}")
+                return
+
+        self.momentum.mark_traded(pair.market_id)
+        self.momentum.record_trade(
+            market_id=pair.market_id,
+            direction=direction,
+            buy_price=buy_price,
+            shares=shares,
+            cost_usd=cost_usd,
+            momentum_bps=momentum_bps,
+            question=pair.question,
+            market_num_id=pair.market_num_id,
+        )
+        if self.momentum.momentum_trades:
+            self.momentum.momentum_trades[-1]["signal_type"] = "LATE_15m"
+
+        self._entered_markets.add(pair.market_id)
 
     async def _place_momentum_order(self, pair: MarketPair, direction: str,
                                     momentum_bps: float, confirmed: bool = False):
@@ -2570,10 +2715,14 @@ class CryptoMarketMaker:
             print(f"CIRCUIT BREAKER: Auto-switch to paper on $88 net session loss (~40% capital)")
         print(f"Skip hours (UTC): {sorted(self.config.SKIP_HOURS_UTC)}")
         if self.config.MOMENTUM_ENABLED:
-            print(f"MOMENTUM: ${self.config.MOMENTUM_SIZE_USD}/trade | "
+            print(f"MOMENTUM 5m: ${self.config.MOMENTUM_SIZE_USD}/trade | "
                   f"Threshold: {self.config.MOMENTUM_THRESHOLD_BPS}bp | "
                   f"Wait: {self.config.MOMENTUM_WAIT_SECONDS}s | "
                   f"Max: {self.config.MOMENTUM_MAX_CONCURRENT} concurrent")
+        if self.config.LATE_ENTRY_ENABLED:
+            print(f"LATE ENTRY 15m: ${self.config.LATE_ENTRY_SIZE_USD}/trade | "
+                  f"Threshold: {self.config.LATE_ENTRY_THRESHOLD_BPS}bp | "
+                  f"Wait: {self.config.LATE_ENTRY_WAIT_SECONDS}s")
         print("=" * 70)
 
         if self.stats["total_pnl"] != 0:
