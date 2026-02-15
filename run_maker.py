@@ -296,11 +296,11 @@ def auto_redeem_winnings():
 
         from web3 import Web3
 
-        # Check gas price — skip if too expensive (> 400 gwei base fee)
+        # Check gas price — skip if too expensive (> 700 gwei base fee)
         gas_price = _redeem_w3.eth.gas_price
         gas_gwei = gas_price / 1e9
-        if gas_gwei > 400:
-            print(f"[REDEEM] Gas too high ({gas_gwei:.0f} gwei > 400), skipping")
+        if gas_gwei > 700:
+            print(f"[REDEEM] Gas too high ({gas_gwei:.0f} gwei > 700), skipping")
             return 0.0
 
         # Check for stuck pending TXs
@@ -339,7 +339,7 @@ def auto_redeem_winnings():
             0,
         )
         nonce = _redeem_w3.eth.get_transaction_count(_redeem_account.address, "latest")
-        use_gas_price = min(int(gas_price * 1.5), _redeem_w3.to_wei(500, "gwei"))
+        use_gas_price = min(int(gas_price * 1.5), _redeem_w3.to_wei(900, "gwei"))
         txn = factory.functions.proxy([proxy_txn]).build_transaction({
             "from": _redeem_account.address,
             "nonce": nonce,
@@ -382,13 +382,13 @@ class MakerConfig:
     BID_OFFSET: float = 0.02             # Bid this much below best ask
 
     # Position sizing
-    SIZE_PER_SIDE_USD: float = 20.0      # V2.3: $20/side (was $15). $220 capital, 5m-only, 100% WR.
-    MAX_PAIR_EXPOSURE: float = 40.0      # V2.3: $40/pair (was $30)
-    MAX_TOTAL_EXPOSURE: float = 200.0    # V2.3: $200 max for 5 concurrent pairs ($220 cap - $20 buffer)
+    SIZE_PER_SIDE_USD: float = 35.0      # V2.5: $35/side (was $25). $280 capital, 5m-only, 100% WR.
+    MAX_PAIR_EXPOSURE: float = 70.0      # V2.5: $70/pair ($35 x 2 sides)
+    MAX_TOTAL_EXPOSURE: float = 250.0    # V2.5: $250 max (~$280 cap - $30 buffer)
     MIN_SHARES: int = 5                  # CLOB minimum order size
 
     # Risk
-    DAILY_LOSS_LIMIT: float = 32.0       # V2.3: Scaled with $20/side (was $24)
+    DAILY_LOSS_LIMIT: float = 56.0       # V2.5: Scaled with $35/side (was $40)
     MAX_CONCURRENT_PAIRS: int = 12       # V1.5: 4 assets x 15M + BTC 5M = needs ~12 slots
     MAX_SINGLE_SIDED: int = 2            # V1.1: Was 3. Partial fills = directional risk. Allow max 2.
 
