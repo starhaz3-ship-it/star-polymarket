@@ -418,10 +418,10 @@ class MakerConfig:
     # "max_combined" = maximum combined bid price (lower = more edge required)
     # "balance_range" = (min, max) for each side price (tighter = more balanced)
     ASSET_TIERS: dict = field(default_factory=lambda: {
-        "BTC": {"max_combined": 0.98, "balance_range": (0.38, 0.62)},  # Liquid, standard
-        "ETH": {"max_combined": 0.98, "balance_range": (0.38, 0.62)},  # Liquid, standard
-        "SOL": {"max_combined": 0.98, "balance_range": (0.40, 0.60)},  # Tight balance + fast partial cancel = safety
-        "XRP": {"max_combined": 0.98, "balance_range": (0.40, 0.60)},  # Tight balance + fast partial cancel = safety
+        "BTC": {"max_combined": 0.995, "balance_range": (0.38, 0.62)},  # V3.0: Tighter DOWN bid → higher combined OK
+        "ETH": {"max_combined": 0.995, "balance_range": (0.38, 0.62)},  # V3.0: Tighter DOWN bid → higher combined OK
+        "SOL": {"max_combined": 0.995, "balance_range": (0.40, 0.60)},  # V3.0: Tighter DOWN bid → higher combined OK
+        "XRP": {"max_combined": 0.995, "balance_range": (0.40, 0.60)},  # V3.0: Tighter DOWN bid → higher combined OK
     })
 
     # V3.0: Momentum directional trading (@vague-sourdough reverse-engineered strategy)
@@ -1314,8 +1314,12 @@ class CryptoMarketMaker:
             offset = max(0.01, round(offset / 2, 2))
 
         # Our target bid prices
+        # V3.0: DOWN books are thinner — bid tighter (half offset) to improve
+        # natural pair rate. Every natural pair = 3% profit vs hedge = 0%.
+        # With offset=0.01: UP bid = mid-0.01, DOWN bid = mid-0.005 → rounds to mid
+        # e.g. UP $0.50, DOWN $0.49 → combined $0.99, still 1% edge
         up_bid = round(pair.up_mid - offset, 2)
-        down_bid = round(pair.down_mid - offset, 2)
+        down_bid = round(pair.down_mid - offset / 2, 2)
 
         # Ensure prices are valid
         up_bid = max(0.01, min(0.95, up_bid))
