@@ -382,13 +382,13 @@ class MakerConfig:
     BID_OFFSET: float = 0.02             # Bid this much below best ask
 
     # Position sizing
-    SIZE_PER_SIDE_USD: float = 10.0      # V2.7: $10/side (was $35). Reduced after V2.6 losses.
+    SIZE_PER_SIDE_USD: float = 3.0       # V2.9: $3/side. Scaling down after stacking bug losses.
     MAX_PAIR_EXPOSURE: float = 70.0      # V2.5: $70/pair ($35 x 2 sides)
     MAX_TOTAL_EXPOSURE: float = 250.0    # V2.5: $250 max (~$280 cap - $30 buffer)
     MIN_SHARES: int = 5                  # CLOB minimum order size
 
     # Risk
-    DAILY_LOSS_LIMIT: float = 40.0       # $40 daily loss limit
+    DAILY_LOSS_LIMIT: float = 15.0       # $15 daily loss limit (scaled for $3/side)
     MAX_CONCURRENT_PAIRS: int = 12       # V1.5: 4 assets x 15M + BTC 5M = needs ~12 slots
     MAX_SINGLE_SIDED: int = 2            # V1.1: Was 3. Partial fills = directional risk. Allow max 2.
 
@@ -636,6 +636,7 @@ class CryptoMarketMaker:
         self.positions: Dict[str, PairPosition] = {}  # market_id -> PairPosition
         self.active_orders: Dict[str, MakerOrder] = {}  # order_id -> MakerOrder
         self.resolved: List[dict] = []  # Completed pair records
+        self._entered_markets: set = set()  # All condition_ids entered this session (never re-enter)
 
         # Stats
         self.stats = {
@@ -683,6 +684,19 @@ class CryptoMarketMaker:
                 print("[MAKER] CLOB client initialized - LIVE MODE")
                 # V2.6c: Cancel any orphaned orders from previous session
                 try:
+                    # First check what open orders exist (to track their markets)
+                    try:
+                        open_orders = self.client.get_orders() or []
+                        live_orders = [o for o in open_orders
+                                       if isinstance(o, dict) and o.get("status") in ("live", "open")]
+                        for o in live_orders:
+                            asset_id = o.get("asset_id", "")
+                            # We can't easily map token_id back to condition_id here,
+                            # but cancel_all will remove them. The on-chain sync handles blocking.
+                        if live_orders:
+                            print(f"[MAKER] Found {len(live_orders)} orphan orders to cancel")
+                    except Exception:
+                        pass
                     self.client.cancel_all()
                     print("[MAKER] Cancelled all orphaned orders from previous session")
                 except Exception as e:
@@ -724,11 +738,54 @@ class CryptoMarketMaker:
 
                         if pos.status not in ("resolved", "cancelled"):
                             self.positions[pos.market_id] = pos
+                        # Always track in entered set (prevents re-entry even after cleanup)
+                        self._entered_markets.add(pos.market_id)
                     except Exception:
                         continue  # Skip corrupt entries
+                # Also track recently resolved markets from history
+                for rec in self.resolved[-100:]:
+                    mid = rec.get("market_id", "")
+                    if mid:
+                        self._entered_markets.add(mid)
                 print(f"[MAKER] Loaded {len(self.resolved)} resolved, {len(self.positions)} active")
             except Exception as e:
                 print(f"[MAKER] Load error: {e}")
+
+        # CRITICAL: Query on-chain positions to prevent stacking after restart
+        self._sync_onchain_positions()
+
+    def _sync_onchain_positions(self):
+        """Query Polymarket data-api for ALL held positions and block those markets.
+        This prevents stacking after restarts — even if maker_results.json is wiped,
+        we discover what we already hold on-chain and refuse to re-enter."""
+        proxy = os.getenv("POLYMARKET_PROXY_ADDRESS", "")
+        if not proxy:
+            return
+        try:
+            r = httpx.get("https://data-api.polymarket.com/positions",
+                          params={"user": proxy, "sizeThreshold": 0}, timeout=15)
+            if r.status_code != 200:
+                print(f"[MAKER] On-chain sync failed: HTTP {r.status_code}")
+                return
+            positions = r.json()
+            blocked = 0
+            for p in positions:
+                size = float(p.get("size", 0))
+                price = float(p.get("curPrice", p.get("price", 0)))
+                cid = p.get("conditionId", "")
+                # Block ANY market where we hold shares (live or dead)
+                # Dead positions (price=0) are resolved but still in wallet
+                if size > 0 and cid and cid not in self._entered_markets:
+                    self._entered_markets.add(cid)
+                    blocked += 1
+            if blocked > 0:
+                print(f"[MAKER] On-chain sync: blocked {blocked} already-held markets "
+                      f"(total blocked: {len(self._entered_markets)})")
+            else:
+                print(f"[MAKER] On-chain sync: no new markets to block "
+                      f"(total blocked: {len(self._entered_markets)})")
+        except Exception as e:
+            print(f"[MAKER] On-chain sync error: {e}")
 
     def _save(self):
         """Save state to disk."""
@@ -832,8 +889,8 @@ class CryptoMarketMaker:
             if not condition_id:
                 return None
 
-            # Skip markets we already have positions on
-            if condition_id in self.positions:
+            # Skip markets we already entered this session (prevents re-entry after sell-back cleanup)
+            if condition_id in self._entered_markets or condition_id in self.positions:
                 return None
 
             outcomes = market.get("outcomes", [])
@@ -989,12 +1046,25 @@ class CryptoMarketMaker:
 
     async def place_pair_orders(self, pair: MarketPair, eval_result: dict) -> Optional[PairPosition]:
         """Place maker orders on both sides of a market pair."""
+
+        # HARD SAFETY: Double-check we haven't already entered this market
+        if pair.market_id in self._entered_markets or pair.market_id in self.positions:
+            print(f"  [SAFETY] BLOCKED duplicate entry on {pair.question[:40]} — already in _entered_markets")
+            return None
+
         up_bid = eval_result["up_bid"]
         down_bid = eval_result["down_bid"]
 
         # Calculate shares for each side
         up_shares = max(self.config.MIN_SHARES, math.floor(self.config.SIZE_PER_SIDE_USD / up_bid))
         down_shares = max(self.config.MIN_SHARES, math.floor(self.config.SIZE_PER_SIDE_USD / down_bid))
+
+        # HARD CAP: Never exceed $5 per side regardless of config
+        MAX_USD_PER_SIDE = 5.0
+        if up_bid * up_shares > MAX_USD_PER_SIDE:
+            up_shares = max(self.config.MIN_SHARES, math.floor(MAX_USD_PER_SIDE / up_bid))
+        if down_bid * down_shares > MAX_USD_PER_SIDE:
+            down_shares = max(self.config.MIN_SHARES, math.floor(MAX_USD_PER_SIDE / down_bid))
 
         # Create position tracker
         pos = PairPosition(
@@ -1106,8 +1176,9 @@ class CryptoMarketMaker:
                 print(f"  [LIVE] Order error: {e}")
                 return None
 
-        # Track
+        # Track (add to permanent session set so resolved cleanup can't cause re-entry)
         self.positions[pair.market_id] = pos
+        self._entered_markets.add(pair.market_id)
         self.stats["pairs_attempted"] += 1
         return pos
 

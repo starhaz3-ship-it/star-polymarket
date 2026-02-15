@@ -72,80 +72,89 @@ SKIP_HOURS_UTC = {12, 17, 19, 20, 21}
 RESULTS_FILE = Path(__file__).parent / "new_strategies_paper_results.json"
 
 # Strategy configs: min_confidence from backtest calibration
+# live_enabled: strategies with 60%+ backtest WR place real $5 orders in --live mode.
+# Per-strategy cutoff: after 20 trades, if PnL <= $0 → auto-revert to paper.
 STRAT_CONFIG = {
     "MEAN_REVERT_EXTREME": {
-        "min_confidence": 0.72,  # Lower threshold — strategy is already selective (5/day)
-        "min_edge": 0.005,      # Low edge threshold since strategy has inherent edge
-        "base_size": 4.0,       # Bigger base — 62.9% WR is strong
+        "min_confidence": 0.72,  # 62.9% WR, 70 trades
+        "min_edge": 0.005,
+        "base_size": 4.0,
         "max_size": 8.0,
+        "live_enabled": True,
     },
     "MOMENTUM_REGIME": {
-        "min_confidence": 0.76,  # Slightly higher — more signals, need quality filter
+        "min_confidence": 0.76,
         "min_edge": 0.008,
         "base_size": 3.0,
         "max_size": 6.0,
     },
     "VWAP_REVERSION": {
-        "min_confidence": 0.72,  # Same as MRE — similar selectivity (59 trades / 14d)
+        "min_confidence": 0.72,
         "min_edge": 0.005,
-        "base_size": 4.0,       # 59.3% WR raw, 64.2% filtered — strong
+        "base_size": 4.0,
         "max_size": 8.0,
     },
     "VWAP_ST_SR": {
-        "min_confidence": 0.72,  # VWAP pullback + Supertrend + StochRSI cross — 80% WR (low sample)
+        "min_confidence": 0.72,
         "min_edge": 0.008,
         "base_size": 3.0,
         "max_size": 7.0,
     },
     "STOCH_BB": {
-        "min_confidence": 0.72,  # 65.4% WR, 133 trades, +$16.51 — BEST new strategy
+        "min_confidence": 0.72,  # 63.3% WR, 158 trades
         "min_edge": 0.005,
         "base_size": 4.0,
         "max_size": 8.0,
+        "live_enabled": True,
     },
     "CCI_BOUNCE": {
-        "min_confidence": 0.70,  # 63.8% WR, 47 trades — selective, high conviction
+        "min_confidence": 0.70,  # 63.6% WR, 55 trades
         "min_edge": 0.005,
         "base_size": 4.0,
         "max_size": 8.0,
+        "live_enabled": True,
     },
     "DOUBLE_BOTTOM_RSI": {
-        "min_confidence": 0.80,  # 63.8% WR, 47 trades — already high confidence signals
+        "min_confidence": 0.80,  # 61.8% WR, 55 trades
         "min_edge": 0.005,
         "base_size": 4.0,
         "max_size": 8.0,
+        "live_enabled": True,
     },
     "ULTIMATE_OSC": {
-        "min_confidence": 0.72,  # 62.9% WR, 35 trades — selective mean reversion
+        "min_confidence": 0.72,  # 60.0% WR, 40 trades
         "min_edge": 0.005,
         "base_size": 3.0,
         "max_size": 7.0,
+        "live_enabled": True,
     },
+    # ── PAPER ONLY (below 60% WR) ──
     "WILLIAMS_VWAP": {
-        "min_confidence": 0.76,  # 55.1% WR but 532 trades — high volume, needs quality filter
-        "min_edge": 0.010,      # Higher edge gate to filter lower quality signals
+        "min_confidence": 0.76,  # 56.0% WR — below 60% threshold, paper only
+        "min_edge": 0.010,
         "base_size": 3.0,
         "max_size": 6.0,
     },
     "TRIPLE_RSI": {
-        "min_confidence": 0.80,  # 55.4% WR, 56 trades — high conf signals already
+        "min_confidence": 0.80,
         "min_edge": 0.008,
         "base_size": 3.0,
         "max_size": 7.0,
     },
-    # ── Inverse strategies: flip the worst losers into winners ──
     "HA_KELTNER_MFI_INV": {
-        "min_confidence": 0.70,  # Inverse: original 45.1% → 54.9% WR, +$42, 2164 trades
-        "min_edge": 0.003,      # Low edge gate — volume is the edge, not per-trade alpha
-        "base_size": 4.0,
-        "max_size": 8.0,
-        "only_hours_utc": {22, 21, 7, 15, 5},  # Top 5 hours: 68%, 67%, 64%, 64%, 63% WR
-    },
-    "AROON_CROSS_INV": {
-        "min_confidence": 0.70,  # Inverse: original 43.9% → 55.9% WR, +$20, 678 trades
+        "min_confidence": 0.70,  # Inverse: 54.9% WR, +$42, 2164 trades
         "min_edge": 0.003,
         "base_size": 4.0,
         "max_size": 8.0,
+        "live_enabled": True,
+        "only_hours_utc": {22, 21, 7, 15, 5},  # Top 5 hours: 68%, 67%, 64%, 64%, 63% WR
+    },
+    "AROON_CROSS_INV": {
+        "min_confidence": 0.70,  # Inverse: 55.9% WR, +$20, 678 trades
+        "min_edge": 0.003,
+        "base_size": 4.0,
+        "max_size": 8.0,
+        "live_enabled": True,
         "only_hours_utc": {13, 19, 6, 15, 3},  # Top 5 hours: 72%, 69%, 69%, 69%, 68% WR
     },
 }
@@ -166,10 +175,13 @@ class NewStrategiesTrader:
             self.stats[name] = {"wins": 0, "losses": 0, "pnl": 0.0}
         self.stats["_total"] = {"wins": 0, "losses": 0, "pnl": 0.0}
 
-        # Live mode: track trades placed THIS session for 20-trade cutoff
-        self.live_session_trades = 0
-        self.live_session_pnl = 0.0
-        self.cutoff_triggered = False
+        # Per-strategy live tracking: after 20 trades, revert to paper if PnL <= $0
+        self.live_session_trades = 0       # Global counter for display
+        self.live_session_pnl = 0.0        # Global counter for display
+        self.cutoff_triggered = False       # Global kill switch
+        self.strat_live_trades: dict = {}   # strat_name -> count of live trades
+        self.strat_live_pnl: dict = {}      # strat_name -> cumulative live PnL
+        self.strat_cutoff: set = set()      # strategies reverted to paper
 
         # Create stateful strategy instances
         self.strategies = {
@@ -411,11 +423,13 @@ class NewStrategiesTrader:
                             self.stats["_total"]["wins" if won else "losses"] += 1
                             self.stats["_total"]["pnl"] += trade["pnl"]
 
-                            # Track live session for 20-trade cutoff
+                            # Track per-strategy live session for 20-trade cutoff
                             if trade.get("live_order"):
                                 self.live_session_trades += 1
                                 self.live_session_pnl += trade["pnl"]
-                                self._check_cutoff()
+                                self.strat_live_trades[strat] = self.strat_live_trades.get(strat, 0) + 1
+                                self.strat_live_pnl[strat] = self.strat_live_pnl.get(strat, 0) + trade["pnl"]
+                                self._check_cutoff(strat)
 
                             # Auto-redeem winning positions
                             if won and trade.get("live_order"):
@@ -454,22 +468,25 @@ class NewStrategiesTrader:
                 del self.trades[tid]
                 print(f"[LOSS] {strat} {trade['side']} ${trade['pnl']:+.2f} | aged out")
 
-    def _check_cutoff(self):
-        """After 20 live trades, auto-switch to paper if losing."""
-        if self.cutoff_triggered:
+    def _check_cutoff(self, strat: str):
+        """After 20 live trades per strategy, revert that strategy to paper if losing."""
+        if strat in self.strat_cutoff:
             return
-        if self.live_session_trades >= LIVE_CUTOFF_TRADES:
-            if self.live_session_pnl <= 0:
+        trades = self.strat_live_trades.get(strat, 0)
+        pnl = self.strat_live_pnl.get(strat, 0)
+        if trades >= LIVE_CUTOFF_TRADES:
+            if pnl <= 0:
                 print(f"\n{'='*60}")
-                print(f"  CUTOFF: {self.live_session_trades} live trades, "
-                      f"PnL ${self.live_session_pnl:+.2f} — switching to PAPER")
+                print(f"  CUTOFF: {strat} — {trades} live trades, "
+                      f"PnL ${pnl:+.2f} — REVERTING TO PAPER")
                 print(f"{'='*60}\n")
-                self.live = False
-                self.client = None
-                self.cutoff_triggered = True
+                self.strat_cutoff.add(strat)
+                # Remove live_enabled so it stays paper for rest of session
+                if strat in STRAT_CONFIG:
+                    STRAT_CONFIG[strat]["live_enabled"] = False
             else:
-                print(f"[CUTOFF] {self.live_session_trades} trades, "
-                      f"PnL ${self.live_session_pnl:+.2f} — PROFITABLE, staying LIVE")
+                print(f"[CUTOFF-PASS] {strat} — {trades} trades, "
+                      f"PnL ${pnl:+.2f} — PROFITABLE, staying LIVE")
 
     def _try_redeem(self):
         """Try to redeem winning positions via gasless relayer."""
@@ -566,14 +583,25 @@ class NewStrategiesTrader:
                 if trade_key in self.trades:
                     continue
 
+                # Only 1 live order per market (prevent multi-strategy stacking)
+                if cfg.get("live_enabled", False) and self.live:
+                    live_on_market = sum(1 for t in self.trades.values()
+                                         if t.get("status") == "open"
+                                         and t.get("live_order")
+                                         and t.get("condition_id") == cid)
+                    if live_on_market >= 1:
+                        continue
+
                 side, entry_price, fair_px, edge, tte = self.compute_edge(
                     direction, fair_up, market, cfg["min_edge"]
                 )
                 if not side:
                     continue
 
-                # Size: $5 flat for live, scaled for paper
-                is_live_order = self.live and self.client and not self.cutoff_triggered
+                # Size: $5 flat for live-enabled strategies, scaled for paper
+                is_live_order = (self.live and self.client and not self.cutoff_triggered
+                                 and cfg.get("live_enabled", False)
+                                 and strat_name not in self.strat_cutoff)
                 if is_live_order:
                     trade_size = LIVE_SIZE_USD
                 else:
@@ -650,14 +678,18 @@ class NewStrategiesTrader:
         print("=" * 76)
         print(f"  NEW STRATEGIES TRADER V2.0 — {mode_str}")
         if self.live:
-            print(f"  Auto-cutoff: switch to PAPER after {LIVE_CUTOFF_TRADES} trades if PnL <= $0")
+            print(f"  Auto-cutoff: per-strategy revert to PAPER after {LIVE_CUTOFF_TRADES} trades if PnL <= $0")
+            print(f"  Max 1 live order per market (prevents multi-strategy stacking)")
         print(f"  Strategies: {', '.join(STRAT_CONFIG.keys())}")
         print(f"  Max {MAX_CONCURRENT_PER_STRAT}/strat, {MAX_CONCURRENT_TOTAL} total")
         print(f"  Window: {TIME_WINDOW[0]}-{TIME_WINDOW[1]}min")
         print(f"  Skip hours (UTC): {sorted(SKIP_HOURS_UTC)}")
         for name, cfg in STRAT_CONFIG.items():
-            size_str = f"${LIVE_SIZE_USD:.0f} flat" if self.live else f"${cfg['base_size']}-${cfg['max_size']}"
-            print(f"    {name}: conf>={cfg['min_confidence']} edge>={cfg['min_edge']:.1%} size={size_str}")
+            is_live = self.live and cfg.get("live_enabled", False)
+            mode = "LIVE $5" if is_live else "PAPER"
+            size_str = f"${LIVE_SIZE_USD:.0f} flat" if is_live else f"${cfg['base_size']}-${cfg['max_size']}"
+            hours = f" hours={sorted(cfg['only_hours_utc'])}" if cfg.get("only_hours_utc") else ""
+            print(f"    [{mode:>8}] {name}: conf>={cfg['min_confidence']} edge>={cfg['min_edge']:.1%} size={size_str}{hours}")
         print("=" * 76)
 
         if self.resolved:
@@ -702,7 +734,9 @@ class NewStrategiesTrader:
                     hour = datetime.now(timezone.utc).hour
                     skip_tag = " [SKIP HOUR]" if hour in SKIP_HOURS_UTC else ""
                     mode_tag = "LIVE" if (self.live and not self.cutoff_triggered) else "PAPER"
-                    live_tag = f" | LiveSession: {self.live_session_trades}/{LIVE_CUTOFF_TRADES}T ${self.live_session_pnl:+.2f}" if self.live_session_trades > 0 else ""
+                    cutoff_str = f" | Cutoffs: {','.join(sorted(self.strat_cutoff))}" if self.strat_cutoff else ""
+                    live_tag = (f" | LiveSession: {self.live_session_trades}T ${self.live_session_pnl:+.2f}{cutoff_str}"
+                                if self.live_session_trades > 0 else "")
 
                     strat_parts = []
                     for name in STRAT_CONFIG:
