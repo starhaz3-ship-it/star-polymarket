@@ -22,6 +22,10 @@ ml_data/
 # Logs
 *.log
 
+# PID locks
+*.pid
+*.lock
+
 # IDE
 .idea/
 .vscode/
