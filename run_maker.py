@@ -400,9 +400,9 @@ class MakerConfig:
     MIN_SHARES: int = 5                  # CLOB minimum order size
 
     # Risk
-    DAILY_LOSS_LIMIT: float = 5.0        # V4: $5 daily loss limit (scaled for $3/side)
-    MAX_CONCURRENT_PAIRS: int = 6        # V4: 5M BTC only, fewer slots needed
-    MAX_SINGLE_SIDED: int = 2            # V4: limit partial exposure
+    DAILY_LOSS_LIMIT: float = 15.0       # V4.2: $15 daily loss limit (4 assets × $5/side)
+    MAX_CONCURRENT_PAIRS: int = 16       # V4.2: 4 assets × ~4 active markets
+    MAX_SINGLE_SIDED: int = 8            # V4.2: 4 assets × 2 timeframes, allow partials to ride
     RIDE_AFTER_SEC: float = 120.0        # V4: 2min timeout on partials (was 45s)
 
     # V4: Partial fill handling
@@ -422,9 +422,9 @@ class MakerConfig:
     # Assets
     ASSETS: dict = field(default_factory=lambda: {
         "BTC": {"keywords": ["bitcoin", "btc"], "enabled": True},
-        "ETH": {"keywords": ["ethereum", "eth"], "enabled": False},  # V1.8: Disabled — CSV: 86% WR but -$8.05 PnL. Partial fills bleeding.
-        "SOL": {"keywords": ["solana", "sol"], "enabled": False},  # V4: Disabled — BTC only for now
-        "XRP": {"keywords": ["xrp", "ripple"], "enabled": False},  # V1.7: Disabled — thin books, -$20.03 PnL
+        "ETH": {"keywords": ["ethereum", "eth"], "enabled": True},   # V4.2: Re-enabled for multi-asset deep bids
+        "SOL": {"keywords": ["solana", "sol"], "enabled": True},    # V4.2: Re-enabled for multi-asset deep bids
+        "XRP": {"keywords": ["xrp", "ripple"], "enabled": True},   # V4.2: Re-enabled for multi-asset deep bids
     })
 
     # V1.5: Per-asset risk tiers — SOL/XRP have thinner books, need tighter spreads
@@ -476,6 +476,16 @@ class MakerConfig:
     LATE_CANDLE_SIZE_USD: float = 5.0         # Same as normal maker
     LATE_CANDLE_MAX_LOSER_PRICE: float = 0.30 # Only buy loser if <= $0.30
     LATE_CANDLE_MIN_MOMENTUM_BPS: float = 15.0  # Direction must be this clear
+
+    # V4.2: Late-winner buying (vague-sourdough strategy)
+    # In the last 30-60s, buy the WINNER token at $0.85-$0.92.
+    # Near-guaranteed $0.08-$0.15 profit per share. 90%+ WR.
+    LATE_WINNER_ENABLED: bool = True
+    LATE_WINNER_WINDOW_SEC: float = 60.0      # Start buying 60s before market close
+    LATE_WINNER_MIN_SEC: float = 15.0         # Stop buying 15s before close (order needs time)
+    LATE_WINNER_MAX_BUY_PRICE: float = 0.92   # Don't pay more than $0.92 (min $0.08 edge)
+    LATE_WINNER_MIN_BUY_PRICE: float = 0.80   # Token must be at least $0.80 (direction clear)
+    LATE_WINNER_SIZE_USD: float = 5.0         # Same as normal maker
 
 
 # ============================================================================
@@ -1202,6 +1212,10 @@ class CryptoMarketMaker:
             "late_candle_paired": 0,       # Partials completed via late candle
             "late_candle_standalone": 0,    # Standalone loser-side bets
             "late_candle_pnl": 0.0,
+            # V4.2: Late-winner stats
+            "late_winner_attempts": 0,
+            "late_winner_wins": 0,
+            "late_winner_pnl": 0.0,
             "version": "V4.2",
         }
 
@@ -1360,7 +1374,7 @@ class CryptoMarketMaker:
         V2.4: 5M markets moved to tag_slug='5M' (was under '15M' before)."""
         pairs = []
         async with httpx.AsyncClient(timeout=15) as client:
-            for tag_slug, duration in [("5M", 5)]:  # V4: 5M only, killed 15M (break-even after fees)
+            for tag_slug, duration in [("5M", 5), ("15M", 15)]:  # V4.2: 5M BTC + 15M all assets
                 try:
                     r = await client.get(
                         "https://gamma-api.polymarket.com/events",
@@ -1387,9 +1401,7 @@ class CryptoMarketMaker:
                         if not matched_asset:
                             continue
 
-                        # V1.7: Hard block on disabled assets (safety net)
-                        if matched_asset in ("SOL", "XRP"):
-                            continue
+                        # V4.2: All assets enabled (was V1.7 hard block on SOL/XRP)
 
                         for m in event.get("markets", []):
                             if m.get("closed", True):
@@ -2661,6 +2673,150 @@ class CryptoMarketMaker:
         self._entered_markets.add(pair.market_id)
         return True
 
+    # ========================================================================
+    # V4.2: LATE-WINNER SCANNER (vague-sourdough strategy)
+    # ========================================================================
+
+    async def run_late_winner_scanner(self, markets: List[MarketPair]):
+        """V4.2: Buy the WINNER token in the last 30-60s before market close.
+
+        When direction is 90%+ clear (winner token at $0.80-$0.92), buy it.
+        Profit = $1.00 - buy_price per share. Near-guaranteed ~$0.08-$0.15/share.
+
+        Works on ALL assets (BTC, ETH, SOL, XRP) and ALL durations (5M, 15M).
+        """
+        if not self.config.LATE_WINNER_ENABLED:
+            return
+
+        now = datetime.now(timezone.utc)
+
+        for pair in markets:
+            # Skip markets we already have positions on
+            if pair.market_id in self.positions:
+                continue
+
+            # Check timing: must be in the last LATE_WINNER_WINDOW_SEC before close
+            if not pair.end_time:
+                continue
+            secs_left = (pair.end_time - now).total_seconds()
+            if secs_left > self.config.LATE_WINNER_WINDOW_SEC:
+                continue
+            if secs_left < self.config.LATE_WINNER_MIN_SEC:
+                continue
+
+            # Check risk
+            if not self.check_risk():
+                break
+
+            # Determine which side is winning by looking at mid prices
+            # Higher mid = more likely winner
+            up_mid = pair.up_mid
+            down_mid = pair.down_mid
+
+            if up_mid >= self.config.LATE_WINNER_MIN_BUY_PRICE:
+                winner_side = "UP"
+                winner_mid = up_mid
+                winner_token_id = pair.up_token_id
+            elif down_mid >= self.config.LATE_WINNER_MIN_BUY_PRICE:
+                winner_side = "DOWN"
+                winner_mid = down_mid
+                winner_token_id = pair.down_token_id
+            else:
+                continue  # Neither side is clear enough
+
+            # Get actual best_ask from order book
+            if not self.paper:
+                book = await self.get_order_book(winner_token_id)
+                if not book:
+                    continue
+                buy_price = book.get("best_ask", 0)
+                if buy_price <= 0:
+                    buy_price = winner_mid
+            else:
+                buy_price = winner_mid
+
+            # Price guards: must be between MIN and MAX
+            if buy_price < self.config.LATE_WINNER_MIN_BUY_PRICE:
+                continue
+            if buy_price > self.config.LATE_WINNER_MAX_BUY_PRICE:
+                continue
+
+            edge = 1.0 - buy_price
+            shares = max(self.config.MIN_SHARES, math.floor(self.config.LATE_WINNER_SIZE_USD / buy_price))
+            cost_usd = buy_price * shares
+            profit_if_win = edge * shares
+            now_iso = now.isoformat()
+
+            # Create position
+            pos = PairPosition(
+                market_id=pair.market_id,
+                market_num_id=pair.market_num_id,
+                question=pair.question,
+                asset=pair.asset,
+                created_at=now_iso,
+                status="partial",
+                bid_offset_used=0.0,
+                hour_utc=now.hour,
+                duration_min=pair.duration_min,
+                entry_type="late_winner",
+                first_fill_time=now_iso,
+            )
+
+            if self.paper:
+                order_id = f"lw_{winner_side.lower()}_{pair.market_id[:12]}_{int(time.time())}"
+                order = MakerOrder(
+                    order_id=order_id, market_id=pair.market_id,
+                    token_id=winner_token_id, side_label=winner_side,
+                    price=buy_price, size_shares=float(shares),
+                    size_usd=cost_usd, placed_at=now_iso,
+                    status="filled", fill_price=buy_price, fill_shares=float(shares),
+                )
+                if winner_side == "UP":
+                    pos.up_order = order
+                    pos.up_filled = True
+                else:
+                    pos.down_order = order
+                    pos.down_filled = True
+
+                print(f"  [LW PAPER] {pair.asset} {winner_side} @ ${buy_price:.2f} x {shares} "
+                      f"(${cost_usd:.2f}) | Edge: ${profit_if_win:.2f} | {secs_left:.0f}s left")
+            else:
+                try:
+                    from py_clob_client.clob_types import OrderArgs, OrderType
+                    from py_clob_client.order_builder.constants import BUY
+
+                    args = OrderArgs(price=buy_price, size=float(shares), side=BUY, token_id=winner_token_id)
+                    signed = self.client.create_order(args)
+                    resp = self.client.post_order(signed, OrderType.FOK)
+
+                    if not resp.get("success"):
+                        continue
+
+                    oid = resp.get("orderID", "")
+                    order = MakerOrder(
+                        order_id=oid, market_id=pair.market_id,
+                        token_id=winner_token_id, side_label=winner_side,
+                        price=buy_price, size_shares=float(shares),
+                        size_usd=cost_usd, placed_at=now_iso,
+                        status="filled", fill_price=buy_price, fill_shares=float(shares),
+                    )
+                    if winner_side == "UP":
+                        pos.up_order = order
+                        pos.up_filled = True
+                    else:
+                        pos.down_order = order
+                        pos.down_filled = True
+
+                    print(f"  [LW LIVE] {pair.asset} {winner_side} @ ${buy_price:.2f} x {shares} "
+                          f"(${cost_usd:.2f}) | Edge: ${profit_if_win:.2f} | {secs_left:.0f}s left | oid={oid[:16]}...")
+                except Exception as e:
+                    print(f"  [LW ERROR] {pair.asset}: {e}")
+                    continue
+
+            self.positions[pair.market_id] = pos
+            self._entered_markets.add(pair.market_id)
+            self.stats["late_winner_attempts"] = self.stats.get("late_winner_attempts", 0) + 1
+
     async def _place_momentum_order(self, pair: MarketPair, direction: str,
                                     momentum_bps: float, confirmed: bool = False):
         """Place a directional BUY order based on momentum signal.
@@ -3202,6 +3358,10 @@ class CryptoMarketMaker:
                   f"Buy loser @ <${self.config.LATE_CANDLE_MAX_LOSER_PRICE} | "
                   f"Window: {self.config.LATE_CANDLE_WAIT_SEC}-{self.config.LATE_CANDLE_MAX_WAIT_SEC}s | "
                   f"Min momentum: {self.config.LATE_CANDLE_MIN_MOMENTUM_BPS}bp")
+        if self.config.LATE_WINNER_ENABLED:
+            print(f"LATE WINNER: ${self.config.LATE_WINNER_SIZE_USD}/trade | "
+                  f"Buy winner @ ${self.config.LATE_WINNER_MIN_BUY_PRICE}-${self.config.LATE_WINNER_MAX_BUY_PRICE} | "
+                  f"Last {self.config.LATE_WINNER_WINDOW_SEC:.0f}s before close")
         print("=" * 70)
 
         if self.stats["total_pnl"] != 0:
@@ -3239,6 +3399,10 @@ class CryptoMarketMaker:
                 # Phase 4b: V4.1 Late-candle scanner (buy cheap loser side)
                 if self.momentum and self.config.LATE_CANDLE_ENABLED:
                     await self.run_late_candle_scanner(markets)
+
+                # Phase 4c: V4.2 Late-winner scanner (buy winner at $0.85-$0.92)
+                if self.config.LATE_WINNER_ENABLED:
+                    await self.run_late_winner_scanner(markets)
 
                 # Phase 5: Place maker orders if risk allows
                 if self.check_risk():
