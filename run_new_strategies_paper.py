@@ -1,7 +1,7 @@
 """
-New Strategies Paper Trader V1.1
+New Strategies Paper Trader V1.2
 
-Runs MEAN_REVERT_EXTREME + MOMENTUM_REGIME + VWAP_REVERSION on Polymarket BTC markets.
+Runs MEAN_REVERT_EXTREME + MOMENTUM_REGIME + VWAP_REVERSION + VWAP_ST_SR + HA_KELTNER_MFI on Polymarket BTC markets.
 All use 1-minute BTC candles for signal generation.
 
 Backtest results (14-day):
@@ -34,13 +34,14 @@ from nautilus_backtest.strategies.mean_revert_extreme import MeanRevertExtreme
 from nautilus_backtest.strategies.momentum_regime import MomentumRegime
 from nautilus_backtest.strategies.vwap_reversion import VwapReversion
 from nautilus_backtest.strategies.vwap_supertrend_stochrsi import VwapSupertrendStochRSI
+from nautilus_backtest.strategies.ha_keltner_mfi import HaKeltnerMfi
 
 # ============================================================================
 # CONFIG
 # ============================================================================
 SCAN_INTERVAL = 25
 MAX_CONCURRENT_PER_STRAT = 2
-MAX_CONCURRENT_TOTAL = 6
+MAX_CONCURRENT_TOTAL = 10
 TIME_WINDOW = (2.0, 12.0)
 SPREAD_OFFSET = 0.03
 MIN_ENTRY_PRICE = 0.10
@@ -74,6 +75,18 @@ STRAT_CONFIG = {
         "base_size": 4.0,       # 59.3% WR raw, 64.2% filtered — strong
         "max_size": 8.0,
     },
+    "VWAP_ST_SR": {
+        "min_confidence": 0.72,  # VWAP pullback + Supertrend + StochRSI cross
+        "min_edge": 0.008,      # Slightly higher — new strategy, be cautious
+        "base_size": 3.0,
+        "max_size": 7.0,
+    },
+    "HA_KELTNER_MFI": {
+        "min_confidence": 0.72,  # Heikin-Ashi trend + KC breakout + MFI
+        "min_edge": 0.008,
+        "base_size": 3.0,
+        "max_size": 7.0,
+    },
 }
 
 
@@ -97,6 +110,8 @@ class NewStrategiesPaperTrader:
             "MEAN_REVERT_EXTREME": MeanRevertExtreme(horizon_bars=5),
             "MOMENTUM_REGIME": MomentumRegime(horizon_bars=5),
             "VWAP_REVERSION": VwapReversion(horizon_bars=5),
+            "VWAP_ST_SR": VwapSupertrendStochRSI(horizon_bars=5),
+            "HA_KELTNER_MFI": HaKeltnerMfi(horizon_bars=5),
         }
 
         # Track which bars we've already processed to avoid duplicate signals
