@@ -217,7 +217,8 @@ class NewStrategiesPaperTrader:
         markets = []
         try:
             r = httpx.get("https://gamma-api.polymarket.com/events",
-                          params={"tag_slug": "5M", "active": "true", "closed": "false", "limit": 50},
+                          params={"tag_slug": "5M", "active": "true", "closed": "false",
+                                  "limit": 200, "order": "endDate", "ascending": "true"},
                           headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
             if r.status_code != 200:
                 return markets
