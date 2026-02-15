@@ -1,0 +1,46 @@
+{
+  "timestamp": "2026-02-15T07:44:20.538367+00:00",
+  "data_range": "2026-02-08 07:45 to 2026-02-15 07:44",
+  "bars_1m": 10080,
+  "bars_5m": 2016,
+  "natural_up_pct": 51.84,
+  "v30": {
+    "label": "V3.0 - Simple Momentum (2min, 15bp, $5)",
+    "trades": 353,
+    "wins": 318,
+    "win_rate": 90.08,
+    "total_pnl": 1241.73,
+    "avg_pnl": 3.5176,
+    "avg_win": 4.41,
+    "avg_loss": -4.59,
+    "max_drawdown": 13.77,
+    "total_cost": 1620.27,
+    "roi_pct": 76.64,
+    "max_win_streak": 45,
+    "max_loss_streak": 3,
+    "trades_per_day": 50.4
+  },
+  "v8": {
+    "label": "V8.0 - Supertrend+ADX+Squeeze+VWAP+Donchian+Vol ($5)",
+    "trades": 481,
+    "wins": 274,
+    "win_rate": 56.96,
+    "total_pnl": 258.21,
+    "avg_pnl": 0.5368,
+    "avg_win": 4.41,
+    "avg_loss": -4.59,
+    "max_drawdown": 40.68,
+    "total_cost": 2207.79,
+    "roi_pct": 11.7,
+    "max_win_streak": 8,
+    "max_loss_streak": 7,
+    "trades_per_day": 68.7
+  },
+  "overlap": {
+    "v30": 353,
+    "v8": 481,
+    "both": 142,
+    "v8_unique": 339,
+    "v30_unique": 211
+  }
+}

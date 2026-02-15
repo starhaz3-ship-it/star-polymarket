@@ -1,0 +1,46 @@
+{
+  "timestamp": "2026-02-15T07:48:19.118046+00:00",
+  "data_range": "2026-02-08 07:49 to 2026-02-15 07:48",
+  "bars_1m": 10080,
+  "bars_5m": 2016,
+  "natural_up_pct": 51.09,
+  "v30": {
+    "label": "V3.0 - Simple Momentum (2min, 15bp, $5)",
+    "trades": 283,
+    "wins": 258,
+    "win_rate": 91.17,
+    "total_pnl": 1023.03,
+    "avg_pnl": 3.6149,
+    "avg_win": 4.41,
+    "avg_loss": -4.59,
+    "max_drawdown": 13.77,
+    "total_cost": 1298.97,
+    "roi_pct": 78.76,
+    "max_win_streak": 48,
+    "max_loss_streak": 3,
+    "trades_per_day": 40.4
+  },
+  "v9": {
+    "label": "V9.0 - Ichimoku+CHOP+RSI-Ret+StochRSI+CCI+HA ($5)",
+    "trades": 1610,
+    "wins": 994,
+    "win_rate": 61.74,
+    "total_pnl": 1556.1,
+    "avg_pnl": 0.9665,
+    "avg_win": 4.41,
+    "avg_loss": -4.59,
+    "max_drawdown": 68.58,
+    "total_cost": 7389.9,
+    "roi_pct": 21.06,
+    "max_win_streak": 10,
+    "max_loss_streak": 7,
+    "trades_per_day": 230.0
+  },
+  "overlap": {
+    "v30": 283,
+    "v9": 1610,
+    "both": 240,
+    "v9_unique": 1370,
+    "v30_unique": 43
+  }
+}
