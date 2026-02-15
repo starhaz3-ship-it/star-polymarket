@@ -1,24 +1,16 @@
 """
-Both-Sides Market Maker for 15-min Crypto Up/Down Markets (V3.0)
+Both-Sides Market Maker for 15-min Crypto Up/Down Markets (V3.3)
 
 Strategy:
-  Place passive BUY limit orders (post_only) on BOTH Up and Down tokens
-  for every active 15-min BTC/ETH/SOL market. When both fill at combined
-  price < $1.00, guaranteed profit regardless of outcome direction.
+  Place passive BUY limit orders (post_only) on BOTH Up and Down tokens.
+  When both fill at combined price < $1.00, guaranteed profit.
 
-PolyData Edge (87K markets, 101M trades):
-  - Makers earn +1.12%/trade structural advantage
-  - Crypto 15-min markets are HIGHLY efficient (50/50 for takers)
-  - Only profitable approach: maker spread capture, not directional prediction
-  - Top whale MMs (0x6031) run 5.9M trades at ~49% buy WR - classic spread capture
+  V3.3 "No Hedge" — Data showed hedging was our #1 PnL destroyer:
+    - Hedged pairs: -$0.60 guaranteed loss (3-5c overpay to taker fill)
+    - Natural pairs: +$0.40 guaranteed profit (2% edge)
+    - Rides: +$0.20 EV at 50% WR (buying at $0.48 < fair $0.50)
 
-Risk Controls:
-  - Maximum $5/market pair exposure (configurable)
-  - Maximum $30 total exposure across all markets
-  - post_only=True on all orders (guaranteed maker, no taker fills)
-  - Auto-cancel all orders 2 min before market close
-  - Daily loss limit: $5
-  - Session-aware: skip low-volume hours (UTC 21-23)
+  New approach: ride unpaired fills instead of hedge. Kill the bleed.
 
 Modes:
   --paper  : Shadow mode - simulates fills from order book, no execution
@@ -380,10 +372,10 @@ class MakerConfig:
     # Spread targets
     MAX_COMBINED_PRICE: float = 0.98     # Only pair if Up+Down bids < this
     MIN_SPREAD_EDGE: float = 0.01        # Minimum edge per pair (combined discount)
-    BID_OFFSET: float = 0.02             # Bid this much below best ask
+    BID_OFFSET: float = 0.03             # V3.3: 3c offset (was 2c). Bids at ~$0.48 for more edge on naturals.
 
     # Position sizing
-    SIZE_PER_SIDE_USD: float = 10.0      # V3.2: $10/side (doubled from $5)
+    SIZE_PER_SIDE_USD: float = 10.0      # V3.3: $10/side
     MAX_PAIR_EXPOSURE: float = 70.0      # V2.5: $70/pair ($35 x 2 sides)
     MAX_TOTAL_EXPOSURE: float = 250.0    # V2.5: $250 max (~$280 cap - $30 buffer)
     MIN_SHARES: int = 5                  # CLOB minimum order size
@@ -391,10 +383,8 @@ class MakerConfig:
     # Risk
     DAILY_LOSS_LIMIT: float = 15.0       # $15 daily loss limit (scaled for $3/side)
     MAX_CONCURRENT_PAIRS: int = 12       # V1.5: 4 assets x 15M + BTC 5M = needs ~12 slots
-    MAX_SINGLE_SIDED: int = 2            # V1.1: Was 3. Partial fills = directional risk. Allow max 2.
-    TAKER_HEDGE_MAX_PRICE: float = 0.58   # V3.1: raised from 0.53 — absolute ceiling
-    TAKER_HEDGE_OVERPAY_STEPS: tuple = (0.03, 0.04, 0.05)  # V3.2: retry ladder — 3c, 4c, 5c until filled
-    TAKER_HEDGE_AFTER_SEC: float = 30.0   # V3.0: 30s optimal. Data: 53% pair by 30s, marginal gains flatten after. 10x cheaper to hedge than leave unpaired.
+    MAX_SINGLE_SIDED: int = 4            # V3.3: raised from 2. Rides are +EV, allow more.
+    RIDE_AFTER_SEC: float = 45.0         # V3.3: cancel unfilled side after 45s and ride. No hedge.
 
     # Timing
     SCAN_INTERVAL: int = 30              # Seconds between market scans
@@ -1469,12 +1459,11 @@ class CryptoMarketMaker:
             offset = max(0.01, round(offset / 2, 2))
 
         # Our target bid prices
-        # V3.0: DOWN books are thinner — bid tighter (half offset) to improve
-        # natural pair rate. Every natural pair = 3% profit vs hedge = 0%.
-        # With offset=0.01: UP bid = mid-0.01, DOWN bid = mid-0.005 → rounds to mid
-        # e.g. UP $0.50, DOWN $0.49 → combined $0.99, still 1% edge
+        # V3.3: Symmetric offsets on both sides. No hedge = no need to
+        # favor one side filling faster. Both at full offset for max edge.
+        # e.g. mid $0.51/$0.49, offset 0.03 → bids $0.48/$0.46 → combined $0.94
         up_bid = round(pair.up_mid - offset, 2)
-        down_bid = round(pair.down_mid - offset / 2, 2)
+        down_bid = round(pair.down_mid - offset, 2)
 
         # Ensure prices are valid
         up_bid = max(0.01, min(0.95, up_bid))
@@ -1782,16 +1771,15 @@ class CryptoMarketMaker:
             created = datetime.fromisoformat(pos.created_at)
             age_min = (now - created).total_seconds() / 60
 
-            # V3.0: TAKER HEDGE — when one side fills and the other doesn't,
-            # market-buy the other side to complete the pair instead of selling back.
-            # Data (154 markets): PAIRED 94.7% WR (+$146), SELL-BACK -$50, RIDE 80% WR (+$107).
-            # Taker hedge converts partials into paired positions = guaranteed profit.
+            # V3.3: NO HEDGE — ride unpaired fills to resolution.
+            # Data showed hedging was #1 PnL destroyer: -$0.60/hedge guaranteed loss.
+            # Rides at $0.48 are +EV at 50% WR (+$0.40 EV). Accept variance, kill bleed.
             if pos.is_partial and not pos.first_fill_time:
                 pos.first_fill_time = pos.created_at  # Backfill for old positions
             if pos.is_partial and pos.first_fill_time:
                 first_fill_dt = datetime.fromisoformat(pos.first_fill_time)
                 since_first_fill_sec = (now - first_fill_dt).total_seconds()
-                if since_first_fill_sec > self.config.TAKER_HEDGE_AFTER_SEC:
+                if since_first_fill_sec > self.config.RIDE_AFTER_SEC:
                     # Cancel the unfilled passive order
                     for order, attr in [(pos.up_order, "up_filled"), (pos.down_order, "down_filled")]:
                         if order and not getattr(pos, attr) and order.status == "open":
@@ -1804,7 +1792,6 @@ class CryptoMarketMaker:
 
                     # Re-check fills after cancel — the passive order may have filled
                     # between our last fill check and the cancel (race condition).
-                    # If both sides now filled, it's already paired — skip hedge.
                     if not self.paper:
                         await self._check_fills_live(pos)
                         if pos.up_filled and pos.down_filled:
@@ -1813,95 +1800,24 @@ class CryptoMarketMaker:
                                 (pos.down_order.fill_price * pos.down_order.fill_shares if pos.down_order else 0)
                             )
                             pos.status = "paired"
-                            print(f"  [HEDGE-SKIP] {pos.asset} — both sides filled naturally, no hedge needed")
+                            print(f"  [NATURAL-PAIR] {pos.asset} — both sides filled! No ride needed")
                             continue
 
                     filled_side = "UP" if pos.up_filled else "DOWN"
-                    unfilled_side = "DOWN" if pos.up_filled else "UP"
                     filled_order = pos.up_order if pos.up_filled else pos.down_order
-                    unfilled_order = pos.down_order if pos.up_filled else pos.up_order
                     shares = filled_order.fill_shares if filled_order else 0
 
-                    hedge_ok = False
-                    breakeven = round(1.00 - filled_order.fill_price, 2) if filled_order else 0
-
-                    if breakeven >= 0.40 and shares > 0 and unfilled_order:
-                        if not self.paper and self.client:
-                            from py_clob_client.clob_types import OrderArgs, OrderType
-                            from py_clob_client.order_builder.constants import BUY
-
-                            # V3.2: Retry ladder — try 3c, 4c, 5c overpay until FOK fills
-                            # -$0.50 guaranteed loss beats -$4.90 coin-flip ride
-                            for overpay in self.config.TAKER_HEDGE_OVERPAY_STEPS:
-                                max_hedge = min(
-                                    self.config.TAKER_HEDGE_MAX_PRICE,
-                                    round(breakeven + overpay, 2)
-                                )
-                                try:
-                                    hedge_args = OrderArgs(
-                                        price=max_hedge,
-                                        size=float(shares),
-                                        side=BUY,
-                                        token_id=unfilled_order.token_id,
-                                    )
-                                    hedge_signed = self.client.create_order(hedge_args)
-                                    hedge_resp = self.client.post_order(hedge_signed, OrderType.FOK)
-
-                                    if hedge_resp.get("success"):
-                                        unfilled_order.status = "filled"
-                                        unfilled_order.fill_price = max_hedge
-                                        unfilled_order.fill_shares = shares
-                                        unfilled_order.order_id = hedge_resp.get("orderID", unfilled_order.order_id)
-                                        if pos.up_filled:
-                                            pos.down_filled = True
-                                        else:
-                                            pos.up_filled = True
-
-                                        combined = filled_order.fill_price + max_hedge
-                                        pos.combined_cost = combined * shares
-                                        pos.status = "paired"
-                                        hedge_ok = True
-                                        self.stats[f"fills_{unfilled_side.lower()}"] += 1
-
-                                        print(f"  [HEDGE] {pos.asset} {unfilled_side} {shares:.0f}sh "
-                                              f"@ ${max_hedge:.2f} (+{overpay:.0%} overpay) | combined ${combined:.2f} | "
-                                              f"edge ${(1.00 - combined) * shares:+.2f}")
-                                        break  # filled, stop ladder
-                                    else:
-                                        print(f"  [HEDGE] FOK miss @ ${max_hedge:.2f} (+{int(overpay*100)}c) — stepping up...")
-                                except Exception as e:
-                                    print(f"  [HEDGE] Error @ ${max_hedge:.2f}: {e} — stepping up...")
-
-                            if not hedge_ok:
-                                print(f"  [HEDGE] ALL STEPS FAILED (tried {[round(breakeven+s,2) for s in self.config.TAKER_HEDGE_OVERPAY_STEPS]}, filled@${filled_order.fill_price:.2f}) — riding")
-                        else:
-                            # Paper mode: simulate hedge at unfilled order's original price
-                            unfilled_order.status = "filled"
-                            unfilled_order.fill_price = unfilled_order.price
-                            unfilled_order.fill_shares = shares
-                            if pos.up_filled:
-                                pos.down_filled = True
-                            else:
-                                pos.up_filled = True
-                            combined = filled_order.fill_price + unfilled_order.price
-                            pos.combined_cost = combined * shares
-                            pos.status = "paired"
-                            hedge_ok = True
-                            print(f"  [HEDGE-PAPER] {pos.asset} {unfilled_side} {shares:.0f}sh "
-                                  f"@ ${unfilled_order.price:.2f} | combined ${combined:.2f}")
-
-                    if not hedge_ok:
-                        # Hedge failed or too expensive — ride to resolution
-                        reason = f"max_hedge=${max_hedge:.2f}" if max_hedge < 0.40 else "order failed"
-                        print(f"  [PARTIAL-RIDE] {pos.asset} {filled_side} {shares:.0f}sh — "
-                              f"riding to resolution ({reason})")
-                        pos.status = "riding"
-                        self.stats["pairs_partial"] += 1
-                        self.ml_optimizer.record(
-                            hour=pos.hour_utc if pos.hour_utc >= 0 else now.hour,
-                            offset=pos.bid_offset_used,
-                            paired=False, partial=True, pnl=0.0
-                        )
+                    # V3.3: Just ride — no hedge attempt. Accept the coin flip.
+                    print(f"  [RIDE] {pos.asset} {filled_side} {shares:.0f}sh @ ${filled_order.fill_price:.2f} — "
+                          f"riding to resolution (win=${(1.0 - filled_order.fill_price) * shares:.2f}, "
+                          f"lose=${filled_order.fill_price * shares:.2f})")
+                    pos.status = "riding"
+                    self.stats["pairs_partial"] += 1
+                    self.ml_optimizer.record(
+                        hour=pos.hour_utc if pos.hour_utc >= 0 else now.hour,
+                        offset=pos.bid_offset_used,
+                        paired=False, partial=True, pnl=0.0
+                    )
 
             # If approaching close, cancel unfilled orders
             # V1.6: 5M gets 1min buffer (was 2), 15M keeps 2min
@@ -2709,9 +2625,9 @@ class CryptoMarketMaker:
         """Main market maker loop."""
         print("=" * 70)
         mode = "PAPER" if self.paper else "LIVE"
-        print(f"BOTH-SIDES MARKET MAKER - {mode} MODE")
-        print(f"Strategy: Buy BOTH Up+Down at combined < ${self.config.MAX_COMBINED_PRICE}")
-        print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Max pairs: {self.config.MAX_CONCURRENT_PAIRS}")
+        print(f"BOTH-SIDES MARKET MAKER V3.3 - {mode} MODE")
+        print(f"Strategy: Buy BOTH Up+Down, ride unpaired fills (NO HEDGE)")
+        print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Bid offset: {self.config.BID_OFFSET}c | Ride after: {self.config.RIDE_AFTER_SEC}s")
         print(f"Daily loss limit: ${self.config.DAILY_LOSS_LIMIT}")
         if not self.paper:
             print(f"CIRCUIT BREAKER: Auto-switch to paper on $88 net session loss (~40% capital)")
