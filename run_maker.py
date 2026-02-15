@@ -1142,6 +1142,7 @@ class PairPosition:
     entry_type: str = "maker"    # "maker", "late_candle_pair", "late_candle_standalone"
     late_candle_pending: bool = False  # True when late-candle order placed, awaiting fill
     loser_buy_price: float = 0.0      # Price paid for loser side (for ML)
+    sell_attempts: int = 0             # V4.1: Track sell-back attempts (ride after 3 failures)
 
     @property
     def is_paired(self) -> bool:
@@ -1520,6 +1521,7 @@ class CryptoMarketMaker:
                 "ask_depth": sum(float(a.get("size", 0)) for a in asks[:3]),
             }
         except Exception as e:
+            print(f"  [BOOK-ERR] get_order_book failed: {str(e)[:80]}")
             return None
 
     def _get_bid_offset(self) -> float:
@@ -1910,8 +1912,15 @@ class CryptoMarketMaker:
                                   f"sold at market | PnL: ${sell_pnl:+.4f}")
                             continue
                         else:
-                            # Sell failed — fall through to ride
-                            print(f"  [SELL-FAIL] {pos.asset} {filled_side} — sell failed, falling back to ride")
+                            # V4.1: Retry sell-back across cycles — don't permanently ride on transient failure
+                            pos.sell_attempts += 1
+                            if pos.sell_attempts < 3:
+                                print(f"  [SELL-FAIL] {pos.asset} {filled_side} — "
+                                      f"sell failed (attempt {pos.sell_attempts}/3), will retry next cycle")
+                                continue  # Stay as partial, try again next cycle
+                            else:
+                                print(f"  [SELL-FAIL] {pos.asset} {filled_side} — "
+                                      f"sell failed 3x, falling back to ride")
 
                     # Fallback: ride to resolution (V3.3 behavior)
                     print(f"  [RIDE] {pos.asset} {filled_side} {shares:.0f}sh @ ${filled_order.fill_price:.2f} — "
@@ -3007,51 +3016,69 @@ class CryptoMarketMaker:
 
     async def _sell_partial_at_market(self, pos: PairPosition, filled_order: MakerOrder) -> Optional[float]:
         """V4: Sell a partially-filled position at market to cut losses.
-        Returns PnL if sold successfully, None if sell failed."""
+        Retries up to 3 times on transient failures.
+        Returns PnL if sold successfully, None if all attempts failed."""
         if not self.client or not filled_order:
             return None
 
-        try:
-            from py_clob_client.clob_types import OrderArgs, OrderType, BalanceAllowanceParams, AssetType
-            from py_clob_client.order_builder.constants import SELL
+        from py_clob_client.clob_types import OrderArgs, OrderType, BalanceAllowanceParams, AssetType
+        from py_clob_client.order_builder.constants import SELL
 
-            # Get current best bid for the filled token
-            book = await self.get_order_book(filled_order.token_id)
-            if not book or book.get("best_bid", 0) <= 0:
-                return None
-
-            best_bid = book["best_bid"]
-            sell_price = max(0.01, round(best_bid - 0.01, 2))  # 1c below bid for fast fill
-
-            # Approve conditional token for selling
+        for attempt in range(3):
             try:
-                self.client.update_balance_allowance(
-                    BalanceAllowanceParams(asset_type=AssetType.CONDITIONAL, token_id=filled_order.token_id))
-            except Exception:
-                pass
+                # Get current best bid for the filled token
+                book = await self.get_order_book(filled_order.token_id)
+                if not book or book.get("best_bid", 0) <= 0:
+                    if attempt < 2:
+                        print(f"  [SELL-RETRY] No bids on attempt {attempt+1}/3, retrying in 2s...")
+                        await asyncio.sleep(2)
+                        continue
+                    print(f"  [SELL-CUT] No bids after 3 attempts (book empty)")
+                    return None
 
-            sell_args = OrderArgs(
-                price=sell_price,
-                size=filled_order.fill_shares,
-                side=SELL,
-                token_id=filled_order.token_id,
-            )
-            sell_signed = self.client.create_order(sell_args)
-            sell_resp = self.client.post_order(sell_signed, OrderType.GTC)
+                best_bid = book["best_bid"]
+                sell_price = max(0.01, round(best_bid - 0.01, 2))  # 1c below bid for fast fill
 
-            if sell_resp.get("success"):
-                # PnL = sell revenue - buy cost
-                sell_revenue = sell_price * filled_order.fill_shares
-                buy_cost = filled_order.fill_price * filled_order.fill_shares
-                pnl = round(sell_revenue - buy_cost, 6)
-                return pnl
-            else:
-                print(f"  [SELL-CUT] Order failed: {sell_resp.get('errorMsg', '?')}")
+                # Approve conditional token for selling
+                try:
+                    self.client.update_balance_allowance(
+                        BalanceAllowanceParams(asset_type=AssetType.CONDITIONAL, token_id=filled_order.token_id))
+                except Exception:
+                    pass
+
+                sell_args = OrderArgs(
+                    price=sell_price,
+                    size=filled_order.fill_shares,
+                    side=SELL,
+                    token_id=filled_order.token_id,
+                )
+                sell_signed = self.client.create_order(sell_args)
+                sell_resp = self.client.post_order(sell_signed, OrderType.GTC)
+
+                if sell_resp.get("success"):
+                    # PnL = sell revenue - buy cost
+                    sell_revenue = sell_price * filled_order.fill_shares
+                    buy_cost = filled_order.fill_price * filled_order.fill_shares
+                    pnl = round(sell_revenue - buy_cost, 6)
+                    return pnl
+                else:
+                    err_msg = sell_resp.get('errorMsg', '?')
+                    if attempt < 2:
+                        print(f"  [SELL-RETRY] Order rejected ({err_msg}), attempt {attempt+1}/3, retrying in 2s...")
+                        await asyncio.sleep(2)
+                        continue
+                    print(f"  [SELL-CUT] Order failed after 3 attempts: {err_msg}")
+                    return None
+
+            except Exception as e:
+                if attempt < 2:
+                    print(f"  [SELL-RETRY] Error on attempt {attempt+1}/3: {str(e)[:60]}, retrying in 2s...")
+                    await asyncio.sleep(2)
+                    continue
+                print(f"  [SELL-CUT] Error after 3 attempts: {e}")
                 return None
 
-        except Exception as e:
-            print(f"  [SELL-CUT] Error: {e}")
-            return None
+        return None
 
     # ========================================================================
     # RISK MANAGEMENT
