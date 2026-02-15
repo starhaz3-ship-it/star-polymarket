@@ -1,32 +1,37 @@
 """
-New Strategies Paper Trader V1.3
+New Strategies Trader V2.0
 
-Runs 10 strategies on Polymarket BTC 5m markets. Top 6 new from 20-strategy backtest:
-STOCH_BB (65.4% WR), CCI_BOUNCE (63.8%), DOUBLE_BOTTOM_RSI (63.8%),
-ULTIMATE_OSC (62.9%), WILLIAMS_VWAP (55.1%), TRIPLE_RSI (55.4%)
-Plus 4 incumbents: MEAN_REVERT_EXTREME, MOMENTUM_REGIME, VWAP_REVERSION, VWAP_ST_SR.
-All use 1-minute BTC candles for signal generation.
+Runs backtest-validated strategies on Polymarket BTC 5m markets.
+Supports --live mode with $5 flat bets and 20-trade auto-cutoff.
 
-Backtest results (14-day):
-  MEAN_REVERT_EXTREME_5m: 62.9% WR, +$6.90, 70 trades (BEST strategy)
-  VWAP_REVERSION_5m: 59.3% WR, +$3.73, 59 trades (64.2% with hour filter)
-  MOMENTUM_REGIME_5m: 53.2% WR, +$0.34, 222 trades (56.7% with hour filter)
+Backtest validated (14-day, 20K candles):
+  WILLIAMS_VWAP: 56.0% WR, +$20.42, 686 trades (BEST)
+  STOCH_BB: 63.3% WR, +$16.26, 158 trades
+  MEAN_REVERT_EXTREME: 62.9% WR, +$6.90, 70 trades
+  CCI_BOUNCE: 63.6% WR, +$5.85, 55 trades
+  DOUBLE_BOTTOM_RSI: 61.8% WR, +$4.85, 55 trades
+  VWAP_REVERSION: 58.3% WR, +$3.20, 60 trades
+  ULTIMATE_OSC: 60.0% WR, +$2.80, 40 trades
 
 Usage:
-    python run_new_strategies_paper.py
+    python run_new_strategies_paper.py          # Paper mode
+    python run_new_strategies_paper.py --live   # Live $5 bets, auto-cutoff at 20 trades
 """
 
 import sys
 import json
 import time
 import os
+import argparse
 import numpy as np
 from datetime import datetime, timezone
 from pathlib import Path
 from functools import partial as fn_partial
 
 import httpx
+from dotenv import load_dotenv
 
+load_dotenv()
 print = fn_partial(print, flush=True)
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -43,6 +48,9 @@ from nautilus_backtest.strategies.double_bottom_rsi import DoubleBottomRsi
 from nautilus_backtest.strategies.ultimate_osc import UltimateOsc
 from nautilus_backtest.strategies.williams_vwap import WilliamsVwap
 from nautilus_backtest.strategies.triple_rsi import TripleRsi
+from nautilus_backtest.strategies.ha_keltner_mfi import HaKeltnerMfi
+from nautilus_backtest.strategies.aroon_cross import AroonCross
+from nautilus_backtest.strategies.inverse_wrapper import InverseStrategy
 
 # ============================================================================
 # CONFIG
@@ -55,8 +63,8 @@ SPREAD_OFFSET = 0.03
 MIN_ENTRY_PRICE = 0.10
 MAX_ENTRY_PRICE = 0.60
 RESOLVE_AGE_MIN = 16.0
-BASE_SIZE = 3.0
-MAX_SIZE = 8.0
+LIVE_SIZE_USD = 5.0       # Flat $5 live bets
+LIVE_CUTOFF_TRADES = 20   # Auto-switch to paper after this many trades if losing
 
 # Hour filter — skip worst hours from 14-day backtest
 SKIP_HOURS_UTC = {12, 17, 19, 20, 21}
@@ -125,6 +133,21 @@ STRAT_CONFIG = {
         "base_size": 3.0,
         "max_size": 7.0,
     },
+    # ── Inverse strategies: flip the worst losers into winners ──
+    "HA_KELTNER_MFI_INV": {
+        "min_confidence": 0.70,  # Inverse: original 45.1% → 54.9% WR, +$42, 2164 trades
+        "min_edge": 0.003,      # Low edge gate — volume is the edge, not per-trade alpha
+        "base_size": 4.0,
+        "max_size": 8.0,
+        "only_hours_utc": {22, 21, 7, 15, 5},  # Top 5 hours: 68%, 67%, 64%, 64%, 63% WR
+    },
+    "AROON_CROSS_INV": {
+        "min_confidence": 0.70,  # Inverse: original 43.9% → 55.9% WR, +$20, 678 trades
+        "min_edge": 0.003,
+        "base_size": 4.0,
+        "max_size": 8.0,
+        "only_hours_utc": {13, 19, 6, 15, 3},  # Top 5 hours: 72%, 69%, 69%, 69%, 68% WR
+    },
 }
 
 
@@ -132,8 +155,10 @@ STRAT_CONFIG = {
 # PAPER TRADER
 # ============================================================================
 
-class NewStrategiesPaperTrader:
-    def __init__(self):
+class NewStrategiesTrader:
+    def __init__(self, live: bool = False):
+        self.live = live
+        self.client = None  # CLOB client (live only)
         self.trades = {}
         self.resolved = []
         self.stats = {}
@@ -141,9 +166,12 @@ class NewStrategiesPaperTrader:
             self.stats[name] = {"wins": 0, "losses": 0, "pnl": 0.0}
         self.stats["_total"] = {"wins": 0, "losses": 0, "pnl": 0.0}
 
-        # Create stateful strategy instances (maintain state across cycles)
-        # Use 5m horizon for both since that was the winning variant
-        # But we use ALL 1m candles to compute indicators — the horizon is just for cooldown
+        # Live mode: track trades placed THIS session for 20-trade cutoff
+        self.live_session_trades = 0
+        self.live_session_pnl = 0.0
+        self.cutoff_triggered = False
+
+        # Create stateful strategy instances
         self.strategies = {
             "MEAN_REVERT_EXTREME": MeanRevertExtreme(horizon_bars=5),
             "MOMENTUM_REGIME": MomentumRegime(horizon_bars=5),
@@ -155,12 +183,32 @@ class NewStrategiesPaperTrader:
             "ULTIMATE_OSC": UltimateOsc(horizon_bars=5),
             "WILLIAMS_VWAP": WilliamsVwap(horizon_bars=5),
             "TRIPLE_RSI": TripleRsi(horizon_bars=5),
+            # Inverse strategies: flip signals from consistent losers
+            "HA_KELTNER_MFI_INV": InverseStrategy(HaKeltnerMfi(horizon_bars=5)),
+            "AROON_CROSS_INV": InverseStrategy(AroonCross(horizon_bars=5)),
         }
 
-        # Track which bars we've already processed to avoid duplicate signals
         self._last_bar_time = 0
 
+        if self.live:
+            self._init_client()
+
         self._load()
+
+    def _init_client(self):
+        """Initialize CLOB client for live trading."""
+        try:
+            from arbitrage.executor import Executor
+            executor = Executor()
+            if executor._initialized:
+                self.client = executor.client
+                print("[LIVE] CLOB client initialized")
+            else:
+                print("[LIVE] Client init failed — falling back to PAPER")
+                self.live = False
+        except Exception as e:
+            print(f"[LIVE] Client error: {e} — PAPER MODE")
+            self.live = False
 
     def _load(self):
         if RESULTS_FILE.exists():
@@ -269,6 +317,23 @@ class NewStrategiesPaperTrader:
                     down_price = p
         return up_price, down_price
 
+    def get_token_ids(self, market: dict):
+        """Extract UP and DOWN token IDs from market data."""
+        outcomes = market.get("outcomes", [])
+        token_ids = market.get("clobTokenIds", [])
+        if isinstance(outcomes, str):
+            outcomes = json.loads(outcomes)
+        if isinstance(token_ids, str):
+            token_ids = json.loads(token_ids)
+        up_token, down_token = None, None
+        for i, o in enumerate(outcomes):
+            if i < len(token_ids):
+                if str(o).lower() == "up":
+                    up_token = token_ids[i]
+                elif str(o).lower() == "down":
+                    down_token = token_ids[i]
+        return up_token, down_token
+
     def compute_fair_prob(self, direction: str, confidence: float) -> float:
         """Compute fair UP probability from signal direction and confidence."""
         if direction == "UP":
@@ -346,6 +411,16 @@ class NewStrategiesPaperTrader:
                             self.stats["_total"]["wins" if won else "losses"] += 1
                             self.stats["_total"]["pnl"] += trade["pnl"]
 
+                            # Track live session for 20-trade cutoff
+                            if trade.get("live_order"):
+                                self.live_session_trades += 1
+                                self.live_session_pnl += trade["pnl"]
+                                self._check_cutoff()
+
+                            # Auto-redeem winning positions
+                            if won and trade.get("live_order"):
+                                self._try_redeem()
+
                             self.resolved.append(trade)
                             del self.trades[tid]
 
@@ -355,12 +430,14 @@ class NewStrategiesPaperTrader:
                             s = self.stats.get(strat, t)
                             sw = s["wins"] + s["losses"]
                             swr = s["wins"] / sw * 100 if sw > 0 else 0
+                            mode = "LIVE" if trade.get("live_order") else "PAPER"
                             tag = "WIN" if won else "LOSS"
-                            print(f"[{tag}] {strat} {trade['side']} ${trade['pnl']:+.2f} | "
+                            print(f"[{tag}] {strat} {trade['side']} ${trade['pnl']:+.2f} [{mode}] | "
                                   f"entry=${trade['entry_price']:.2f} exit=${trade.get('exit_price', 0):.2f} | "
                                   f"conf={trade.get('confidence', 0):.2f} | "
                                   f"Strat: {s['wins']}W/{s['losses']}L {swr:.0f}%WR ${s['pnl']:+.2f} | "
-                                  f"Total: {t['wins']}W/{t['losses']}L {wr:.0f}%WR ${t['pnl']:+.2f}")
+                                  f"Total: {t['wins']}W/{t['losses']}L {wr:.0f}%WR ${t['pnl']:+.2f}"
+                                  + (f" | Session: {self.live_session_trades}T ${self.live_session_pnl:+.2f}" if trade.get("live_order") else ""))
                 except Exception as e:
                     if "429" not in str(e):
                         print(f"[RESOLVE] API error: {e}")
@@ -377,6 +454,33 @@ class NewStrategiesPaperTrader:
                 del self.trades[tid]
                 print(f"[LOSS] {strat} {trade['side']} ${trade['pnl']:+.2f} | aged out")
 
+    def _check_cutoff(self):
+        """After 20 live trades, auto-switch to paper if losing."""
+        if self.cutoff_triggered:
+            return
+        if self.live_session_trades >= LIVE_CUTOFF_TRADES:
+            if self.live_session_pnl <= 0:
+                print(f"\n{'='*60}")
+                print(f"  CUTOFF: {self.live_session_trades} live trades, "
+                      f"PnL ${self.live_session_pnl:+.2f} — switching to PAPER")
+                print(f"{'='*60}\n")
+                self.live = False
+                self.client = None
+                self.cutoff_triggered = True
+            else:
+                print(f"[CUTOFF] {self.live_session_trades} trades, "
+                      f"PnL ${self.live_session_pnl:+.2f} — PROFITABLE, staying LIVE")
+
+    def _try_redeem(self):
+        """Try to redeem winning positions via gasless relayer."""
+        try:
+            from run_maker import _try_gasless_redeem
+            ok, amt = _try_gasless_redeem()
+            if ok and amt > 0:
+                print(f"[REDEEM] Claimed ${amt:.2f} back to USDC")
+        except Exception as e:
+            pass  # Redeem is best-effort, don't crash
+
     # ========================================================================
     # ENTRY
     # ========================================================================
@@ -384,9 +488,6 @@ class NewStrategiesPaperTrader:
     def find_entries(self, candles: list, markets: list):
         now = datetime.now(timezone.utc)
         hour_utc = now.hour
-
-        if hour_utc in SKIP_HOURS_UTC:
-            return
 
         # Check total position limit
         total_open = sum(1 for t in self.trades.values() if t.get("status") == "open")
@@ -401,27 +502,38 @@ class NewStrategiesPaperTrader:
                 new_bars.append(c)
 
         if not new_bars:
-            # No new bars — use last candle for signal check
-            # (strategies already have state from previous bars)
             pass
         else:
             self._last_bar_time = candles[-1]["time"]
 
-        # Feed new bars to strategies and check for signals
+        # Feed new bars to ALL strategies (maintains indicator state even during skip hours)
         signals = {}  # strat_name -> (direction, confidence)
 
         for strat_name, strategy in self.strategies.items():
-            # Feed ALL new bars to maintain accurate state
             direction, confidence = None, 0.0
             for bar in new_bars:
                 d, c = strategy.update(bar["high"], bar["low"], bar["close"], bar["volume"])
                 if d is not None:
-                    direction, confidence = d, c  # Keep the latest signal
+                    direction, confidence = d, c
 
-            if direction:
-                cfg = STRAT_CONFIG[strat_name]
-                if confidence >= cfg["min_confidence"]:
-                    signals[strat_name] = (direction, confidence)
+            if not direction:
+                continue
+
+            cfg = STRAT_CONFIG[strat_name]
+            if confidence < cfg["min_confidence"]:
+                continue
+
+            # Per-strategy hour filter (inverse strategies: only trade during top hours)
+            only_hours = cfg.get("only_hours_utc")
+            if only_hours:
+                if hour_utc not in only_hours:
+                    continue
+            else:
+                # Normal strategies: skip global bad hours
+                if hour_utc in SKIP_HOURS_UTC:
+                    continue
+
+            signals[strat_name] = (direction, confidence)
 
         if not signals:
             return
@@ -460,10 +572,47 @@ class NewStrategiesPaperTrader:
                 if not side:
                     continue
 
-                # Size: scale by confidence
-                trade_size = cfg["base_size"] + (confidence - 0.65) * (cfg["max_size"] - cfg["base_size"])
-                trade_size = round(max(cfg["base_size"], min(cfg["max_size"], trade_size)), 2)
+                # Size: $5 flat for live, scaled for paper
+                is_live_order = self.live and self.client and not self.cutoff_triggered
+                if is_live_order:
+                    trade_size = LIVE_SIZE_USD
+                else:
+                    trade_size = cfg["base_size"] + (confidence - 0.65) * (cfg["max_size"] - cfg["base_size"])
+                    trade_size = round(max(cfg["base_size"], min(cfg["max_size"], trade_size)), 2)
 
+                # Live execution
+                order_id = None
+                if is_live_order:
+                    up_token, down_token = self.get_token_ids(market)
+                    token_id = up_token if side == "UP" else down_token
+                    if not token_id:
+                        continue
+
+                    try:
+                        from py_clob_client.clob_types import OrderArgs, OrderType
+                        from py_clob_client.order_builder.constants import BUY
+
+                        shares = round(trade_size / entry_price, 2)
+                        order_args = OrderArgs(
+                            price=round(entry_price, 2),
+                            size=shares,
+                            side=BUY,
+                            token_id=token_id,
+                        )
+                        signed = self.client.create_order(order_args)
+                        resp = self.client.post_order(signed, OrderType.GTC)
+
+                        if not resp.get("success"):
+                            err = resp.get("errorMsg", "unknown")
+                            print(f"[LIVE] Order failed: {err} | {strat_name} {side}")
+                            continue
+
+                        order_id = resp.get("orderID", "")
+                    except Exception as e:
+                        print(f"[LIVE] Order error: {e}")
+                        continue
+
+                mode = "LIVE" if is_live_order else "PAPER"
                 self.trades[trade_key] = {
                     "side": side,
                     "entry_price": entry_price,
@@ -481,28 +630,34 @@ class NewStrategiesPaperTrader:
                     "tte_seconds": tte,
                     "status": "open",
                     "pnl": 0.0,
+                    "live_order": is_live_order,
+                    "order_id": order_id,
                 }
                 total_open += 1
                 strat_open += 1
 
                 print(f"[ENTRY] {strat_name} {side} ${entry_price:.2f} ${trade_size:.0f} | "
                       f"conf={confidence:.2f} edge={edge:.1%} fair={fair_px:.2f} | "
-                      f"tte={tte}s | BTC=${candles[-1]['close']:,.0f} | [PAPER]")
+                      f"tte={tte}s | BTC=${candles[-1]['close']:,.0f} | [{mode}]"
+                      + (f" | oid={order_id[:12]}..." if order_id else ""))
 
     # ========================================================================
     # MAIN LOOP
     # ========================================================================
 
     def run(self):
+        mode_str = "LIVE MODE ($5/trade)" if self.live else "PAPER MODE"
         print("=" * 76)
-        print("  NEW STRATEGIES PAPER TRADER V1.0")
+        print(f"  NEW STRATEGIES TRADER V2.0 — {mode_str}")
+        if self.live:
+            print(f"  Auto-cutoff: switch to PAPER after {LIVE_CUTOFF_TRADES} trades if PnL <= $0")
         print(f"  Strategies: {', '.join(STRAT_CONFIG.keys())}")
         print(f"  Max {MAX_CONCURRENT_PER_STRAT}/strat, {MAX_CONCURRENT_TOTAL} total")
         print(f"  Window: {TIME_WINDOW[0]}-{TIME_WINDOW[1]}min")
         print(f"  Skip hours (UTC): {sorted(SKIP_HOURS_UTC)}")
         for name, cfg in STRAT_CONFIG.items():
-            print(f"    {name}: conf>={cfg['min_confidence']} edge>={cfg['min_edge']:.1%} "
-                  f"size=${cfg['base_size']}-${cfg['max_size']}")
+            size_str = f"${LIVE_SIZE_USD:.0f} flat" if self.live else f"${cfg['base_size']}-${cfg['max_size']}"
+            print(f"    {name}: conf>={cfg['min_confidence']} edge>={cfg['min_edge']:.1%} size={size_str}")
         print("=" * 76)
 
         if self.resolved:
@@ -546,6 +701,8 @@ class NewStrategiesPaperTrader:
                                     if TIME_WINDOW[0] <= m.get("_time_left", 99) <= TIME_WINDOW[1])
                     hour = datetime.now(timezone.utc).hour
                     skip_tag = " [SKIP HOUR]" if hour in SKIP_HOURS_UTC else ""
+                    mode_tag = "LIVE" if (self.live and not self.cutoff_triggered) else "PAPER"
+                    live_tag = f" | LiveSession: {self.live_session_trades}/{LIVE_CUTOFF_TRADES}T ${self.live_session_pnl:+.2f}" if self.live_session_trades > 0 else ""
 
                     strat_parts = []
                     for name in STRAT_CONFIG:
@@ -556,10 +713,10 @@ class NewStrategiesPaperTrader:
                                   if tr.get("status") == "open" and tr.get("strategy") == name)
                         strat_parts.append(f"{name}:{s['wins']}W/{s['losses']}L/{swr:.0f}%/{act}a")
 
-                    print(f"\n--- Cycle {cycle} | BTC ${btc:,.0f} | "
+                    print(f"\n--- Cycle {cycle} | {mode_tag} | BTC ${btc:,.0f} | "
                           f"{t['wins']}W/{t['losses']}L {wr:.0f}%WR ${t['pnl']:+.2f} | "
                           f"Active: {len(self.trades)} | Markets: {in_window}/{len(markets)}"
-                          f"{skip_tag} ---")
+                          f"{skip_tag}{live_tag} ---")
                     print(f"    {' | '.join(strat_parts)}")
 
                 self._save()
@@ -580,9 +737,14 @@ class NewStrategiesPaperTrader:
 # ENTRY POINT
 # ============================================================================
 if __name__ == "__main__":
-    lock = acquire_pid_lock("new_strategies_paper")
+    parser = argparse.ArgumentParser(description="New Strategies Trader V2.0")
+    parser.add_argument("--live", action="store_true", help="Live mode with $5 flat bets")
+    args = parser.parse_args()
+
+    lock_name = "new_strategies_live" if args.live else "new_strategies_paper"
+    lock = acquire_pid_lock(lock_name)
     try:
-        trader = NewStrategiesPaperTrader()
+        trader = NewStrategiesTrader(live=args.live)
         trader.run()
     finally:
-        release_pid_lock("new_strategies_paper")
+        release_pid_lock(lock_name)
