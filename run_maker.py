@@ -392,7 +392,7 @@ class MakerConfig:
     DAILY_LOSS_LIMIT: float = 15.0       # $15 daily loss limit (scaled for $3/side)
     MAX_CONCURRENT_PAIRS: int = 12       # V1.5: 4 assets x 15M + BTC 5M = needs ~12 slots
     MAX_SINGLE_SIDED: int = 2            # V1.1: Was 3. Partial fills = directional risk. Allow max 2.
-    TAKER_HEDGE_MAX_PRICE: float = 0.53   # V3.0: Max price to pay for taker hedge on unfilled side
+    TAKER_HEDGE_MAX_PRICE: float = 0.58   # V3.1: raised from 0.53 — real cap is (1.00 - fill_price)
     TAKER_HEDGE_AFTER_SEC: float = 30.0   # V3.0: 30s optimal. Data: 53% pair by 30s, marginal gains flatten after. 10x cheaper to hedge than leave unpaired.
 
     # Timing
@@ -1844,10 +1844,12 @@ class CryptoMarketMaker:
                                     token_id=unfilled_order.token_id,
                                 )
                                 hedge_signed = self.client.create_order(hedge_args)
-                                hedge_resp = self.client.post_order(hedge_signed, OrderType.GTC)
+                                # V3.1: Use FOK (Fill-or-Kill) — fills immediately or fails.
+                                # GTC was leaving unfilled limit orders the bot thought were filled.
+                                hedge_resp = self.client.post_order(hedge_signed, OrderType.FOK)
 
                                 if hedge_resp.get("success"):
-                                    # Mark the unfilled side as filled at hedge price
+                                    # FOK guarantees full fill if success
                                     unfilled_order.status = "filled"
                                     unfilled_order.fill_price = max_hedge
                                     unfilled_order.fill_shares = shares
@@ -1869,7 +1871,7 @@ class CryptoMarketMaker:
                                           f"| oid={hedge_resp.get('orderID', '?')[:16]}...")
                                 else:
                                     err = hedge_resp.get("errorMsg", "?")
-                                    print(f"  [HEDGE] FAILED: {err} — falling back to ride")
+                                    print(f"  [HEDGE] FOK failed (no liquidity at ${max_hedge:.2f}): {err} — falling back to ride")
                             except Exception as e:
                                 print(f"  [HEDGE] Error: {e} — falling back to ride")
                         else:
