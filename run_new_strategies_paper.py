@@ -1,7 +1,10 @@
 """
-New Strategies Paper Trader V1.2
+New Strategies Paper Trader V1.3
 
-Runs MEAN_REVERT_EXTREME + MOMENTUM_REGIME + VWAP_REVERSION + VWAP_ST_SR + HA_KELTNER_MFI on Polymarket BTC markets.
+Runs 10 strategies on Polymarket BTC 5m markets. Top 6 new from 20-strategy backtest:
+STOCH_BB (65.4% WR), CCI_BOUNCE (63.8%), DOUBLE_BOTTOM_RSI (63.8%),
+ULTIMATE_OSC (62.9%), WILLIAMS_VWAP (55.1%), TRIPLE_RSI (55.4%)
+Plus 4 incumbents: MEAN_REVERT_EXTREME, MOMENTUM_REGIME, VWAP_REVERSION, VWAP_ST_SR.
 All use 1-minute BTC candles for signal generation.
 
 Backtest results (14-day):
@@ -34,14 +37,19 @@ from nautilus_backtest.strategies.mean_revert_extreme import MeanRevertExtreme
 from nautilus_backtest.strategies.momentum_regime import MomentumRegime
 from nautilus_backtest.strategies.vwap_reversion import VwapReversion
 from nautilus_backtest.strategies.vwap_supertrend_stochrsi import VwapSupertrendStochRSI
-from nautilus_backtest.strategies.ha_keltner_mfi import HaKeltnerMfi
+from nautilus_backtest.strategies.stoch_bb import StochBb
+from nautilus_backtest.strategies.cci_bounce import CciBounce
+from nautilus_backtest.strategies.double_bottom_rsi import DoubleBottomRsi
+from nautilus_backtest.strategies.ultimate_osc import UltimateOsc
+from nautilus_backtest.strategies.williams_vwap import WilliamsVwap
+from nautilus_backtest.strategies.triple_rsi import TripleRsi
 
 # ============================================================================
 # CONFIG
 # ============================================================================
 SCAN_INTERVAL = 25
 MAX_CONCURRENT_PER_STRAT = 2
-MAX_CONCURRENT_TOTAL = 10
+MAX_CONCURRENT_TOTAL = 16
 TIME_WINDOW = (2.0, 12.0)
 SPREAD_OFFSET = 0.03
 MIN_ENTRY_PRICE = 0.10
@@ -76,13 +84,43 @@ STRAT_CONFIG = {
         "max_size": 8.0,
     },
     "VWAP_ST_SR": {
-        "min_confidence": 0.72,  # VWAP pullback + Supertrend + StochRSI cross
-        "min_edge": 0.008,      # Slightly higher — new strategy, be cautious
+        "min_confidence": 0.72,  # VWAP pullback + Supertrend + StochRSI cross — 80% WR (low sample)
+        "min_edge": 0.008,
         "base_size": 3.0,
         "max_size": 7.0,
     },
-    "HA_KELTNER_MFI": {
-        "min_confidence": 0.72,  # Heikin-Ashi trend + KC breakout + MFI
+    "STOCH_BB": {
+        "min_confidence": 0.72,  # 65.4% WR, 133 trades, +$16.51 — BEST new strategy
+        "min_edge": 0.005,
+        "base_size": 4.0,
+        "max_size": 8.0,
+    },
+    "CCI_BOUNCE": {
+        "min_confidence": 0.70,  # 63.8% WR, 47 trades — selective, high conviction
+        "min_edge": 0.005,
+        "base_size": 4.0,
+        "max_size": 8.0,
+    },
+    "DOUBLE_BOTTOM_RSI": {
+        "min_confidence": 0.80,  # 63.8% WR, 47 trades — already high confidence signals
+        "min_edge": 0.005,
+        "base_size": 4.0,
+        "max_size": 8.0,
+    },
+    "ULTIMATE_OSC": {
+        "min_confidence": 0.72,  # 62.9% WR, 35 trades — selective mean reversion
+        "min_edge": 0.005,
+        "base_size": 3.0,
+        "max_size": 7.0,
+    },
+    "WILLIAMS_VWAP": {
+        "min_confidence": 0.76,  # 55.1% WR but 532 trades — high volume, needs quality filter
+        "min_edge": 0.010,      # Higher edge gate to filter lower quality signals
+        "base_size": 3.0,
+        "max_size": 6.0,
+    },
+    "TRIPLE_RSI": {
+        "min_confidence": 0.80,  # 55.4% WR, 56 trades — high conf signals already
         "min_edge": 0.008,
         "base_size": 3.0,
         "max_size": 7.0,
@@ -111,7 +149,12 @@ class NewStrategiesPaperTrader:
             "MOMENTUM_REGIME": MomentumRegime(horizon_bars=5),
             "VWAP_REVERSION": VwapReversion(horizon_bars=5),
             "VWAP_ST_SR": VwapSupertrendStochRSI(horizon_bars=5),
-            "HA_KELTNER_MFI": HaKeltnerMfi(horizon_bars=5),
+            "STOCH_BB": StochBb(horizon_bars=5),
+            "CCI_BOUNCE": CciBounce(horizon_bars=5),
+            "DOUBLE_BOTTOM_RSI": DoubleBottomRsi(horizon_bars=5),
+            "ULTIMATE_OSC": UltimateOsc(horizon_bars=5),
+            "WILLIAMS_VWAP": WilliamsVwap(horizon_bars=5),
+            "TRIPLE_RSI": TripleRsi(horizon_bars=5),
         }
 
         # Track which bars we've already processed to avoid duplicate signals

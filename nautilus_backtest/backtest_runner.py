@@ -35,6 +35,28 @@ from nautilus_backtest.strategies.exhaustion_bar import ExhaustionBar
 from nautilus_backtest.strategies.vwap_reversion import VwapReversion
 from nautilus_backtest.strategies.squeeze_fail import SqueezeFail
 from nautilus_backtest.strategies.multi_extreme import MultiExtreme
+from nautilus_backtest.strategies.vwap_supertrend_stochrsi import VwapSupertrendStochRSI
+from nautilus_backtest.strategies.ha_keltner_mfi import HaKeltnerMfi
+from nautilus_backtest.strategies.rsi_divergence import RsiDivergence
+from nautilus_backtest.strategies.williams_vwap import WilliamsVwap
+from nautilus_backtest.strategies.cci_bounce import CciBounce
+from nautilus_backtest.strategies.stoch_bb import StochBb
+from nautilus_backtest.strategies.elder_impulse import ElderImpulse
+from nautilus_backtest.strategies.roc_extreme import RocExtreme
+from nautilus_backtest.strategies.trix_cross import TrixCross
+from nautilus_backtest.strategies.chaikin_mf import ChaikinMf
+from nautilus_backtest.strategies.aroon_cross import AroonCross
+from nautilus_backtest.strategies.kama_trend import KamaTrend
+from nautilus_backtest.strategies.ppo_momentum import PpoMomentum
+from nautilus_backtest.strategies.adx_di_cross import AdxDiCross
+from nautilus_backtest.strategies.pivot_bounce import PivotBounce
+from nautilus_backtest.strategies.ichimoku_simple import IchimokuSimple
+from nautilus_backtest.strategies.obv_divergence import ObvDivergence
+from nautilus_backtest.strategies.triple_rsi import TripleRsi
+from nautilus_backtest.strategies.dpo_reversal import DpoReversal
+from nautilus_backtest.strategies.ultimate_osc import UltimateOsc
+from nautilus_backtest.strategies.double_bottom_rsi import DoubleBottomRsi
+from nautilus_backtest.strategies.mass_index import MassIndex
 from nautilus_backtest.config import DEFAULT_ENTRY_PRICE, DEFAULT_SPREAD
 
 
@@ -144,11 +166,12 @@ def ascii_chart(series: dict[str, list[float]], width: int = 60, height: int = 1
 # ── Strategy Instance Factory ────────────────────────────────────────────────
 
 def create_strategy_instances() -> list:
-    """Create all 24 strategy instances (12 strategies x 2 horizons)."""
+    """Create all strategy instances (32 strategies x 5-min horizon only)."""
     strategies = []
 
-    # Each strategy class, instantiated at 5-min and 15-min horizons
+    # All strategy classes — 5-min horizon only (proven best for Polymarket)
     strategy_classes = [
+        # Original 12
         Alignment,
         TdiSqueeze,
         FisherCascade,
@@ -161,11 +184,34 @@ def create_strategy_instances() -> list:
         VwapReversion,
         SqueezeFail,
         MultiExtreme,
+        # 2 user-provided
+        VwapSupertrendStochRSI,
+        HaKeltnerMfi,
+        # 20 new strategies
+        RsiDivergence,
+        WilliamsVwap,
+        CciBounce,
+        StochBb,
+        ElderImpulse,
+        RocExtreme,
+        TrixCross,
+        ChaikinMf,
+        AroonCross,
+        KamaTrend,
+        PpoMomentum,
+        AdxDiCross,
+        PivotBounce,
+        IchimokuSimple,
+        ObvDivergence,
+        TripleRsi,
+        DpoReversal,
+        UltimateOsc,
+        DoubleBottomRsi,
+        MassIndex,
     ]
 
     for cls in strategy_classes:
-        for horizon in [5, 15]:
-            strategies.append(cls(horizon_bars=horizon))
+        strategies.append(cls(horizon_bars=5))
 
     return strategies
 
