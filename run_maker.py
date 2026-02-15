@@ -393,7 +393,7 @@ class MakerConfig:
     MAX_CONCURRENT_PAIRS: int = 12       # V1.5: 4 assets x 15M + BTC 5M = needs ~12 slots
     MAX_SINGLE_SIDED: int = 2            # V1.1: Was 3. Partial fills = directional risk. Allow max 2.
     TAKER_HEDGE_MAX_PRICE: float = 0.58   # V3.1: raised from 0.53 — absolute ceiling
-    TAKER_HEDGE_OVERPAY: float = 0.03     # V3.2: pay up to 3c above breakeven to actually get filled
+    TAKER_HEDGE_OVERPAY_STEPS: tuple = (0.03, 0.04, 0.05)  # V3.2: retry ladder — 3c, 4c, 5c until filled
     TAKER_HEDGE_AFTER_SEC: float = 30.0   # V3.0: 30s optimal. Data: 53% pair by 30s, marginal gains flatten after. 10x cheaper to hedge than leave unpaired.
 
     # Timing
@@ -1538,12 +1538,11 @@ class CryptoMarketMaker:
         up_shares = max(self.config.MIN_SHARES, math.floor(self.config.SIZE_PER_SIDE_USD / up_bid))
         down_shares = max(self.config.MIN_SHARES, math.floor(self.config.SIZE_PER_SIDE_USD / down_bid))
 
-        # HARD CAP: Never exceed $5 per side regardless of config
-        MAX_USD_PER_SIDE = 5.0
-        if up_bid * up_shares > MAX_USD_PER_SIDE:
-            up_shares = max(self.config.MIN_SHARES, math.floor(MAX_USD_PER_SIDE / up_bid))
-        if down_bid * down_shares > MAX_USD_PER_SIDE:
-            down_shares = max(self.config.MIN_SHARES, math.floor(MAX_USD_PER_SIDE / down_bid))
+        # Cap shares to configured SIZE_PER_SIDE_USD
+        if up_bid * up_shares > self.config.SIZE_PER_SIDE_USD:
+            up_shares = max(self.config.MIN_SHARES, math.floor(self.config.SIZE_PER_SIDE_USD / up_bid))
+        if down_bid * down_shares > self.config.SIZE_PER_SIDE_USD:
+            down_shares = max(self.config.MIN_SHARES, math.floor(self.config.SIZE_PER_SIDE_USD / down_bid))
 
         # Create position tracker
         pos = PairPosition(
@@ -1823,60 +1822,58 @@ class CryptoMarketMaker:
                     unfilled_order = pos.down_order if pos.up_filled else pos.up_order
                     shares = filled_order.fill_shares if filled_order else 0
 
-                    # Calculate max hedge price: breakeven + overpay tolerance
-                    # e.g. filled at $0.49 → breakeven $0.51 + 0.03 overpay → bid $0.54
-                    # Guaranteed -$0.30 loss beats coin-flip -$4.90 ride
-                    max_hedge = min(
-                        self.config.TAKER_HEDGE_MAX_PRICE,
-                        round(1.00 - filled_order.fill_price + self.config.TAKER_HEDGE_OVERPAY, 2)
-                    ) if filled_order else 0
-
                     hedge_ok = False
+                    breakeven = round(1.00 - filled_order.fill_price, 2) if filled_order else 0
 
-                    if max_hedge >= 0.40 and shares > 0 and unfilled_order:
+                    if breakeven >= 0.40 and shares > 0 and unfilled_order:
                         if not self.paper and self.client:
-                            try:
-                                from py_clob_client.clob_types import OrderArgs, OrderType
-                                from py_clob_client.order_builder.constants import BUY
+                            from py_clob_client.clob_types import OrderArgs, OrderType
+                            from py_clob_client.order_builder.constants import BUY
 
-                                # Market-buy the unfilled side at max_hedge price
-                                hedge_args = OrderArgs(
-                                    price=max_hedge,
-                                    size=float(shares),
-                                    side=BUY,
-                                    token_id=unfilled_order.token_id,
+                            # V3.2: Retry ladder — try 3c, 4c, 5c overpay until FOK fills
+                            # -$0.50 guaranteed loss beats -$4.90 coin-flip ride
+                            for overpay in self.config.TAKER_HEDGE_OVERPAY_STEPS:
+                                max_hedge = min(
+                                    self.config.TAKER_HEDGE_MAX_PRICE,
+                                    round(breakeven + overpay, 2)
                                 )
-                                hedge_signed = self.client.create_order(hedge_args)
-                                # V3.1: Use FOK (Fill-or-Kill) — fills immediately or fails.
-                                # GTC was leaving unfilled limit orders the bot thought were filled.
-                                hedge_resp = self.client.post_order(hedge_signed, OrderType.FOK)
+                                try:
+                                    hedge_args = OrderArgs(
+                                        price=max_hedge,
+                                        size=float(shares),
+                                        side=BUY,
+                                        token_id=unfilled_order.token_id,
+                                    )
+                                    hedge_signed = self.client.create_order(hedge_args)
+                                    hedge_resp = self.client.post_order(hedge_signed, OrderType.FOK)
 
-                                if hedge_resp.get("success"):
-                                    # FOK guarantees full fill if success
-                                    unfilled_order.status = "filled"
-                                    unfilled_order.fill_price = max_hedge
-                                    unfilled_order.fill_shares = shares
-                                    unfilled_order.order_id = hedge_resp.get("orderID", unfilled_order.order_id)
-                                    if pos.up_filled:
-                                        pos.down_filled = True
+                                    if hedge_resp.get("success"):
+                                        unfilled_order.status = "filled"
+                                        unfilled_order.fill_price = max_hedge
+                                        unfilled_order.fill_shares = shares
+                                        unfilled_order.order_id = hedge_resp.get("orderID", unfilled_order.order_id)
+                                        if pos.up_filled:
+                                            pos.down_filled = True
+                                        else:
+                                            pos.up_filled = True
+
+                                        combined = filled_order.fill_price + max_hedge
+                                        pos.combined_cost = combined * shares
+                                        pos.status = "paired"
+                                        hedge_ok = True
+                                        self.stats[f"fills_{unfilled_side.lower()}"] += 1
+
+                                        print(f"  [HEDGE] {pos.asset} {unfilled_side} {shares:.0f}sh "
+                                              f"@ ${max_hedge:.2f} (+{overpay:.0%} overpay) | combined ${combined:.2f} | "
+                                              f"edge ${(1.00 - combined) * shares:+.2f}")
+                                        break  # filled, stop ladder
                                     else:
-                                        pos.up_filled = True
+                                        print(f"  [HEDGE] FOK miss @ ${max_hedge:.2f} (+{int(overpay*100)}c) — stepping up...")
+                                except Exception as e:
+                                    print(f"  [HEDGE] Error @ ${max_hedge:.2f}: {e} — stepping up...")
 
-                                    combined = filled_order.fill_price + max_hedge
-                                    pos.combined_cost = combined * shares
-                                    pos.status = "paired"
-                                    hedge_ok = True
-                                    self.stats[f"fills_{unfilled_side.lower()}"] += 1
-
-                                    print(f"  [HEDGE] {pos.asset} {unfilled_side} {shares:.0f}sh "
-                                          f"@ ${max_hedge:.2f} | combined ${combined:.2f} | "
-                                          f"edge ${(1.00 - combined) * shares:+.2f} "
-                                          f"| oid={hedge_resp.get('orderID', '?')[:16]}...")
-                                else:
-                                    err = hedge_resp.get("errorMsg", "?")
-                                    print(f"  [HEDGE] FOK failed (no liquidity at ${max_hedge:.2f}): {err} — falling back to ride")
-                            except Exception as e:
-                                print(f"  [HEDGE] Error: {e} (tried ${max_hedge:.2f}, filled@${filled_order.fill_price:.2f}) — falling back to ride")
+                            if not hedge_ok:
+                                print(f"  [HEDGE] ALL STEPS FAILED (tried {[round(breakeven+s,2) for s in self.config.TAKER_HEDGE_OVERPAY_STEPS]}, filled@${filled_order.fill_price:.2f}) — riding")
                         else:
                             # Paper mode: simulate hedge at unfilled order's original price
                             unfilled_order.status = "filled"
