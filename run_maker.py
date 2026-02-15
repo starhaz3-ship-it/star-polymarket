@@ -161,17 +161,21 @@ def _try_gasless_redeem():
             return True, 0.0
 
         total = sum(float(p.get("size", 0) or 0) for p in positions)
-        results = svc.redeem_all(batch_size=1)
+        # Limit to 5 conditions per attempt to conserve relayer quota (~100 units / 4h)
+        results = svc.redeem_all(batch_size=5)
 
         # Restore original
         ProxyWeb3Service._submit_transactions = _original_submit
 
         if results:
             print(f"[REDEEM] Gasless OK: {len(results)} batch(es), ~${total:.0f}")
+            # Cooldown 10 min between successful batches to spread quota over 4h window
+            _relayer_quota_reset_at = time.time() + 600
             return True, total
         # Results empty but positions exist = relayer failed silently (poly_web3 swallowed exception)
-        # Set cooldown so we don't spam every 45 seconds
-        _relayer_quota_reset_at = time.time() + 300  # 5 min cooldown
+        # Relayer quota resets every ~4h (14400s) — long cooldown to avoid wasting quota
+        _relayer_quota_reset_at = time.time() + 14400
+        print(f"[REDEEM] Gasless failed (quota?), backing off 4h")
         return False, 0.0
 
     except Exception as e:
@@ -319,7 +323,7 @@ def auto_redeem_winnings():
             nonce_pending = _redeem_w3.eth.get_transaction_count(_redeem_account.address, "pending")
             if nonce_pending > nonce_latest:
                 print(f"[REDEEM] Pending TX (nonce {nonce_latest}->{nonce_pending}), backing off 5min")
-                _onchain_redeem_backoff_until = time.time() + 300
+                _onchain_redeem_backoff_until = time.time() + 1800
                 return 0.0
         except Exception:
             pass
@@ -372,7 +376,7 @@ def auto_redeem_winnings():
         err = str(e)
         if "No winning" not in err and "already known" not in err:
             print(f"[REDEEM] Error: {err[:100]}")
-        _onchain_redeem_backoff_until = time.time() + 300  # Back off on errors too
+        _onchain_redeem_backoff_until = time.time() + 1800  # Back off on errors too
         return 0.0
 
 
@@ -1502,13 +1506,25 @@ class CryptoMarketMaker:
             # In paper mode, simulate from mid price
             return None
 
+        def _entry_price(entry) -> float:
+            """Extract price from order book entry (dict or OrderSummary object)."""
+            if isinstance(entry, dict):
+                return float(entry.get("price", 0))
+            return float(getattr(entry, 'price', 0))
+
+        def _entry_size(entry) -> float:
+            """Extract size from order book entry (dict or OrderSummary object)."""
+            if isinstance(entry, dict):
+                return float(entry.get("size", 0))
+            return float(getattr(entry, 'size', 0))
+
         try:
             book = self.client.get_order_book(token_id)
             bids = book.get("bids", []) if isinstance(book, dict) else getattr(book, 'bids', [])
             asks = book.get("asks", []) if isinstance(book, dict) else getattr(book, 'asks', [])
 
-            best_bid = float(bids[0]["price"]) if bids else 0.0
-            best_ask = float(asks[0]["price"]) if asks else 1.0
+            best_bid = _entry_price(bids[0]) if bids else 0.0
+            best_ask = _entry_price(asks[0]) if asks else 1.0
             mid = (best_bid + best_ask) / 2 if best_bid > 0 else best_ask
             spread = best_ask - best_bid
 
@@ -1517,8 +1533,8 @@ class CryptoMarketMaker:
                 "best_ask": best_ask,
                 "mid": mid,
                 "spread": spread,
-                "bid_depth": sum(float(b.get("size", 0)) for b in bids[:3]),
-                "ask_depth": sum(float(a.get("size", 0)) for a in asks[:3]),
+                "bid_depth": sum(_entry_size(b) for b in bids[:3]),
+                "ask_depth": sum(_entry_size(a) for a in asks[:3]),
             }
         except Exception as e:
             print(f"  [BOOK-ERR] get_order_book failed: {str(e)[:80]}")
@@ -3248,7 +3264,7 @@ class CryptoMarketMaker:
                     print(self.ml_optimizer.get_summary())
 
                 # Phase 9: Auto-redeem winnings every 45 seconds (live only)
-                if not self.paper and now_ts - last_redeem_check >= 45:
+                if not self.paper and now_ts - last_redeem_check >= 300:
                     try:
                         claimed = auto_redeem_winnings()
                         if claimed > 0:
