@@ -1260,22 +1260,20 @@ class CryptoMarketMaker:
                                     self.client.cancel(order.order_id)
                                 except Exception:
                                     pass
-                    # V1.3: Cancel the FILLED side too — don't hold directional risk!
-                    # In paper mode: mark entire position cancelled (PnL = 0, not resolved)
-                    # In live mode: sell filled shares back at market to exit
+                    # V2.7: Cancel BOTH sides. Try FOK sell-back once. If no fill, ride to resolution.
                     filled_side = "UP" if pos.up_filled else "DOWN"
-                    print(f"  [PARTIAL-CANCEL] {pos.asset} {filled_side}-only after {since_first_fill:.0f}min — cancelling entire position (no directional gamble)")
+                    print(f"  [PARTIAL] {pos.asset} {filled_side}-only after {since_first_fill:.1f}min")
 
-                    # V1.5: Sell back filled shares in live mode
+                    # Try ONE FOK sell-back at fill_price - $0.02
                     partial_sell_pnl = 0.0
+                    sold_back = False
                     if not self.paper and self.client:
                         filled_order = pos.up_order if pos.up_filled else pos.down_order
                         if filled_order and filled_order.fill_shares > 0:
                             try:
                                 from py_clob_client.clob_types import OrderArgs, OrderType
                                 from py_clob_client.order_builder.constants import SELL
-                                # Sell at market (bid -1 cent to ensure fill)
-                                sell_price = max(0.01, round(filled_order.fill_price - 0.01, 2))
+                                sell_price = max(0.01, round(filled_order.fill_price - 0.02, 2))
                                 sell_args = OrderArgs(
                                     price=sell_price,
                                     size=filled_order.fill_shares,
@@ -1283,22 +1281,33 @@ class CryptoMarketMaker:
                                     token_id=filled_order.token_id,
                                 )
                                 sell_signed = self.client.create_order(sell_args)
-                                sell_resp = self.client.post_order(sell_signed, OrderType.GTC)
+                                sell_resp = self.client.post_order(sell_signed, OrderType.FOK)
                                 if sell_resp.get("success"):
                                     partial_sell_pnl = (sell_price - filled_order.fill_price) * filled_order.fill_shares
-                                    print(f"  [PARTIAL-SELL] Sold {filled_order.fill_shares:.0f} {filled_side} @ ${sell_price:.2f} | PnL: ${partial_sell_pnl:+.2f}")
+                                    print(f"  [PARTIAL-SOLD] FOK filled: {filled_order.fill_shares:.0f} {filled_side} @ ${sell_price:.2f} | PnL: ${partial_sell_pnl:+.2f}")
+                                    sold_back = True
                                 else:
-                                    print(f"  [PARTIAL-SELL] Sell failed: {sell_resp.get('errorMsg', '?')}")
+                                    print(f"  [PARTIAL-RIDE] FOK didn't fill — riding to resolution (50/50)")
                             except Exception as e:
-                                print(f"  [PARTIAL-SELL] Error: {e}")
+                                print(f"  [PARTIAL-RIDE] Sell error: {e} — riding to resolution")
 
-                    pos.status = "cancelled"
-                    pos.pnl = partial_sell_pnl
-                    # ML: record as partial for offset learning
+                    if sold_back:
+                        pos.status = "cancelled"
+                        pos.pnl = partial_sell_pnl
+                        self.daily_pnl += partial_sell_pnl
+                        self.stats["total_pnl"] += partial_sell_pnl
+                        self.stats["partial_pnl"] += partial_sell_pnl
+                        self.stats["pairs_partial"] += 1
+                    else:
+                        # Let it ride to resolution — resolve_positions will handle it
+                        print(f"  [PARTIAL-RIDE] {pos.asset} {filled_side} {filled_order.fill_shares:.0f}sh riding to market resolution")
+                        # Don't change status — let resolve_positions handle outcome
+
+                    # ML: record partial for offset learning
                     self.ml_optimizer.record(
                         hour=pos.hour_utc if pos.hour_utc >= 0 else now.hour,
                         offset=pos.bid_offset_used,
-                        paired=False, partial=True, pnl=0.0
+                        paired=False, partial=True, pnl=partial_sell_pnl
                     )
 
             # If approaching close, cancel unfilled orders
