@@ -1,5 +1,5 @@
 """
-Both-Sides Market Maker for 15-min Crypto Up/Down Markets (V1.0)
+Both-Sides Market Maker for 15-min Crypto Up/Down Markets (V3.0)
 
 Strategy:
   Place passive BUY limit orders (post_only) on BOTH Up and Down tokens
@@ -391,6 +391,8 @@ class MakerConfig:
     DAILY_LOSS_LIMIT: float = 15.0       # $15 daily loss limit (scaled for $3/side)
     MAX_CONCURRENT_PAIRS: int = 12       # V1.5: 4 assets x 15M + BTC 5M = needs ~12 slots
     MAX_SINGLE_SIDED: int = 2            # V1.1: Was 3. Partial fills = directional risk. Allow max 2.
+    TAKER_HEDGE_MAX_PRICE: float = 0.53   # V3.0: Max price to pay for taker hedge on unfilled side
+    TAKER_HEDGE_AFTER_SEC: float = 30.0   # V3.0: 30s optimal. Data: 53% pair by 30s, marginal gains flatten after. 10x cheaper to hedge than leave unpaired.
 
     # Timing
     SCAN_INTERVAL: int = 30              # Seconds between market scans
@@ -1520,25 +1522,17 @@ class CryptoMarketMaker:
             created = datetime.fromisoformat(pos.created_at)
             age_min = (now - created).total_seconds() / 60
 
-            # V1.3: FAST partial protection — if one side fills and the other doesn't
-            # within grace period, cancel the ENTIRE position.
-            # Holding a one-sided bet = pure directional gamble. One partial loss (-$5)
-            # wipes ~10 paired wins (+$0.50 each). Better to cancel than gamble.
-            # V1.5: SOL/XRP get 1min grace (thinner books), BTC/ETH get 2min
-            # V1.6: 5M markets get 3.5min grace (need more time on thin books)
-            if pos.duration_min <= 5:
-                PARTIAL_GRACE_MINUTES = 0.333  # V2.8: 20 seconds
-            elif pos.asset in ("SOL", "XRP"):
-                PARTIAL_GRACE_MINUTES = 0.333  # 20 seconds
-            else:
-                PARTIAL_GRACE_MINUTES = 0.5
+            # V3.0: TAKER HEDGE — when one side fills and the other doesn't,
+            # market-buy the other side to complete the pair instead of selling back.
+            # Data (154 markets): PAIRED 94.7% WR (+$146), SELL-BACK -$50, RIDE 80% WR (+$107).
+            # Taker hedge converts partials into paired positions = guaranteed profit.
             if pos.is_partial and not pos.first_fill_time:
                 pos.first_fill_time = pos.created_at  # Backfill for old positions
             if pos.is_partial and pos.first_fill_time:
                 first_fill_dt = datetime.fromisoformat(pos.first_fill_time)
-                since_first_fill = (now - first_fill_dt).total_seconds() / 60
-                if since_first_fill > PARTIAL_GRACE_MINUTES:
-                    # Cancel the unfilled side
+                since_first_fill_sec = (now - first_fill_dt).total_seconds()
+                if since_first_fill_sec > self.config.TAKER_HEDGE_AFTER_SEC:
+                    # Cancel the unfilled passive order
                     for order, attr in [(pos.up_order, "up_filled"), (pos.down_order, "down_filled")]:
                         if order and not getattr(pos, attr) and order.status == "open":
                             order.status = "cancelled"
@@ -1547,72 +1541,84 @@ class CryptoMarketMaker:
                                     self.client.cancel(order.order_id)
                                 except Exception:
                                     pass
-                    # V2.8: Sell back filled side at market instead of riding.
-                    # Riding = 50/50 coin flip on ~$10 = huge variance.
-                    # Sell-back = guaranteed ~$0.50 loss = predictable, covered by paired profit.
+
                     filled_side = "UP" if pos.up_filled else "DOWN"
+                    unfilled_side = "DOWN" if pos.up_filled else "UP"
                     filled_order = pos.up_order if pos.up_filled else pos.down_order
+                    unfilled_order = pos.down_order if pos.up_filled else pos.up_order
                     shares = filled_order.fill_shares if filled_order else 0
-                    sell_pnl = 0.0
-                    sold_ok = False
 
-                    if not self.paper and self.client and filled_order and shares > 0:
-                        try:
-                            from py_clob_client.clob_types import OrderArgs, OrderType, BalanceAllowanceParams, AssetType
-                            from py_clob_client.order_builder.constants import SELL
+                    # Calculate max hedge price: combined must be <= $1.00 for breakeven
+                    max_hedge = min(
+                        self.config.TAKER_HEDGE_MAX_PRICE,
+                        round(1.00 - filled_order.fill_price, 2)
+                    ) if filled_order else 0
 
-                            # Approve conditional token for selling (required by CLOB)
+                    hedge_ok = False
+
+                    if max_hedge >= 0.40 and shares > 0 and unfilled_order:
+                        if not self.paper and self.client:
                             try:
-                                self.client.update_balance_allowance(
-                                    BalanceAllowanceParams(
-                                        asset_type=AssetType.CONDITIONAL,
-                                        token_id=filled_order.token_id,
-                                    )
+                                from py_clob_client.clob_types import OrderArgs, OrderType
+                                from py_clob_client.order_builder.constants import BUY
+
+                                # Market-buy the unfilled side at max_hedge price
+                                hedge_args = OrderArgs(
+                                    price=max_hedge,
+                                    size=float(shares),
+                                    side=BUY,
+                                    token_id=unfilled_order.token_id,
                                 )
+                                hedge_signed = self.client.create_order(hedge_args)
+                                hedge_resp = self.client.post_order(hedge_signed, OrderType.GTC)
+
+                                if hedge_resp.get("success"):
+                                    # Mark the unfilled side as filled at hedge price
+                                    unfilled_order.status = "filled"
+                                    unfilled_order.fill_price = max_hedge
+                                    unfilled_order.fill_shares = shares
+                                    unfilled_order.order_id = hedge_resp.get("orderID", unfilled_order.order_id)
+                                    if pos.up_filled:
+                                        pos.down_filled = True
+                                    else:
+                                        pos.up_filled = True
+
+                                    combined = filled_order.fill_price + max_hedge
+                                    pos.combined_cost = combined * shares
+                                    pos.status = "paired"
+                                    hedge_ok = True
+                                    self.stats[f"fills_{unfilled_side.lower()}"] += 1
+
+                                    print(f"  [HEDGE] {pos.asset} {unfilled_side} {shares:.0f}sh "
+                                          f"@ ${max_hedge:.2f} | combined ${combined:.2f} | "
+                                          f"edge ${(1.00 - combined) * shares:+.2f} "
+                                          f"| oid={hedge_resp.get('orderID', '?')[:16]}...")
+                                else:
+                                    err = hedge_resp.get("errorMsg", "?")
+                                    print(f"  [HEDGE] FAILED: {err} — falling back to ride")
                             except Exception as e:
-                                print(f"  [SELL-BACK] Allowance warning: {e}")
-
-                            # Sell at 2c below our buy price for fast fill
-                            sell_price = max(0.01, round(filled_order.fill_price - 0.02, 2))
-                            sell_args = OrderArgs(
-                                price=sell_price,
-                                size=float(shares),
-                                side=SELL,
-                                token_id=filled_order.token_id,
-                            )
-                            sell_signed = self.client.create_order(sell_args)
-                            sell_resp = self.client.post_order(sell_signed, OrderType.GTC)
-
-                            if sell_resp.get("success"):
-                                sell_revenue = sell_price * shares
-                                buy_cost = filled_order.fill_price * shares
-                                sell_pnl = sell_revenue - buy_cost
-                                sold_ok = True
-                                print(f"  [SELL-BACK] {pos.asset} {filled_side} {shares:.0f}sh "
-                                      f"buy=${filled_order.fill_price:.2f} sell=${sell_price:.2f} "
-                                      f"PnL=${sell_pnl:+.2f} | oid={sell_resp.get('orderID', '?')[:16]}...")
+                                print(f"  [HEDGE] Error: {e} — falling back to ride")
+                        else:
+                            # Paper mode: simulate hedge at unfilled order's original price
+                            unfilled_order.status = "filled"
+                            unfilled_order.fill_price = unfilled_order.price
+                            unfilled_order.fill_shares = shares
+                            if pos.up_filled:
+                                pos.down_filled = True
                             else:
-                                err = sell_resp.get("errorMsg", "?")
-                                print(f"  [SELL-BACK] FAILED: {err} — falling back to ride")
-                        except Exception as e:
-                            print(f"  [SELL-BACK] Error: {e} — falling back to ride")
+                                pos.up_filled = True
+                            combined = filled_order.fill_price + unfilled_order.price
+                            pos.combined_cost = combined * shares
+                            pos.status = "paired"
+                            hedge_ok = True
+                            print(f"  [HEDGE-PAPER] {pos.asset} {unfilled_side} {shares:.0f}sh "
+                                  f"@ ${unfilled_order.price:.2f} | combined ${combined:.2f}")
 
-                    if sold_ok:
-                        # Sold successfully — resolve position with small known loss
-                        pos.status = "resolved"
-                        pos.pnl = sell_pnl
-                        self.stats["pairs_partial"] += 1
-                        self.stats["partial_pnl"] += sell_pnl
-                        self.stats["total_pnl"] += sell_pnl
-                        self.daily_pnl += sell_pnl
-                        self.ml_optimizer.record(
-                            hour=pos.hour_utc if pos.hour_utc >= 0 else now.hour,
-                            offset=pos.bid_offset_used,
-                            paired=False, partial=True, pnl=sell_pnl
-                        )
-                    else:
-                        # Sell failed — fall back to riding (50/50)
-                        print(f"  [PARTIAL-RIDE] {pos.asset} {filled_side} {shares:.0f}sh — riding to resolution (50/50)")
+                    if not hedge_ok:
+                        # Hedge failed or too expensive — ride to resolution
+                        reason = f"max_hedge=${max_hedge:.2f}" if max_hedge < 0.40 else "order failed"
+                        print(f"  [PARTIAL-RIDE] {pos.asset} {filled_side} {shares:.0f}sh — "
+                              f"riding to resolution ({reason})")
                         pos.status = "riding"
                         self.stats["pairs_partial"] += 1
                         self.ml_optimizer.record(
