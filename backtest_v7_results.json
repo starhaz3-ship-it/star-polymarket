@@ -1,0 +1,61 @@
+{
+  "timestamp": "2026-02-15T07:32:36.146357+00:00",
+  "data_range": "2026-02-08 07:33 to 2026-02-15 07:32",
+  "bars_1m": 10080,
+  "bars_5m": 2016,
+  "natural_up_pct": 51.39,
+  "v30": {
+    "label": "V3.0 - Simple Momentum (2min, 15bp, $5)",
+    "trades": 305,
+    "wins": 268,
+    "win_rate": 87.87,
+    "total_pnl": 1012.05,
+    "avg_pnl": 3.3182,
+    "avg_win": 4.41,
+    "avg_loss": -4.59,
+    "max_drawdown": 9.18,
+    "total_cost": 1399.95,
+    "roi_pct": 72.29,
+    "max_win_streak": 29,
+    "max_loss_streak": 2,
+    "trades_per_day": 43.6
+  },
+  "v7": {
+    "label": "V7.0 - 5m Regime + 1m Micro (full)",
+    "trades": 1787,
+    "wins": 1078,
+    "win_rate": 60.32,
+    "total_pnl": 1499.67,
+    "avg_pnl": 0.8392,
+    "avg_win": 4.41,
+    "avg_loss": -4.59,
+    "max_drawdown": 39.06,
+    "total_cost": 8202.33,
+    "roi_pct": 18.28,
+    "max_win_streak": 12,
+    "max_loss_streak": 6,
+    "trades_per_day": 255.3
+  },
+  "v7m": {
+    "label": "V7.0m - 1m Micro Only (no regime)",
+    "trades": 1609,
+    "wins": 1213,
+    "win_rate": 75.39,
+    "total_pnl": 3531.69,
+    "avg_pnl": 2.195,
+    "avg_win": 4.41,
+    "avg_loss": -4.59,
+    "max_drawdown": 18.72,
+    "total_cost": 7385.31,
+    "roi_pct": 47.82,
+    "max_win_streak": 17,
+    "max_loss_streak": 4,
+    "trades_per_day": 229.9
+  },
+  "overlap": {
+    "v30": 305,
+    "v7": 1787,
+    "both": 264,
+    "v7_unique": 1523
+  }
+}
