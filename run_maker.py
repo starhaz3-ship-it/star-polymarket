@@ -421,6 +421,17 @@ class MakerConfig:
         "XRP": {"max_combined": 0.98, "balance_range": (0.40, 0.60)},  # Tight balance + fast partial cancel = safety
     })
 
+    # V3.0: Momentum directional trading (@vague-sourdough reverse-engineered strategy)
+    # Watch Binance BTC for first 2-3 min of each 5-min round. If momentum > threshold,
+    # buy the predicted direction. Backtested: 72-90% accuracy depending on threshold.
+    MOMENTUM_ENABLED: bool = True
+    MOMENTUM_SIZE_USD: float = 5.0       # $ per directional trade
+    MOMENTUM_THRESHOLD_BPS: float = 15.0 # Minimum momentum in basis points to trigger
+    MOMENTUM_WAIT_SECONDS: float = 120.0 # Wait this long after market opens (2 min)
+    MOMENTUM_MAX_WAIT_SECONDS: float = 210.0  # Don't enter after 3.5 min (too late)
+    MOMENTUM_MAX_CONCURRENT: int = 3     # Max simultaneous momentum positions
+    MOMENTUM_DAILY_LOSS_LIMIT: float = 10.0  # Separate daily loss limit for momentum
+
 
 # ============================================================================
 # ML OFFSET OPTIMIZER
@@ -544,6 +555,210 @@ class OffsetOptimizer:
 
 
 # ============================================================================
+# BINANCE MOMENTUM TRACKER (V3.0 — @vague-sourdough strategy)
+# ============================================================================
+
+class BinanceMomentum:
+    """Tracks Binance BTC price and generates momentum signals for 5-min Polymarket rounds.
+
+    Strategy (reverse-engineered from @vague-sourdough, $38K profit in 3 days):
+    1. When a 5-min Polymarket round opens, record Binance BTC price
+    2. After 2 minutes, check current Binance BTC price
+    3. If momentum > threshold (15-30bp), buy the direction on Polymarket
+    4. The first 2-3 minutes of a 5-min bar predict the close 72-90% of the time
+
+    This is a MOMENTUM CONTINUATION effect — once BTC starts moving in a direction
+    within the first 2 minutes, it tends to continue for the full 5 minutes.
+    """
+
+    BINANCE_URL = "https://api.binance.com/api/v3/ticker/price"
+    RESULTS_FILE = Path(__file__).parent / "momentum_results.json"
+
+    def __init__(self):
+        # market_id -> {"open_price": float, "open_time": datetime, "traded": bool}
+        self.tracked_markets: Dict[str, dict] = {}
+        self.last_btc_price: float = 0.0
+        self.last_price_fetch: float = 0.0
+        self.momentum_trades: List[dict] = []
+        self.momentum_daily_pnl: float = 0.0
+        self.momentum_daily_date: str = date_today()
+        self._load()
+
+    def _load(self):
+        if self.RESULTS_FILE.exists():
+            try:
+                data = json.loads(self.RESULTS_FILE.read_text())
+                self.momentum_trades = data.get("trades", [])
+                self.momentum_daily_pnl = data.get("daily_pnl", 0.0)
+                self.momentum_daily_date = data.get("daily_date", date_today())
+            except Exception:
+                pass
+
+    def save(self):
+        try:
+            # Calculate stats
+            trades = self.momentum_trades
+            wins = sum(1 for t in trades if t.get("pnl", 0) > 0)
+            total = len(trades)
+            total_pnl = sum(t.get("pnl", 0) for t in trades)
+
+            data = {
+                "trades": trades[-500:],
+                "daily_pnl": self.momentum_daily_pnl,
+                "daily_date": self.momentum_daily_date,
+                "stats": {
+                    "total_trades": total,
+                    "wins": wins,
+                    "win_rate": wins / total * 100 if total > 0 else 0,
+                    "total_pnl": total_pnl,
+                    "avg_pnl": total_pnl / total if total > 0 else 0,
+                },
+                "last_updated": datetime.now(timezone.utc).isoformat(),
+            }
+            self.RESULTS_FILE.write_text(json.dumps(data, indent=2, default=str))
+        except Exception as e:
+            print(f"[MOM] Save error: {e}")
+
+    def reset_daily(self):
+        today = date_today()
+        if today != self.momentum_daily_date:
+            print(f"[MOM] New day. Yesterday momentum PnL: ${self.momentum_daily_pnl:.2f}")
+            self.momentum_daily_pnl = 0.0
+            self.momentum_daily_date = today
+
+    async def fetch_btc_price(self) -> float:
+        """Fetch current BTC price from Binance. Cached for 5 seconds."""
+        now = time.time()
+        if now - self.last_price_fetch < 5 and self.last_btc_price > 0:
+            return self.last_btc_price
+
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(self.BINANCE_URL, params={"symbol": "BTCUSDT"})
+                if r.status_code == 200:
+                    self.last_btc_price = float(r.json()["price"])
+                    self.last_price_fetch = now
+        except Exception as e:
+            if self.last_btc_price == 0:
+                print(f"[MOM] Binance price fetch error: {e}")
+        return self.last_btc_price
+
+    def track_market_open(self, market_id: str, btc_price: float, created_at: datetime,
+                           market_num_id: str = ""):
+        """Record the Binance BTC price when a Polymarket market is first seen."""
+        if market_id not in self.tracked_markets:
+            self.tracked_markets[market_id] = {
+                "open_price": btc_price,
+                "open_time": created_at,
+                "traded": False,
+                "signal": None,
+                "market_num_id": market_num_id,
+            }
+
+    def get_momentum_signal(self, market_id: str, current_price: float,
+                             config: 'MakerConfig') -> Optional[str]:
+        """Check if momentum signal fires for a tracked market.
+
+        Returns: "UP", "DOWN", or None (no signal / already traded / too early/late)
+        """
+        tracking = self.tracked_markets.get(market_id)
+        if not tracking or tracking["traded"]:
+            return None
+
+        open_price = tracking["open_price"]
+        open_time = tracking["open_time"]
+        now = datetime.now(timezone.utc)
+
+        # How long since market opened
+        elapsed_sec = (now - open_time).total_seconds()
+
+        # Too early — need to wait for momentum to develop
+        if elapsed_sec < config.MOMENTUM_WAIT_SECONDS:
+            return None
+
+        # Too late — don't enter in the last 90 seconds
+        if elapsed_sec > config.MOMENTUM_MAX_WAIT_SECONDS:
+            return None
+
+        # Calculate momentum in basis points
+        if open_price <= 0:
+            return None
+        momentum_bps = (current_price - open_price) / open_price * 10000
+
+        # Check threshold
+        if abs(momentum_bps) < config.MOMENTUM_THRESHOLD_BPS:
+            return None
+
+        signal = "UP" if momentum_bps > 0 else "DOWN"
+        tracking["signal"] = signal
+        tracking["momentum_bps"] = momentum_bps
+        tracking["signal_time"] = now.isoformat()
+        tracking["signal_price"] = current_price
+        return signal
+
+    def mark_traded(self, market_id: str):
+        """Mark a market as traded (prevents re-entry)."""
+        if market_id in self.tracked_markets:
+            self.tracked_markets[market_id]["traded"] = True
+
+    def record_trade(self, market_id: str, direction: str, buy_price: float,
+                     shares: float, cost_usd: float, momentum_bps: float,
+                     question: str, market_num_id: str = ""):
+        """Record a momentum trade for tracking."""
+        self.momentum_trades.append({
+            "market_id": market_id,
+            "market_num_id": market_num_id,
+            "direction": direction,
+            "buy_price": buy_price,
+            "shares": shares,
+            "cost_usd": cost_usd,
+            "momentum_bps": momentum_bps,
+            "question": question,
+            "placed_at": datetime.now(timezone.utc).isoformat(),
+            "outcome": None,
+            "pnl": None,
+        })
+
+    def record_outcome(self, market_id: str, outcome: str, pnl: float):
+        """Record the outcome of a momentum trade."""
+        for trade in reversed(self.momentum_trades):
+            if trade["market_id"] == market_id and trade["outcome"] is None:
+                trade["outcome"] = outcome
+                trade["pnl"] = pnl
+                trade["resolved_at"] = datetime.now(timezone.utc).isoformat()
+                self.momentum_daily_pnl += pnl
+                break
+
+    def cleanup_old(self):
+        """Remove tracking data for markets > 30 minutes old."""
+        now = datetime.now(timezone.utc)
+        expired = [mid for mid, data in self.tracked_markets.items()
+                    if (now - data["open_time"]).total_seconds() > 1800]
+        for mid in expired:
+            del self.tracked_markets[mid]
+
+    def get_active_momentum_count(self) -> int:
+        """Count how many momentum positions are currently open (unresolved)."""
+        return sum(1 for t in self.momentum_trades
+                   if t.get("outcome") is None
+                   and t.get("placed_at", "")
+                   and (datetime.now(timezone.utc) -
+                        datetime.fromisoformat(t["placed_at"])).total_seconds() < 600)
+
+    def get_stats_summary(self) -> str:
+        """Return brief stats string."""
+        trades = self.momentum_trades
+        total = len(trades)
+        resolved = [t for t in trades if t.get("outcome")]
+        wins = sum(1 for t in resolved if (t.get("pnl") or 0) > 0)
+        total_pnl = sum(t.get("pnl", 0) for t in resolved)
+        wr = wins / len(resolved) * 100 if resolved else 0
+        return (f"MOM: {len(resolved)}/{total} resolved | "
+                f"WR: {wr:.0f}% | PnL: ${total_pnl:+.2f} | "
+                f"Today: ${self.momentum_daily_pnl:+.2f}")
+
+
+# ============================================================================
 # DATA CLASSES
 # ============================================================================
 
@@ -631,6 +846,7 @@ class CryptoMarketMaker:
         self.config = MakerConfig()
         self.client = None  # ClobClient (live only)
         self.ml_optimizer = OffsetOptimizer()
+        self.momentum = BinanceMomentum() if self.config.MOMENTUM_ENABLED else None
 
         # State
         self.positions: Dict[str, PairPosition] = {}  # market_id -> PairPosition
@@ -1552,6 +1768,230 @@ class CryptoMarketMaker:
                       f"Cost=${total_cost:.2f} Rev=${actual_revenue:.2f} | "
                       f"PnL=${actual_pnl:+.4f} | {time_left_sec:.0f}s left")
 
+    # ========================================================================
+    # MOMENTUM DIRECTIONAL TRADING (V3.0 — @vague-sourdough)
+    # ========================================================================
+
+    async def run_momentum_scanner(self, markets: List[MarketPair]):
+        """Scan for momentum signals on active 5-min BTC markets.
+
+        Flow:
+        1. For each active 5-min BTC market, record Binance price at market open
+        2. After MOMENTUM_WAIT_SECONDS, check if BTC moved > MOMENTUM_THRESHOLD_BPS
+        3. If yes, place directional BUY order on predicted winning side
+        """
+        if not self.momentum or not self.config.MOMENTUM_ENABLED:
+            return
+
+        # Fetch current BTC price
+        btc_price = await self.momentum.fetch_btc_price()
+        if btc_price <= 0:
+            return
+
+        self.momentum.reset_daily()
+
+        # Check daily loss limit for momentum
+        if self.momentum.momentum_daily_pnl < -self.config.MOMENTUM_DAILY_LOSS_LIMIT:
+            return
+
+        # Track newly discovered markets
+        now = datetime.now(timezone.utc)
+        for pair in markets:
+            if pair.asset != "BTC" or pair.duration_min != 5:
+                continue
+
+            # Compute approximate start time from end_time
+            if pair.end_time:
+                start_time = pair.end_time - timedelta(minutes=pair.duration_min)
+            else:
+                start_time = now  # Fallback: treat as just opened
+
+            self.momentum.track_market_open(pair.market_id, btc_price, start_time,
+                                              market_num_id=pair.market_num_id)
+
+        # Also track markets we already have positions on (from maker)
+        for mid, pos in self.positions.items():
+            if pos.asset == "BTC" and pos.duration_min == 5:
+                created = datetime.fromisoformat(pos.created_at)
+                self.momentum.track_market_open(mid, btc_price, created,
+                                                market_num_id=pos.market_num_id)
+
+        # Check for signals on tracked markets
+        active_mom = self.momentum.get_active_momentum_count()
+        if active_mom >= self.config.MOMENTUM_MAX_CONCURRENT:
+            return
+
+        for market_id, tracking in list(self.momentum.tracked_markets.items()):
+            if tracking["traded"]:
+                continue
+            if active_mom >= self.config.MOMENTUM_MAX_CONCURRENT:
+                break
+
+            signal = self.momentum.get_momentum_signal(market_id, btc_price, self.config)
+            if not signal:
+                continue
+
+            # Find the matching MarketPair for token IDs
+            target_pair = None
+            for pair in markets:
+                if pair.market_id == market_id:
+                    target_pair = pair
+                    break
+
+            if not target_pair:
+                # Market might have been discovered earlier but not in current scan
+                continue
+
+            # Place directional order
+            mom_bps = tracking.get("momentum_bps", 0)
+            await self._place_momentum_order(target_pair, signal, mom_bps)
+            active_mom += 1
+
+        # Cleanup old tracking data
+        self.momentum.cleanup_old()
+
+    async def _place_momentum_order(self, pair: MarketPair, direction: str, momentum_bps: float):
+        """Place a directional BUY order based on momentum signal."""
+        token_id = pair.up_token_id if direction == "UP" else pair.down_token_id
+        mid_price = pair.up_mid if direction == "UP" else pair.down_mid
+
+        # Buy at mid price or slightly above for faster fill
+        buy_price = round(min(0.95, mid_price + 0.01), 2)
+        buy_price = max(0.05, buy_price)
+
+        shares = max(self.config.MIN_SHARES, math.floor(self.config.MOMENTUM_SIZE_USD / buy_price))
+        cost_usd = buy_price * shares
+
+        if self.paper:
+            order_id = f"mom_{direction.lower()}_{pair.market_id[:12]}_{int(time.time())}"
+            print(f"  [MOM PAPER] {pair.asset} {direction} @ ${buy_price:.2f} x {shares} "
+                  f"(${cost_usd:.2f}) | momentum: {momentum_bps:+.1f}bp")
+        else:
+            try:
+                from py_clob_client.clob_types import OrderArgs, OrderType
+                from py_clob_client.order_builder.constants import BUY
+
+                args = OrderArgs(
+                    price=buy_price,
+                    size=float(shares),
+                    side=BUY,
+                    token_id=token_id,
+                )
+                signed = self.client.create_order(args)
+                resp = self.client.post_order(signed, OrderType.GTC)
+
+                if not resp.get("success"):
+                    print(f"  [MOM LIVE] Order failed: {resp.get('errorMsg', '?')}")
+                    return
+
+                order_id = resp.get("orderID", "")
+                print(f"  [MOM LIVE] {pair.asset} {direction} @ ${buy_price:.2f} x {shares} "
+                      f"(${cost_usd:.2f}) | momentum: {momentum_bps:+.1f}bp | oid={order_id[:16]}...")
+            except Exception as e:
+                print(f"  [MOM LIVE] Error: {e}")
+                return
+
+        # Record and mark as traded
+        self.momentum.mark_traded(pair.market_id)
+        self.momentum.record_trade(
+            market_id=pair.market_id,
+            direction=direction,
+            buy_price=buy_price,
+            shares=shares,
+            cost_usd=cost_usd,
+            momentum_bps=momentum_bps,
+            question=pair.question,
+            market_num_id=pair.market_num_id,
+        )
+
+        # Also add to _entered_markets so maker doesn't double-enter
+        self._entered_markets.add(pair.market_id)
+
+    async def resolve_momentum_trades(self):
+        """Resolve momentum trades that have settled."""
+        if not self.momentum:
+            return
+
+        for trade in self.momentum.momentum_trades:
+            if trade.get("outcome") is not None:
+                continue
+            if not trade.get("placed_at"):
+                continue
+
+            placed = datetime.fromisoformat(trade["placed_at"])
+            age_min = (datetime.now(timezone.utc) - placed).total_seconds() / 60
+
+            # Wait at least 6 minutes for resolution
+            if age_min < 6:
+                continue
+
+            # Fetch outcome using gamma-api
+            market_id = trade["market_id"]
+
+            # Use stored numeric ID first, fall back to lookups
+            num_id = trade.get("market_num_id", "")
+            if not num_id:
+                for pos in self.positions.values():
+                    if pos.market_id == market_id:
+                        num_id = pos.market_num_id
+                        break
+            if not num_id:
+                tracking = self.momentum.tracked_markets.get(market_id, {})
+                num_id = tracking.get("market_num_id", "")
+
+            # Try to resolve via condition_id market search
+            if not num_id:
+                try:
+                    async with httpx.AsyncClient(timeout=10) as client:
+                        r = await client.get(
+                            "https://gamma-api.polymarket.com/markets",
+                            params={"condition_id": market_id, "limit": 1},
+                            headers={"User-Agent": "Mozilla/5.0"})
+                        if r.status_code == 200:
+                            results = r.json()
+                            if results and isinstance(results, list) and len(results) > 0:
+                                num_id = str(results[0].get("id", ""))
+                except Exception:
+                    pass
+
+            if not num_id:
+                # Give up after 30 minutes
+                if age_min > 30:
+                    trade["outcome"] = "UNKNOWN"
+                    trade["pnl"] = -trade.get("cost_usd", 0)
+                    self.momentum.momentum_daily_pnl += trade["pnl"]
+                    print(f"  [MOM] TIMEOUT {trade['direction']} — marking as loss ${trade['pnl']:.2f}")
+                continue
+
+            # Fetch outcome
+            outcome = await self._fetch_outcome(num_id)
+            if not outcome:
+                if age_min > 20:
+                    trade["outcome"] = "UNKNOWN"
+                    trade["pnl"] = -trade.get("cost_usd", 0)
+                    self.momentum.momentum_daily_pnl += trade["pnl"]
+                continue
+
+            # Calculate PnL
+            direction = trade["direction"]
+            shares = trade.get("shares", 0)
+            cost = trade.get("cost_usd", 0)
+
+            if outcome == direction:
+                # Win: shares * $1.00 - cost
+                pnl = shares * 1.0 - cost
+            else:
+                # Lose: shares worth $0
+                pnl = -cost
+
+            trade["outcome"] = outcome
+            trade["pnl"] = round(pnl, 4)
+            self.momentum.momentum_daily_pnl += pnl
+
+            icon = "WIN" if pnl > 0 else "LOSS"
+            print(f"  [MOM {icon}] {trade['direction']} | outcome={outcome} | "
+                  f"PnL=${pnl:+.2f} | mom={trade.get('momentum_bps', 0):+.1f}bp")
+
     async def resolve_positions(self):
         """Check if markets have resolved and calculate PnL."""
         now = datetime.now(timezone.utc)
@@ -1784,6 +2224,11 @@ class CryptoMarketMaker:
         if not self.paper:
             print(f"CIRCUIT BREAKER: Auto-switch to paper on $88 net session loss (~40% capital)")
         print(f"Skip hours (UTC): {sorted(self.config.SKIP_HOURS_UTC)}")
+        if self.config.MOMENTUM_ENABLED:
+            print(f"MOMENTUM: ${self.config.MOMENTUM_SIZE_USD}/trade | "
+                  f"Threshold: {self.config.MOMENTUM_THRESHOLD_BPS}bp | "
+                  f"Wait: {self.config.MOMENTUM_WAIT_SECONDS}s | "
+                  f"Max: {self.config.MOMENTUM_MAX_CONCURRENT} concurrent")
         print("=" * 70)
 
         if self.stats["total_pnl"] != 0:
@@ -1810,11 +2255,16 @@ class CryptoMarketMaker:
                 # Phase 3: Check fills on active orders
                 await self.check_fills()
 
-                # Phase 4: Discover and place if risk allows
-                if self.check_risk():
-                    # Phase 5: Discover new markets
-                    markets = await self.discover_markets()
+                # Phase 4: Discover new markets (always, even if risk limits hit for maker)
+                markets = await self.discover_markets()
 
+                # Phase 4a: Momentum directional trading (V3.0)
+                if self.momentum and self.config.MOMENTUM_ENABLED:
+                    await self.run_momentum_scanner(markets)
+                    await self.resolve_momentum_trades()
+
+                # Phase 5: Place maker orders if risk allows
+                if self.check_risk():
                     # Phase 6: Evaluate and place orders on best pairs
                     # 5M markets get priority (shorter duration = higher priority)
                     markets.sort(key=lambda p: p.duration_min)
@@ -1838,6 +2288,8 @@ class CryptoMarketMaker:
                     self._print_status(cycle)
                     self._save()
                     self.ml_optimizer.save()
+                    if self.momentum:
+                        self.momentum.save()
 
                 # Phase 8: ML summary every 50 cycles (~25 min)
                 if cycle % 50 == 0 and cycle > 0:
@@ -1899,6 +2351,9 @@ class CryptoMarketMaker:
             avg = self.stats["paired_pnl"] / self.stats["pairs_completed"]
             print(f"    Paired avg PnL: ${avg:.4f} | Best: ${self.stats['best_pair_pnl']:.4f} | "
                   f"Worst: ${self.stats['worst_pair_pnl']:.4f}")
+
+        if self.momentum and self.config.MOMENTUM_ENABLED:
+            print(f"    {self.momentum.get_stats_summary()}")
 
 
 # ============================================================================
