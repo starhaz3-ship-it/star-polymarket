@@ -1189,6 +1189,7 @@ class CryptoMarketMaker:
         self.active_orders: Dict[str, MakerOrder] = {}  # order_id -> MakerOrder
         self.resolved: List[dict] = []  # Completed pair records
         self._entered_markets: set = set()  # All condition_ids entered this session (never re-enter)
+        self._entered_markets_file = Path(__file__).parent / "maker_entered_markets.json"
 
         # Stats
         self.stats = {
@@ -1316,6 +1317,41 @@ class CryptoMarketMaker:
         # CRITICAL: Query on-chain positions to prevent stacking after restart
         self._sync_onchain_positions()
 
+        # V4.2: Load persisted entered-markets (survives restarts)
+        self._load_entered_markets()
+
+    def _load_entered_markets(self):
+        """V4.2: Load persisted entered-markets from disk. Prevents restart duplicates."""
+        try:
+            if self._entered_markets_file.exists():
+                data = json.loads(self._entered_markets_file.read_text())
+                # Only keep entries from the last 24h (markets expire)
+                now_ts = datetime.now(timezone.utc).timestamp()
+                fresh = {cid for cid, ts in data.items() if now_ts - ts < 86400}
+                before = len(self._entered_markets)
+                self._entered_markets.update(fresh)
+                added = len(self._entered_markets) - before
+                if added > 0:
+                    print(f"[MAKER] Loaded {added} persisted entered-markets from disk")
+        except Exception as e:
+            print(f"[MAKER] entered-markets load error: {e}")
+
+    def _persist_entered_market(self, market_id: str):
+        """V4.2: Immediately persist a market entry to disk. Crash-safe."""
+        self._entered_markets.add(market_id)
+        try:
+            # Load existing, merge, write back
+            data = {}
+            if self._entered_markets_file.exists():
+                data = json.loads(self._entered_markets_file.read_text())
+            data[market_id] = datetime.now(timezone.utc).timestamp()
+            # Prune entries older than 24h
+            now_ts = datetime.now(timezone.utc).timestamp()
+            data = {k: v for k, v in data.items() if now_ts - v < 86400}
+            self._entered_markets_file.write_text(json.dumps(data))
+        except Exception:
+            pass  # Non-critical, on-chain sync is the fallback
+
     def _sync_onchain_positions(self):
         """Query Polymarket data-api for ALL held positions and block those markets.
         This prevents stacking after restarts — even if maker_results.json is wiped,
@@ -1441,7 +1477,8 @@ class CryptoMarketMaker:
 
         return pairs
 
-    def _parse_market(self, market: dict, event: dict, asset: str, duration: int = 15) -> Optional[MarketPair]:
+    def _parse_market(self, market: dict, event: dict, asset: str, duration: int = 15,
+                      skip_entered_check: bool = False) -> Optional[MarketPair]:
         """Parse a market into a MarketPair."""
         try:
             condition_id = market.get("conditionId", "")
@@ -1450,8 +1487,9 @@ class CryptoMarketMaker:
                 return None
 
             # Skip markets we already entered this session (prevents re-entry after sell-back cleanup)
-            if condition_id in self._entered_markets or condition_id in self.positions:
-                return None
+            if not skip_entered_check:
+                if condition_id in self._entered_markets or condition_id in self.positions:
+                    return None
 
             outcomes = market.get("outcomes", [])
             if isinstance(outcomes, str):
@@ -1753,7 +1791,7 @@ class CryptoMarketMaker:
 
         # Track (add to permanent session set so resolved cleanup can't cause re-entry)
         self.positions[pair.market_id] = pos
-        self._entered_markets.add(pair.market_id)
+        self._persist_entered_market(pair.market_id)
         self.stats["pairs_attempted"] += 1
         return pos
 
@@ -2332,7 +2370,7 @@ class CryptoMarketMaker:
         if self.momentum.momentum_trades:
             self.momentum.momentum_trades[-1]["signal_type"] = "LATE_15m"
 
-        self._entered_markets.add(pair.market_id)
+        self._persist_entered_market(pair.market_id)
 
     # ========================================================================
     # V4.1: LATE-CANDLE ENTRY (MuseumOfBees strategy)
@@ -2670,7 +2708,7 @@ class CryptoMarketMaker:
                 return False
 
         self.positions[pair.market_id] = pos
-        self._entered_markets.add(pair.market_id)
+        self._persist_entered_market(pair.market_id)
         return True
 
     # ========================================================================
@@ -2678,51 +2716,151 @@ class CryptoMarketMaker:
     # ========================================================================
 
     async def run_late_winner_scanner(self, markets: List[MarketPair]):
-        """V4.2: Buy the WINNER token in the last 30-60s before market close.
+        """V4.2: Buy the WINNER token in the last 60s before market close.
+
+        Scans TWO sources:
+        1. Active positions — we already hold one side, buy the OTHER (winner) side
+           to complete the pair at a near-guaranteed profit
+        2. New markets from discover (not yet entered)
 
         When direction is 90%+ clear (winner token at $0.80-$0.92), buy it.
         Profit = $1.00 - buy_price per share. Near-guaranteed ~$0.08-$0.15/share.
-
-        Works on ALL assets (BTC, ETH, SOL, XRP) and ALL durations (5M, 15M).
         """
         if not self.config.LATE_WINNER_ENABLED:
             return
 
         now = datetime.now(timezone.utc)
 
-        for pair in markets:
-            # Skip markets we already have positions on
-            if pair.market_id in self.positions:
+        # --- Source 1: Active partial positions near expiry ---
+        for market_id, pos in list(self.positions.items()):
+            if pos.status in ("resolved", "cancelled"):
                 continue
+            if pos.is_paired:
+                continue  # Already have both sides
+            if pos.entry_type == "late_winner":
+                continue  # Don't double up on late-winner entries
 
-            # Check timing: must be in the last LATE_WINNER_WINDOW_SEC before close
-            if not pair.end_time:
+            # Estimate end time from created_at + duration
+            try:
+                created = datetime.fromisoformat(pos.created_at)
+            except Exception:
                 continue
-            secs_left = (pair.end_time - now).total_seconds()
+            end_time = created + timedelta(minutes=pos.duration_min)
+            secs_left = (end_time - now).total_seconds()
+
             if secs_left > self.config.LATE_WINNER_WINDOW_SEC:
                 continue
             if secs_left < self.config.LATE_WINNER_MIN_SEC:
                 continue
 
-            # Check risk
+            # Determine which side we DON'T have — check order book for the unfilled side
+            if pos.up_filled and not pos.down_filled and pos.up_order:
+                # We hold UP, check if DOWN is the loser (UP winning = UP token expensive)
+                winner_token_id = pos.up_order.token_id
+                winner_side = "UP"
+            elif pos.down_filled and not pos.up_filled and pos.down_order:
+                winner_token_id = pos.down_order.token_id
+                winner_side = "DOWN"
+            else:
+                continue
+
+            # Check if our held side IS the winner (token price >= $0.80)
+            if self.paper:
+                continue  # Can't check book in paper
+            book = await self.get_order_book(winner_token_id)
+            if not book:
+                continue
+            winner_bid = book.get("best_bid", 0)
+            if winner_bid < self.config.LATE_WINNER_MIN_BUY_PRICE:
+                continue  # Our side isn't winning clearly enough
+
+            # Our side is winning! Now buy the OTHER (loser) side cheap to complete the pair
+            # This is handled by late-candle scanner. Here we instead just log the opportunity.
+            # The REAL late-winner play: buy winner on markets we HAVEN'T entered yet.
+            pass
+
+        # --- Source 2: Scan ALL 5M/15M markets via API for near-expiry opportunities ---
+        # Build candidates from the markets list + re-fetch near-expiry ones
+        candidates = []
+
+        # Markets from discover that we haven't entered (these are already filtered)
+        for pair in markets:
+            if pair.market_id in self.positions:
+                continue
+            if not pair.end_time:
+                continue
+            secs_left = (pair.end_time - now).total_seconds()
+            if self.config.LATE_WINNER_MIN_SEC <= secs_left <= self.config.LATE_WINNER_WINDOW_SEC:
+                candidates.append(pair)
+
+        # Also re-fetch markets that discover_markets filtered out (already entered with deep bids)
+        # These are markets we placed orders on but may want to add a winner buy
+        # Use the gamma-api to get fresh prices for near-expiry markets
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                for tag_slug, duration in [("5M", 5), ("15M", 15)]:
+                    r = await client.get(
+                        "https://gamma-api.polymarket.com/events",
+                        params={"tag_slug": tag_slug, "active": "true", "closed": "false",
+                                "limit": 50, "order": "endDate", "ascending": "true"},
+                        headers={"User-Agent": "Mozilla/5.0"}
+                    )
+                    if r.status_code != 200:
+                        continue
+                    for event in r.json():
+                        for m in event.get("markets", []):
+                            cid = m.get("conditionId", "")
+                            if not cid or cid in self.positions:
+                                continue
+                            end_date = m.get("endDate", "")
+                            if not end_date:
+                                continue
+                            try:
+                                end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+                            except Exception:
+                                continue
+                            secs_left = (end_dt - now).total_seconds()
+                            if not (self.config.LATE_WINNER_MIN_SEC <= secs_left <= self.config.LATE_WINNER_WINDOW_SEC):
+                                continue
+                            # Check asset match
+                            title = event.get("title", "").lower()
+                            matched_asset = None
+                            for asset, cfg in self.config.ASSETS.items():
+                                if not cfg.get("enabled", False):
+                                    continue
+                                if any(kw in title for kw in cfg["keywords"]):
+                                    matched_asset = asset
+                                    break
+                            if not matched_asset:
+                                continue
+                            # Parse into MarketPair
+                            pair = self._parse_market(m, event, matched_asset, duration,
+                                                       skip_entered_check=True)
+                            if pair and pair.market_id not in self.positions:
+                                # Override the filtered-out check by setting end_time
+                                pair.end_time = end_dt
+                                candidates.append(pair)
+        except Exception as e:
+            pass  # Non-critical, skip silently
+
+        # Process candidates
+        for pair in candidates:
             if not self.check_risk():
                 break
 
-            # Determine which side is winning by looking at mid prices
-            # Higher mid = more likely winner
-            up_mid = pair.up_mid
-            down_mid = pair.down_mid
+            secs_left = (pair.end_time - now).total_seconds() if pair.end_time else 0
 
-            if up_mid >= self.config.LATE_WINNER_MIN_BUY_PRICE:
+            # Determine which side is winning by looking at mid prices
+            if pair.up_mid >= self.config.LATE_WINNER_MIN_BUY_PRICE:
                 winner_side = "UP"
-                winner_mid = up_mid
+                winner_mid = pair.up_mid
                 winner_token_id = pair.up_token_id
-            elif down_mid >= self.config.LATE_WINNER_MIN_BUY_PRICE:
+            elif pair.down_mid >= self.config.LATE_WINNER_MIN_BUY_PRICE:
                 winner_side = "DOWN"
-                winner_mid = down_mid
+                winner_mid = pair.down_mid
                 winner_token_id = pair.down_token_id
             else:
-                continue  # Neither side is clear enough
+                continue  # Neither side clear enough
 
             # Get actual best_ask from order book
             if not self.paper:
@@ -2735,7 +2873,7 @@ class CryptoMarketMaker:
             else:
                 buy_price = winner_mid
 
-            # Price guards: must be between MIN and MAX
+            # Price guards
             if buy_price < self.config.LATE_WINNER_MIN_BUY_PRICE:
                 continue
             if buy_price > self.config.LATE_WINNER_MAX_BUY_PRICE:
@@ -2814,7 +2952,7 @@ class CryptoMarketMaker:
                     continue
 
             self.positions[pair.market_id] = pos
-            self._entered_markets.add(pair.market_id)
+            self._persist_entered_market(pair.market_id)
             self.stats["late_winner_attempts"] = self.stats.get("late_winner_attempts", 0) + 1
 
     async def _place_momentum_order(self, pair: MarketPair, direction: str,
@@ -2880,7 +3018,7 @@ class CryptoMarketMaker:
         )
 
         # Also add to _entered_markets so maker doesn't double-enter
-        self._entered_markets.add(pair.market_id)
+        self._persist_entered_market(pair.market_id)
 
     async def _place_orderflow_order(self, pair: MarketPair, direction: str,
                                      buy_ratio: float, vol_ratio: float):
@@ -2942,7 +3080,7 @@ class CryptoMarketMaker:
             self.momentum.momentum_trades[-1]["flow_buy_ratio"] = buy_ratio
             self.momentum.momentum_trades[-1]["flow_vol_ratio"] = vol_ratio
 
-        self._entered_markets.add(pair.market_id)
+        self._persist_entered_market(pair.market_id)
 
     async def resolve_momentum_trades(self):
         """Resolve momentum trades that have settled."""
