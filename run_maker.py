@@ -394,7 +394,7 @@ class MakerConfig:
     MIN_BID_OFFSET: float = 0.10         # V4.2: ML optimizer floor at 10c
 
     # Position sizing
-    SIZE_PER_SIDE_USD: float = 3.0       # V4: $3/side (was $10)
+    SIZE_PER_SIDE_USD: float = 5.0       # V4.2: $5/side
     MAX_PAIR_EXPOSURE: float = 20.0      # V4: $20/pair (scaled for $3/side)
     MAX_TOTAL_EXPOSURE: float = 50.0     # V4: $50 max (scaled for $43 account)
     MIN_SHARES: int = 5                  # CLOB minimum order size
@@ -473,7 +473,7 @@ class MakerConfig:
     LATE_CANDLE_ENABLED: bool = True
     LATE_CANDLE_WAIT_SEC: float = 90.0        # V4.2: 1.5 min into 5-min market (was 150s)
     LATE_CANDLE_MAX_WAIT_SEC: float = 240.0   # Stop at 4 min (60s before close)
-    LATE_CANDLE_SIZE_USD: float = 3.0         # Same as normal maker
+    LATE_CANDLE_SIZE_USD: float = 5.0         # Same as normal maker
     LATE_CANDLE_MAX_LOSER_PRICE: float = 0.30 # Only buy loser if <= $0.30
     LATE_CANDLE_MIN_MOMENTUM_BPS: float = 15.0  # Direction must be this clear
 
