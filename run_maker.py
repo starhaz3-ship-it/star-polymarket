@@ -3271,8 +3271,8 @@ class CryptoMarketMaker:
         # V1.4: Capital loss circuit breaker (40% net loss -> auto-switch to paper)
         if not self.paper and not self.circuit_tripped and self.starting_pnl is not None:
             session_pnl = self.stats["total_pnl"] - self.starting_pnl
-            # Calculate 40% of the CLOB balance we started with (~$220)
-            capital_loss_limit = 88.0  # 40% of ~$220 CLOB balance
+            # Calculate 40% of the CLOB cash balance (~$76)
+            capital_loss_limit = 30.0  # 40% of ~$76 CLOB cash
             if session_pnl < -capital_loss_limit:
                 print(f"\n{'='*70}")
                 print(f"[CIRCUIT BREAKER] NET CAPITAL LOSS EXCEEDED 40%!")
@@ -3342,7 +3342,7 @@ class CryptoMarketMaker:
         print(f"Max combined: ${self.config.MAX_COMBINED_PRICE} | Min edge: {self.config.MIN_SPREAD_EDGE*100:.0f}%")
         print(f"Daily loss limit: ${self.config.DAILY_LOSS_LIMIT}")
         if not self.paper:
-            print(f"CIRCUIT BREAKER: Auto-switch to paper on $88 net session loss (~40% capital)")
+            print(f"CIRCUIT BREAKER: Auto-switch to paper on $30 net session loss (~40% of $76 capital)")
         print(f"Skip hours (UTC): {sorted(self.config.SKIP_HOURS_UTC)}")
         if self.config.MOMENTUM_ENABLED:
             print(f"MOMENTUM 5m: ${self.config.MOMENTUM_SIZE_USD}/trade | "
