@@ -33,6 +33,7 @@ from pid_lock import acquire_pid_lock, release_pid_lock
 from nautilus_backtest.strategies.mean_revert_extreme import MeanRevertExtreme
 from nautilus_backtest.strategies.momentum_regime import MomentumRegime
 from nautilus_backtest.strategies.vwap_reversion import VwapReversion
+from nautilus_backtest.strategies.vwap_supertrend_stochrsi import VwapSupertrendStochRSI
 
 # ============================================================================
 # CONFIG
