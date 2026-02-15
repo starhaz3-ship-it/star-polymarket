@@ -382,13 +382,13 @@ class MakerConfig:
     BID_OFFSET: float = 0.02             # Bid this much below best ask
 
     # Position sizing
-    SIZE_PER_SIDE_USD: float = 35.0      # V2.5: $35/side (was $25). $280 capital, 5m-only, 100% WR.
+    SIZE_PER_SIDE_USD: float = 10.0      # V2.7: $10/side (was $35). Reduced after V2.6 losses.
     MAX_PAIR_EXPOSURE: float = 70.0      # V2.5: $70/pair ($35 x 2 sides)
     MAX_TOTAL_EXPOSURE: float = 250.0    # V2.5: $250 max (~$280 cap - $30 buffer)
     MIN_SHARES: int = 5                  # CLOB minimum order size
 
     # Risk
-    DAILY_LOSS_LIMIT: float = 56.0       # V2.5: Scaled with $35/side (was $40)
+    DAILY_LOSS_LIMIT: float = 15.0       # V2.7: Scaled with $10/side
     MAX_CONCURRENT_PAIRS: int = 12       # V1.5: 4 assets x 15M + BTC 5M = needs ~12 slots
     MAX_SINGLE_SIDED: int = 2            # V1.1: Was 3. Partial fills = directional risk. Allow max 2.
 
@@ -1240,11 +1240,11 @@ class CryptoMarketMaker:
             # V1.5: SOL/XRP get 1min grace (thinner books), BTC/ETH get 2min
             # V1.6: 5M markets get 3.5min grace (need more time on thin books)
             if pos.duration_min <= 5:
-                PARTIAL_GRACE_MINUTES = 3.5
+                PARTIAL_GRACE_MINUTES = 0.5  # V2.7: 30 seconds
             elif pos.asset in ("SOL", "XRP"):
-                PARTIAL_GRACE_MINUTES = 1.0
+                PARTIAL_GRACE_MINUTES = 0.5  # 30 seconds
             else:
-                PARTIAL_GRACE_MINUTES = 2.0
+                PARTIAL_GRACE_MINUTES = 1.0
             if pos.is_partial and not pos.first_fill_time:
                 pos.first_fill_time = pos.created_at  # Backfill for old positions
             if pos.is_partial and pos.first_fill_time:
