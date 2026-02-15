@@ -1,552 +1,657 @@
 {
   "0": {
-    "0.010": {
-      "attempts": 3,
-      "paired": 0,
-      "partial": 1,
-      "unfilled": 2,
-      "total_pnl": 0.0
-    },
-    "0.015": {
-      "attempts": 5,
-      "paired": 0,
-      "partial": 3,
-      "unfilled": 2,
-      "total_pnl": 0.0
-    },
-    "0.020": {
-      "attempts": 2,
-      "paired": 1,
-      "partial": 0,
-      "unfilled": 1,
-      "total_pnl": 0.5
-    },
-    "0.025": {
-      "attempts": 28,
-      "paired": 7,
-      "partial": 16,
-      "unfilled": 5,
-      "total_pnl": 2.999999999999999
-    },
-    "0.030": {
-      "attempts": 1,
-      "paired": 0,
-      "partial": 0,
-      "unfilled": 1,
-      "total_pnl": 0.0
-    }
-  },
-  "1": {
-    "0.010": {
-      "attempts": 9,
-      "paired": 0,
-      "partial": 5,
-      "unfilled": 4,
-      "total_pnl": 0.0
-    },
-    "0.015": {
-      "attempts": 20,
-      "paired": 3,
-      "partial": 10,
-      "unfilled": 7,
-      "total_pnl": -4.45
-    },
-    "0.020": {
-      "attempts": 3,
-      "paired": 0,
-      "partial": 1,
-      "unfilled": 2,
-      "total_pnl": 0.0
-    },
-    "0.025": {
+    "0.100": {
       "attempts": 0,
       "paired": 0,
       "partial": 0,
       "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.030": {
-      "attempts": 2,
-      "paired": 1,
-      "partial": 0,
-      "unfilled": 1,
-      "total_pnl": 0.26
-    }
-  },
-  "2": {
-    "0.010": {
-      "attempts": 2,
+    "0.110": {
+      "attempts": 0,
       "paired": 0,
-      "partial": 2,
+      "partial": 0,
       "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.015": {
-      "attempts": 5,
+    "0.120": {
+      "attempts": 0,
       "paired": 0,
-      "partial": 2,
-      "unfilled": 3,
+      "partial": 0,
+      "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.020": {
-      "attempts": 24,
-      "paired": 3,
-      "partial": 11,
-      "unfilled": 10,
-      "total_pnl": 2.17
-    },
-    "0.025": {
-      "attempts": 3,
+    "0.130": {
+      "attempts": 0,
       "paired": 0,
-      "partial": 2,
-      "unfilled": 1,
+      "partial": 0,
+      "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.030": {
-      "attempts": 2,
+    "0.140": {
+      "attempts": 0,
       "paired": 0,
-      "partial": 1,
-      "unfilled": 1,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "1": {
+    "0.100": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.110": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.120": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "2": {
+    "0.100": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.110": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.120": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
       "total_pnl": 0.0
     }
   },
   "3": {
-    "0.010": {
-      "attempts": 24,
-      "paired": 2,
-      "partial": 13,
-      "unfilled": 9,
-      "total_pnl": 0.36
-    },
-    "0.015": {
-      "attempts": 3,
-      "paired": 1,
+    "0.100": {
+      "attempts": 0,
+      "paired": 0,
       "partial": 0,
-      "unfilled": 2,
-      "total_pnl": -0.305911
-    },
-    "0.020": {
-      "attempts": 4,
-      "paired": 0,
-      "partial": 1,
-      "unfilled": 3,
-      "total_pnl": 0.0
-    },
-    "0.025": {
-      "attempts": 1,
-      "paired": 0,
-      "partial": 1,
       "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.030": {
-      "attempts": 5,
+    "0.110": {
+      "attempts": 0,
       "paired": 0,
-      "partial": 2,
-      "unfilled": 3,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.120": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
       "total_pnl": 0.0
     }
   },
   "4": {
-    "0.010": {
-      "attempts": 2,
+    "0.100": {
+      "attempts": 0,
       "paired": 0,
       "partial": 0,
-      "unfilled": 2,
+      "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.015": {
-      "attempts": 2,
+    "0.110": {
+      "attempts": 0,
       "paired": 0,
-      "partial": 1,
-      "unfilled": 1,
+      "partial": 0,
+      "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.020": {
-      "attempts": 2,
+    "0.120": {
+      "attempts": 0,
       "paired": 0,
-      "partial": 1,
-      "unfilled": 1,
+      "partial": 0,
+      "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.025": {
-      "attempts": 5,
-      "paired": 1,
-      "partial": 1,
-      "unfilled": 3,
-      "total_pnl": 0.3
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
     },
-    "0.030": {
-      "attempts": 17,
-      "paired": 5,
-      "partial": 7,
-      "unfilled": 5,
-      "total_pnl": 2.103016
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
     }
   },
   "5": {
-    "0.010": {
-      "attempts": 20,
-      "paired": 2,
-      "partial": 7,
-      "unfilled": 11,
-      "total_pnl": 1.53
-    },
-    "0.015": {
-      "attempts": 5,
-      "paired": 1,
-      "partial": 4,
+    "0.100": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
       "unfilled": 0,
-      "total_pnl": 0.18
+      "total_pnl": 0.0
     },
-    "0.020": {
-      "attempts": 12,
-      "paired": 4,
-      "partial": 6,
-      "unfilled": 2,
-      "total_pnl": -1.4699999999999998
+    "0.110": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
     },
-    "0.025": {
-      "attempts": 7,
-      "paired": 2,
-      "partial": 4,
-      "unfilled": 1,
-      "total_pnl": 2.54
+    "0.120": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
     },
-    "0.030": {
-      "attempts": 3,
-      "paired": 1,
-      "partial": 1,
-      "unfilled": 1,
-      "total_pnl": 0.7
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
     }
   },
   "6": {
-    "0.010": {
-      "attempts": 16,
-      "paired": 2,
-      "partial": 8,
-      "unfilled": 6,
-      "total_pnl": 0.8999999999999999
-    },
-    "0.015": {
-      "attempts": 2,
-      "paired": 1,
-      "partial": 1,
+    "0.100": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
       "unfilled": 0,
-      "total_pnl": -3.8672929999999996
+      "total_pnl": 0.0
     },
-    "0.020": {
-      "attempts": 36,
-      "paired": 7,
-      "partial": 13,
-      "unfilled": 16,
-      "total_pnl": 3.6731059999999998
-    },
-    "0.025": {
-      "attempts": 2,
-      "paired": 1,
-      "partial": 1,
+    "0.110": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
       "unfilled": 0,
-      "total_pnl": 0.5
+      "total_pnl": 0.0
     },
-    "0.030": {
-      "attempts": 10,
-      "paired": 1,
-      "partial": 5,
-      "unfilled": 4,
-      "total_pnl": 0.76
+    "0.120": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
     }
   },
   "7": {
-    "0.010": {
-      "attempts": 5,
-      "paired": 1,
-      "partial": 1,
-      "unfilled": 3,
-      "total_pnl": 0.18
-    },
-    "0.015": {
-      "attempts": 9,
-      "paired": 2,
-      "partial": 5,
-      "unfilled": 2,
-      "total_pnl": -0.13
-    },
-    "0.020": {
-      "attempts": 4,
+    "0.100": {
+      "attempts": 0,
       "paired": 0,
-      "partial": 3,
-      "unfilled": 1,
-      "total_pnl": -9.9
-    },
-    "0.025": {
-      "attempts": 14,
-      "paired": 2,
-      "partial": 9,
-      "unfilled": 3,
-      "total_pnl": 0.6
-    },
-    "0.030": {
-      "attempts": 5,
-      "paired": 1,
-      "partial": 4,
+      "partial": 0,
       "unfilled": 0,
-      "total_pnl": -4.179829
+      "total_pnl": 0.0
+    },
+    "0.110": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.120": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
     }
   },
   "8": {
-    "0.010": {
-      "attempts": 1,
+    "0.100": {
+      "attempts": 0,
       "paired": 0,
-      "partial": 1,
+      "partial": 0,
       "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.015": {
-      "attempts": 2,
+    "0.110": {
+      "attempts": 0,
       "paired": 0,
-      "partial": 2,
+      "partial": 0,
       "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.020": {
-      "attempts": 1,
+    "0.120": {
+      "attempts": 0,
       "paired": 0,
-      "partial": 1,
+      "partial": 0,
       "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.025": {
-      "attempts": 31,
-      "paired": 1,
-      "partial": 28,
-      "unfilled": 2,
-      "total_pnl": 0.3
-    },
-    "0.030": {
-      "attempts": 7,
+    "0.130": {
+      "attempts": 0,
       "paired": 0,
-      "partial": 7,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
       "unfilled": 0,
       "total_pnl": 0.0
     }
   },
   "9": {
-    "0.010": {
-      "attempts": 1,
-      "paired": 0,
-      "partial": 1,
-      "unfilled": 0,
-      "total_pnl": 0.0
-    },
-    "0.015": {
-      "attempts": 13,
-      "paired": 2,
-      "partial": 10,
-      "unfilled": 1,
-      "total_pnl": 1.51
-    },
-    "0.020": {
-      "attempts": 4,
-      "paired": 0,
-      "partial": 3,
-      "unfilled": 1,
-      "total_pnl": 0.0
-    },
-    "0.025": {
-      "attempts": 4,
-      "paired": 0,
-      "partial": 4,
-      "unfilled": 0,
-      "total_pnl": 0.0
-    },
-    "0.030": {
-      "attempts": 8,
-      "paired": 3,
-      "partial": 4,
-      "unfilled": 1,
-      "total_pnl": 0.77
-    }
-  },
-  "10": {
-    "0.010": {
-      "attempts": 1,
-      "paired": 0,
-      "partial": 1,
-      "unfilled": 0,
-      "total_pnl": 0.0
-    },
-    "0.015": {
-      "attempts": 2,
-      "paired": 0,
-      "partial": 1,
-      "unfilled": 1,
-      "total_pnl": 0.0
-    },
-    "0.020": {
-      "attempts": 9,
-      "paired": 1,
-      "partial": 7,
-      "unfilled": 1,
-      "total_pnl": 0.3
-    },
-    "0.025": {
-      "attempts": 12,
-      "paired": 3,
-      "partial": 7,
-      "unfilled": 2,
-      "total_pnl": 0.8999999999999999
-    },
-    "0.030": {
-      "attempts": 4,
-      "paired": 1,
-      "partial": 3,
-      "unfilled": 0,
-      "total_pnl": -0.19
-    }
-  },
-  "11": {
-    "0.010": {
-      "attempts": 6,
-      "paired": 1,
-      "partial": 4,
-      "unfilled": 1,
-      "total_pnl": 0.18
-    },
-    "0.015": {
-      "attempts": 12,
-      "paired": 1,
-      "partial": 11,
-      "unfilled": 0,
-      "total_pnl": 0.18
-    },
-    "0.020": {
+    "0.100": {
       "attempts": 0,
       "paired": 0,
       "partial": 0,
       "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.025": {
-      "attempts": 9,
-      "paired": 2,
-      "partial": 5,
-      "unfilled": 2,
-      "total_pnl": 0.6
-    },
-    "0.030": {
-      "attempts": 2,
+    "0.110": {
+      "attempts": 0,
       "paired": 0,
-      "partial": 2,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.120": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "10": {
+    "0.100": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.110": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.120": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "11": {
+    "0.100": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.110": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.120": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
       "unfilled": 0,
       "total_pnl": 0.0
     }
   },
   "12": {
-    "0.010": {
-      "attempts": 3,
-      "paired": 1,
-      "partial": 1,
-      "unfilled": 1,
-      "total_pnl": 0.18
-    },
-    "0.015": {
-      "attempts": 1,
-      "paired": 0,
-      "partial": 0,
-      "unfilled": 1,
-      "total_pnl": 0.0
-    },
-    "0.020": {
-      "attempts": 6,
-      "paired": 1,
-      "partial": 3,
-      "unfilled": 2,
-      "total_pnl": 0.3
-    },
-    "0.025": {
-      "attempts": 9,
-      "paired": 2,
-      "partial": 6,
-      "unfilled": 1,
-      "total_pnl": 0.8999999999999999
-    },
-    "0.030": {
-      "attempts": 19,
-      "paired": 2,
-      "partial": 13,
-      "unfilled": 4,
-      "total_pnl": 1.67
-    }
-  },
-  "13": {
-    "0.010": {
+    "0.100": {
       "attempts": 0,
       "paired": 0,
       "partial": 0,
       "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.015": {
-      "attempts": 8,
-      "paired": 3,
-      "partial": 3,
-      "unfilled": 2,
-      "total_pnl": 0.78
-    },
-    "0.020": {
-      "attempts": 4,
+    "0.110": {
+      "attempts": 0,
       "paired": 0,
-      "partial": 1,
-      "unfilled": 3,
+      "partial": 0,
+      "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.025": {
-      "attempts": 7,
-      "paired": 1,
-      "partial": 3,
-      "unfilled": 3,
-      "total_pnl": 0.5
+    "0.120": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
     },
-    "0.030": {
-      "attempts": 18,
-      "paired": 4,
-      "partial": 10,
-      "unfilled": 4,
-      "total_pnl": 1.39
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "13": {
+    "0.100": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.110": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.120": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
     }
   },
   "14": {
-    "0.010": {
-      "attempts": 5,
+    "0.100": {
+      "attempts": 0,
       "paired": 0,
-      "partial": 1,
-      "unfilled": 4,
+      "partial": 0,
+      "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.015": {
-      "attempts": 20,
-      "paired": 4,
-      "partial": 10,
-      "unfilled": 6,
-      "total_pnl": 1.0599999999999998
-    },
-    "0.020": {
-      "attempts": 2,
+    "0.110": {
+      "attempts": 0,
       "paired": 0,
-      "partial": 1,
-      "unfilled": 1,
-      "total_pnl": 5.3
-    },
-    "0.025": {
-      "attempts": 3,
-      "paired": 2,
       "partial": 0,
-      "unfilled": 1,
-      "total_pnl": 0.8
+      "unfilled": 0,
+      "total_pnl": 0.0
     },
-    "0.030": {
+    "0.120": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
       "attempts": 0,
       "paired": 0,
       "partial": 0,
@@ -555,336 +660,399 @@
     }
   },
   "15": {
-    "0.010": {
-      "attempts": 2,
+    "0.100": {
+      "attempts": 0,
       "paired": 0,
       "partial": 0,
-      "unfilled": 2,
-      "total_pnl": 0.0
-    },
-    "0.015": {
-      "attempts": 28,
-      "paired": 5,
-      "partial": 15,
-      "unfilled": 8,
-      "total_pnl": 0.99
-    },
-    "0.020": {
-      "attempts": 1,
-      "paired": 0,
-      "partial": 0,
-      "unfilled": 1,
-      "total_pnl": 0.0
-    },
-    "0.025": {
-      "attempts": 2,
-      "paired": 1,
-      "partial": 1,
       "unfilled": 0,
-      "total_pnl": 6.77
+      "total_pnl": 0.0
     },
-    "0.030": {
-      "attempts": 4,
-      "paired": 1,
+    "0.110": {
+      "attempts": 0,
+      "paired": 0,
       "partial": 0,
-      "unfilled": 3,
-      "total_pnl": -0.43
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.120": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
     }
   },
   "16": {
-    "0.010": {
-      "attempts": 2,
-      "paired": 1,
+    "0.100": {
+      "attempts": 0,
+      "paired": 0,
       "partial": 0,
-      "unfilled": 1,
-      "total_pnl": 0.3
+      "unfilled": 0,
+      "total_pnl": 0.0
     },
-    "0.015": {
-      "attempts": 3,
-      "paired": 2,
+    "0.110": {
+      "attempts": 0,
+      "paired": 0,
       "partial": 0,
-      "unfilled": 1,
-      "total_pnl": -0.45
+      "unfilled": 0,
+      "total_pnl": 0.0
     },
-    "0.020": {
-      "attempts": 11,
-      "paired": 2,
-      "partial": 7,
-      "unfilled": 2,
-      "total_pnl": 1.7
-    },
-    "0.025": {
-      "attempts": 2,
-      "paired": 1,
+    "0.120": {
+      "attempts": 0,
+      "paired": 0,
       "partial": 0,
-      "unfilled": 1,
-      "total_pnl": 0.05
+      "unfilled": 0,
+      "total_pnl": 0.0
     },
-    "0.030": {
-      "attempts": 15,
-      "paired": 3,
-      "partial": 8,
-      "unfilled": 4,
-      "total_pnl": 2.08
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
     }
   },
   "17": {
-    "0.010": {
-      "attempts": 5,
-      "paired": 1,
+    "0.100": {
+      "attempts": 0,
+      "paired": 0,
       "partial": 0,
-      "unfilled": 4,
-      "total_pnl": -0.67
+      "unfilled": 0,
+      "total_pnl": 0.0
     },
-    "0.015": {
-      "attempts": 14,
-      "paired": 1,
-      "partial": 9,
-      "unfilled": 4,
-      "total_pnl": 0.3
-    },
-    "0.020": {
-      "attempts": 4,
-      "paired": 2,
+    "0.110": {
+      "attempts": 0,
+      "paired": 0,
       "partial": 0,
-      "unfilled": 2,
-      "total_pnl": 1.82
+      "unfilled": 0,
+      "total_pnl": 0.0
     },
-    "0.025": {
-      "attempts": 7,
-      "paired": 1,
-      "partial": 4,
-      "unfilled": 2,
-      "total_pnl": 0.5
+    "0.120": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
     },
-    "0.030": {
-      "attempts": 7,
-      "paired": 4,
-      "partial": 1,
-      "unfilled": 2,
-      "total_pnl": 1.0199999999999998
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
     }
   },
   "18": {
-    "0.010": {
-      "attempts": 1,
+    "0.100": {
+      "attempts": 0,
       "paired": 0,
       "partial": 0,
-      "unfilled": 1,
+      "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.015": {
-      "attempts": 21,
-      "paired": 5,
-      "partial": 10,
-      "unfilled": 6,
-      "total_pnl": 0.8599999999999999
-    },
-    "0.020": {
-      "attempts": 3,
-      "paired": 2,
-      "partial": 0,
-      "unfilled": 1,
-      "total_pnl": -0.13
-    },
-    "0.025": {
-      "attempts": 1,
+    "0.110": {
+      "attempts": 0,
       "paired": 0,
       "partial": 0,
-      "unfilled": 1,
+      "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.030": {
-      "attempts": 10,
+    "0.120": {
+      "attempts": 0,
       "paired": 0,
-      "partial": 7,
-      "unfilled": 3,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
       "total_pnl": 0.0
     }
   },
   "19": {
-    "0.010": {
+    "0.100": {
       "attempts": 0,
       "paired": 0,
       "partial": 0,
       "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.015": {
-      "attempts": 7,
-      "paired": 2,
-      "partial": 4,
-      "unfilled": 1,
-      "total_pnl": 0.6
-    },
-    "0.020": {
-      "attempts": 2,
+    "0.110": {
+      "attempts": 0,
       "paired": 0,
       "partial": 0,
-      "unfilled": 2,
+      "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.025": {
-      "attempts": 3,
+    "0.120": {
+      "attempts": 0,
       "paired": 0,
       "partial": 0,
-      "unfilled": 3,
+      "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.030": {
-      "attempts": 30,
-      "paired": 5,
-      "partial": 19,
-      "unfilled": 6,
-      "total_pnl": 5.1
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
     }
   },
   "20": {
-    "0.010": {
-      "attempts": 1,
-      "paired": 0,
-      "partial": 0,
-      "unfilled": 1,
-      "total_pnl": 0.0
-    },
-    "0.015": {
-      "attempts": 10,
-      "paired": 1,
-      "partial": 4,
-      "unfilled": 5,
-      "total_pnl": 1.39
-    },
-    "0.020": {
-      "attempts": 19,
-      "paired": 3,
-      "partial": 12,
-      "unfilled": 4,
-      "total_pnl": 2.82
-    },
-    "0.025": {
-      "attempts": 3,
-      "paired": 0,
-      "partial": 0,
-      "unfilled": 3,
-      "total_pnl": 0.0
-    },
-    "0.030": {
-      "attempts": 4,
-      "paired": 1,
-      "partial": 2,
-      "unfilled": 1,
-      "total_pnl": -0.39
-    }
-  },
-  "21": {
-    "0.010": {
-      "attempts": 2,
-      "paired": 1,
-      "partial": 0,
-      "unfilled": 1,
-      "total_pnl": 0.3
-    },
-    "0.015": {
-      "attempts": 1,
-      "paired": 1,
-      "partial": 0,
-      "unfilled": 0,
-      "total_pnl": 0.3
-    },
-    "0.020": {
-      "attempts": 2,
-      "paired": 1,
-      "partial": 0,
-      "unfilled": 1,
-      "total_pnl": 0.5
-    },
-    "0.025": {
-      "attempts": 23,
-      "paired": 3,
-      "partial": 13,
-      "unfilled": 7,
-      "total_pnl": 1.4700000000000002
-    },
-    "0.030": {
-      "attempts": 3,
-      "paired": 1,
-      "partial": 0,
-      "unfilled": 2,
-      "total_pnl": -0.69
-    }
-  },
-  "22": {
-    "0.010": {
-      "attempts": 1,
-      "paired": 0,
-      "partial": 0,
-      "unfilled": 1,
-      "total_pnl": 0.0
-    },
-    "0.015": {
-      "attempts": 2,
-      "paired": 1,
-      "partial": 0,
-      "unfilled": 1,
-      "total_pnl": 0.3
-    },
-    "0.020": {
-      "attempts": 3,
-      "paired": 0,
-      "partial": 0,
-      "unfilled": 3,
-      "total_pnl": 0.0
-    },
-    "0.025": {
-      "attempts": 26,
-      "paired": 3,
-      "partial": 17,
-      "unfilled": 6,
-      "total_pnl": 0.8999999999999999
-    },
-    "0.030": {
-      "attempts": 6,
-      "paired": 2,
-      "partial": 1,
-      "unfilled": 3,
-      "total_pnl": -1.1199999999999999
-    }
-  },
-  "23": {
-    "0.010": {
-      "attempts": 2,
-      "paired": 2,
-      "partial": 0,
-      "unfilled": 0,
-      "total_pnl": 2.9
-    },
-    "0.015": {
+    "0.100": {
       "attempts": 0,
       "paired": 0,
       "partial": 0,
       "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.020": {
-      "attempts": 4,
+    "0.110": {
+      "attempts": 0,
       "paired": 0,
-      "partial": 2,
-      "unfilled": 2,
+      "partial": 0,
+      "unfilled": 0,
       "total_pnl": 0.0
     },
-    "0.025": {
-      "attempts": 3,
-      "paired": 1,
-      "partial": 1,
-      "unfilled": 1,
-      "total_pnl": 1.05
+    "0.120": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
     },
-    "0.030": {
-      "attempts": 25,
-      "paired": 3,
-      "partial": 13,
-      "unfilled": 9,
-      "total_pnl": 2.59
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "21": {
+    "0.100": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.110": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.120": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "22": {
+    "0.100": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.110": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.120": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    }
+  },
+  "23": {
+    "0.100": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.110": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.120": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.130": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.140": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
+    },
+    "0.150": {
+      "attempts": 0,
+      "paired": 0,
+      "partial": 0,
+      "unfilled": 0,
+      "total_pnl": 0.0
     }
   }
 }

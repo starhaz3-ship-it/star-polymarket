@@ -1,6 +1,6 @@
 {
   "stats": {
-    "pairs_attempted": 0,
+    "pairs_attempted": 1,
     "pairs_completed": 0,
     "pairs_partial": 0,
     "pairs_cancelled": 0,
@@ -12,16 +12,64 @@
     "worst_pair_pnl": 0.0,
     "avg_combined_price": 0.0,
     "avg_spread_captured": 0.0,
-    "fills_up": 0,
-    "fills_down": 0,
+    "fills_up": 1,
+    "fills_down": 1,
     "start_time": "",
     "late_candle_attempts": 0,
     "late_candle_paired": 0,
     "late_candle_standalone": 0,
     "late_candle_pnl": 0.0,
-    "version": "V4.1"
+    "version": "V4.2"
   },
   "resolved": [],
-  "active_positions": [],
-  "last_updated": ""
+  "active_positions": [
+    {
+      "market_id": "0x0c953f35b9eb36d351fd07c8609be3c3c011b361099912fe838c4cfd201642f1",
+      "market_num_id": "1378536",
+      "question": "Bitcoin Up or Down - February 15, 4:25PM-4:30PM ET",
+      "asset": "BTC",
+      "up_order": {
+        "order_id": "0x97c509c4627e98fd654765fbce3f6df49fb03f40bf2ce185e454c222ccc5719c",
+        "market_id": "0x0c953f35b9eb36d351fd07c8609be3c3c011b361099912fe838c4cfd201642f1",
+        "token_id": "88923843753587530503014558652406347528711019744780294390294073933438403200309",
+        "side_label": "UP",
+        "price": 0.4,
+        "size_shares": 7.0,
+        "size_usd": 2.8000000000000003,
+        "placed_at": "2026-02-15T21:24:20.139594+00:00",
+        "status": "filled",
+        "fill_price": 0.4,
+        "fill_shares": 7.0
+      },
+      "down_order": {
+        "order_id": "0x72c5322f927ca6a60f9d2346d125b5f4b7a3c9b0091151d000d17ac0f17a3f13",
+        "market_id": "0x0c953f35b9eb36d351fd07c8609be3c3c011b361099912fe838c4cfd201642f1",
+        "token_id": "43390011869836424596130630096771692172759988973655009071189788933333244094033",
+        "side_label": "DOWN",
+        "price": 0.39,
+        "size_shares": 7.0,
+        "size_usd": 2.73,
+        "placed_at": "2026-02-15T21:24:20.139594+00:00",
+        "status": "filled",
+        "fill_price": 0.39,
+        "fill_shares": 7.0
+      },
+      "up_filled": true,
+      "down_filled": true,
+      "combined_cost": 5.53,
+      "outcome": null,
+      "pnl": 0.0,
+      "status": "paired",
+      "created_at": "2026-02-15T21:24:20.139594+00:00",
+      "bid_offset_used": 0.11,
+      "hour_utc": 21,
+      "first_fill_time": "2026-02-15T21:26:01.430181+00:00",
+      "duration_min": 5,
+      "entry_type": "maker",
+      "late_candle_pending": false,
+      "loser_buy_price": 0.0,
+      "sell_attempts": 0
+    }
+  ],
+  "last_updated": "2026-02-15T21:26:35.036923+00:00"
 }

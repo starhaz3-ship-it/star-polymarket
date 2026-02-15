@@ -388,10 +388,10 @@ def auto_redeem_winnings():
 class MakerConfig:
     """Market maker configuration — V4 Accumulation Maker."""
     # Spread targets
-    MAX_COMBINED_PRICE: float = 0.97     # V4: 3% minimum edge (was 0.98)
-    MIN_SPREAD_EDGE: float = 0.03        # V4: 3% minimum edge (was 0.01)
-    BID_OFFSET: float = 0.03             # V4: 3c offset floor. Bids at ~$0.47 for 3%+ edge.
-    MIN_BID_OFFSET: float = 0.03         # V4: ML optimizer cannot go below this
+    MAX_COMBINED_PRICE: float = 0.80     # V4.2: 20% minimum edge (gabagool22 deep bids)
+    MIN_SPREAD_EDGE: float = 0.20        # V4.2: 20% minimum edge
+    BID_OFFSET: float = 0.12             # V4.2: 12c offset. Bids at ~$0.38 for 25%+ edge.
+    MIN_BID_OFFSET: float = 0.10         # V4.2: ML optimizer floor at 10c
 
     # Position sizing
     SIZE_PER_SIDE_USD: float = 3.0       # V4: $3/side (was $10)
@@ -431,10 +431,10 @@ class MakerConfig:
     # "max_combined" = maximum combined bid price (lower = more edge required)
     # "balance_range" = (min, max) for each side price (tighter = more balanced)
     ASSET_TIERS: dict = field(default_factory=lambda: {
-        "BTC": {"max_combined": 0.995, "balance_range": (0.38, 0.62)},  # V3.0: Tighter DOWN bid → higher combined OK
-        "ETH": {"max_combined": 0.995, "balance_range": (0.38, 0.62)},  # V3.0: Tighter DOWN bid → higher combined OK
-        "SOL": {"max_combined": 0.995, "balance_range": (0.40, 0.60)},  # V3.0: Tighter DOWN bid → higher combined OK
-        "XRP": {"max_combined": 0.995, "balance_range": (0.40, 0.60)},  # V3.0: Tighter DOWN bid → higher combined OK
+        "BTC": {"max_combined": 0.80, "balance_range": (0.25, 0.75)},  # V4.2: Deep bids, wide range
+        "ETH": {"max_combined": 0.80, "balance_range": (0.25, 0.75)},  # V4.2: Deep bids, wide range
+        "SOL": {"max_combined": 0.80, "balance_range": (0.25, 0.75)},  # V4.2: Deep bids, wide range
+        "XRP": {"max_combined": 0.80, "balance_range": (0.25, 0.75)},  # V4.2: Deep bids, wide range
     })
 
     # V3.0: Momentum directional trading (@vague-sourdough reverse-engineered strategy)
@@ -471,7 +471,7 @@ class MakerConfig:
     #   1. Complete partials into cheap pairs ($0.67 combined vs $0.93 normal)
     #   2. Standalone reversal bets (small loss if wrong, huge win if BTC reverses)
     LATE_CANDLE_ENABLED: bool = True
-    LATE_CANDLE_WAIT_SEC: float = 150.0       # 2.5 min into 5-min market
+    LATE_CANDLE_WAIT_SEC: float = 90.0        # V4.2: 1.5 min into 5-min market (was 150s)
     LATE_CANDLE_MAX_WAIT_SEC: float = 240.0   # Stop at 4 min (60s before close)
     LATE_CANDLE_SIZE_USD: float = 3.0         # Same as normal maker
     LATE_CANDLE_MAX_LOSER_PRICE: float = 0.30 # Only buy loser if <= $0.30
@@ -490,7 +490,7 @@ class OffsetOptimizer:
     Tracks per-hour, per-offset-bucket stats and uses Thompson Sampling
     to balance exploration vs exploitation of bid offsets.
     """
-    OFFSET_BUCKETS = [0.03, 0.035, 0.04, 0.045, 0.05]  # V4: floor at 3c for 3%+ edge
+    OFFSET_BUCKETS = [0.10, 0.11, 0.12, 0.13, 0.14, 0.15]  # V4.2: deep bids 10-15c
     STATE_FILE = Path(__file__).parent / "maker_ml_state.json"
     EXPLORE_RATE = 0.15  # 15% explore, 85% exploit
 
@@ -541,7 +541,7 @@ class OffsetOptimizer:
             return random.choice(self.OFFSET_BUCKETS)
 
         # Exploit: pick offset with best avg profit per attempt
-        best_offset = 0.03  # V4: default to 3c (was 2c)
+        best_offset = 0.12  # V4.2: default to 12c deep bid
         best_score = -999.0
         for off in self.OFFSET_BUCKETS:
             key = f"{off:.3f}"
@@ -1202,7 +1202,7 @@ class CryptoMarketMaker:
             "late_candle_paired": 0,       # Partials completed via late candle
             "late_candle_standalone": 0,    # Standalone loser-side bets
             "late_candle_pnl": 0.0,
-            "version": "V4.1",
+            "version": "V4.2",
         }
 
         # Daily tracking
@@ -1580,7 +1580,7 @@ class CryptoMarketMaker:
         max_time = pair.duration_min * 1.5  # e.g. 7.5min for 5M, 22.5min for 15M
 
         # V1.5: Per-asset tier thresholds
-        tier = self.config.ASSET_TIERS.get(pair.asset, {"max_combined": 0.96, "balance_range": (0.40, 0.60)})
+        tier = self.config.ASSET_TIERS.get(pair.asset, {"max_combined": 0.80, "balance_range": (0.25, 0.75)})
         max_combined = tier["max_combined"]
         bal_min, bal_max = tier["balance_range"]
 
@@ -3179,8 +3179,8 @@ class CryptoMarketMaker:
         """Main market maker loop."""
         print("=" * 70)
         mode = "PAPER" if self.paper else "LIVE"
-        print(f"ACCUMULATION MAKER V4.1 - {mode} MODE")
-        print(f"Strategy: Buy BOTH Up+Down @ 3c+ offset + late-candle loser buys (5M BTC)")
+        print(f"ACCUMULATION MAKER V4.2 - {mode} MODE")
+        print(f"Strategy: DEEP BIDS both sides @ {self.config.BID_OFFSET*100:.0f}c+ offset (gabagool22) + late-candle (5M BTC)")
         print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Min offset: {self.config.MIN_BID_OFFSET}c | "
               f"Timeout: {self.config.RIDE_AFTER_SEC}s -> {self.config.PARTIAL_TIMEOUT_ACTION}")
         print(f"Max combined: ${self.config.MAX_COMBINED_PRICE} | Min edge: {self.config.MIN_SPREAD_EDGE*100:.0f}%")
