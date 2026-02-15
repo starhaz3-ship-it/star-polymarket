@@ -383,7 +383,7 @@ class MakerConfig:
     BID_OFFSET: float = 0.02             # Bid this much below best ask
 
     # Position sizing
-    SIZE_PER_SIDE_USD: float = 5.0       # V3.0: $5/side
+    SIZE_PER_SIDE_USD: float = 10.0      # V3.2: $10/side (doubled from $5)
     MAX_PAIR_EXPOSURE: float = 70.0      # V2.5: $70/pair ($35 x 2 sides)
     MAX_TOTAL_EXPOSURE: float = 250.0    # V2.5: $250 max (~$280 cap - $30 buffer)
     MIN_SHARES: int = 5                  # CLOB minimum order size
@@ -392,7 +392,8 @@ class MakerConfig:
     DAILY_LOSS_LIMIT: float = 15.0       # $15 daily loss limit (scaled for $3/side)
     MAX_CONCURRENT_PAIRS: int = 12       # V1.5: 4 assets x 15M + BTC 5M = needs ~12 slots
     MAX_SINGLE_SIDED: int = 2            # V1.1: Was 3. Partial fills = directional risk. Allow max 2.
-    TAKER_HEDGE_MAX_PRICE: float = 0.58   # V3.1: raised from 0.53 — real cap is (1.00 - fill_price)
+    TAKER_HEDGE_MAX_PRICE: float = 0.58   # V3.1: raised from 0.53 — absolute ceiling
+    TAKER_HEDGE_OVERPAY: float = 0.03     # V3.2: pay up to 3c above breakeven to actually get filled
     TAKER_HEDGE_AFTER_SEC: float = 30.0   # V3.0: 30s optimal. Data: 53% pair by 30s, marginal gains flatten after. 10x cheaper to hedge than leave unpaired.
 
     # Timing
@@ -427,7 +428,7 @@ class MakerConfig:
     # V3.0: Momentum directional trading (@vague-sourdough reverse-engineered strategy)
     # Watch Binance BTC for first 2-3 min of each 5-min round. If momentum > threshold,
     # buy the predicted direction. Backtested: 72-90% accuracy depending on threshold.
-    MOMENTUM_ENABLED: bool = True
+    MOMENTUM_ENABLED: bool = False    # V3.1: disabled — 25% WR, -$11.05 live
     MOMENTUM_SIZE_USD: float = 5.0       # $ per directional trade (base)
     MOMENTUM_CONFIRMED_SIZE_USD: float = 10.0  # $ when V5 regime confirms (2x)
     MOMENTUM_THRESHOLD_BPS: float = 15.0 # Minimum momentum in basis points to trigger
@@ -439,7 +440,7 @@ class MakerConfig:
     # V12a: Order Flow (Taker Flow Imbalance) — non-overlapping with V3.0 momentum
     # Fires when taker buy volume is heavily skewed AND volume surges >= 2x average.
     # Only fires on bars where V3.0 momentum did NOT fire (different signal source).
-    ORDERFLOW_ENABLED: bool = True
+    ORDERFLOW_ENABLED: bool = False   # V3.1: disabled with momentum
     ORDERFLOW_SIZE_USD: float = 5.0          # $ per order flow trade
     ORDERFLOW_BUY_RATIO_THRESHOLD: float = 0.56  # Min taker_buy / total_volume ratio
     ORDERFLOW_VOL_RATIO_MIN: float = 2.0     # Volume must be >= 2x rolling average
@@ -448,7 +449,7 @@ class MakerConfig:
     # Late Entry: 15m-only momentum strategy
     # Wait 10 min into a 15m bar, then check momentum direction.
     # 93.2% WR backtested. Only fires on 15m BTC markets.
-    LATE_ENTRY_ENABLED: bool = True
+    LATE_ENTRY_ENABLED: bool = False   # V3.1: disabled — back to paper
     LATE_ENTRY_SIZE_USD: float = 5.0
     LATE_ENTRY_WAIT_SECONDS: float = 600.0    # 10 minutes
     LATE_ENTRY_MAX_WAIT_SECONDS: float = 750.0  # Don't enter after 12.5 min
@@ -1822,10 +1823,12 @@ class CryptoMarketMaker:
                     unfilled_order = pos.down_order if pos.up_filled else pos.up_order
                     shares = filled_order.fill_shares if filled_order else 0
 
-                    # Calculate max hedge price: combined must be <= $1.00 for breakeven
+                    # Calculate max hedge price: breakeven + overpay tolerance
+                    # e.g. filled at $0.49 → breakeven $0.51 + 0.03 overpay → bid $0.54
+                    # Guaranteed -$0.30 loss beats coin-flip -$4.90 ride
                     max_hedge = min(
                         self.config.TAKER_HEDGE_MAX_PRICE,
-                        round(1.00 - filled_order.fill_price, 2)
+                        round(1.00 - filled_order.fill_price + self.config.TAKER_HEDGE_OVERPAY, 2)
                     ) if filled_order else 0
 
                     hedge_ok = False
@@ -1873,7 +1876,7 @@ class CryptoMarketMaker:
                                     err = hedge_resp.get("errorMsg", "?")
                                     print(f"  [HEDGE] FOK failed (no liquidity at ${max_hedge:.2f}): {err} — falling back to ride")
                             except Exception as e:
-                                print(f"  [HEDGE] Error: {e} — falling back to ride")
+                                print(f"  [HEDGE] Error: {e} (tried ${max_hedge:.2f}, filled@${filled_order.fill_price:.2f}) — falling back to ride")
                         else:
                             # Paper mode: simulate hedge at unfilled order's original price
                             unfilled_order.status = "filled"
