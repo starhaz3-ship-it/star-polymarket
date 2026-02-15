@@ -78,6 +78,21 @@ KNOWN_WHALES = {
         "trust_score": 0.78,
         "specialty": ["events", "entertainment"],
     },
+    "0x70ec235a31eb35f243e2618d6ea3b5b8962bbb5d": {
+        "alias": "vague-sourdough",
+        "trust_score": 0.88,
+        "specialty": ["crypto", "btc", "5m-scalper"],
+    },
+    "0xd0bde12c58772999c61c2b8e0d31ba608c52a5d6": {
+        "alias": "Giving-Chorus",
+        "trust_score": 0.92,
+        "specialty": ["crypto", "high-conviction"],
+    },
+    "0xd0d6053c3c37e727402d84c14069780d360993aa": {
+        "alias": "k9Q2mX4L8A7ZP3R",
+        "trust_score": 0.95,
+        "specialty": ["crypto", "diversified", "high-volume"],
+    },
 }
 
 

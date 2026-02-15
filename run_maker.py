@@ -169,7 +169,9 @@ def _try_gasless_redeem():
         if results:
             print(f"[REDEEM] Gasless OK: {len(results)} batch(es), ~${total:.0f}")
             return True, total
-        # Results empty but positions exist = relayer failed silently
+        # Results empty but positions exist = relayer failed silently (poly_web3 swallowed exception)
+        # Set cooldown so we don't spam every 45 seconds
+        _relayer_quota_reset_at = time.time() + 300  # 5 min cooldown
         return False, 0.0
 
     except Exception as e:
@@ -262,16 +264,22 @@ def _init_redeem():
         return False
 
 
+_onchain_redeem_backoff_until = 0.0  # Cooldown for on-chain fallback
+
 def auto_redeem_winnings():
     """Auto-redeem: try gasless relayer first, fall back to direct on-chain.
     Skips direct on-chain if gas > 200 gwei to preserve MATIC.
     Returns: float amount of USDC claimed (0.0 if nothing claimed)."""
+    global _onchain_redeem_backoff_until
     # Try gasless relayer first (free, no MATIC needed)
     success, claimed = _try_gasless_redeem()
     if success:
         return claimed
 
-    # Fallback: direct on-chain CTF contract call
+    # Fallback: direct on-chain CTF contract call (with backoff to avoid log spam)
+    if time.time() < _onchain_redeem_backoff_until:
+        return 0.0
+
     try:
         proxy_address = os.getenv("POLYMARKET_PROXY_ADDRESS", "")
         if not proxy_address:
@@ -310,7 +318,8 @@ def auto_redeem_winnings():
             nonce_latest = _redeem_w3.eth.get_transaction_count(_redeem_account.address, "latest")
             nonce_pending = _redeem_w3.eth.get_transaction_count(_redeem_account.address, "pending")
             if nonce_pending > nonce_latest:
-                print(f"[REDEEM] Pending TX (nonce {nonce_latest}->{nonce_pending}), waiting...")
+                print(f"[REDEEM] Pending TX (nonce {nonce_latest}->{nonce_pending}), backing off 5min")
+                _onchain_redeem_backoff_until = time.time() + 300
                 return 0.0
         except Exception:
             pass
@@ -363,11 +372,7 @@ def auto_redeem_winnings():
         err = str(e)
         if "No winning" not in err and "already known" not in err:
             print(f"[REDEEM] Error: {err[:100]}")
-        return 0.0
-
-    except Exception as e:
-        if "No winning" not in str(e):
-            print(f"[REDEEM] Error: {str(e)[:80]}")
+        _onchain_redeem_backoff_until = time.time() + 300  # Back off on errors too
         return 0.0
 
 
