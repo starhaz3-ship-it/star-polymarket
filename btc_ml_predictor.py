@@ -1017,7 +1017,11 @@ class BTCPredictor:
 
             def scaler_to_dict(sc):
                 if hasattr(sc, 'mean_') and sc.mean_ is not None:
-                    return {'mean': sc.mean_.tolist(), 'scale': sc.scale_.tolist()}
+                    try:
+                        n_samples = int(np.asarray(sc.n_samples_seen_).flat[0]) if hasattr(sc, 'n_samples_seen_') and sc.n_samples_seen_ is not None else 1000
+                    except Exception:
+                        n_samples = 1000
+                    return {'mean': sc.mean_.tolist(), 'scale': sc.scale_.tolist(), 'n_samples': n_samples}
                 return None
 
             state = {
@@ -1066,6 +1070,7 @@ class BTCPredictor:
                         sc.scale_ = np.array(data['scale'])
                         sc.n_features_in_ = len(data['mean'])
                         sc.var_ = np.array(data['scale']) ** 2
+                        sc.n_samples_seen_ = np.array([data.get('n_samples', 1000)] * len(data['mean']))
 
                 restore_scaler(self.scaler, state.get('scaler'))
                 restore_scaler(self.vol_scaler, state.get('vol_scaler'))
