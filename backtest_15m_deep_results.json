@@ -1,0 +1,128 @@
+{
+  "timestamp": "2026-02-15T08:39:11.122025+00:00",
+  "bars_15m": 672,
+  "natural_up_pct": 49.4,
+  "strategies": {
+    "mean_reversion": {
+      "label": "MeanRev 15bp",
+      "trades": 108,
+      "win_rate": 24.07,
+      "total_pnl": -261.72,
+      "trades_per_day": 15.4,
+      "max_drawdown": 265.95,
+      "roi_pct": -52.8,
+      "max_win_streak": 2,
+      "max_loss_streak": 16
+    },
+    "trend_aligned": {
+      "label": "Trend LB=4 15bp",
+      "trades": 53,
+      "win_rate": 77.36,
+      "total_pnl": 125.73,
+      "trades_per_day": 7.6,
+      "max_drawdown": 14.13,
+      "roi_pct": 51.68,
+      "max_win_streak": 12,
+      "max_loss_streak": 2
+    },
+    "time_of_day": {
+      "label": "Time-of-Day",
+      "trades": 252,
+      "win_rate": 64.68,
+      "total_pnl": 310.32,
+      "trades_per_day": 36.0,
+      "max_drawdown": 19.98,
+      "roi_pct": 26.83,
+      "max_win_streak": 12,
+      "max_loss_streak": 3
+    },
+    "prior_continuation": {
+      "label": "Prior bar continuation",
+      "trades": 671,
+      "win_rate": 48.88,
+      "total_pnl": -127.89,
+      "trades_per_day": 95.9,
+      "max_drawdown": 229.05,
+      "roi_pct": -4.15,
+      "max_win_streak": 7,
+      "max_loss_streak": 11
+    },
+    "prior_reversal": {
+      "label": "Prior bar reversal",
+      "trades": 671,
+      "win_rate": 51.12,
+      "total_pnl": 7.11,
+      "trades_per_day": 95.9,
+      "max_drawdown": 219.24,
+      "roi_pct": 0.23,
+      "max_win_streak": 11,
+      "max_loss_streak": 7
+    },
+    "late_entry": {
+      "label": "Late 5min 15bp",
+      "trades": 185,
+      "win_rate": 81.08,
+      "total_pnl": 500.85,
+      "trades_per_day": 26.4,
+      "max_drawdown": 13.95,
+      "roi_pct": 58.98,
+      "max_win_streak": 18,
+      "max_loss_streak": 3
+    },
+    "vol_momentum": {
+      "label": "VolMom 15bp vol>=1.5x",
+      "trades": 35,
+      "win_rate": 74.29,
+      "total_pnl": 73.35,
+      "trades_per_day": 5.0,
+      "max_drawdown": 9.54,
+      "roi_pct": 45.66,
+      "max_win_streak": 10,
+      "max_loss_streak": 2
+    },
+    "combined": {
+      "label": "Combined mom=10 vol>=1.3",
+      "trades": 34,
+      "win_rate": 76.47,
+      "total_pnl": 77.94,
+      "trades_per_day": 4.9,
+      "max_drawdown": 13.77,
+      "roi_pct": 49.94,
+      "max_win_streak": 8,
+      "max_loss_streak": 3
+    },
+    "ema_cross": {
+      "label": "EMA 9/21",
+      "trades": 670,
+      "win_rate": 52.24,
+      "total_pnl": 74.7,
+      "trades_per_day": 95.7,
+      "max_drawdown": 104.04,
+      "roi_pct": 2.43,
+      "max_win_streak": 8,
+      "max_loss_streak": 7
+    },
+    "candle_pattern": {
+      "label": "Engulfing pattern",
+      "trades": 163,
+      "win_rate": 51.53,
+      "total_pnl": 7.83,
+      "trades_per_day": 23.3,
+      "max_drawdown": 58.14,
+      "roi_pct": 1.05,
+      "max_win_streak": 6,
+      "max_loss_streak": 7
+    },
+    "rsi_extreme": {
+      "label": "RSI2 OS<15 OB>85",
+      "trades": 407,
+      "win_rate": 52.83,
+      "total_pnl": 66.87,
+      "trades_per_day": 58.1,
+      "max_drawdown": 108.18,
+      "roi_pct": 3.58,
+      "max_win_streak": 10,
+      "max_loss_streak": 6
+    }
+  }
+}
