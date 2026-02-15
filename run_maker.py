@@ -436,6 +436,15 @@ class MakerConfig:
     MOMENTUM_MAX_CONCURRENT: int = 3     # Max simultaneous momentum positions
     MOMENTUM_DAILY_LOSS_LIMIT: float = 10.0  # Separate daily loss limit for momentum
 
+    # V12a: Order Flow (Taker Flow Imbalance) — non-overlapping with V3.0 momentum
+    # Fires when taker buy volume is heavily skewed AND volume surges >= 2x average.
+    # Only fires on bars where V3.0 momentum did NOT fire (different signal source).
+    ORDERFLOW_ENABLED: bool = True
+    ORDERFLOW_SIZE_USD: float = 5.0          # $ per order flow trade
+    ORDERFLOW_BUY_RATIO_THRESHOLD: float = 0.56  # Min taker_buy / total_volume ratio
+    ORDERFLOW_VOL_RATIO_MIN: float = 2.0     # Volume must be >= 2x rolling average
+    ORDERFLOW_VOL_SMA_PERIOD: int = 20       # Rolling average period (1m bars)
+
 
 # ============================================================================
 # ML OFFSET OPTIMIZER
@@ -576,6 +585,7 @@ class BinanceMomentum:
     """
 
     BINANCE_URL = "https://api.binance.com/api/v3/ticker/price"
+    BINANCE_KLINES_URL = "https://api.binance.com/api/v3/klines"
     RESULTS_FILE = Path(__file__).parent / "momentum_results.json"
 
     def __init__(self):
@@ -591,6 +601,10 @@ class BinanceMomentum:
         self.btc_5m_highs: List[float] = []
         self.btc_5m_lows: List[float] = []
         self.last_5m_bar_ts: int = 0
+        # V12a order flow: rolling 1m volume + taker buy tracking
+        self.vol_1m_history: List[float] = []  # total volume per 1m bar
+        self.last_kline_fetch: float = 0.0
+        self.last_kline_data: List[list] = []  # cached klines
         self._load()
 
     def _load(self):
@@ -860,6 +874,97 @@ class BinanceMomentum:
         return (f"MOM: {len(resolved)}/{total} resolved | "
                 f"WR: {wr:.0f}% | PnL: ${total_pnl:+.2f} | "
                 f"Today: ${self.momentum_daily_pnl:+.2f}")
+
+    # --- V12a Order Flow ---
+
+    async def fetch_btc_klines(self, limit: int = 25) -> List[list]:
+        """Fetch recent 1-minute BTCUSDT klines from Binance. Cached 10s."""
+        now = time.time()
+        if now - self.last_kline_fetch < 10 and self.last_kline_data:
+            return self.last_kline_data
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(self.BINANCE_KLINES_URL, params={
+                    "symbol": "BTCUSDT", "interval": "1m", "limit": limit
+                })
+                if r.status_code == 200:
+                    self.last_kline_data = r.json()
+                    self.last_kline_fetch = now
+                    # Update rolling volume history from completed bars (exclude last = current)
+                    if len(self.last_kline_data) > 1:
+                        self.vol_1m_history = [float(k[5]) for k in self.last_kline_data[:-1]]
+        except Exception as e:
+            print(f"[FLOW] Kline fetch error: {e}")
+        return self.last_kline_data
+
+    def get_orderflow_signal(self, market_id: str, config: 'MakerConfig') -> Optional[str]:
+        """V12a: Check taker flow imbalance on the current 5-min window.
+
+        Uses the last 2 completed 1m bars (matching 2-min wait) to compute:
+        - buy_ratio = sum(taker_buy_volume) / sum(total_volume)
+        - vol_ratio = sum(total_volume of 2 bars) / avg(1m volume over last 20 bars)
+
+        Returns "UP" if buy_ratio >= threshold and vol surge, "DOWN" if inverse, None otherwise.
+        Only fires if V3.0 momentum did NOT fire on this market.
+        """
+        tracking = self.tracked_markets.get(market_id)
+        if not tracking or tracking["traded"]:
+            return None
+
+        open_time = tracking["open_time"]
+        now = datetime.now(timezone.utc)
+        elapsed_sec = (now - open_time).total_seconds()
+
+        # Same 2-min wait window as V3.0
+        if elapsed_sec < config.MOMENTUM_WAIT_SECONDS:
+            return None
+        if elapsed_sec > config.MOMENTUM_MAX_WAIT_SECONDS:
+            return None
+
+        # Skip if V3.0 already fired on this bar (non-overlapping)
+        if tracking.get("signal") is not None:
+            return None
+
+        klines = self.last_kline_data
+        if not klines or len(klines) < 3:
+            return None
+
+        # Use last 2 completed bars (index -3 and -2, since -1 is current)
+        recent_bars = klines[-3:-1]
+        total_vol = sum(float(k[5]) for k in recent_bars)
+        taker_buy_vol = sum(float(k[9]) for k in recent_bars)
+
+        if total_vol <= 0:
+            return None
+
+        buy_ratio = taker_buy_vol / total_vol
+
+        # Volume surge check: compare 2-bar volume to rolling avg
+        vol_sma_period = config.ORDERFLOW_VOL_SMA_PERIOD
+        if len(self.vol_1m_history) < vol_sma_period:
+            return None
+        avg_vol = sum(self.vol_1m_history[-vol_sma_period:]) / vol_sma_period
+        if avg_vol <= 0:
+            return None
+        # Per-bar volume ratio (divide by 2 since we summed 2 bars)
+        vol_ratio = (total_vol / 2.0) / avg_vol
+
+        if vol_ratio < config.ORDERFLOW_VOL_RATIO_MIN:
+            return None
+
+        # Determine direction from flow imbalance
+        if buy_ratio >= config.ORDERFLOW_BUY_RATIO_THRESHOLD:
+            direction = "UP"
+        elif (1.0 - buy_ratio) >= config.ORDERFLOW_BUY_RATIO_THRESHOLD:
+            direction = "DOWN"
+        else:
+            return None
+
+        tracking["flow_signal"] = direction
+        tracking["flow_buy_ratio"] = buy_ratio
+        tracking["flow_vol_ratio"] = vol_ratio
+        tracking["flow_signal_time"] = now.isoformat()
+        return direction
 
 
 # ============================================================================
@@ -1132,7 +1237,7 @@ class CryptoMarketMaker:
         V2.4: 5M markets moved to tag_slug='5M' (was under '15M' before)."""
         pairs = []
         async with httpx.AsyncClient(timeout=15) as client:
-            for tag_slug, duration in [("5M", 5)]:
+            for tag_slug, duration in [("5M", 5), ("15M", 15)]:
                 try:
                     r = await client.get(
                         "https://gamma-api.polymarket.com/events",
@@ -1920,10 +2025,14 @@ class CryptoMarketMaker:
                 self.config.MOMENTUM_ENABLED = False
                 return
 
-        # Fetch current BTC price
+        # Fetch current BTC price + klines (for order flow)
         btc_price = await self.momentum.fetch_btc_price()
         if btc_price <= 0:
             return
+
+        # V12a: fetch 1m klines for taker volume data
+        if self.config.ORDERFLOW_ENABLED:
+            await self.momentum.fetch_btc_klines(limit=self.config.ORDERFLOW_VOL_SMA_PERIOD + 5)
 
         self.momentum.reset_daily()
         self.momentum.update_5m_candle(btc_price)  # V5 regime tracking
@@ -1985,6 +2094,33 @@ class CryptoMarketMaker:
             mom_bps = tracking.get("momentum_bps", 0)
             await self._place_momentum_order(target_pair, signal, mom_bps, confirmed)
             active_mom += 1
+
+        # V12a: Order flow pass — fires on markets where V3.0 did NOT fire
+        if self.config.ORDERFLOW_ENABLED:
+            for market_id, tracking in list(self.momentum.tracked_markets.items()):
+                if tracking["traded"]:
+                    continue
+                if active_mom >= self.config.MOMENTUM_MAX_CONCURRENT:
+                    break
+
+                flow_signal = self.momentum.get_orderflow_signal(market_id, self.config)
+                if not flow_signal:
+                    continue
+
+                # Find matching MarketPair
+                target_pair = None
+                for pair in markets:
+                    if pair.market_id == market_id:
+                        target_pair = pair
+                        break
+                if not target_pair:
+                    continue
+
+                buy_ratio = tracking.get("flow_buy_ratio", 0)
+                vol_ratio = tracking.get("flow_vol_ratio", 0)
+                print(f"  [FLOW] BTC {flow_signal} | buy_ratio={buy_ratio:.3f} vol={vol_ratio:.1f}x")
+                await self._place_orderflow_order(target_pair, flow_signal, buy_ratio, vol_ratio)
+                active_mom += 1
 
         # Cleanup old tracking data
         self.momentum.cleanup_old()
@@ -2052,6 +2188,68 @@ class CryptoMarketMaker:
         )
 
         # Also add to _entered_markets so maker doesn't double-enter
+        self._entered_markets.add(pair.market_id)
+
+    async def _place_orderflow_order(self, pair: MarketPair, direction: str,
+                                     buy_ratio: float, vol_ratio: float):
+        """Place a directional BUY order based on V12a order flow signal."""
+        token_id = pair.up_token_id if direction == "UP" else pair.down_token_id
+        mid_price = pair.up_mid if direction == "UP" else pair.down_mid
+
+        buy_price = round(min(0.95, mid_price + 0.01), 2)
+        buy_price = max(0.05, buy_price)
+
+        size_usd = self.config.ORDERFLOW_SIZE_USD
+        shares = max(self.config.MIN_SHARES, math.floor(size_usd / buy_price))
+        cost_usd = buy_price * shares
+
+        if self.paper:
+            order_id = f"flow_{direction.lower()}_{pair.market_id[:12]}_{int(time.time())}"
+            print(f"  [FLOW PAPER] {pair.asset} {direction} @ ${buy_price:.2f} x {shares} "
+                  f"(${cost_usd:.2f}) | ratio={buy_ratio:.3f} vol={vol_ratio:.1f}x")
+        else:
+            try:
+                from py_clob_client.clob_types import OrderArgs, OrderType
+                from py_clob_client.order_builder.constants import BUY
+
+                args = OrderArgs(
+                    price=buy_price,
+                    size=float(shares),
+                    side=BUY,
+                    token_id=token_id,
+                )
+                signed = self.client.create_order(args)
+                resp = self.client.post_order(signed, OrderType.GTC)
+
+                if not resp.get("success"):
+                    print(f"  [FLOW LIVE] Order failed: {resp.get('errorMsg', '?')}")
+                    return
+
+                order_id = resp.get("orderID", "")
+                print(f"  [FLOW LIVE] {pair.asset} {direction} @ ${buy_price:.2f} x {shares} "
+                      f"(${cost_usd:.2f}) | ratio={buy_ratio:.3f} vol={vol_ratio:.1f}x | oid={order_id[:16]}...")
+            except Exception as e:
+                print(f"  [FLOW LIVE] Error: {e}")
+                return
+
+        # Record and mark as traded (reuse momentum tracking — same resolution flow)
+        self.momentum.mark_traded(pair.market_id)
+        self.momentum.record_trade(
+            market_id=pair.market_id,
+            direction=direction,
+            buy_price=buy_price,
+            shares=shares,
+            cost_usd=cost_usd,
+            momentum_bps=0.0,  # No momentum — this is order flow
+            question=pair.question,
+            market_num_id=pair.market_num_id,
+        )
+        # Tag as flow trade for separate tracking
+        if self.momentum.momentum_trades:
+            self.momentum.momentum_trades[-1]["signal_type"] = "FLOW"
+            self.momentum.momentum_trades[-1]["flow_buy_ratio"] = buy_ratio
+            self.momentum.momentum_trades[-1]["flow_vol_ratio"] = vol_ratio
+
         self._entered_markets.add(pair.market_id)
 
     async def resolve_momentum_trades(self):

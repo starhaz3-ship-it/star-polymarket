@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-02-15T08:17:39.065190+00:00",
+  "data_range": "2026-02-08 08:18 to 2026-02-15 08:17",
+  "bars_1m": 10080,
+  "bars_5m": 2016,
+  "natural_up_pct": 51.34,
+  "best_config": {
+    "buy_ratio_threshold": 0.56,
+    "vol_ratio_threshold": 3.0,
+    "require_consistency": false
+  },
+  "v30_trades": 305,
+  "v30_wr": 87.87,
+  "v30_pnl": 1012.05,
+  "v12a_all_trades": 36,
+  "v12a_all_wr": 86.11,
+  "v12a_unique_trades": 16,
+  "v12a_unique_wr": 87.5,
+  "v12a_unique_pnl": 52.56,
+  "combined_pnl": 1064.61
+}
