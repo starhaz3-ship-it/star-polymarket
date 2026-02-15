@@ -388,7 +388,7 @@ class MakerConfig:
     MIN_SHARES: int = 5                  # CLOB minimum order size
 
     # Risk
-    DAILY_LOSS_LIMIT: float = 15.0       # V2.7: Scaled with $10/side
+    DAILY_LOSS_LIMIT: float = 25.0       # V2.7: $25 daily loss limit
     MAX_CONCURRENT_PAIRS: int = 12       # V1.5: 4 assets x 15M + BTC 5M = needs ~12 slots
     MAX_SINGLE_SIDED: int = 2            # V1.1: Was 3. Partial fills = directional risk. Allow max 2.
 
