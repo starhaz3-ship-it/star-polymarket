@@ -388,7 +388,7 @@ class MakerConfig:
     MIN_SHARES: int = 5                  # CLOB minimum order size
 
     # Risk
-    DAILY_LOSS_LIMIT: float = 25.0       # V2.7: $25 daily loss limit
+    DAILY_LOSS_LIMIT: float = 40.0       # $40 daily loss limit
     MAX_CONCURRENT_PAIRS: int = 12       # V1.5: 4 assets x 15M + BTC 5M = needs ~12 slots
     MAX_SINGLE_SIDED: int = 2            # V1.1: Was 3. Partial fills = directional risk. Allow max 2.
 
@@ -1240,11 +1240,11 @@ class CryptoMarketMaker:
             # V1.5: SOL/XRP get 1min grace (thinner books), BTC/ETH get 2min
             # V1.6: 5M markets get 3.5min grace (need more time on thin books)
             if pos.duration_min <= 5:
-                PARTIAL_GRACE_MINUTES = 0.5  # V2.7: 30 seconds
+                PARTIAL_GRACE_MINUTES = 0.333  # V2.8: 20 seconds
             elif pos.asset in ("SOL", "XRP"):
-                PARTIAL_GRACE_MINUTES = 0.5  # 30 seconds
+                PARTIAL_GRACE_MINUTES = 0.333  # 20 seconds
             else:
-                PARTIAL_GRACE_MINUTES = 1.0
+                PARTIAL_GRACE_MINUTES = 0.5
             if pos.is_partial and not pos.first_fill_time:
                 pos.first_fill_time = pos.created_at  # Backfill for old positions
             if pos.is_partial and pos.first_fill_time:
@@ -1260,20 +1260,79 @@ class CryptoMarketMaker:
                                     self.client.cancel(order.order_id)
                                 except Exception:
                                     pass
-                    # V2.7: Cancel unfilled side. Mark as "riding" so we don't re-process.
-                    # Position stays in self.positions (blocks re-entry on same market).
-                    # resolve_positions will handle the outcome when market settles.
+                    # V2.8: Sell back filled side at market instead of riding.
+                    # Riding = 50/50 coin flip on ~$10 = huge variance.
+                    # Sell-back = guaranteed ~$0.50 loss = predictable, covered by paired profit.
                     filled_side = "UP" if pos.up_filled else "DOWN"
                     filled_order = pos.up_order if pos.up_filled else pos.down_order
                     shares = filled_order.fill_shares if filled_order else 0
-                    print(f"  [PARTIAL-RIDE] {pos.asset} {filled_side} {shares:.0f}sh — riding to resolution (50/50)")
-                    pos.status = "riding"  # Blocks re-processing, stays in positions dict
-                    self.stats["pairs_partial"] += 1
-                    self.ml_optimizer.record(
-                        hour=pos.hour_utc if pos.hour_utc >= 0 else now.hour,
-                        offset=pos.bid_offset_used,
-                        paired=False, partial=True, pnl=0.0
-                    )
+                    sell_pnl = 0.0
+                    sold_ok = False
+
+                    if not self.paper and self.client and filled_order and shares > 0:
+                        try:
+                            from py_clob_client.clob_types import OrderArgs, OrderType, BalanceAllowanceParams, AssetType
+                            from py_clob_client.order_builder.constants import SELL
+
+                            # Approve conditional token for selling (required by CLOB)
+                            try:
+                                self.client.update_balance_allowance(
+                                    BalanceAllowanceParams(
+                                        asset_type=AssetType.CONDITIONAL,
+                                        token_id=filled_order.token_id,
+                                    )
+                                )
+                            except Exception as e:
+                                print(f"  [SELL-BACK] Allowance warning: {e}")
+
+                            # Sell at 2c below our buy price for fast fill
+                            sell_price = max(0.01, round(filled_order.fill_price - 0.02, 2))
+                            sell_args = OrderArgs(
+                                price=sell_price,
+                                size=float(shares),
+                                side=SELL,
+                                token_id=filled_order.token_id,
+                            )
+                            sell_signed = self.client.create_order(sell_args)
+                            sell_resp = self.client.post_order(sell_signed, OrderType.GTC)
+
+                            if sell_resp.get("success"):
+                                sell_revenue = sell_price * shares
+                                buy_cost = filled_order.fill_price * shares
+                                sell_pnl = sell_revenue - buy_cost
+                                sold_ok = True
+                                print(f"  [SELL-BACK] {pos.asset} {filled_side} {shares:.0f}sh "
+                                      f"buy=${filled_order.fill_price:.2f} sell=${sell_price:.2f} "
+                                      f"PnL=${sell_pnl:+.2f} | oid={sell_resp.get('orderID', '?')[:16]}...")
+                            else:
+                                err = sell_resp.get("errorMsg", "?")
+                                print(f"  [SELL-BACK] FAILED: {err} — falling back to ride")
+                        except Exception as e:
+                            print(f"  [SELL-BACK] Error: {e} — falling back to ride")
+
+                    if sold_ok:
+                        # Sold successfully — resolve position with small known loss
+                        pos.status = "resolved"
+                        pos.pnl = sell_pnl
+                        self.stats["pairs_partial"] += 1
+                        self.stats["partial_pnl"] += sell_pnl
+                        self.stats["total_pnl"] += sell_pnl
+                        self.daily_pnl += sell_pnl
+                        self.ml_optimizer.record(
+                            hour=pos.hour_utc if pos.hour_utc >= 0 else now.hour,
+                            offset=pos.bid_offset_used,
+                            paired=False, partial=True, pnl=sell_pnl
+                        )
+                    else:
+                        # Sell failed — fall back to riding (50/50)
+                        print(f"  [PARTIAL-RIDE] {pos.asset} {filled_side} {shares:.0f}sh — riding to resolution (50/50)")
+                        pos.status = "riding"
+                        self.stats["pairs_partial"] += 1
+                        self.ml_optimizer.record(
+                            hour=pos.hour_utc if pos.hour_utc >= 0 else now.hour,
+                            offset=pos.bid_offset_used,
+                            paired=False, partial=True, pnl=0.0
+                        )
 
             # If approaching close, cancel unfilled orders
             # V1.6: 5M gets 1min buffer (was 2), 15M keeps 2min
@@ -1357,7 +1416,7 @@ class CryptoMarketMaker:
                 continue
 
             # Execute harvest: sell both sides
-            from py_clob_client.clob_types import OrderArgs, OrderType
+            from py_clob_client.clob_types import OrderArgs, OrderType, BalanceAllowanceParams, AssetType
             from py_clob_client.order_builder.constants import SELL
 
             sold_both = True
@@ -1367,6 +1426,12 @@ class CryptoMarketMaker:
                     continue
                 sell_price = max(0.01, round(bid_price - 0.01, 2))  # 1c below bid for fast fill
                 try:
+                    # Approve conditional token for selling
+                    try:
+                        self.client.update_balance_allowance(
+                            BalanceAllowanceParams(asset_type=AssetType.CONDITIONAL, token_id=order.token_id))
+                    except Exception:
+                        pass
                     sell_args = OrderArgs(
                         price=sell_price,
                         size=order.fill_shares,
