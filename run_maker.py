@@ -684,6 +684,14 @@ class CryptoMarketMaker:
             if executor._initialized:
                 self.client = executor.client
                 print("[MAKER] CLOB client initialized - LIVE MODE")
+                # V2.6b: Cancel ALL orphaned orders on startup
+                # When we force-kill the process, old orders stay on the CLOB.
+                # Without this, restarting causes double-sized positions.
+                try:
+                    self.client.cancel_all()
+                    print("[MAKER] Cancelled all orphaned orders from previous session")
+                except Exception as e:
+                    print(f"[MAKER] Cancel orphans warning: {e}")
             else:
                 print("[MAKER] Client init failed - falling back to PAPER")
                 self.paper = True
