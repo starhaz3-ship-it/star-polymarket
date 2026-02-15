@@ -600,12 +600,15 @@ class PairPosition:
     combined_cost: float = 0.0   # Total $ spent on both sides
     outcome: Optional[str] = None  # "UP", "DOWN", or None (unresolved)
     pnl: float = 0.0
-    status: str = "pending"  # pending, partial, paired, resolved, cancelled
+    status: str = "pending"  # pending, partial, paired, resolved, cancelled, killing
     created_at: str = ""
     bid_offset_used: float = 0.02  # Track which offset was used
     hour_utc: int = -1             # Hour when position was created
     first_fill_time: Optional[str] = None  # V1.3: When first side filled (for fast partial-protect)
     duration_min: int = 15   # 5 or 15
+    kill_sell_order_id: Optional[str] = None  # V2.6: Tracks active sell order during killing
+    kill_attempts: int = 0                    # V2.6: How many sell attempts so far
+    kill_started_at: Optional[str] = None     # V2.6: When killing started
 
     @property
     def is_paired(self) -> bool:
@@ -1112,7 +1115,7 @@ class CryptoMarketMaker:
     async def check_fills(self):
         """Check order fill status for all active positions."""
         for market_id, pos in list(self.positions.items()):
-            if pos.status in ("resolved", "cancelled"):
+            if pos.status in ("resolved", "cancelled", "killing"):
                 continue
 
             if self.paper:
@@ -1240,7 +1243,7 @@ class CryptoMarketMaker:
                 PARTIAL_GRACE_MINUTES = 1.0    # 1 min for 15-min markets
             if pos.is_partial and not pos.first_fill_time:
                 pos.first_fill_time = pos.created_at  # Backfill for old positions
-            if pos.is_partial and pos.first_fill_time:
+            if pos.is_partial and pos.first_fill_time and pos.status != "killing":
                 first_fill_dt = datetime.fromisoformat(pos.first_fill_time)
                 since_first_fill = (now - first_fill_dt).total_seconds() / 60
                 if since_first_fill > PARTIAL_GRACE_MINUTES:
@@ -1253,41 +1256,91 @@ class CryptoMarketMaker:
                                     self.client.cancel(order.order_id)
                                 except Exception:
                                     pass
-                    # V1.3: Cancel the FILLED side too — don't hold directional risk!
-                    # In paper mode: mark entire position cancelled (PnL = 0, not resolved)
-                    # In live mode: sell filled shares back at market to exit
                     filled_side = "UP" if pos.up_filled else "DOWN"
-                    print(f"  [PARTIAL-CANCEL] {pos.asset} {filled_side}-only after {since_first_fill:.0f}min — cancelling entire position (no directional gamble)")
+                    print(f"  [PARTIAL-KILL] {pos.asset} {filled_side}-only after {since_first_fill*60:.0f}s — KILLING position")
 
-                    # V1.5: Sell back filled shares in live mode
-                    partial_sell_pnl = 0.0
-                    if not self.paper and self.client:
-                        filled_order = pos.up_order if pos.up_filled else pos.down_order
-                        if filled_order and filled_order.fill_shares > 0:
-                            try:
-                                from py_clob_client.clob_types import OrderArgs, OrderType
-                                from py_clob_client.order_builder.constants import SELL
-                                # V2.6: Sell aggressively — 2 cents below fill to guarantee instant fill
-                                sell_price = max(0.01, round(filled_order.fill_price - 0.02, 2))
-                                sell_args = OrderArgs(
-                                    price=sell_price,
-                                    size=filled_order.fill_shares,
-                                    side=SELL,
-                                    token_id=filled_order.token_id,
-                                )
-                                sell_signed = self.client.create_order(sell_args)
-                                sell_resp = self.client.post_order(sell_signed, OrderType.FOK)
-                                if sell_resp.get("success"):
-                                    partial_sell_pnl = (sell_price - filled_order.fill_price) * filled_order.fill_shares
-                                    print(f"  [PARTIAL-SELL] Sold {filled_order.fill_shares:.0f} {filled_side} @ ${sell_price:.2f} | PnL: ${partial_sell_pnl:+.2f}")
-                                else:
-                                    print(f"  [PARTIAL-SELL] Sell failed: {sell_resp.get('errorMsg', '?')}")
-                            except Exception as e:
-                                print(f"  [PARTIAL-SELL] Error: {e}")
+                    if self.paper:
+                        # Paper mode: instant cancel, no sell needed
+                        pos.status = "cancelled"
+                        pos.pnl = 0.0
+                        self.ml_optimizer.record(
+                            hour=pos.hour_utc if pos.hour_utc >= 0 else now.hour,
+                            offset=pos.bid_offset_used,
+                            paired=False, partial=True, pnl=0.0
+                        )
+                    else:
+                        # V2.6: Enter killing state — retry selling every cycle until filled
+                        pos.status = "killing"
+                        pos.kill_started_at = now.isoformat()
+                        pos.kill_attempts = 0
 
+            # V2.6: KILLING state — aggressively sell filled side until out
+            if pos.status == "killing" and not self.paper and self.client:
+                filled_order = pos.up_order if pos.up_filled else pos.down_order
+                filled_side = "UP" if pos.up_filled else "DOWN"
+                if not filled_order or filled_order.fill_shares <= 0:
                     pos.status = "cancelled"
-                    pos.pnl = partial_sell_pnl
-                    # ML: record as partial for offset learning
+                    pos.pnl = 0.0
+                    continue
+
+                pos.kill_attempts += 1
+
+                # Cancel any previous sell order that didn't fill
+                if pos.kill_sell_order_id:
+                    try:
+                        self.client.cancel(pos.kill_sell_order_id)
+                    except Exception:
+                        pass
+                    pos.kill_sell_order_id = None
+
+                # Price drops with each attempt: -2c, -3c, -4c, ... down to $0.01
+                price_drop = 0.02 + (pos.kill_attempts - 1) * 0.01
+                sell_price = max(0.01, round(filled_order.fill_price - price_drop, 2))
+
+                try:
+                    from py_clob_client.clob_types import OrderArgs, OrderType
+                    from py_clob_client.order_builder.constants import SELL
+                    sell_args = OrderArgs(
+                        price=sell_price,
+                        size=filled_order.fill_shares,
+                        side=SELL,
+                        token_id=filled_order.token_id,
+                    )
+                    sell_signed = self.client.create_order(sell_args)
+                    sell_resp = self.client.post_order(sell_signed, OrderType.GTC)
+                    if sell_resp.get("success"):
+                        pos.kill_sell_order_id = sell_resp.get("orderID", "")
+                        print(f"  [KILL-SELL #{pos.kill_attempts}] {filled_side} @ ${sell_price:.2f} x {filled_order.fill_shares:.0f} (drop ${price_drop:.2f})")
+
+                        # Check if it filled immediately
+                        import time
+                        time.sleep(2)
+                        try:
+                            check = self.client.get_order(pos.kill_sell_order_id)
+                            if isinstance(check, dict) and check.get("status") == "MATCHED":
+                                actual_price = float(check.get("associate_price", sell_price))
+                                partial_sell_pnl = (actual_price - filled_order.fill_price) * filled_order.fill_shares
+                                print(f"  [KILL-FILLED] Sold {filled_order.fill_shares:.0f} {filled_side} @ ${actual_price:.2f} | PnL: ${partial_sell_pnl:+.2f}")
+                                pos.status = "cancelled"
+                                pos.pnl = partial_sell_pnl
+                                pos.kill_sell_order_id = None
+                                self.ml_optimizer.record(
+                                    hour=pos.hour_utc if pos.hour_utc >= 0 else now.hour,
+                                    offset=pos.bid_offset_used,
+                                    paired=False, partial=True, pnl=partial_sell_pnl
+                                )
+                        except Exception:
+                            pass  # Will retry next cycle
+                    else:
+                        print(f"  [KILL-SELL #{pos.kill_attempts}] Failed: {sell_resp.get('errorMsg', '?')}")
+                except Exception as e:
+                    print(f"  [KILL-SELL #{pos.kill_attempts}] Error: {e}")
+
+                # Safety: after 10 attempts (~5 min of retries), force cancel at $0.01
+                if pos.kill_attempts >= 10 and pos.status == "killing":
+                    print(f"  [KILL-ABORT] {filled_side} — 10 attempts failed, marking cancelled")
+                    pos.status = "cancelled"
+                    pos.pnl = 0.0
                     self.ml_optimizer.record(
                         hour=pos.hour_utc if pos.hour_utc >= 0 else now.hour,
                         offset=pos.bid_offset_used,
@@ -1632,7 +1685,7 @@ class CryptoMarketMaker:
             (p.up_order.fill_price * p.up_order.fill_shares if p.up_order and p.up_filled else 0) +
             (p.down_order.fill_price * p.down_order.fill_shares if p.down_order and p.down_filled else 0)
             for p in self.positions.values()
-            if p.status not in ("resolved", "cancelled")
+            if p.status not in ("resolved", "cancelled", "killing")
         )
         if exposure >= self.config.MAX_TOTAL_EXPOSURE:
             return False
@@ -1765,9 +1818,10 @@ class CryptoMarketMaker:
 
     def _print_status(self, cycle: int):
         """Print status summary."""
-        active = sum(1 for p in self.positions.values() if p.status not in ("resolved", "cancelled"))
+        active = sum(1 for p in self.positions.values() if p.status not in ("resolved", "cancelled", "killing"))
+        killing = sum(1 for p in self.positions.values() if p.status == "killing")
         paired = sum(1 for p in self.positions.values() if p.is_paired)
-        partial = sum(1 for p in self.positions.values() if p.is_partial)
+        partial = sum(1 for p in self.positions.values() if p.is_partial and p.status != "killing")
         hour = datetime.now(timezone.utc).hour
 
         mode_tag = "PAPER" if self.paper else "LIVE"
