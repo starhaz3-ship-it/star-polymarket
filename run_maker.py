@@ -747,7 +747,10 @@ class CryptoMarketMaker:
             "last_updated": datetime.now(timezone.utc).isoformat(),
         }
         try:
-            self.OUTPUT_FILE.write_text(json.dumps(data, indent=2, default=str))
+            # Atomic write: write to temp file first, then rename
+            tmp_file = self.OUTPUT_FILE.with_suffix('.tmp')
+            tmp_file.write_text(json.dumps(data, indent=2, default=str))
+            tmp_file.replace(self.OUTPUT_FILE)
         except Exception as e:
             print(f"[MAKER] Save error: {e}")
 
@@ -833,7 +836,8 @@ class CryptoMarketMaker:
         """Parse a market into a MarketPair."""
         try:
             condition_id = market.get("conditionId", "")
-            market_num_id = str(market.get("id", ""))  # Numeric ID for gamma-api lookup
+            raw_id = market.get("id")
+            market_num_id = str(raw_id) if raw_id is not None else ""
             if not condition_id:
                 return None
 
@@ -1164,11 +1168,12 @@ class CryptoMarketMaker:
                 setattr(pos, attr, True)
                 continue
 
-            # Use mid price from when pair was created to estimate aggressiveness
+            # Use actual bid offset from when pair was created
+            offset_used = pos.bid_offset_used if pos.bid_offset_used else self.config.BID_OFFSET
             if order.side_label == "UP":
-                mid = order.price + self.config.BID_OFFSET  # Reverse the offset
+                mid = order.price + offset_used
             else:
-                mid = order.price + self.config.BID_OFFSET
+                mid = order.price + offset_used
 
             discount = mid - order.price
             if discount <= 0.005:
@@ -1185,10 +1190,10 @@ class CryptoMarketMaker:
             age_min = (datetime.now(timezone.utc) - created).total_seconds() / 60
             # Scale thresholds by market duration (5 or 15 min)
             dur = pos.duration_min
-            if age_min > dur * 0.67:
-                fill_prob *= 1.5  # Last third of market = more urgent flow
-            elif age_min > dur * 0.80:
+            if age_min > dur * 0.80:
                 fill_prob *= 2.0  # Very end = aggressive selling
+            elif age_min > dur * 0.67:
+                fill_prob *= 1.5  # Last third of market = more urgent flow
 
             fill_prob = min(fill_prob, 0.60)  # Cap at 60%
 
@@ -1293,9 +1298,26 @@ class CryptoMarketMaker:
 
                 pos.kill_attempts += 1
 
-                # Cancel any previous sell order that didn't fill
+                # Check if previous sell order already filled before cancelling
                 if pos.kill_sell_order_id:
                     try:
+                        prev_status = self.client.get_order(pos.kill_sell_order_id)
+                        if isinstance(prev_status, dict) and prev_status.get("status") == "MATCHED":
+                            actual_price = float(prev_status.get("associate_price", 0))
+                            partial_sell_pnl = (actual_price - filled_order.fill_price) * filled_order.fill_shares
+                            print(f"  [KILL-FILLED] Previous sell filled! {filled_order.fill_shares:.0f} {filled_side} @ ${actual_price:.2f} | PnL: ${partial_sell_pnl:+.2f}")
+                            pos.status = "cancelled"
+                            pos.pnl = partial_sell_pnl
+                            self.daily_pnl += partial_sell_pnl
+                            self.stats["total_pnl"] += partial_sell_pnl
+                            pos.kill_sell_order_id = None
+                            self.ml_optimizer.record(
+                                hour=pos.hour_utc if pos.hour_utc >= 0 else now.hour,
+                                offset=pos.bid_offset_used,
+                                paired=False, partial=True, pnl=partial_sell_pnl
+                            )
+                            continue
+                        # Not filled — cancel and re-place at lower price
                         self.client.cancel(pos.kill_sell_order_id)
                     except Exception:
                         pass
@@ -1321,8 +1343,7 @@ class CryptoMarketMaker:
                         print(f"  [KILL-SELL #{pos.kill_attempts}] {filled_side} @ ${sell_price:.2f} x {filled_order.fill_shares:.0f} (drop ${price_drop:.2f})")
 
                         # Check if it filled immediately
-                        import time
-                        time.sleep(2)
+                        await asyncio.sleep(2)
                         try:
                             check = self.client.get_order(pos.kill_sell_order_id)
                             if isinstance(check, dict) and check.get("status") == "MATCHED":
@@ -1331,6 +1352,8 @@ class CryptoMarketMaker:
                                 print(f"  [KILL-FILLED] Sold {filled_order.fill_shares:.0f} {filled_side} @ ${actual_price:.2f} | PnL: ${partial_sell_pnl:+.2f}")
                                 pos.status = "cancelled"
                                 pos.pnl = partial_sell_pnl
+                                self.daily_pnl += partial_sell_pnl
+                                self.stats["total_pnl"] += partial_sell_pnl
                                 pos.kill_sell_order_id = None
                                 self.ml_optimizer.record(
                                     hour=pos.hour_utc if pos.hour_utc >= 0 else now.hour,
@@ -1501,7 +1524,7 @@ class CryptoMarketMaker:
         now = datetime.now(timezone.utc)
 
         for market_id, pos in list(self.positions.items()):
-            if pos.status == "resolved":
+            if pos.status in ("resolved", "cancelled", "killing"):
                 continue
 
             # Check if market has expired (duration + 1 min buffer)
@@ -1636,7 +1659,7 @@ class CryptoMarketMaker:
         return round(pnl, 6)
 
     def _cancel_position_orders(self, pos: PairPosition):
-        """Cancel any unfilled orders for a position."""
+        """Cancel any unfilled orders for a position, including kill-sell orders."""
         if self.paper:
             return
 
@@ -1647,6 +1670,13 @@ class CryptoMarketMaker:
                     order.status = "cancelled"
                 except Exception:
                     pass
+        # V2.6: Also cancel any active kill-sell order
+        if pos.kill_sell_order_id:
+            try:
+                self.client.cancel(pos.kill_sell_order_id)
+                pos.kill_sell_order_id = None
+            except Exception:
+                pass
 
     # ========================================================================
     # RISK MANAGEMENT
