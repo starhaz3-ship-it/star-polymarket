@@ -1,8 +1,8 @@
 {
   "stats": {
-    "wins": 1,
-    "losses": 0,
-    "pnl": 2.71
+    "wins": 2,
+    "losses": 1,
+    "pnl": 6.55
   },
   "resolved": [
     {
@@ -36,8 +36,72 @@
       "pnl": 2.71,
       "exit_price": 1.0,
       "exit_time": "2026-02-15T04:17:20.072789+00:00"
+    },
+    {
+      "side": "UP",
+      "entry_price": 0.275,
+      "size_usd": 3.0,
+      "entry_time": "2026-02-16T12:38:18.841507+00:00",
+      "condition_id": "0x1e5051e12730931e672ba8c320baaaa446aa9e941a488b52abed5e1162dad2bf",
+      "market_numeric_id": "1381449",
+      "title": "Bitcoin Up or Down - February 16, 7:30AM-7:45AM ET",
+      "strategy": "FIB_FIB_CONFIRM",
+      "edge": 0.3538,
+      "fair_px": 0.6288,
+      "strength": 0.0,
+      "reason": "fib_fib_long",
+      "btc_price": 69414.62,
+      "detail": "1m_conf=0.84 5m_conf=0.00 rsi=71",
+      "tte_seconds": 401,
+      "ml_features": {
+        "conf": 0.8400000000000001,
+        "fib_conf_5m": 0.0,
+        "ema_gap": 0.002569858095725566,
+        "rsi": 70.67749318117706,
+        "atr_pct": 0.001906411893385838,
+        "hour_utc": 12.0,
+        "edge": 0.35378947582470965,
+        "strength": 0.0
+      },
+      "ml_prob": 0.5,
+      "status": "closed",
+      "pnl": -3.0,
+      "exit_price": 0.0,
+      "exit_time": "2026-02-16T12:56:14.534793+00:00"
+    },
+    {
+      "side": "DOWN",
+      "entry_price": 0.30500000000000005,
+      "size_usd": 3.0,
+      "entry_time": "2026-02-16T13:10:13.918614+00:00",
+      "condition_id": "0xf6b3bebf2e3c8fd3ab919a8d311bb3532d4784f28f8ac2a9d435e1d68aa944db",
+      "market_numeric_id": "1381519",
+      "title": "Bitcoin Up or Down - February 16, 8:00AM-8:15AM ET",
+      "strategy": "FIB_FIB_CONFIRM",
+      "edge": 0.092,
+      "fair_px": 0.397,
+      "strength": 0.0,
+      "reason": "fib_fib_short",
+      "btc_price": 69653.71,
+      "detail": "1m_conf=0.75 5m_conf=0.00 rsi=44",
+      "tte_seconds": 286,
+      "ml_features": {
+        "conf": 0.75,
+        "fib_conf_5m": 0.0,
+        "ema_gap": 0.003922116551036682,
+        "rsi": 44.11868080370252,
+        "atr_pct": 0.0017068929791597355,
+        "hour_utc": 13.0,
+        "edge": 0.09203980145964319,
+        "strength": 0.0
+      },
+      "ml_prob": 0.5,
+      "status": "closed",
+      "pnl": 6.84,
+      "exit_price": 1.0,
+      "exit_time": "2026-02-16T13:18:16.754170+00:00"
     }
   ],
   "active": {},
-  "last_updated": "2026-02-16T04:19:55.673295+00:00"
+  "last_updated": "2026-02-16T16:24:33.015589+00:00"
 }

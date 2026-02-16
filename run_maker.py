@@ -386,7 +386,7 @@ def auto_redeem_winnings():
 
 @dataclass
 class MakerConfig:
-    """Market maker configuration — V4.6.1 Refresh double-exposure fix."""
+    """Market maker configuration — V4.6.2 Skew cap fix (no side > $5)."""
     # Spread targets — V4.6: Deep bids for better partial EV
     MAX_COMBINED_PRICE: float = 0.80     # V4.6: 20% minimum edge (deeper bids = lower combined)
     MIN_SPREAD_EDGE: float = 0.08        # V4.3: 8% minimum edge
@@ -401,13 +401,13 @@ class MakerConfig:
     TAKER_HEDGE_MAX_COMBINED: float = 1.08  # V4.3: Allow 8c/share overpay — beats riding EV (-$0.88 at 37% WR)
 
     # Position sizing
-    SIZE_PER_SIDE_USD: float = 5.0       # V4.3: $5/side (proven profitable, scaling up)
+    SIZE_PER_SIDE_USD: float = 3.0       # V4.6.2: $3/side
     MAX_PAIR_EXPOSURE: float = 20.0      # V4: $20/pair (scaled for $3/side)
     MAX_TOTAL_EXPOSURE: float = 40.0     # V4.5: $40 max (leaves buffer for CLOB order locking on $71 account)
     MIN_SHARES: int = 5                  # CLOB minimum order size
 
     # Risk
-    DAILY_LOSS_LIMIT: float = 15.0       # V4.2: $15 daily loss limit (4 assets × $5/side)
+    DAILY_LOSS_LIMIT: float = 40.0       # V4.6.1: $40 daily loss limit (user override)
     MAX_CONCURRENT_PAIRS: int = 6        # V4.4: 3 assets × 2 timeframes max (prevents balance exhaustion)
     MAX_SINGLE_SIDED: int = 8            # V4.2: 4 assets × 2 timeframes, allow partials to ride
     RIDE_AFTER_SEC: float = 120.0        # V4: 2min timeout on partials (was 45s)
@@ -448,7 +448,7 @@ class MakerConfig:
     ASSETS: dict = field(default_factory=lambda: {
         "BTC": {"keywords": ["bitcoin", "btc"], "enabled": True},
         "ETH": {"keywords": ["ethereum", "eth"], "enabled": True},   # V4.2: Re-enabled for multi-asset deep bids
-        "SOL": {"keywords": ["solana", "sol"], "enabled": True},    # V4.2: Re-enabled for multi-asset deep bids
+        "SOL": {"keywords": ["solana", "sol"], "enabled": False},   # V4.6.1: DISABLED — -$67 loss, worst asset by far
         "XRP": {"keywords": ["xrp", "ripple"], "enabled": True},   # V4.2: Re-enabled for multi-asset deep bids
     })
 
@@ -1563,7 +1563,7 @@ class CryptoMarketMaker:
         V2.4: 5M markets moved to tag_slug='5M' (was under '15M' before)."""
         pairs = []
         async with httpx.AsyncClient(timeout=15) as client:
-            for tag_slug, duration in [("15M", 15)]:  # V4.6: 15M only — 5M too fast for hedge
+            for tag_slug, duration in [("5M", 5), ("15M", 15)]:  # V4.6.1: Re-enabled 5M — BTC 5M is +$50 profitable
                 try:
                     r = await client.get(
                         "https://gamma-api.polymarket.com/events",
@@ -1849,9 +1849,10 @@ class CryptoMarketMaker:
         if total == 0:
             return (1.0, 1.0)
         up_ratio = total_up / total
-        # Linear interpolation: at 50/50 both 1.0x, at 75/25 UP=0.5x DOWN=1.5x
-        up_mult = max(0.5, min(1.5, 2.0 - 2.0 * up_ratio))
-        down_mult = max(0.5, min(1.5, 2.0 * up_ratio))
+        # Linear interpolation: at 50/50 both 1.0x, at 75/25 UP=0.5x DOWN=1.0x
+        # V4.6.2: Cap at 1.0x — skew only REDUCES overweight side, never exceeds SIZE_PER_SIDE_USD
+        up_mult = max(0.5, min(1.0, 2.0 - 2.0 * up_ratio))
+        down_mult = max(0.5, min(1.0, 2.0 * up_ratio))
         return (up_mult, down_mult)
 
     def _get_unpaired_count(self) -> int:
@@ -2699,11 +2700,16 @@ class CryptoMarketMaker:
         often reverts minutes later — other side drops to $0.40-0.50 making hedge viable."""
         now = datetime.now(timezone.utc)
         for market_id, pos in list(self.positions.items()):
+          try:
             if pos.status not in ("partial", "riding"):
                 continue
 
             # Rate limit: max 1 check per 10s per position
             if time.time() - pos.last_ride_check_ts < 10:
+                continue
+
+            # V4.6.1: Skip positions with missing order objects (corrupted state)
+            if not pos.up_order or not pos.down_order:
                 continue
 
             # Determine which side is filled
@@ -2717,8 +2723,9 @@ class CryptoMarketMaker:
             # No time guard — if combined < $1.08, hedge is profitable at ANY time.
             # Market often reverts after initial adverse selection spike.
             hedge_enabled = self.config.TAKER_HEDGE_ENABLED and not self.paper
-            if hedge_enabled:
-                hedge_token_id = pos.down_order.token_id if pos.up_filled else (pos.up_order.token_id if pos.up_order else None)
+            if hedge_enabled and pos.down_order and pos.up_order:
+                other_order = pos.down_order if pos.up_filled else pos.up_order
+                hedge_token_id = other_order.token_id if other_order else None
                 hedge_side = "DOWN" if pos.up_filled else "UP"
                 if hedge_token_id:
                     try:
@@ -2769,6 +2776,9 @@ class CryptoMarketMaker:
                     print(f"  [RIDE-CUT] {pos.asset} {filled_order.side_label} — "
                           f"dropped {filled_order.fill_price:.2f}->{best_bid:.2f}, "
                           f"sold to free capital | PnL: ${sell_pnl:+.4f}")
+          except Exception as e:
+            print(f"  [RIDE-ERR] {pos.asset if hasattr(pos, 'asset') else market_id}: {str(e)[:60]}")
+            continue
 
     async def harvest_extreme_prices(self):
         """V2.4: Vague-sourdough pattern — sell paired positions at extreme prices
@@ -4218,7 +4228,7 @@ class CryptoMarketMaker:
         if not self.paper and not self.circuit_tripped and self.starting_pnl is not None:
             session_pnl = self.stats["total_pnl"] - self.starting_pnl
             # Calculate 40% of the CLOB cash balance (~$76)
-            capital_loss_limit = 28.0  # 40% of $71 CLOB cash
+            capital_loss_limit = 41.0  # 40% of $102.58 CLOB balance
             if session_pnl < -capital_loss_limit:
                 print(f"\n{'='*70}")
                 print(f"[CIRCUIT BREAKER] NET CAPITAL LOSS EXCEEDED 40%!")
@@ -4247,6 +4257,16 @@ class CryptoMarketMaker:
             unpaired = self._get_unpaired_count()
             if unpaired >= self.config.PINGPONG_THRESHOLD:
                 return False
+
+        # V4.6.1: Per-window position limit — prevent correlated blowups
+        # 11PM cluster lost $46 across 4 assets in one 15-min window
+        now_utc = datetime.now(timezone.utc)
+        window_key = now_utc.strftime("%Y%m%d_%H") + ("_0" if now_utc.minute < 30 else "_1")
+        window_count = sum(1 for p in self.positions.values()
+                          if p.status in ("pending", "partial", "paired", "riding")
+                          and hasattr(p, 'created_at') and window_key in p.created_at[:13].replace("-","").replace("T","_"))
+        if window_count >= 4:  # Max 4 positions per 30-min window
+            return False
 
         # Max concurrent pairs
         active = sum(1 for p in self.positions.values() if p.status in ("pending", "partial", "paired"))
@@ -4294,7 +4314,7 @@ class CryptoMarketMaker:
         print("=" * 70)
         mode = "PAPER" if self.paper else "LIVE"
         print(f"AVELLANEDA MAKER V4.6 - {mode} MODE")
-        print(f"Strategy: Deep bids + 15M-only + fast sell-back + WS fills + ping-pong")
+        print(f"Strategy: Deep bids + 5M+15M BTC/ETH/XRP (no SOL) + WS fills + ping-pong")
         print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Gamma: {self.config.DEFAULT_GAMMA} (ML-tuned) | "
               f"Base spread: {self.config.BASE_SPREAD*100:.0f}c")
         print(f"Max combined: ${self.config.MAX_COMBINED_PRICE} | Min edge: {self.config.MIN_SPREAD_EDGE*100:.0f}% | "
@@ -4306,7 +4326,7 @@ class CryptoMarketMaker:
               f"Max concurrent: {self.config.MAX_CONCURRENT_PAIRS} (scales to {self.config.MAX_CONCURRENT_PAIRS_SCALED} at ${self.config.SCALE_UP_PNL_THRESHOLD:.0f} PnL)")
         print(f"Daily loss limit: ${self.config.DAILY_LOSS_LIMIT}")
         if not self.paper:
-            print(f"CIRCUIT BREAKER: Auto-switch to paper on $28 net session loss (~40% of $71 capital)")
+            print(f"CIRCUIT BREAKER: Auto-switch to paper on $41 net session loss (~40% of $102 capital)")
         if self.config.TAKER_HEDGE_ENABLED:
             print(f"TAKER HEDGE: ON | Max combined: ${self.config.TAKER_HEDGE_MAX_COMBINED} | "
                   f"Fallback: ride to resolution")
@@ -4352,7 +4372,10 @@ class CryptoMarketMaker:
                 await self.manage_expiring_orders()
 
                 # Phase 1.5: V4.4 Monitor riding positions (sell if price moved too far against)
-                await self.manage_riding_positions()
+                try:
+                    await self.manage_riding_positions()
+                except Exception as e:
+                    print(f"  [RIDE-ERR] {e}")
 
                 # Phase 2a: V2.4 Harvest paired positions at extreme prices (last 90s)
                 await self.harvest_extreme_prices()
