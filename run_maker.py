@@ -386,7 +386,7 @@ def auto_redeem_winnings():
 
 @dataclass
 class MakerConfig:
-    """Market maker configuration — V4.6.2 Skew cap fix (no side > $5)."""
+    """Market maker configuration — V4.6.3 BTC-only + direction cap."""
     # Spread targets — V4.6: Deep bids for better partial EV
     MAX_COMBINED_PRICE: float = 0.80     # V4.6: 20% minimum edge (deeper bids = lower combined)
     MIN_SPREAD_EDGE: float = 0.08        # V4.3: 8% minimum edge
@@ -410,11 +410,14 @@ class MakerConfig:
     DAILY_LOSS_LIMIT: float = 40.0       # V4.6.1: $40 daily loss limit (user override)
     MAX_CONCURRENT_PAIRS: int = 6        # V4.4: 3 assets × 2 timeframes max (prevents balance exhaustion)
     MAX_SINGLE_SIDED: int = 8            # V4.2: 4 assets × 2 timeframes, allow partials to ride
-    RIDE_AFTER_SEC: float = 120.0        # V4: 2min timeout on partials (was 45s)
+    RIDE_AFTER_SEC: float = 9999.0       # V4.6.3: Don't cancel unfilled side — let it ride full duration for paired chance
 
     # V4.5: Ping-pong mode
     PINGPONG_ENABLED: bool = True        # Block new entries when unpaired partials accumulate
     PINGPONG_THRESHOLD: int = 2          # Block when total unpaired fills >= this
+
+    # V4.6.3: Direction cap — prevent correlated directional wipeouts
+    MAX_SAME_DIRECTION: int = 3          # Max positions filled same direction (UP or DOWN)
 
     # V4.5: Dynamic scaling at $200+ PnL
     MAX_CONCURRENT_PAIRS_SCALED: int = 16
@@ -439,6 +442,7 @@ class MakerConfig:
     MIN_TIME_LEFT_MIN: float = 5.0       # Don't enter markets with < 5 min left
     FILLED_ORDER_DELAY: float = 5.0      # V4.4: Pause new orders for 5s after any fill (adverse selection cooldown)
     RIDING_CUT_THRESHOLD: float = 0.20   # V4.4: Sell riding positions if token dropped 20c+ from entry
+    EARLY_PROFIT_TAKE: float = 0.85      # V4.6.3: Sell riding winners at $0.85+ (183% return on $0.30 entry)
 
     # Session control (from PolyData analysis)
     SKIP_HOURS_UTC: set = field(default_factory=set)  # All hours active
@@ -447,9 +451,9 @@ class MakerConfig:
     # Assets
     ASSETS: dict = field(default_factory=lambda: {
         "BTC": {"keywords": ["bitcoin", "btc"], "enabled": True},
-        "ETH": {"keywords": ["ethereum", "eth"], "enabled": True},   # V4.2: Re-enabled for multi-asset deep bids
+        "ETH": {"keywords": ["ethereum", "eth"], "enabled": False},   # V4.6.3: DISABLED — -$11.40, coin-flip 50% WR
         "SOL": {"keywords": ["solana", "sol"], "enabled": False},   # V4.6.1: DISABLED — -$67 loss, worst asset by far
-        "XRP": {"keywords": ["xrp", "ripple"], "enabled": True},   # V4.2: Re-enabled for multi-asset deep bids
+        "XRP": {"keywords": ["xrp", "ripple"], "enabled": False},   # V4.6.3: DISABLED — +$4.72 marginal, not worth variance
     })
 
     # V1.5: Per-asset risk tiers — SOL/XRP have thinner books, need tighter spreads
@@ -498,19 +502,19 @@ class MakerConfig:
     LATE_CANDLE_ENABLED: bool = True
     LATE_CANDLE_WAIT_SEC: float = 90.0        # V4.2: 1.5 min into 5-min market (was 150s)
     LATE_CANDLE_MAX_WAIT_SEC: float = 240.0   # Stop at 4 min (60s before close)
-    LATE_CANDLE_SIZE_USD: float = 5.0         # Same as normal maker
+    LATE_CANDLE_SIZE_USD: float = 3.0         # V4.6.3: Aligned with main $3/side
     LATE_CANDLE_MAX_LOSER_PRICE: float = 0.30 # Only buy loser if <= $0.30
     LATE_CANDLE_MIN_MOMENTUM_BPS: float = 15.0  # Direction must be this clear
 
     # V4.2: Late-winner buying (vague-sourdough strategy)
     # In the last 30-60s, buy the WINNER token at $0.85-$0.92.
     # Near-guaranteed $0.08-$0.15 profit per share. 90%+ WR.
-    LATE_WINNER_ENABLED: bool = True
+    LATE_WINNER_ENABLED: bool = False     # V4.6.3: DISABLED — 96 trades, -$32.69, 3x loss/win ratio
     LATE_WINNER_WINDOW_SEC: float = 120.0     # Start buying 120s before market close (12 chances at 10s cycles)
     LATE_WINNER_MIN_SEC: float = 10.0         # Stop buying 10s before close (FOK is instant)
     LATE_WINNER_MAX_BUY_PRICE: float = 0.95   # Don't pay more than $0.95 (min $0.05 edge)
     LATE_WINNER_MIN_BUY_PRICE: float = 0.70   # V4.6: Lowered from $0.75 — catch 70%+ winners
-    LATE_WINNER_SIZE_USD: float = 5.0         # Same as normal maker
+    LATE_WINNER_SIZE_USD: float = 3.0         # V4.6.3: Aligned with main $3/side
 
 
 # ============================================================================
@@ -2705,7 +2709,7 @@ class CryptoMarketMaker:
                 continue
 
             # Rate limit: max 1 check per 10s per position
-            if time.time() - pos.last_ride_check_ts < 10:
+            if time.time() - pos.last_ride_check_ts < 5:  # V4.6.3: 5s checks for faster profit-take
                 continue
 
             # V4.6.1: Skip positions with missing order objects (corrupted state)
@@ -2747,17 +2751,42 @@ class CryptoMarketMaker:
                     except Exception as e:
                         print(f"  [HEDGE-RETRY-ERR] {pos.asset}: {str(e)[:60]}")
 
-            # Skip ride-cut checks for non-riding positions
-            if pos.status != "riding":
-                continue
-
-            # Get current best bid for our filled token
+            # Get current best bid for our filled token (works for both partial and riding)
             try:
                 book = await self.get_order_book(filled_order.token_id)
                 if not book or not book.get("best_bid"):
                     continue
                 best_bid = book["best_bid"]
             except Exception:
+                continue
+
+            # V4.6.3: Early profit-take — sell at $0.85+ (works on partial AND riding)
+            # Don't wait for "riding" status — if winning, take profit immediately
+            if best_bid >= self.config.EARLY_PROFIT_TAKE:
+                # Cancel unfilled side first if still open
+                for order, attr in [(pos.up_order, "up_filled"), (pos.down_order, "down_filled")]:
+                    if order and not getattr(pos, attr) and order.status == "open":
+                        order.status = "cancelled"
+                        if not self.paper:
+                            try:
+                                self.client.cancel(order.order_id)
+                            except Exception:
+                                pass
+                sell_pnl = await self._sell_partial_at_market(pos, filled_order)
+                if sell_pnl is not None:
+                    pos.status = "resolved"
+                    pos.pnl = sell_pnl
+                    pos.outcome = f"PROFIT_TAKE_{filled_order.side_label}"
+                    self.stats["total_pnl"] += sell_pnl
+                    self.daily_pnl += sell_pnl
+                    self.stats["partial_pnl"] += sell_pnl
+                    print(f"  [PROFIT-TAKE] {pos.asset} {filled_order.side_label} — "
+                          f"${best_bid:.2f} >= ${self.config.EARLY_PROFIT_TAKE} | "
+                          f"entry ${filled_order.fill_price:.2f} | PnL: ${sell_pnl:+.4f}")
+                    continue
+
+            # Ride-cut only applies to "riding" positions (unfilled side already cancelled)
+            if pos.status != "riding":
                 continue
 
             # If token dropped 20c+ from our entry, sell to free capital
@@ -4258,6 +4287,14 @@ class CryptoMarketMaker:
             if unpaired >= self.config.PINGPONG_THRESHOLD:
                 return False
 
+        # V4.6.3: Direction cap — block new entries when too many filled same direction
+        up_filled = sum(1 for p in self.positions.values()
+                        if p.status not in ("resolved", "cancelled") and p.up_filled and not p.down_filled)
+        down_filled = sum(1 for p in self.positions.values()
+                          if p.status not in ("resolved", "cancelled") and p.down_filled and not p.up_filled)
+        if max(up_filled, down_filled) >= self.config.MAX_SAME_DIRECTION:
+            return False
+
         # V4.6.1: Per-window position limit — prevent correlated blowups
         # 11PM cluster lost $46 across 4 assets in one 15-min window
         now_utc = datetime.now(timezone.utc)
@@ -4314,7 +4351,7 @@ class CryptoMarketMaker:
         print("=" * 70)
         mode = "PAPER" if self.paper else "LIVE"
         print(f"AVELLANEDA MAKER V4.6 - {mode} MODE")
-        print(f"Strategy: Deep bids + 5M+15M BTC/ETH/XRP (no SOL) + WS fills + ping-pong")
+        print(f"Strategy: Deep bids + 5M+15M BTC ONLY + WS fills + ping-pong + dir cap {self.config.MAX_SAME_DIRECTION}")
         print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Gamma: {self.config.DEFAULT_GAMMA} (ML-tuned) | "
               f"Base spread: {self.config.BASE_SPREAD*100:.0f}c")
         print(f"Max combined: ${self.config.MAX_COMBINED_PRICE} | Min edge: {self.config.MIN_SPREAD_EDGE*100:.0f}% | "

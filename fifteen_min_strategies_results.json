@@ -7,8 +7,8 @@
     },
     "FRAMA_CMO": {
       "wins": 13,
-      "losses": 6,
-      "pnl": 58.69
+      "losses": 7,
+      "pnl": 52.89
     },
     "ICHI_ADXR_SMI": {
       "wins": 1,
@@ -32,8 +32,8 @@
     },
     "_total": {
       "wins": 17,
-      "losses": 10,
-      "pnl": 58.88
+      "losses": 11,
+      "pnl": 53.080000000000005
     }
   },
   "resolved": [
@@ -873,8 +873,69 @@
       "pnl": -5.15,
       "exit_price": 0.0,
       "exit_time": "2026-02-16T12:56:05.961323+00:00"
+    },
+    {
+      "side": "DOWN",
+      "entry_price": 0.54,
+      "size_usd": 5.8,
+      "entry_time": "2026-02-16T16:33:13.961515+00:00",
+      "condition_id": "0x1e5a24efcb98f9bcbad493d1f5604bcc82eadb4f2e740b555ca532efe2543ff4",
+      "market_numeric_id": "1382213",
+      "title": "Bitcoin Up or Down - February 16, 11:30AM-11:45AM ET",
+      "strategy": "FRAMA_CMO",
+      "edge": 0.1456,
+      "fair_px": 0.6856,
+      "strength": 0.791,
+      "reason": "frama_dn_pullback",
+      "btc_price": 67718.55,
+      "detail": "frama=67766 cmo=-64.5 dcmid=68710",
+      "tte_seconds": 706,
+      "ml_features": {
+        "conf": 0.7913994020680724,
+        "ema_gap": 0.0,
+        "rsi": 50.0,
+        "atr_pct": 0.0,
+        "hour_utc": 16.0,
+        "edge": 0.1456026871141236,
+        "strength": 0.7913994020680724
+      },
+      "ml_prob": 0.5,
+      "status": "closed",
+      "pnl": -5.8,
+      "exit_price": 0.0,
+      "exit_time": "2026-02-16T16:52:50.373944+00:00"
     }
   ],
-  "active": {},
-  "last_updated": "2026-02-16T16:24:50.742902+00:00"
+  "active": {
+    "FRAMA_CMO_0x384a3e22204e8e1a950c76ae3b87b2d0c7f77dbbfd70a6db2093593f82e51158_DOWN": {
+      "side": "DOWN",
+      "entry_price": 0.515,
+      "size_usd": 4.53,
+      "entry_time": "2026-02-16T16:54:32.119041+00:00",
+      "condition_id": "0x384a3e22204e8e1a950c76ae3b87b2d0c7f77dbbfd70a6db2093593f82e51158",
+      "market_numeric_id": "1382225",
+      "title": "Bitcoin Up or Down - February 16, 11:45AM-12:00PM ET",
+      "strategy": "FRAMA_CMO",
+      "edge": 0.1631,
+      "fair_px": 0.6781,
+      "strength": 0.488,
+      "reason": "frama_dn_pullback",
+      "btc_price": 67837.11,
+      "detail": "frama=67845 cmo=-36.1 dcmid=68710",
+      "tte_seconds": 328,
+      "ml_features": {
+        "conf": 0.48767504767214787,
+        "ema_gap": 0.0,
+        "rsi": 50.0,
+        "atr_pct": 0.0,
+        "hour_utc": 16.0,
+        "edge": 0.16312429964193997,
+        "strength": 0.48767504767214787
+      },
+      "ml_prob": 0.5,
+      "status": "open",
+      "pnl": 0.0
+    }
+  },
+  "last_updated": "2026-02-16T16:56:45.163374+00:00"
 }
