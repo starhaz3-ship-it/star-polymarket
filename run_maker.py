@@ -401,9 +401,9 @@ class MakerConfig:
     TAKER_HEDGE_MAX_COMBINED: float = 1.08  # V4.3: Allow 8c/share overpay — beats riding EV (-$0.88 at 37% WR)
 
     # Position sizing
-    SIZE_PER_SIDE_USD: float = 3.0       # V4.6.2: $3/side
-    MAX_PAIR_EXPOSURE: float = 20.0      # V4: $20/pair (scaled for $3/side)
-    MAX_TOTAL_EXPOSURE: float = 40.0     # V4.5: $40 max (leaves buffer for CLOB order locking on $71 account)
+    SIZE_PER_SIDE_USD: float = 5.0       # V4.9: $5/side (was $3 — BTC 63% WR justifies scaling)
+    MAX_PAIR_EXPOSURE: float = 30.0      # V4.9: $30/pair (scaled for $5/side)
+    MAX_TOTAL_EXPOSURE: float = 50.0     # V4.9: $50 max (leaves buffer on $102 account)
     MIN_SHARES: int = 5                  # CLOB minimum order size
 
     # Risk
@@ -426,11 +426,14 @@ class MakerConfig:
     MOMENTUM_MAX_MULT: float = 1.50      # Cap at 1.5x base size
     MOMENTUM_MIN_MULT: float = 0.60      # Floor at 0.6x base size
 
+    # V4.9: Deep bids only for these assets (ETH 47% WR, -$0.15/trade — cut from deep)
+    DEEP_ASSETS: list = field(default_factory=lambda: ["BTC"])
+
     # V4.7: Paired mid-bid strategy — guaranteed profit when both sides fill
     PAIRED_MODE_ENABLED: bool = True
     PAIRED_BID_OFFSET: float = 0.025     # V4.7.4: Tight offset — bids at ~$0.475, hedge completes the pair
     PAIRED_MAX_COMBINED: float = 0.96    # V4.7.4: Allow up to $0.96 combined ($0.04/sh = 4% profit)
-    PAIRED_SIZE_PER_SIDE: float = 3.0    # $3/side for paired tier
+    PAIRED_SIZE_PER_SIDE: float = 5.0    # V4.9: $5/side for paired tier (match deep size)
     PAIRED_MAX_CONCURRENT: int = 3       # Separate cap from deep bids
     PAIRED_MIN_PROFIT: float = 0.04      # V4.7.4: Min $0.04/share (was $0.08) — 5% profit target
     PAIRED_HEDGE_MAX_COMBINED: float = 0.98  # V4.7.4: Paired-specific hedge limit (2% guaranteed profit)
@@ -475,7 +478,7 @@ class MakerConfig:
     # Assets
     ASSETS: dict = field(default_factory=lambda: {
         "BTC": {"keywords": ["bitcoin", "btc"], "enabled": True},
-        "ETH": {"keywords": ["ethereum", "eth"], "enabled": True},    # V4.6.4: RE-ENABLED — clean data shows +$3.29/trade, best per-trade asset
+        "ETH": {"keywords": ["ethereum", "eth"], "enabled": True},    # V4.9: Enabled for market discovery (paired needs it). Deep filter below.
         "SOL": {"keywords": ["solana", "sol"], "enabled": False},   # V4.6.1: DISABLED — -$67 loss, worst asset by far
         "XRP": {"keywords": ["xrp", "ripple"], "enabled": False},   # V4.6.3: DISABLED — +$4.72 marginal, not worth variance
     })
@@ -5072,9 +5075,10 @@ class CryptoMarketMaker:
         """Main market maker loop."""
         print("=" * 70)
         mode = "PAPER" if self.paper else "LIVE"
-        print(f"AVELLANEDA MAKER V4.8 - {mode} MODE")
-        paired_str = f" + PAIRED mid-bids (${self.config.PAIRED_SIZE_PER_SIDE:.0f}/side, max {self.config.PAIRED_MAX_CONCURRENT})" if self.config.PAIRED_MODE_ENABLED else ""
-        print(f"Strategy: Deep bids + 5M+15M BTC+ETH + dir cap {self.config.MAX_SAME_DIRECTION} + momentum{paired_str}")
+        print(f"AVELLANEDA MAKER V4.9 - {mode} MODE")
+        deep_assets = ",".join(self.config.DEEP_ASSETS)
+        paired_str = f" + PAIRED mid-bids BTC+ETH (${self.config.PAIRED_SIZE_PER_SIDE:.0f}/side, max {self.config.PAIRED_MAX_CONCURRENT})" if self.config.PAIRED_MODE_ENABLED else ""
+        print(f"Strategy: Deep bids {deep_assets} only + dir cap {self.config.MAX_SAME_DIRECTION} + momentum{paired_str}")
         print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Gamma: {self.config.DEFAULT_GAMMA} (ML-tuned) | "
               f"Base spread: {self.config.BASE_SPREAD*100:.0f}c")
         print(f"Max combined: ${self.config.MAX_COMBINED_PRICE} | Min edge: {self.config.MIN_SPREAD_EDGE*100:.0f}% | "
@@ -5086,7 +5090,7 @@ class CryptoMarketMaker:
               f"Max concurrent: {self.config.MAX_CONCURRENT_PAIRS} (scales to {self.config.MAX_CONCURRENT_PAIRS_SCALED} at ${self.config.SCALE_UP_PNL_THRESHOLD:.0f} PnL)")
         print(f"Daily loss limit: ${self.config.DAILY_LOSS_LIMIT}")
         if not self.paper:
-            print(f"CIRCUIT BREAKER: Auto-switch to paper on $41 net session loss (~40% of $102 capital)")
+            print(f"CIRCUIT BREAKER: Auto-switch to paper on ${self.config.DAILY_LOSS_LIMIT:.0f} net session loss (~40% of $102 capital)")
         if self.config.TAKER_HEDGE_ENABLED:
             print(f"TAKER HEDGE: ON | Max combined: ${self.config.TAKER_HEDGE_MAX_COMBINED} | "
                   f"Fallback: ride to resolution")
@@ -5179,6 +5183,10 @@ class CryptoMarketMaker:
                     for pair in markets:
                         if not self.check_risk():
                             break
+
+                        # V4.9: Deep bids only for configured assets (BTC-only)
+                        if pair.asset not in self.config.DEEP_ASSETS:
+                            continue
 
                         eval_result = self.evaluate_pair(pair)
                         if not eval_result["viable"]:
