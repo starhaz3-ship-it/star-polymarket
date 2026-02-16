@@ -403,14 +403,24 @@ class MakerConfig:
     # Position sizing
     SIZE_PER_SIDE_USD: float = 5.0       # V4.3: $5/side (proven profitable, scaling up)
     MAX_PAIR_EXPOSURE: float = 20.0      # V4: $20/pair (scaled for $3/side)
-    MAX_TOTAL_EXPOSURE: float = 90.0     # V4.3: $90 max (scaled for $111 account)
+    MAX_TOTAL_EXPOSURE: float = 40.0     # V4.5: $40 max (leaves buffer for CLOB order locking on $71 account)
     MIN_SHARES: int = 5                  # CLOB minimum order size
 
     # Risk
     DAILY_LOSS_LIMIT: float = 15.0       # V4.2: $15 daily loss limit (4 assets × $5/side)
-    MAX_CONCURRENT_PAIRS: int = 16       # V4.2: 4 assets × ~4 active markets
+    MAX_CONCURRENT_PAIRS: int = 6        # V4.4: 3 assets × 2 timeframes max (prevents balance exhaustion)
     MAX_SINGLE_SIDED: int = 8            # V4.2: 4 assets × 2 timeframes, allow partials to ride
     RIDE_AFTER_SEC: float = 120.0        # V4: 2min timeout on partials (was 45s)
+
+    # V4.5: Ping-pong mode
+    PINGPONG_ENABLED: bool = True        # Block new entries when unpaired partials accumulate
+    PINGPONG_THRESHOLD: int = 2          # Block when total unpaired fills >= this
+
+    # V4.5: Dynamic scaling at $200+ PnL
+    MAX_CONCURRENT_PAIRS_SCALED: int = 16
+    MAX_SINGLE_SIDED_SCALED: int = 12
+    MAX_TOTAL_EXPOSURE_SCALED: float = 160.0
+    SCALE_UP_PNL_THRESHOLD: float = 200.0
 
     # V4: Partial fill handling
     PARTIAL_TIMEOUT_ACTION: str = "sell"  # V4: "sell" = dump filled side at market, "ride" = hold to resolution
@@ -420,7 +430,12 @@ class MakerConfig:
     ORDER_REFRESH: int = 60              # V4.4: Seconds before checking stale orders for refresh
     ORDER_REFRESH_TOLERANCE: float = 0.02  # V4.4: Only re-quote if optimal price moved by $0.02+
     CLOSE_BUFFER_MIN: float = 2.0        # Cancel orders N min before close
-    FILL_CHECK_INTERVAL: int = 10        # Seconds between fill checks
+    FILL_CHECK_INTERVAL: int = 10        # Seconds between fill checks (dead — WS handles fast path)
+
+    # V4.5: WebSocket fill detection
+    WS_ENABLED: bool = True              # Background WS listener for sub-second fill detection
+    WS_RECONNECT_DELAY: float = 5.0     # Initial reconnect delay (exponential backoff to 60s)
+    REST_FALLBACK_CYCLES: int = 3        # Only REST-poll every Nth cycle when WS is connected
     MIN_TIME_LEFT_MIN: float = 5.0       # Don't enter markets with < 5 min left
     FILLED_ORDER_DELAY: float = 5.0      # V4.4: Pause new orders for 5s after any fill (adverse selection cooldown)
     RIDING_CUT_THRESHOLD: float = 0.20   # V4.4: Sell riding positions if token dropped 20c+ from entry
@@ -1256,7 +1271,7 @@ class CryptoMarketMaker:
             "hedge_attempts": 0,
             "hedge_successes": 0,
             "hedge_failures": 0,
-            "version": "V4.4",
+            "version": "V4.5",
         }
 
         # Daily tracking
@@ -1271,6 +1286,12 @@ class CryptoMarketMaker:
         # V4.4: New state
         self.shadow = ShadowTracker()      # Duplicate fill prevention
         self._last_fill_time: float = 0.0  # Filled order delay
+
+        # V4.5: WebSocket fill detection
+        self._ws_task: Optional[asyncio.Task] = None
+        self._ws_connected: bool = False
+        self._ws = None  # websocket connection object
+        self._rest_cycle_counter: int = 0  # For REST fallback cadence
 
         if not paper:
             self._init_client()
@@ -1744,6 +1765,173 @@ class CryptoMarketMaker:
         down_mult = max(0.5, min(1.5, 2.0 * up_ratio))
         return (up_mult, down_mult)
 
+    def _get_unpaired_count(self) -> int:
+        """V4.5: Count positions with exactly one side filled (unpaired partials)."""
+        count = 0
+        for pos in self.positions.values():
+            if pos.status in ("resolved", "cancelled"):
+                continue
+            if (pos.up_filled and not pos.down_filled) or (pos.down_filled and not pos.up_filled):
+                count += 1
+        return count
+
+    # ========================================================================
+    # V4.5: WEBSOCKET FILL DETECTION
+    # ========================================================================
+
+    async def _ws_fill_listener(self):
+        """Background task: listen for fill events via CLOB User WebSocket.
+        Detects fills in <1s instead of 10s REST polling, enabling faster hedge."""
+        try:
+            from websockets.asyncio.client import connect as ws_connect
+        except ImportError:
+            print("[WS] websockets package not installed, falling back to REST-only")
+            return
+
+        WSS_USER_URL = "wss://ws-subscriptions-clob.polymarket.com/ws/user"
+        reconnect_delay = self.config.WS_RECONNECT_DELAY
+
+        while True:
+            try:
+                async with ws_connect(WSS_USER_URL, ping_interval=20, ping_timeout=10) as ws:
+                    self._ws = ws
+                    self._ws_connected = True
+                    reconnect_delay = self.config.WS_RECONNECT_DELAY  # Reset on success
+
+                    # Subscribe with auth + all active market condition IDs
+                    active_markets = [pos.market_id for pos in self.positions.values()
+                                      if pos.status not in ("resolved", "cancelled")]
+                    sub_msg = {
+                        "auth": {
+                            "apiKey": self.client.creds.api_key,
+                            "secret": self.client.creds.api_secret,
+                            "passphrase": self.client.creds.api_passphrase,
+                        },
+                        "markets": active_markets,
+                        "type": "USER",
+                    }
+                    await ws.send(json.dumps(sub_msg))
+                    print(f"[WS] Connected, subscribed to {len(active_markets)} markets")
+
+                    async for message in ws:
+                        try:
+                            data = json.loads(message)
+                            # Handle both single events and arrays
+                            events = data if isinstance(data, list) else [data]
+                            for event in events:
+                                if isinstance(event, dict) and event.get("event_type") == "trade":
+                                    await self._handle_ws_trade(event)
+                        except json.JSONDecodeError:
+                            pass
+                        except Exception as e:
+                            print(f"[WS] Event handler error: {str(e)[:80]}")
+
+            except asyncio.CancelledError:
+                print("[WS] Listener cancelled, shutting down")
+                break
+            except Exception as e:
+                print(f"[WS] Disconnected: {str(e)[:80]}, reconnecting in {reconnect_delay:.0f}s...")
+            finally:
+                self._ws_connected = False
+                self._ws = None
+
+            await asyncio.sleep(reconnect_delay)
+            reconnect_delay = min(60.0, reconnect_delay * 1.5)
+
+    async def _handle_ws_trade(self, event: dict):
+        """Process a trade event from the User WebSocket channel."""
+        status = event.get("status", "")
+        if status != "MATCHED":
+            return  # Only care about initial match, not MINED/CONFIRMED
+
+        market_id = event.get("market", "")
+        if not market_id or market_id not in self.positions:
+            return
+
+        pos = self.positions[market_id]
+        if pos.status in ("resolved", "cancelled"):
+            return
+
+        # Match via maker_orders[].order_id to find which side filled
+        maker_orders = event.get("maker_orders", [])
+        for mo in maker_orders:
+            order_id = mo.get("order_id", "")
+            matched_amount = float(mo.get("matched_amount", 0))
+            price = float(mo.get("price", 0))
+
+            if not order_id or matched_amount <= 0:
+                continue
+
+            # Check shadow dedup
+            if self.shadow.is_duplicate(order_id):
+                continue
+
+            # Match to UP or DOWN order
+            order = None
+            fill_attr = None
+            side_label = ""
+            if pos.up_order and pos.up_order.order_id == order_id and not pos.up_filled:
+                order = pos.up_order
+                fill_attr = "up_filled"
+                side_label = "UP"
+            elif pos.down_order and pos.down_order.order_id == order_id and not pos.down_filled:
+                order = pos.down_order
+                fill_attr = "down_filled"
+                side_label = "DOWN"
+
+            if not order:
+                continue
+
+            # Mark fill
+            order.status = "filled"
+            order.fill_price = price if price > 0 else order.price
+            order.fill_shares = matched_amount
+            setattr(pos, fill_attr, True)
+            self.stats[f"fills_{side_label.lower()}"] += 1
+            self.shadow.record(order_id)
+
+            print(f"  [WS-FILL] {pos.asset} {side_label} @ ${order.fill_price:.2f} x {matched_amount:.0f}")
+
+            # Trigger immediate state update + hedge
+            await self._on_ws_fill(pos)
+
+    async def _on_ws_fill(self, pos: 'PairPosition'):
+        """Handle a WS-detected fill: update status and trigger hedge."""
+        prev_status = pos.status
+        self._last_fill_time = time.time()
+
+        if pos.up_filled and pos.down_filled:
+            pos.status = "paired"
+            print(f"  [WS-PAIRED] {pos.asset} both sides filled!")
+        elif pos.up_filled or pos.down_filled:
+            was_pending = pos.status == "pending"
+            pos.status = "partial"
+            if not pos.first_fill_time:
+                pos.first_fill_time = datetime.now(timezone.utc).isoformat()
+            # Trigger instant FOK hedge on first partial detection
+            if was_pending and self.config.TAKER_HEDGE_ENABLED and not self.paper:
+                await self._taker_hedge(pos)
+
+    async def _ws_resubscribe(self):
+        """Re-send subscription with updated market list. Called after new positions added."""
+        if not self._ws_connected or not self._ws:
+            return
+        try:
+            active_markets = [pos.market_id for pos in self.positions.values()
+                              if pos.status not in ("resolved", "cancelled")]
+            sub_msg = {
+                "auth": {
+                    "apiKey": self.client.creds.api_key,
+                    "secret": self.client.creds.api_secret,
+                    "passphrase": self.client.creds.api_passphrase,
+                },
+                "markets": active_markets,
+                "type": "USER",
+            }
+            await self._ws.send(json.dumps(sub_msg))
+        except Exception:
+            pass  # Will resubscribe on next reconnect
+
     # ========================================================================
     # ORDER PLACEMENT
     # ========================================================================
@@ -1820,7 +2008,7 @@ class CryptoMarketMaker:
                 placed_at_ts=now_ts,
             )
             print(f"  [PAPER] Placed UP bid ${up_bid:.2f} x {up_shares} + DOWN bid ${down_bid:.2f} x {down_shares}")
-            print(f"          Combined: ${up_bid + down_bid:.4f} | Edge: {eval_result['edge_pct']:.1f}% | γ={eval_result.get('gamma', 0):.2f}")
+            print(f"          Combined: ${up_bid + down_bid:.4f} | Edge: {eval_result['edge_pct']:.1f}% | g={eval_result.get('gamma', 0):.2f}")
         else:
             # Live mode: place real post_only orders
             try:
@@ -1888,7 +2076,7 @@ class CryptoMarketMaker:
 
                 print(f"  [LIVE] Placed UP {up_order_id[:16]}... @ ${up_bid:.2f} x {up_shares}")
                 print(f"  [LIVE] Placed DN {dn_order_id[:16]}... @ ${down_bid:.2f} x {down_shares}")
-                print(f"         Combined: ${up_bid + down_bid:.4f} | Edge: {eval_result['edge_pct']:.1f}% | γ={eval_result.get('gamma', 0):.2f}")
+                print(f"         Combined: ${up_bid + down_bid:.4f} | Edge: {eval_result['edge_pct']:.1f}% | g={eval_result.get('gamma', 0):.2f}")
 
             except Exception as e:
                 print(f"  [LIVE] Order error: {e}")
@@ -1898,6 +2086,10 @@ class CryptoMarketMaker:
         self.positions[pair.market_id] = pos
         self._persist_entered_market(pair.market_id)
         self.stats["pairs_attempted"] += 1
+
+        # V4.5: Subscribe WS to new market for instant fill detection
+        await self._ws_resubscribe()
+
         return pos
 
     # ========================================================================
@@ -1905,7 +2097,14 @@ class CryptoMarketMaker:
     # ========================================================================
 
     async def check_fills(self):
-        """Check order fill status for all active positions."""
+        """Check order fill status for all active positions.
+        V4.5: When WS is connected, only REST-poll every Nth cycle as fallback."""
+        self._rest_cycle_counter += 1
+
+        # V4.5: Skip REST polling when WS is handling fills (except every Nth cycle as fallback)
+        skip_rest = (self._ws_connected and not self.paper
+                     and self._rest_cycle_counter % self.config.REST_FALLBACK_CYCLES != 0)
+
         for market_id, pos in list(self.positions.items()):
             if pos.status in ("resolved", "cancelled", "riding"):
                 continue
@@ -1915,7 +2114,7 @@ class CryptoMarketMaker:
 
             if self.paper:
                 await self._check_fills_paper(pos)
-            else:
+            elif not skip_rest:
                 await self._check_fills_live(pos)
 
             # V4.4: Track last fill time for filled order delay
@@ -2263,20 +2462,21 @@ class CryptoMarketMaker:
                         paired=False, partial=True, pnl=0.0
                     )
 
-            # V4.4: Order refresh with tolerance — re-quote stale pending orders
+            # V4.4: Order refresh with tolerance — re-quote stale pending orders IN-PLACE
             # Only for fully-unfilled positions (both sides still open)
             if (pos.status == "pending" and not pos.up_filled and not pos.down_filled
                     and pos.up_order and pos.down_order
                     and pos.up_order.placed_at_ts > 0):
-                order_age = (now - datetime.fromisoformat(pos.created_at)).total_seconds()
-                if order_age > self.config.ORDER_REFRESH:
+                order_age_s = time.time() - pos.up_order.placed_at_ts
+                if order_age_s > self.config.ORDER_REFRESH:
                     # Recalculate optimal offset with current Avellaneda params
                     total_secs = pos.duration_min * 60.0
-                    secs_left = max(0, total_secs - order_age)
+                    market_age = (now - datetime.fromisoformat(pos.created_at)).total_seconds()
+                    secs_left = max(0, total_secs - market_age)
                     avg_mid = (pos.up_order.price + pos.bid_offset_used + pos.down_order.price + pos.bid_offset_used) / 2.0
-                    new_offset, _ = self._get_bid_offset(avg_mid, secs_left, total_secs)
+                    new_offset, new_gamma = self._get_bid_offset(avg_mid, secs_left, total_secs)
                     if abs(new_offset - pos.bid_offset_used) > self.config.ORDER_REFRESH_TOLERANCE:
-                        # Cancel both orders and allow re-entry
+                        # Cancel old orders
                         for order in [pos.up_order, pos.down_order]:
                             if order and order.status == "open":
                                 order.status = "cancelled"
@@ -2285,10 +2485,52 @@ class CryptoMarketMaker:
                                         self.client.cancel(order.order_id)
                                     except Exception:
                                         pass
-                        print(f"  [REFRESH] {pos.asset} — offset shifted {pos.bid_offset_used:.2f}→{new_offset:.2f}, re-quoting")
-                        self._entered_markets.discard(market_id)
-                        del self.positions[market_id]
-                        continue  # Skip expiry check for this (now deleted) position
+                        # Re-place with new offset IN THE SAME position (never delete/re-enter)
+                        up_bid = round(max(0.01, avg_mid - new_offset), 2)
+                        down_bid = round(max(0.01, (1.0 - avg_mid) - new_offset), 2)
+                        up_shares = max(self.config.MIN_SHARES, math.floor(self.config.SIZE_PER_SIDE_USD / up_bid))
+                        down_shares = max(self.config.MIN_SHARES, math.floor(self.config.SIZE_PER_SIDE_USD / down_bid))
+                        now_ts_r = time.time()
+                        now_iso_r = datetime.now(timezone.utc).isoformat()
+                        if not self.paper:
+                            try:
+                                from py_clob_client.clob_types import OrderArgs, OrderType
+                                from py_clob_client.order_builder.constants import BUY
+                                up_args = OrderArgs(price=up_bid, size=float(up_shares), side=BUY, token_id=pos.up_order.token_id)
+                                up_signed = self.client.create_order(up_args)
+                                up_resp = self.client.post_order(up_signed, OrderType.GTC)
+                                dn_args = OrderArgs(price=down_bid, size=float(down_shares), side=BUY, token_id=pos.down_order.token_id)
+                                dn_signed = self.client.create_order(dn_args)
+                                dn_resp = self.client.post_order(dn_signed, OrderType.GTC)
+                                pos.up_order = MakerOrder(
+                                    order_id=up_resp.get("orderID", ""), market_id=pos.market_id,
+                                    token_id=pos.up_order.token_id, side_label="UP",
+                                    price=up_bid, size_shares=float(up_shares), size_usd=up_bid * up_shares,
+                                    placed_at=now_iso_r, placed_at_ts=now_ts_r,
+                                )
+                                pos.down_order = MakerOrder(
+                                    order_id=dn_resp.get("orderID", ""), market_id=pos.market_id,
+                                    token_id=pos.down_order.token_id, side_label="DOWN",
+                                    price=down_bid, size_shares=float(down_shares), size_usd=down_bid * down_shares,
+                                    placed_at=now_iso_r, placed_at_ts=now_ts_r,
+                                )
+                                pos.bid_offset_used = new_offset
+                                pos.gamma_used = new_gamma
+                                print(f"  [REFRESH] {pos.asset} — offset {pos.bid_offset_used:.2f}->{new_offset:.2f}, "
+                                      f"re-placed UP ${up_bid:.2f}x{up_shares} DN ${down_bid:.2f}x{down_shares}")
+                            except Exception as e:
+                                print(f"  [REFRESH] {pos.asset} — cancel OK but re-place failed: {e}")
+                        else:
+                            pos.up_order.price = up_bid
+                            pos.up_order.size_shares = float(up_shares)
+                            pos.up_order.placed_at_ts = now_ts_r
+                            pos.down_order.price = down_bid
+                            pos.down_order.size_shares = float(down_shares)
+                            pos.down_order.placed_at_ts = now_ts_r
+                            pos.bid_offset_used = new_offset
+                            pos.gamma_used = new_gamma
+                            print(f"  [REFRESH] {pos.asset} — offset shifted {pos.bid_offset_used:.2f}->{new_offset:.2f}")
+                        continue  # Skip expiry check
 
             # If approaching close, cancel unfilled orders
             # V1.6: 5M gets 1min buffer (was 2), 15M keeps 2min
@@ -2353,7 +2595,7 @@ class CryptoMarketMaker:
                     self.daily_pnl += sell_pnl
                     self.stats["partial_pnl"] += sell_pnl
                     print(f"  [RIDE-CUT] {pos.asset} {filled_order.side_label} — "
-                          f"dropped {filled_order.fill_price:.2f}→{best_bid:.2f}, "
+                          f"dropped {filled_order.fill_price:.2f}->{best_bid:.2f}, "
                           f"sold to free capital | PnL: ${sell_pnl:+.4f}")
 
     async def harvest_extreme_prices(self):
@@ -3814,7 +4056,7 @@ class CryptoMarketMaker:
         if not self.paper and not self.circuit_tripped and self.starting_pnl is not None:
             session_pnl = self.stats["total_pnl"] - self.starting_pnl
             # Calculate 40% of the CLOB cash balance (~$76)
-            capital_loss_limit = 42.0  # 40% of $106 CLOB cash
+            capital_loss_limit = 28.0  # 40% of $71 CLOB cash
             if session_pnl < -capital_loss_limit:
                 print(f"\n{'='*70}")
                 print(f"[CIRCUIT BREAKER] NET CAPITAL LOSS EXCEEDED 40%!")
@@ -3832,14 +4074,26 @@ class CryptoMarketMaker:
             print(f"[RISK] Daily loss limit hit (${self.daily_pnl:.2f}). Pausing.")
             return False
 
+        # V4.5: Dynamic scaling — expand limits at $200+ PnL
+        scaled = self.stats.get("total_pnl", 0) >= self.config.SCALE_UP_PNL_THRESHOLD
+        max_pairs = self.config.MAX_CONCURRENT_PAIRS_SCALED if scaled else self.config.MAX_CONCURRENT_PAIRS
+        max_single = self.config.MAX_SINGLE_SIDED_SCALED if scaled else self.config.MAX_SINGLE_SIDED
+        max_exposure = self.config.MAX_TOTAL_EXPOSURE_SCALED if scaled else self.config.MAX_TOTAL_EXPOSURE
+
+        # V4.5: Ping-pong — block new entries when unpaired partials accumulate
+        if self.config.PINGPONG_ENABLED:
+            unpaired = self._get_unpaired_count()
+            if unpaired >= self.config.PINGPONG_THRESHOLD:
+                return False
+
         # Max concurrent pairs
         active = sum(1 for p in self.positions.values() if p.status in ("pending", "partial", "paired"))
-        if active >= self.config.MAX_CONCURRENT_PAIRS:
+        if active >= max_pairs:
             return False
 
         # Max single-sided
         partial = sum(1 for p in self.positions.values() if p.is_partial)
-        if partial >= self.config.MAX_SINGLE_SIDED:
+        if partial >= max_single:
             return False
 
         # Total exposure
@@ -3851,7 +4105,7 @@ class CryptoMarketMaker:
             for p in self.positions.values()
             if p.status not in ("resolved", "cancelled")
         )
-        if exposure >= self.config.MAX_TOTAL_EXPOSURE:
+        if exposure >= max_exposure:
             return False
 
         # Skip hours
@@ -3877,17 +4131,20 @@ class CryptoMarketMaker:
         """Main market maker loop."""
         print("=" * 70)
         mode = "PAPER" if self.paper else "LIVE"
-        print(f"AVELLANEDA MAKER V4.4 - {mode} MODE")
-        print(f"Strategy: Avellaneda time-decay spreads + inventory skew + FOK hedge + order refresh")
+        print(f"AVELLANEDA MAKER V4.5 - {mode} MODE")
+        print(f"Strategy: Avellaneda + WS fills + ping-pong + inventory skew + FOK hedge")
         print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Gamma: {self.config.DEFAULT_GAMMA} (ML-tuned) | "
               f"Base spread: {self.config.BASE_SPREAD*100:.0f}c")
         print(f"Max combined: ${self.config.MAX_COMBINED_PRICE} | Min edge: {self.config.MIN_SPREAD_EDGE*100:.0f}% | "
               f"Hedge max: ${self.config.TAKER_HEDGE_MAX_COMBINED}")
         print(f"Order refresh: {self.config.ORDER_REFRESH}s (tolerance: ${self.config.ORDER_REFRESH_TOLERANCE}) | "
               f"Fill delay: {self.config.FILLED_ORDER_DELAY}s | Ride cut: {self.config.RIDING_CUT_THRESHOLD*100:.0f}c")
+        ws_tag = "ON" if self.config.WS_ENABLED and not self.paper else "OFF"
+        print(f"WebSocket fills: {ws_tag} | Ping-pong: {self.config.PINGPONG_THRESHOLD} max unpaired | "
+              f"Max concurrent: {self.config.MAX_CONCURRENT_PAIRS} (scales to {self.config.MAX_CONCURRENT_PAIRS_SCALED} at ${self.config.SCALE_UP_PNL_THRESHOLD:.0f} PnL)")
         print(f"Daily loss limit: ${self.config.DAILY_LOSS_LIMIT}")
         if not self.paper:
-            print(f"CIRCUIT BREAKER: Auto-switch to paper on $42 net session loss (~40% of $106 capital)")
+            print(f"CIRCUIT BREAKER: Auto-switch to paper on $28 net session loss (~40% of $71 capital)")
         if self.config.TAKER_HEDGE_ENABLED:
             print(f"TAKER HEDGE: ON | Max combined: ${self.config.TAKER_HEDGE_MAX_COMBINED} | "
                   f"Fallback: ride to resolution")
@@ -3915,6 +4172,11 @@ class CryptoMarketMaker:
         if self.stats["total_pnl"] != 0:
             print(f"[RESUME] Total PnL: ${self.stats['total_pnl']:.4f} | "
                   f"Pairs: {self.stats['pairs_completed']} complete, {self.stats['pairs_partial']} partial")
+
+        # V4.5: Start WebSocket fill listener (live mode only)
+        if not self.paper and self.config.WS_ENABLED:
+            self._ws_task = asyncio.create_task(self._ws_fill_listener())
+            print("[WS] Fill listener task started")
 
         cycle = 0
         last_redeem_check = 0
@@ -4007,6 +4269,8 @@ class CryptoMarketMaker:
 
             except KeyboardInterrupt:
                 print("\n[MAKER] Shutting down...")
+                if self._ws_task:
+                    self._ws_task.cancel()
                 self._cancel_all_open()
                 self._save()
                 break
@@ -4043,8 +4307,11 @@ class CryptoMarketMaker:
         h_fail = self.stats.get("hedge_failures", 0)
         h_att = self.stats.get("hedge_attempts", 0)
         hedge_tag = f" | Hedge: {h_ok}/{h_att}" if h_att > 0 else ""
-        print(f"\n--- Cycle {cycle} | {mode_tag}{cb_tag} | UTC {hour:02d} | "
-              f"Active: {active} ({paired} paired, {partial} partial){hedge_tag} | "
+        unpaired = self._get_unpaired_count()
+        ws_tag = " WS" if self._ws_connected else ""
+        pp_tag = f" | PP:{unpaired}" if unpaired > 0 else ""
+        print(f"\n--- Cycle {cycle} | {mode_tag}{cb_tag}{ws_tag} | UTC {hour:02d} | "
+              f"Active: {active} ({paired} paired, {partial} partial){hedge_tag}{pp_tag} | "
               f"Daily: ${self.daily_pnl:+.4f} | Session: ${session_pnl:+.4f} | Total: ${self.stats['total_pnl']:+.4f} | "
               f"Resolved: {len(self.resolved)} ---")
 
