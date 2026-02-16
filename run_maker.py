@@ -437,6 +437,12 @@ class MakerConfig:
     PAIRED_EARLY_ENTRY: bool = True      # V4.7.3: Enter paired BEFORE candle opens (price near 50/50)
     PAIRED_EARLY_BUFFER_MIN: float = 2.0 # V4.7.3: Place orders up to 2 min before candle opens
 
+    # V4.8: ML Direction Skew for Paired Trades
+    PAIRED_SKEW_SHADOW: bool = True       # Shadow-track skewed PnL (Phase 1, zero risk)
+    PAIRED_SKEW_ENABLED: bool = False     # Phase 2/3: actually skew shares (off for now)
+    PAIRED_MAX_SKEW: float = 0.60         # Max 60% allocation to favored side
+    PAIRED_MIN_CONFIDENCE: float = 0.15   # Below this |confidence| = no skew (50/50)
+
     # V4.5: Dynamic scaling at $200+ PnL
     MAX_CONCURRENT_PAIRS_SCALED: int = 16
     MAX_SINGLE_SIDED_SCALED: int = 12
@@ -765,6 +771,264 @@ class OffsetOptimizer:
 
 
 # ============================================================================
+# V4.8: ML DIRECTION PREDICTOR FOR PAIRED TRADE SKEW
+# ============================================================================
+
+class DirectionPredictor:
+    """ML-driven direction prediction for paired trade skew.
+
+    Takes 1m klines (already fetched by BinanceMomentum) and computes
+    a direction confidence score from -1.0 (strong DOWN) to +1.0 (strong UP).
+    8 features, weighted scoring, online weight learning.
+    """
+
+    WEIGHTS_FILE = Path(__file__).parent / "skew_ml_weights.json"
+
+    def __init__(self):
+        self.weights: Dict[str, float] = {
+            "ema_cross": 1.0,
+            "rsi_zone": 1.0,
+            "bb_position": 1.0,
+            "momentum_z": 1.0,
+            "vwap_dev": 1.0,
+            "taker_flow": 1.0,
+            "macd_hist": 1.0,
+            "adx_trend": 1.0,
+        }
+        self._load_weights()
+
+    def _load_weights(self):
+        try:
+            if self.WEIGHTS_FILE.exists():
+                data = json.loads(self.WEIGHTS_FILE.read_text())
+                if isinstance(data, dict) and "weights" in data:
+                    for k, v in data["weights"].items():
+                        if k in self.weights:
+                            self.weights[k] = v
+        except Exception:
+            pass
+
+    def _save_weights(self):
+        try:
+            self.WEIGHTS_FILE.write_text(json.dumps(
+                {"weights": self.weights}, indent=2
+            ))
+        except Exception:
+            pass
+
+    @staticmethod
+    def _ema(values: List[float], period: int) -> Optional[float]:
+        if not values or len(values) < period:
+            return None
+        alpha = 2.0 / (period + 1)
+        result = values[0]
+        for v in values[1:]:
+            result = alpha * v + (1 - alpha) * result
+        return result
+
+    @staticmethod
+    def _compute_rsi(closes: List[float], period: int = 14) -> Optional[float]:
+        if len(closes) < period + 1:
+            return None
+        gains, losses = [], []
+        for i in range(1, len(closes)):
+            delta = closes[i] - closes[i - 1]
+            gains.append(max(0, delta))
+            losses.append(max(0, -delta))
+        if len(gains) < period:
+            return None
+        avg_gain = sum(gains[-period:]) / period
+        avg_loss = sum(losses[-period:]) / period
+        if avg_loss < 1e-10:
+            return 100.0
+        rs = avg_gain / avg_loss
+        return 100.0 - (100.0 / (1.0 + rs))
+
+    def compute_features(self, klines: List[list]) -> Dict[str, float]:
+        """Compute directional features from 1m OHLCV klines.
+        Kline format: [open_time, open, high, low, close, volume, close_time,
+                       quote_volume, trades, taker_buy_vol, taker_buy_quote, ignore]
+        """
+        if not klines or len(klines) < 15:
+            return {}
+
+        # Exclude last bar (incomplete)
+        bars = klines[:-1]
+        closes = [float(k[4]) for k in bars]
+        highs = [float(k[2]) for k in bars]
+        lows = [float(k[3]) for k in bars]
+        volumes = [float(k[5]) for k in bars]
+        taker_buy_vols = [float(k[9]) for k in bars]
+        n = len(closes)
+        features: Dict[str, float] = {}
+
+        # 1. EMA 9/21 cross — trend direction
+        ema9 = self._ema(closes, 9)
+        ema21 = self._ema(closes, 21)
+        if ema9 is not None and ema21 is not None and closes[-1] > 0:
+            gap_pct = (ema9 - ema21) / closes[-1]
+            features["ema_cross"] = max(-1.0, min(1.0, gap_pct * 500))
+
+        # 2. RSI zone — continuation model (>50 = bullish)
+        rsi = self._compute_rsi(closes, 14)
+        if rsi is not None:
+            features["rsi_zone"] = max(-1.0, min(1.0, (rsi - 50) / 50))
+
+        # 3. Bollinger Band position — where is price within bands
+        if n >= 20:
+            window = closes[-20:]
+            mid = sum(window) / 20
+            std = (sum((x - mid) ** 2 for x in window) / 20) ** 0.5
+            if std > 0:
+                bb_pos = (closes[-1] - mid) / (2 * std)
+                features["bb_position"] = max(-1.0, min(1.0, bb_pos))
+
+        # 4. Momentum Z-score — 5-bar return / volatility
+        if n >= 12:
+            rets = [(closes[i] - closes[i - 1]) / closes[i - 1]
+                    for i in range(max(1, n - 12), n) if closes[i - 1] > 0]
+            if len(rets) >= 2:
+                vol = statistics.stdev(rets)
+                if vol > 1e-8 and n >= 6 and closes[-6] > 0:
+                    mom = (closes[-1] - closes[-6]) / closes[-6]
+                    features["momentum_z"] = max(-1.0, min(1.0, mom / vol / 3))
+
+        # 5. VWAP deviation — price vs volume-weighted average
+        pv_sum = sum((highs[i] + lows[i] + closes[i]) / 3 * volumes[i] for i in range(n))
+        v_sum = sum(volumes)
+        if v_sum > 0:
+            vwap = pv_sum / v_sum
+            if vwap > 0:
+                vwap_dev = (closes[-1] - vwap) / vwap
+                features["vwap_dev"] = max(-1.0, min(1.0, vwap_dev * 200))
+
+        # 6. Taker flow imbalance — net buying vs selling (last 5 bars)
+        recent_vol = sum(volumes[-5:])
+        recent_buy = sum(taker_buy_vols[-5:])
+        if recent_vol > 0:
+            buy_ratio = recent_buy / recent_vol
+            features["taker_flow"] = max(-1.0, min(1.0, (buy_ratio - 0.5) * 2))
+
+        # 7. MACD histogram direction
+        if n >= 26:
+            fast_ema = self._ema(closes, 12)
+            slow_ema = self._ema(closes, 26)
+            if fast_ema is not None and slow_ema is not None and closes[-1] > 0:
+                macd_line = fast_ema - slow_ema
+                features["macd_hist"] = max(-1.0, min(1.0, macd_line / closes[-1] * 5000))
+
+        # 8. ADX trend strength + DI direction
+        if n >= 15:
+            # Compute +DI/-DI and ADX from 14-period
+            plus_dm_list, minus_dm_list, tr_list = [], [], []
+            for i in range(1, n):
+                up_move = highs[i] - highs[i - 1]
+                down_move = lows[i - 1] - lows[i]
+                plus_dm = up_move if (up_move > down_move and up_move > 0) else 0
+                minus_dm = down_move if (down_move > up_move and down_move > 0) else 0
+                plus_dm_list.append(plus_dm)
+                minus_dm_list.append(minus_dm)
+                tr = max(highs[i] - lows[i],
+                         abs(highs[i] - closes[i - 1]),
+                         abs(lows[i] - closes[i - 1]))
+                tr_list.append(tr)
+            if len(tr_list) >= 14:
+                period = 14
+                # Wilder smoothing (EMA with alpha = 1/period)
+                atr14 = sum(tr_list[:period]) / period
+                plus_di_s = sum(plus_dm_list[:period]) / period
+                minus_di_s = sum(minus_dm_list[:period]) / period
+                for i in range(period, len(tr_list)):
+                    atr14 = atr14 - atr14 / period + tr_list[i]
+                    plus_di_s = plus_di_s - plus_di_s / period + plus_dm_list[i]
+                    minus_di_s = minus_di_s - minus_di_s / period + minus_dm_list[i]
+                plus_di = (plus_di_s / atr14 * 100) if atr14 > 0 else 0
+                minus_di = (minus_di_s / atr14 * 100) if atr14 > 0 else 0
+                dx = abs(plus_di - minus_di) / (plus_di + minus_di) * 100 if (plus_di + minus_di) > 0 else 0
+                # ADX is smoothed DX — use current DX as proxy with limited data
+                adx = dx
+                # Direction from DI cross, scaled by ADX strength
+                di_dir = 1.0 if plus_di > minus_di else -1.0
+                # ADX < 20 = no trend (dampener), ADX > 40 = strong trend
+                adx_mult = max(0.0, min(1.0, (adx - 15) / 30))
+                features["adx_trend"] = di_dir * adx_mult
+
+        return features
+
+    def predict_direction(self, features: Dict[str, float]) -> Tuple[float, Dict[str, float]]:
+        """Combine features into direction confidence [-1.0, +1.0].
+        Returns (confidence, per-feature contributions).
+        """
+        if not features:
+            return (0.0, {})
+
+        contributions: Dict[str, float] = {}
+        raw_sum = 0.0
+        weight_sum = 0.0
+
+        for feat_name, weight in self.weights.items():
+            val = features.get(feat_name, 0.0)
+            contrib = val * weight
+            contributions[feat_name] = round(contrib, 4)
+            raw_sum += contrib
+            weight_sum += abs(weight)
+
+        # Normalize to [-1, 1]
+        normalized = raw_sum / weight_sum if weight_sum > 0 else 0.0
+
+        # ADX dampens overall confidence in choppy markets
+        adx_val = features.get("adx_trend", 0.0)
+        adx_strength = min(1.0, abs(adx_val) + 0.3)  # Base 0.3 + ADX contribution
+        confidence = max(-1.0, min(1.0, normalized * adx_strength))
+
+        return (confidence, contributions)
+
+    @staticmethod
+    def confidence_to_skew(confidence: float,
+                           max_skew: float = 0.60,
+                           min_per_side: float = 0.35) -> Tuple[float, float]:
+        """Convert direction confidence to (up_ratio, down_ratio) summing to 1.0.
+        At confidence=0: (0.5, 0.5). At +1.0: (max_skew, 1-max_skew).
+        """
+        half_range = max_skew - 0.5
+        up_ratio = 0.5 + confidence * half_range
+        up_ratio = max(min_per_side, min(max_skew, up_ratio))
+        down_ratio = 1.0 - up_ratio
+        return (up_ratio, down_ratio)
+
+    def update_weights(self, records: List[dict], min_trades: int = 20):
+        """Online weight learning from feature-outcome correlations.
+        For each feature, measure alignment with actual outcome direction.
+        """
+        recent = records[-100:]
+        if len(recent) < min_trades:
+            return
+
+        changed = False
+        for feat_name in self.weights:
+            corrs = []
+            for r in recent:
+                feat_val = r.get("features", {}).get(feat_name, 0)
+                if feat_val == 0:
+                    continue
+                correct_sign = 1.0 if r.get("outcome") == "UP" else -1.0
+                alignment = feat_val * correct_sign
+                corrs.append(alignment)
+
+            if len(corrs) >= 10:
+                avg_corr = sum(corrs) / len(corrs)
+                old_w = self.weights[feat_name]
+                new_w = max(0.1, min(3.0,
+                    old_w * 0.8 + (1.0 + avg_corr * 2) * 0.2))
+                self.weights[feat_name] = round(new_w, 3)
+                if abs(new_w - old_w) > 0.01:
+                    changed = True
+
+        if changed:
+            self._save_weights()
+
+
+# ============================================================================
 # BINANCE MOMENTUM TRACKER (V3.0 — @vague-sourdough strategy)
 # ============================================================================
 
@@ -802,6 +1066,9 @@ class BinanceMomentum:
         self.vol_1m_history: List[float] = []  # total volume per 1m bar
         self.last_kline_fetch: float = 0.0
         self.last_kline_data: List[list] = []  # cached klines
+        # V4.8: ETH klines for direction prediction
+        self.last_eth_kline_fetch: float = 0.0
+        self.last_eth_kline_data: List[list] = []
         self._load()
 
     def _load(self):
@@ -1095,6 +1362,23 @@ class BinanceMomentum:
             print(f"[FLOW] Kline fetch error: {e}")
         return self.last_kline_data
 
+    async def fetch_eth_klines(self, limit: int = 30) -> List[list]:
+        """V4.8: Fetch recent 1-minute ETHUSDT klines from Binance. Cached 10s."""
+        now = time.time()
+        if now - self.last_eth_kline_fetch < 10 and self.last_eth_kline_data:
+            return self.last_eth_kline_data
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(self.BINANCE_KLINES_URL, params={
+                    "symbol": "ETHUSDT", "interval": "1m", "limit": limit
+                })
+                if r.status_code == 200:
+                    self.last_eth_kline_data = r.json()
+                    self.last_eth_kline_fetch = now
+        except Exception as e:
+            print(f"[FLOW] ETH kline fetch error: {e}")
+        return self.last_eth_kline_data
+
     def get_orderflow_signal(self, market_id: str, config: 'MakerConfig') -> Optional[str]:
         """V12a: Check taker flow imbalance on the current 5-min window.
 
@@ -1316,6 +1600,10 @@ class PairPosition:
     last_ride_check_ts: float = 0.0    # V4.4: Rate limit ride monitoring API calls
     gamma_used: float = 0.25           # V4.4: Track which gamma was used (for ML)
     entry_tier: str = "deep"           # V4.7: "deep" or "paired" — which strategy tier
+    # V4.8: Direction prediction for skew shadow tracking
+    skew_confidence: float = 0.0
+    skew_features: dict = field(default_factory=dict)
+    skew_contributions: dict = field(default_factory=dict)
 
     @property
     def is_paired(self) -> bool:
@@ -1350,6 +1638,157 @@ class ShadowTracker:
 
 
 # ============================================================================
+# V4.8: SKEW SHADOW TRACKER — hypothetical skewed PnL comparison
+# ============================================================================
+
+class SkewShadowTracker:
+    """Shadow-tracks hypothetical skewed PnL alongside actual equal-shares PnL.
+    For each resolved paired trade, computes what PnL would have been at various skew levels.
+    Phase 1: logging only (zero risk). Phase 2+: data drives live skew decisions.
+    """
+
+    SHADOW_FILE = Path(__file__).parent / "maker_skew_shadow.json"
+    SKEW_LEVELS = [0.55, 0.60, 0.65, 0.70]
+
+    def __init__(self):
+        self.records: List[dict] = []
+        self.summary: Dict[str, dict] = {}
+        self._load()
+
+    def _load(self):
+        try:
+            if self.SHADOW_FILE.exists():
+                data = json.loads(self.SHADOW_FILE.read_text())
+                self.records = data.get("records", [])
+                self.summary = data.get("summary", {})
+        except Exception:
+            pass
+
+    def _save(self):
+        try:
+            # Keep last 500 records to prevent file bloat
+            trimmed = self.records[-500:]
+            self.SHADOW_FILE.write_text(json.dumps({
+                "records": trimmed,
+                "summary": self.summary,
+            }, indent=2))
+        except Exception:
+            pass
+
+    def record_trade(self,
+                     market_id: str,
+                     asset: str,
+                     outcome: str,
+                     actual_pnl: float,
+                     up_price: float,
+                     down_price: float,
+                     total_shares: float,
+                     confidence: float,
+                     features: Dict[str, float],
+                     contributions: Dict[str, float],
+                     timestamp: str):
+        """Record a resolved paired trade with shadow skew comparisons."""
+
+        record = {
+            "market_id": market_id[:16],
+            "asset": asset,
+            "outcome": outcome,
+            "actual_pnl": round(actual_pnl, 6),
+            "confidence": round(confidence, 4),
+            "predicted_dir": "UP" if confidence > 0 else "DOWN" if confidence < 0 else "NEUTRAL",
+            "prediction_correct": (
+                (confidence > 0 and outcome == "UP") or
+                (confidence < 0 and outcome == "DOWN")
+            ),
+            "features": {k: round(v, 4) for k, v in features.items()},
+            "contributions": {k: round(v, 4) for k, v in contributions.items()},
+            "up_price": up_price,
+            "down_price": down_price,
+            "total_shares": total_shares,
+            "timestamp": timestamp,
+            "shadow_pnl": {},
+        }
+
+        # Compute hypothetical PnL at each skew level
+        half_shares = total_shares / 2  # Each side gets half in equal mode
+        for skew in self.SKEW_LEVELS:
+            up_r, down_r = DirectionPredictor.confidence_to_skew(
+                confidence, max_skew=skew)
+            up_shares = total_shares * up_r
+            down_shares = total_shares * down_r
+
+            if outcome == "UP":
+                hypo_pnl = up_shares * (1.0 - up_price) - down_shares * down_price
+            else:
+                hypo_pnl = down_shares * (1.0 - down_price) - up_shares * up_price
+
+            record["shadow_pnl"][f"skew_{int(skew * 100)}"] = round(hypo_pnl, 6)
+
+        self.records.append(record)
+        self._update_summary(record)
+        self._save()
+
+    def _update_summary(self, record: dict):
+        """Update running aggregate statistics."""
+        # Direction prediction accuracy
+        if "prediction_accuracy" not in self.summary:
+            self.summary["prediction_accuracy"] = {"correct": 0, "total": 0, "neutral": 0}
+
+        acc = self.summary["prediction_accuracy"]
+        if abs(record["confidence"]) >= 0.01:
+            acc["total"] += 1
+            if record["prediction_correct"]:
+                acc["correct"] += 1
+        else:
+            acc["neutral"] += 1
+
+        # Per-skew cumulative PnL
+        for skew_key, hypo_pnl in record["shadow_pnl"].items():
+            if skew_key not in self.summary:
+                self.summary[skew_key] = {"total_pnl": 0.0, "trades": 0, "wins": 0}
+            s = self.summary[skew_key]
+            s["total_pnl"] = round(s["total_pnl"] + hypo_pnl, 6)
+            s["trades"] += 1
+            if hypo_pnl > 0:
+                s["wins"] += 1
+
+        # Actual PnL baseline
+        if "actual" not in self.summary:
+            self.summary["actual"] = {"total_pnl": 0.0, "trades": 0, "wins": 0}
+        self.summary["actual"]["total_pnl"] = round(
+            self.summary["actual"]["total_pnl"] + record["actual_pnl"], 6)
+        self.summary["actual"]["trades"] += 1
+        if record["actual_pnl"] > 0:
+            self.summary["actual"]["wins"] += 1
+
+    def get_comparison_report(self) -> str:
+        """Performance comparison: actual vs each skew level."""
+        lines = ["[SKEW SHADOW] Performance comparison:"]
+        actual = self.summary.get("actual", {})
+        actual_total = actual.get("total_pnl", 0)
+
+        for key in ["actual"] + [f"skew_{int(s * 100)}" for s in self.SKEW_LEVELS]:
+            s = self.summary.get(key, {})
+            if s.get("trades", 0) == 0:
+                continue
+            avg = s["total_pnl"] / s["trades"]
+            wr = s.get("wins", 0) / s["trades"] * 100
+            delta = ""
+            if key != "actual" and actual.get("trades", 0) > 0:
+                diff = s["total_pnl"] - actual_total
+                delta = f"  {'+'if diff>=0 else ''}{diff:.4f} vs actual"
+            lines.append(f"  {key:>10}: {s['trades']}T, {wr:.0f}%WR, "
+                         f"${s['total_pnl']:+.4f} total (${avg:+.4f}/T){delta}")
+
+        acc = self.summary.get("prediction_accuracy", {})
+        if acc.get("total", 0) > 0:
+            pct = acc["correct"] / acc["total"] * 100
+            lines.append(f"  Direction accuracy: {acc['correct']}/{acc['total']} = {pct:.1f}%")
+
+        return "\n".join(lines)
+
+
+# ============================================================================
 # MARKET MAKER BOT
 # ============================================================================
 
@@ -1364,7 +1803,10 @@ class CryptoMarketMaker:
         self.config = MakerConfig()
         self.client = None  # ClobClient (live only)
         self.ml_optimizer = OffsetOptimizer()
-        self.momentum = BinanceMomentum() if (self.config.MOMENTUM_ENABLED or self.config.LATE_CANDLE_ENABLED) else None
+        self.momentum = BinanceMomentum() if (self.config.MOMENTUM_ENABLED or self.config.LATE_CANDLE_ENABLED or self.config.PAIRED_MODE_ENABLED) else None
+        # V4.8: Direction prediction for paired skew
+        self.direction_predictor = DirectionPredictor()
+        self.skew_shadow = SkewShadowTracker()
 
         # State
         self.positions: Dict[str, PairPosition] = {}  # market_id -> PairPosition
@@ -1992,6 +2434,16 @@ class CryptoMarketMaker:
         min_time = 1.0 if pair.duration_min <= 5 else 2.0
         max_time = pair.duration_min + self.config.PAIRED_EARLY_BUFFER_MIN  # e.g. 5+2=7 min for 5M
 
+        # V4.8: Direction prediction for skew shadow
+        skew_conf = 0.0
+        skew_feats = {}
+        skew_contribs = {}
+        if self.config.PAIRED_SKEW_SHADOW and self.momentum:
+            klines = self.momentum.last_kline_data if pair.asset == "BTC" else self.momentum.last_eth_kline_data
+            if klines and len(klines) >= 15:
+                skew_feats = self.direction_predictor.compute_features(klines)
+                skew_conf, skew_contribs = self.direction_predictor.predict_direction(skew_feats)
+
         return {
             "up_bid": up_bid,
             "down_bid": down_bid,
@@ -2004,6 +2456,9 @@ class CryptoMarketMaker:
             "secs_left": secs_left,
             "total_secs": pair.duration_min * 60.0,
             "entry_tier": "paired",  # V4.7.4: Tag for share matching in place_pair_orders
+            "skew_confidence": skew_conf,
+            "skew_features": skew_feats,
+            "skew_contributions": skew_contribs,
             "viable": (
                 combined <= self.config.PAIRED_MAX_COMBINED
                 and profit_per_share >= self.config.PAIRED_MIN_PROFIT
@@ -2324,6 +2779,10 @@ class CryptoMarketMaker:
             gamma_used=eval_result.get("gamma", self.config.DEFAULT_GAMMA),
             hour_utc=datetime.now(timezone.utc).hour,
             duration_min=pair.duration_min,
+            # V4.8: Store direction prediction for skew shadow
+            skew_confidence=eval_result.get("skew_confidence", 0.0),
+            skew_features=eval_result.get("skew_features", {}),
+            skew_contributions=eval_result.get("skew_contributions", {}),
         )
 
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -4309,11 +4768,42 @@ class CryptoMarketMaker:
                     pnl=pnl
                 )
 
+            # V4.8: Record skew shadow data for paired trades
+            if (pos.entry_tier == "paired" and self.config.PAIRED_SKEW_SHADOW
+                    and pos.skew_confidence != 0.0
+                    and pos.up_order and pos.down_order
+                    and (pos.up_filled or pos.down_filled)):
+                up_price = pos.up_order.fill_price if pos.up_filled else pos.up_order.price
+                down_price = pos.down_order.fill_price if pos.down_filled else pos.down_order.price
+                total_shares = 0
+                if pos.up_filled and pos.up_order:
+                    total_shares += pos.up_order.fill_shares
+                if pos.down_filled and pos.down_order:
+                    total_shares += pos.down_order.fill_shares
+                if total_shares > 0:
+                    self.skew_shadow.record_trade(
+                        market_id=market_id,
+                        asset=pos.asset,
+                        outcome=outcome,
+                        actual_pnl=pnl,
+                        up_price=up_price,
+                        down_price=down_price,
+                        total_shares=total_shares,
+                        confidence=pos.skew_confidence,
+                        features=pos.skew_features,
+                        contributions=pos.skew_contributions,
+                        timestamp=now.isoformat(),
+                    )
+
             # Log
             pair_type = "PAIRED" if pos.is_paired else "PARTIAL" if pos.is_partial else "UNFILLED"
             lc_tag = f" [LC:{pos.entry_type}]" if pos.entry_type != "maker" else ""
             icon = "+" if pnl > 0 else "-" if pnl < 0 else "="
-            print(f"  [{pair_type}]{lc_tag} {pos.asset} {pos.question[:50]} | {outcome} | PnL: {icon}${abs(pnl):.4f} (off={pos.bid_offset_used:.1%})")
+            skew_tag = ""
+            if pos.entry_tier == "paired" and pos.skew_confidence != 0.0:
+                d = "UP" if pos.skew_confidence > 0 else "DN"
+                skew_tag = f" [skew:{d} {pos.skew_confidence:+.2f}]"
+            print(f"  [{pair_type}]{lc_tag}{skew_tag} {pos.asset} {pos.question[:50]} | {outcome} | PnL: {icon}${abs(pnl):.4f} (off={pos.bid_offset_used:.1%})")
 
             # Archive
             self.resolved.append({
@@ -4582,7 +5072,7 @@ class CryptoMarketMaker:
         """Main market maker loop."""
         print("=" * 70)
         mode = "PAPER" if self.paper else "LIVE"
-        print(f"AVELLANEDA MAKER V4.7.4 - {mode} MODE")
+        print(f"AVELLANEDA MAKER V4.8 - {mode} MODE")
         paired_str = f" + PAIRED mid-bids (${self.config.PAIRED_SIZE_PER_SIDE:.0f}/side, max {self.config.PAIRED_MAX_CONCURRENT})" if self.config.PAIRED_MODE_ENABLED else ""
         print(f"Strategy: Deep bids + 5M+15M BTC+ETH + dir cap {self.config.MAX_SAME_DIRECTION} + momentum{paired_str}")
         print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Gamma: {self.config.DEFAULT_GAMMA} (ML-tuned) | "
@@ -4619,6 +5109,10 @@ class CryptoMarketMaker:
             print(f"LATE WINNER: ${self.config.LATE_WINNER_SIZE_USD}/trade | "
                   f"Buy winner @ ${self.config.LATE_WINNER_MIN_BUY_PRICE}-${self.config.LATE_WINNER_MAX_BUY_PRICE} | "
                   f"Last {self.config.LATE_WINNER_WINDOW_SEC:.0f}s before close")
+        if self.config.PAIRED_SKEW_SHADOW:
+            skew_mode = "LIVE SKEW" if self.config.PAIRED_SKEW_ENABLED else "shadow-only"
+            print(f"DIRECTION SKEW: {skew_mode} | 8 features (EMA/RSI/BB/mom/VWAP/flow/MACD/ADX) | "
+                  f"min conf: {self.config.PAIRED_MIN_CONFIDENCE} | max skew: {self.config.PAIRED_MAX_SKEW:.0%}")
         print("=" * 70)
 
         if self.stats["total_pnl"] != 0:
@@ -4699,6 +5193,11 @@ class CryptoMarketMaker:
 
                 # Phase 6b: V4.7 PAIRED MID-BID STRATEGY — parallel tier
                 if self.config.PAIRED_MODE_ENABLED and not fill_cooldown:
+                    # V4.8: Fetch klines for direction prediction (both assets)
+                    if self.momentum and self.config.PAIRED_SKEW_SHADOW:
+                        await self.momentum.fetch_btc_klines(limit=30)
+                        await self.momentum.fetch_eth_klines(limit=30)
+
                     paired_active = sum(1 for p in self.positions.values()
                                         if p.status not in ("resolved", "cancelled")
                                         and p.entry_tier == "paired")
@@ -4717,6 +5216,14 @@ class CryptoMarketMaker:
                             print(f"  Mid bids: UP ${eval_mid['up_bid']:.2f} / DN ${eval_mid['down_bid']:.2f} | "
                                   f"Combined ${eval_mid['combined']:.2f} | "
                                   f"Guaranteed: ${eval_mid['edge']:.2f}/sh")
+                            # V4.8: Log direction prediction
+                            sc = eval_mid.get("skew_confidence", 0)
+                            if sc != 0:
+                                d = "UP" if sc > 0 else "DOWN"
+                                top = sorted(eval_mid.get("skew_contributions", {}).items(),
+                                             key=lambda x: abs(x[1]), reverse=True)[:3]
+                                top_str = " ".join(f"{k}={v:+.2f}" for k, v in top)
+                                print(f"  [SKEW] conf={sc:+.2f} ({d}) | {top_str}")
                             pos = await self.place_pair_orders(pair, eval_mid)
                             if pos:
                                 pos.entry_tier = "paired"
@@ -4757,6 +5264,11 @@ class CryptoMarketMaker:
                             bfr = s["both_filled"] / max(1, s["attempts"]) * 100
                             avg = s["total_pnl"] / max(1, s["attempts"])
                             print(f"  Offset {key}: {s['attempts']}T, {bfr:.0f}% both-fill, ${s['total_pnl']:+.2f} (${avg:+.2f}/T)")
+
+                    # V4.8: Skew shadow comparison report + weight update
+                    if self.config.PAIRED_SKEW_SHADOW and self.skew_shadow.records:
+                        print(self.skew_shadow.get_comparison_report())
+                        self.direction_predictor.update_weights(self.skew_shadow.records)
 
                 # Phase 8b: V4.6 On-chain PnL verification every 25 cycles (~4 min)
                 if not self.paper and cycle % 25 == 0:
