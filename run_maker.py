@@ -2738,9 +2738,11 @@ class CryptoMarketMaker:
 
             # V4.4: Order refresh with tolerance — re-quote stale pending orders IN-PLACE
             # Only for fully-unfilled positions (both sides still open)
+            # V4.7.1: Skip refresh for paired tier — they use fixed mid-bid offset, not Avellaneda
             if (pos.status == "pending" and not pos.up_filled and not pos.down_filled
                     and pos.up_order and pos.down_order
-                    and pos.up_order.placed_at_ts > 0):
+                    and pos.up_order.placed_at_ts > 0
+                    and pos.entry_tier != "paired"):
                 order_age_s = time.time() - pos.up_order.placed_at_ts
                 if order_age_s > self.config.ORDER_REFRESH:
                     # Recalculate optimal offset with current Avellaneda params
