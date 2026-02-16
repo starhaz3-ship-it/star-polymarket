@@ -6,13 +6,15 @@
 
 ## CRITICAL RULES
 - **NEVER** launch copy traders (`run_copy_live.py`, `run_copy_k9Q2.py`) without Star's explicit consent
-- **NEVER** run directional traders live (`run_ta_live.py`, `run_ema_rsi_5m.py`, `run_trend_scalp_15m.py`, `run_momentum_5m.py`). Directional trading has 40% WR and -$214 lifetime losses. ONLY the maker bot (`run_maker.py`) is allowed to trade live.
-- **ON SESSION START**: Verify NO directional traders are running live. If found, KILL IMMEDIATELY.
-- Only live process allowed: `run_maker.py --live` (both-sides market maker)
+- **NEVER** run directional traders live (`run_ta_live.py`, `run_ema_rsi_5m.py`, `run_trend_scalp_15m.py`, `run_momentum_5m.py`). Directional trading has 40% WR and -$214 lifetime losses.
+- **EXCEPTION (2026-02-16)**: `run_momentum_15m_live.py --live` is APPROVED by Star. Monitor closely — kill if WR drops below 50% over 20+ trades or daily loss limit hit.
+- **ON SESSION START**: Verify NO unauthorized directional traders are running. `run_momentum_15m_live.py` and `run_maker.py` are the only two allowed live.
+- Allowed live: `run_maker.py --live` (maker) + `run_momentum_15m_live.py --live` (momentum directional)
 - Paper-only processes (safe): `run_ta_paper.py`, `run_15m_strategies.py`, `run_fib_fib_paper.py`, `run_momentum_5m.py --paper`
 
 ## DO NOT KILL THESE PROCESSES
-- **Maker LIVE** (`run_maker.py --live`) — PID in `maker.pid` — both-sides market maker, ONLY live trader allowed
+- **Maker LIVE** (`run_maker.py --live`) — PID in `maker.pid` — both-sides market maker
+- **Momentum 15M LIVE** (`run_momentum_15m_live.py --live`) — PID in `momentum_15m_live.pid` — directional momentum (APPROVED, monitor WR)
 - **TA Paper Trader** (`run_ta_paper.py`) — PID in `ta_paper.pid` — paper trading
 - Check PID files before killing ANY Python process in this project
 - If you need to restart a trader, read the PID file first and only kill that specific PID

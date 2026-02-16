@@ -60,7 +60,8 @@ from pid_lock import acquire_pid_lock, release_pid_lock
 SCAN_INTERVAL = 30          # seconds between cycles
 MAX_CONCURRENT = 3          # max open positions
 MIN_MOMENTUM_10M = 0.0005   # 0.05% threshold (matches paper bot)
-MIN_ENTRY = 0.10            # minimum entry price (avoid noise)
+MIN_MOMENTUM_5M = 0.0003    # V1.1: 0.03% min 5m momentum (Trade 9 lost with 5m=-0.0001%)
+MIN_ENTRY = 0.35            # V1.1: Raised from $0.10 — entries <$0.35 were 0W/3L (0% WR, -$7.50)
 MAX_ENTRY = 0.60            # maximum entry price (avoid paying premium)
 TIME_WINDOW = (2.0, 12.0)   # 2-12 min before market close (matches paper bot)
 SPREAD_OFFSET = 0.02        # paper fill spread simulation (ignored in live)
@@ -534,13 +535,13 @@ class Momentum15MTrader:
             side = None
             entry_price = None
 
-            if momentum_10m > MIN_MOMENTUM_10M and momentum_5m > 0:
-                # Upward momentum, both timeframes aligned
+            if momentum_10m > MIN_MOMENTUM_10M and momentum_5m > MIN_MOMENTUM_5M:
+                # Upward momentum, both timeframes aligned with minimum thresholds
                 if MIN_ENTRY <= up_price <= MAX_ENTRY:
                     side = "UP"
                     entry_price = round(up_price + (SPREAD_OFFSET if self.paper else 0), 2)
-            elif momentum_10m < -MIN_MOMENTUM_10M and momentum_5m < 0:
-                # Downward momentum, both timeframes aligned
+            elif momentum_10m < -MIN_MOMENTUM_10M and momentum_5m < -MIN_MOMENTUM_5M:
+                # Downward momentum, both timeframes aligned with minimum thresholds
                 if MIN_ENTRY <= down_price <= MAX_ENTRY:
                     side = "DOWN"
                     entry_price = round(down_price + (SPREAD_OFFSET if self.paper else 0), 2)
@@ -600,6 +601,7 @@ class Momentum15MTrader:
                 "market_numeric_id": nid,
                 "title": question,
                 "strategy": "momentum_strong",
+                "asset": asset,
                 "_asset": asset,
                 "momentum_10m": round(momentum_10m, 6),
                 "momentum_5m": round(momentum_5m, 6),
@@ -624,7 +626,7 @@ class Momentum15MTrader:
         mode = "PAPER" if self.paper else "LIVE"
         print("=" * 70)
         tier_size = TIERS[self.tier]["size"]
-        print(f"MOMENTUM 15M DIRECTIONAL TRADER V1.0 - {mode} MODE")
+        print(f"MOMENTUM 15M DIRECTIONAL TRADER V1.1 - {mode} MODE")
         print(f"Strategy: Multi-asset momentum_strong on Polymarket 15M markets")
         print(f"Paper-proven: 224W/134L, 63% WR, +$1,459 PnL")
         print(f"Assets: {', '.join(ASSETS.keys())}")
@@ -632,8 +634,9 @@ class Momentum15MTrader:
         print(f"  PROBATION: $2.50/trade -> after 20T if >55%WR & profitable -> PROMOTED")
         print(f"  PROMOTED:  $5.00/trade -> after 50T if >55%WR & profitable -> CHAMPION")
         print(f"  CHAMPION:  $10.00/trade (max tier)")
+        print(f"Entry price: ${MIN_ENTRY:.2f}-${MAX_ENTRY:.2f} (V1.1: raised floor — <$0.35 was 0W/3L)")
         print(f"Entry window: {TIME_WINDOW[0]}-{TIME_WINDOW[1]} min before close")
-        print(f"Min momentum: {MIN_MOMENTUM_10M:.4%} (10m)")
+        print(f"Min momentum: {MIN_MOMENTUM_10M:.4%} (10m) + {MIN_MOMENTUM_5M:.4%} (5m)")
         print(f"Daily loss limit: ${DAILY_LOSS_LIMIT}")
         print(f"Scan interval: {SCAN_INTERVAL}s")
         print("=" * 70)
