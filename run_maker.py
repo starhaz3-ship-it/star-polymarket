@@ -386,12 +386,15 @@ def auto_redeem_winnings():
 
 @dataclass
 class MakerConfig:
-    """Market maker configuration — V4.3 Moderate Offset + Taker Hedge."""
-    # Spread targets — V4.3: Moderate offsets for better pair rate
+    """Market maker configuration — V4.4 Avellaneda + Hummingbot patterns."""
+    # Spread targets — V4.4: Avellaneda time-decay spreads
     MAX_COMBINED_PRICE: float = 0.92     # V4.3: 8% minimum edge (balanced pair rate vs edge)
     MIN_SPREAD_EDGE: float = 0.08        # V4.3: 8% minimum edge
-    BID_OFFSET: float = 0.06            # V4.3: 6c offset. Bids at ~$0.44 — competitive enough for pairs
-    MIN_BID_OFFSET: float = 0.04         # V4.3: ML optimizer floor at 4c
+    BID_OFFSET: float = 0.06            # V4.4: Fallback only — Avellaneda computes dynamic offset
+    MIN_BID_OFFSET: float = 0.04         # V4.4: Avellaneda floor at 4c
+    # V4.4: Avellaneda time-decay spread parameters
+    BASE_SPREAD: float = 0.02           # Minimum 2c spread even at expiry
+    DEFAULT_GAMMA: float = 0.25          # Risk aversion (ML-tuned). Higher = wider spreads
 
     # V4.3: Taker hedge — on first fill, FOK buy other side to guarantee pair
     TAKER_HEDGE_ENABLED: bool = True     # V4.3: Instant FOK hedge on first fill
@@ -414,10 +417,13 @@ class MakerConfig:
 
     # Timing
     SCAN_INTERVAL: int = 10              # Seconds between market scans
-    ORDER_REFRESH: int = 60              # Seconds before re-quoting orders
+    ORDER_REFRESH: int = 60              # V4.4: Seconds before checking stale orders for refresh
+    ORDER_REFRESH_TOLERANCE: float = 0.02  # V4.4: Only re-quote if optimal price moved by $0.02+
     CLOSE_BUFFER_MIN: float = 2.0        # Cancel orders N min before close
     FILL_CHECK_INTERVAL: int = 10        # Seconds between fill checks
     MIN_TIME_LEFT_MIN: float = 5.0       # Don't enter markets with < 5 min left
+    FILLED_ORDER_DELAY: float = 5.0      # V4.4: Pause new orders for 5s after any fill (adverse selection cooldown)
+    RIDING_CUT_THRESHOLD: float = 0.20   # V4.4: Sell riding positions if token dropped 20c+ from entry
 
     # Session control (from PolyData analysis)
     SKIP_HOURS_UTC: set = field(default_factory=set)  # All hours active
@@ -499,17 +505,18 @@ class MakerConfig:
 import random
 
 class OffsetOptimizer:
-    """ML-driven bid offset optimizer. Maximizes profit = fill_rate x edge.
+    """V4.4: ML-driven gamma optimizer for Avellaneda time-decay spreads.
 
-    Tracks per-hour, per-offset-bucket stats and uses Thompson Sampling
-    to balance exploration vs exploitation of bid offsets.
+    Instead of choosing raw offsets, the ML tunes the gamma (risk aversion)
+    parameter of the Avellaneda-Stoikov formula. Higher gamma = wider spreads.
+    Uses epsilon-greedy to explore gamma values and exploit the best per hour.
     """
-    OFFSET_BUCKETS = [0.04, 0.05, 0.06, 0.07, 0.08, 0.09]  # V4.3: moderate 4-9c
+    GAMMA_BUCKETS = [0.15, 0.20, 0.25, 0.30, 0.35, 0.40]  # V4.4: gamma risk aversion values
     STATE_FILE = Path(__file__).parent / "maker_ml_state.json"
     EXPLORE_RATE = 0.15  # 15% explore, 85% exploit
 
     def __init__(self):
-        # hour_stats[hour][offset_str] = {attempts, paired, partial, unfilled, pnl}
+        # hour_stats[hour][gamma_str] = {attempts, paired, partial, unfilled, pnl}
         self.hour_stats: Dict[int, Dict[str, dict]] = {}
         self._init_stats()
         self._load()
@@ -517,8 +524,8 @@ class OffsetOptimizer:
     def _init_stats(self):
         for h in range(24):
             self.hour_stats[h] = {}
-            for off in self.OFFSET_BUCKETS:
-                key = f"{off:.3f}"
+            for g in self.GAMMA_BUCKETS:
+                key = f"{g:.3f}"
                 self.hour_stats[h][key] = {
                     "attempts": 0, "paired": 0, "partial": 0,
                     "unfilled": 0, "total_pnl": 0.0
@@ -528,12 +535,12 @@ class OffsetOptimizer:
         if self.STATE_FILE.exists():
             try:
                 data = json.loads(self.STATE_FILE.read_text())
-                for h_str, offsets in data.items():
+                for h_str, gammas in data.items():
                     h = int(h_str)
                     if h in self.hour_stats:
-                        for off_key, stats in offsets.items():
-                            if off_key in self.hour_stats[h]:
-                                self.hour_stats[h][off_key].update(stats)
+                        for g_key, stats in gammas.items():
+                            if g_key in self.hour_stats[h]:
+                                self.hour_stats[h][g_key].update(stats)
             except Exception:
                 pass
 
@@ -544,21 +551,20 @@ class OffsetOptimizer:
         except Exception:
             pass
 
-    def get_offset(self, hour: int) -> float:
-        """Pick optimal offset for this hour using epsilon-greedy."""
+    def get_gamma(self, hour: int) -> float:
+        """Pick optimal gamma for this hour using epsilon-greedy."""
         stats = self.hour_stats.get(hour, {})
 
         # Need minimum data before exploiting
         total_attempts = sum(s["attempts"] for s in stats.values())
         if total_attempts < 10 or random.random() < self.EXPLORE_RATE:
-            # Explore: pick random offset
-            return random.choice(self.OFFSET_BUCKETS)
+            return random.choice(self.GAMMA_BUCKETS)
 
-        # Exploit: pick offset with best avg profit per attempt
-        best_offset = 0.12  # V4.2: default to 12c deep bid
+        # Exploit: pick gamma with best avg profit per attempt
+        best_gamma = 0.25  # V4.4: default gamma
         best_score = -999.0
-        for off in self.OFFSET_BUCKETS:
-            key = f"{off:.3f}"
+        for g in self.GAMMA_BUCKETS:
+            key = f"{g:.3f}"
             s = stats.get(key, {})
             attempts = s.get("attempts", 0)
             if attempts < 3:
@@ -566,15 +572,14 @@ class OffsetOptimizer:
             avg_pnl = s.get("total_pnl", 0) / attempts
             if avg_pnl > best_score:
                 best_score = avg_pnl
-                best_offset = off
+                best_gamma = g
 
-        return best_offset
+        return best_gamma
 
-    def record(self, hour: int, offset: float, paired: bool, partial: bool, pnl: float):
+    def record(self, hour: int, gamma: float, paired: bool, partial: bool, pnl: float):
         """Record outcome of a pair attempt."""
-        key = f"{offset:.3f}"
-        # Snap to nearest bucket
-        closest = min(self.OFFSET_BUCKETS, key=lambda x: abs(x - offset))
+        # Snap to nearest gamma bucket
+        closest = min(self.GAMMA_BUCKETS, key=lambda x: abs(x - gamma))
         key = f"{closest:.3f}"
 
         if hour not in self.hour_stats:
@@ -596,20 +601,20 @@ class OffsetOptimizer:
         s["total_pnl"] += pnl
 
     def get_summary(self) -> str:
-        """Return brief summary of optimal offsets per hour."""
+        """Return brief summary of optimal gamma per hour."""
         lines = []
         for h in range(24):
             stats = self.hour_stats.get(h, {})
             total = sum(s["attempts"] for s in stats.values())
             if total == 0:
                 continue
-            best_off = self.get_offset(h)
-            best_key = f"{best_off:.3f}"
+            best_g = self.get_gamma(h)
+            best_key = f"{best_g:.3f}"
             s = stats.get(best_key, {})
             att = s.get("attempts", 0)
             pnl = s.get("total_pnl", 0)
             pr = s.get("paired", 0)
-            lines.append(f"  UTC {h:02d}: best={best_off:.1%} ({pr}/{att} paired, ${pnl:+.2f})")
+            lines.append(f"  UTC {h:02d}: gamma={best_g:.2f} ({pr}/{att} paired, ${pnl:+.2f})")
         return "\n".join(lines) if lines else "  No data yet"
 
 
@@ -1131,6 +1136,7 @@ class MakerOrder:
     size_shares: float
     size_usd: float
     placed_at: str           # ISO timestamp
+    placed_at_ts: float = 0.0  # V4.4: Unix timestamp for order age checks
     status: str = "open"     # open, filled, cancelled, expired
     fill_price: float = 0.0
     fill_shares: float = 0.0
@@ -1161,6 +1167,8 @@ class PairPosition:
     late_candle_pending: bool = False  # True when late-candle order placed, awaiting fill
     loser_buy_price: float = 0.0      # Price paid for loser side (for ML)
     sell_attempts: int = 0             # V4.1: Track sell-back attempts (ride after 3 failures)
+    last_ride_check_ts: float = 0.0    # V4.4: Rate limit ride monitoring API calls
+    gamma_used: float = 0.25           # V4.4: Track which gamma was used (for ML)
 
     @property
     def is_paired(self) -> bool:
@@ -1169,6 +1177,29 @@ class PairPosition:
     @property
     def is_partial(self) -> bool:
         return (self.up_filled or self.down_filled) and not self.is_paired
+
+
+# ============================================================================
+# SHADOW ORDER TRACKER (V4.4: duplicate fill prevention)
+# ============================================================================
+
+class ShadowTracker:
+    """Cache recently-processed fills to detect duplicates on restart.
+    Prevents double-entry when on-chain sync misses in-transit fills."""
+
+    def __init__(self, ttl_sec: int = 180):
+        self._fills: Dict[str, float] = {}  # order_id -> timestamp
+        self.ttl = ttl_sec
+
+    def is_duplicate(self, order_id: str) -> bool:
+        return order_id in self._fills
+
+    def record(self, order_id: str):
+        self._fills[order_id] = time.time()
+
+    def cleanup(self):
+        cutoff = time.time() - self.ttl
+        self._fills = {k: v for k, v in self._fills.items() if v > cutoff}
 
 
 # ============================================================================
@@ -1225,7 +1256,7 @@ class CryptoMarketMaker:
             "hedge_attempts": 0,
             "hedge_successes": 0,
             "hedge_failures": 0,
-            "version": "V4.3",
+            "version": "V4.4",
         }
 
         # Daily tracking
@@ -1236,6 +1267,10 @@ class CryptoMarketMaker:
         self.circuit_breaker_pct = 0.40  # 40% of starting capital
         self.starting_pnl = None  # Set after _load() from total_pnl at launch
         self.circuit_tripped = False
+
+        # V4.4: New state
+        self.shadow = ShadowTracker()      # Duplicate fill prevention
+        self._last_fill_time: float = 0.0  # Filled order delay
 
         if not paper:
             self._init_client()
@@ -1598,24 +1633,48 @@ class CryptoMarketMaker:
             print(f"  [BOOK-ERR] get_order_book failed: {str(e)[:80]}")
             return None
 
-    def _get_bid_offset(self) -> float:
-        """ML-optimized bid offset. Maximizes profit = fill_rate x edge."""
+    def _get_bid_offset(self, mid_price: float = 0.5, secs_left: float = 300, total_secs: float = 900) -> Tuple[float, float]:
+        """V4.4: Avellaneda time-decay offset. Returns (offset, gamma_used).
+
+        Formula: offset = gamma * sqrt(mid*(1-mid)) * (secs_left/total_secs) + BASE_SPREAD
+        - Binary vol = sqrt(p*(1-p)): widest at 50/50, tightest at extremes
+        - Time fraction decays toward expiry, naturally tightening spreads
+        - ML tunes gamma (risk aversion) via epsilon-greedy
+        """
         hour = datetime.now(timezone.utc).hour
-        offset = self.ml_optimizer.get_offset(hour)
-        # V4: enforce minimum offset floor for 3%+ margin
-        return max(self.config.MIN_BID_OFFSET, offset)
+        gamma = self.ml_optimizer.get_gamma(hour)
+
+        # Binary volatility — widest at 0.50 (vol=0.50), tightest near 0/1
+        mid_clamped = max(0.05, min(0.95, mid_price))
+        vol = math.sqrt(mid_clamped * (1.0 - mid_clamped))
+
+        # Time decay — wider early, tighter near expiry
+        time_frac = max(0.0, min(1.0, secs_left / max(1, total_secs)))
+
+        # Avellaneda spread
+        offset = gamma * vol * time_frac + self.config.BASE_SPREAD
+
+        # Clamp to [MIN_BID_OFFSET, 0.15]
+        offset = max(self.config.MIN_BID_OFFSET, min(0.15, offset))
+        return (offset, gamma)
 
     def evaluate_pair(self, pair: MarketPair) -> dict:
-        """Evaluate a market pair for maker opportunity."""
-        offset = self._get_bid_offset()
+        """Evaluate a market pair for maker opportunity. V4.4: Avellaneda time-decay offsets."""
+        # Time remaining (seconds and minutes)
+        mins_left = float(pair.duration_min)
+        secs_left = pair.duration_min * 60.0
+        if pair.end_time:
+            delta = (pair.end_time - datetime.now(timezone.utc)).total_seconds()
+            secs_left = max(0, delta)
+            mins_left = secs_left / 60.0
 
-        # V4: REMOVED half-offset for 5M — this was ROOT CAUSE of 1% margins.
-        # Full offset on 5M gives proper 3%+ edge.
-        # Enforce minimum offset floor
-        offset = max(self.config.MIN_BID_OFFSET, offset)
+        total_secs = pair.duration_min * 60.0
 
-        # Our target bid prices — symmetric offsets on both sides for max edge.
-        # e.g. mid $0.51/$0.49, offset 0.03 → bids $0.48/$0.46 → combined $0.94
+        # V4.4: Avellaneda time-decay offset — adapts to mid price, time remaining, and ML gamma
+        avg_mid = (pair.up_mid + pair.down_mid) / 2.0  # Should be ~0.50 for balanced markets
+        offset, gamma_used = self._get_bid_offset(avg_mid, secs_left, total_secs)
+
+        # Our target bid prices — symmetric offsets on both sides for max edge
         up_bid = round(pair.up_mid - offset, 2)
         down_bid = round(pair.down_mid - offset, 2)
 
@@ -1624,18 +1683,12 @@ class CryptoMarketMaker:
         down_bid = max(0.01, min(0.95, down_bid))
 
         combined = up_bid + down_bid
-        edge = 1.0 - combined  # How much < $1.00 our total cost is
-
-        # Time remaining
-        mins_left = float(pair.duration_min)
-        if pair.end_time:
-            delta = (pair.end_time - datetime.now(timezone.utc)).total_seconds() / 60
-            mins_left = max(0, delta)
+        edge = 1.0 - combined
 
         # Min time left scales with duration: 5min markets need 2min, 15min need 5min
         min_time = 2.0 if pair.duration_min <= 5 else self.config.MIN_TIME_LEFT_MIN
         # V1.5: Max time left — don't lock capital in far-future markets
-        max_time = pair.duration_min * 1.5  # e.g. 7.5min for 5M, 22.5min for 15M
+        max_time = pair.duration_min * 1.5
 
         # V1.5: Per-asset tier thresholds
         tier = self.config.ASSET_TIERS.get(pair.asset, {"max_combined": 0.80, "balance_range": (0.25, 0.75)})
@@ -1649,18 +1702,47 @@ class CryptoMarketMaker:
             "edge": edge,
             "edge_pct": edge / combined * 100 if combined > 0 else 0,
             "offset": offset,
+            "gamma": gamma_used,
             "mins_left": mins_left,
+            "secs_left": secs_left,
+            "total_secs": total_secs,
             "viable": (
-                combined < max_combined              # Per-asset edge requirement
+                combined < max_combined
                 and edge >= self.config.MIN_SPREAD_EDGE
-                and mins_left > min_time             # Need time for fills
-                and mins_left < max_time             # Don't enter far-future markets
-                and up_bid >= bal_min                 # Balanced markets only
+                and mins_left > min_time
+                and mins_left < max_time
+                and up_bid >= bal_min
                 and down_bid >= bal_min
-                and up_bid <= bal_max                 # Symmetric range
+                and up_bid <= bal_max
                 and down_bid <= bal_max
             ),
         }
+
+    # ========================================================================
+    # V4.4: INVENTORY SKEW
+    # ========================================================================
+
+    def _get_inventory_skew(self) -> Tuple[float, float]:
+        """V4.4: Adjust per-side sizes based on current YES/NO inventory imbalance.
+        Returns (up_mult, down_mult) multipliers for SIZE_PER_SIDE_USD.
+        If overweight UP: reduce UP bids, increase DOWN bids (and vice versa)."""
+        total_up = 0.0
+        total_down = 0.0
+        for pos in self.positions.values():
+            if pos.status in ("resolved", "cancelled"):
+                continue
+            if pos.up_filled and pos.up_order:
+                total_up += pos.up_order.fill_shares
+            if pos.down_filled and pos.down_order:
+                total_down += pos.down_order.fill_shares
+        total = total_up + total_down
+        if total == 0:
+            return (1.0, 1.0)
+        up_ratio = total_up / total
+        # Linear interpolation: at 50/50 both 1.0x, at 75/25 UP=0.5x DOWN=1.5x
+        up_mult = max(0.5, min(1.5, 2.0 - 2.0 * up_ratio))
+        down_mult = max(0.5, min(1.5, 2.0 * up_ratio))
+        return (up_mult, down_mult)
 
     # ========================================================================
     # ORDER PLACEMENT
@@ -1677,15 +1759,20 @@ class CryptoMarketMaker:
         up_bid = eval_result["up_bid"]
         down_bid = eval_result["down_bid"]
 
-        # Calculate shares for each side
-        up_shares = max(self.config.MIN_SHARES, math.floor(self.config.SIZE_PER_SIDE_USD / up_bid))
-        down_shares = max(self.config.MIN_SHARES, math.floor(self.config.SIZE_PER_SIDE_USD / down_bid))
+        # V4.4: Inventory skew — adjust sizes based on directional imbalance
+        up_skew, down_skew = self._get_inventory_skew()
+        up_size = self.config.SIZE_PER_SIDE_USD * up_skew
+        down_size = self.config.SIZE_PER_SIDE_USD * down_skew
 
-        # Cap shares to configured SIZE_PER_SIDE_USD
-        if up_bid * up_shares > self.config.SIZE_PER_SIDE_USD:
-            up_shares = max(self.config.MIN_SHARES, math.floor(self.config.SIZE_PER_SIDE_USD / up_bid))
-        if down_bid * down_shares > self.config.SIZE_PER_SIDE_USD:
-            down_shares = max(self.config.MIN_SHARES, math.floor(self.config.SIZE_PER_SIDE_USD / down_bid))
+        # Calculate shares for each side (with skew-adjusted sizes)
+        up_shares = max(self.config.MIN_SHARES, math.floor(up_size / up_bid))
+        down_shares = max(self.config.MIN_SHARES, math.floor(down_size / down_bid))
+
+        # Cap shares to skew-adjusted size
+        if up_bid * up_shares > up_size:
+            up_shares = max(self.config.MIN_SHARES, math.floor(up_size / up_bid))
+        if down_bid * down_shares > down_size:
+            down_shares = max(self.config.MIN_SHARES, math.floor(down_size / down_bid))
 
         # Create position tracker
         pos = PairPosition(
@@ -1696,11 +1783,17 @@ class CryptoMarketMaker:
             created_at=datetime.now(timezone.utc).isoformat(),
             status="pending",
             bid_offset_used=eval_result.get("offset", self.config.BID_OFFSET),
+            gamma_used=eval_result.get("gamma", self.config.DEFAULT_GAMMA),
             hour_utc=datetime.now(timezone.utc).hour,
             duration_min=pair.duration_min,
         )
 
         now_iso = datetime.now(timezone.utc).isoformat()
+        now_ts = time.time()
+
+        # V4.4: Log inventory skew if non-trivial
+        if abs(up_skew - 1.0) > 0.05 or abs(down_skew - 1.0) > 0.05:
+            print(f"  [SKEW] UP {up_skew:.1f}x (${up_size:.1f}) / DOWN {down_skew:.1f}x (${down_size:.1f})")
 
         if self.paper:
             # Paper mode: simulate immediate placement, simulate fills probabilistically
@@ -1713,6 +1806,7 @@ class CryptoMarketMaker:
                 size_shares=float(up_shares),
                 size_usd=up_bid * up_shares,
                 placed_at=now_iso,
+                placed_at_ts=now_ts,
             )
             pos.down_order = MakerOrder(
                 order_id=f"paper_dn_{pair.market_id[:12]}_{int(time.time())}",
@@ -1723,9 +1817,10 @@ class CryptoMarketMaker:
                 size_shares=float(down_shares),
                 size_usd=down_bid * down_shares,
                 placed_at=now_iso,
+                placed_at_ts=now_ts,
             )
             print(f"  [PAPER] Placed UP bid ${up_bid:.2f} x {up_shares} + DOWN bid ${down_bid:.2f} x {down_shares}")
-            print(f"          Combined: ${up_bid + down_bid:.4f} | Edge: {eval_result['edge_pct']:.1f}%")
+            print(f"          Combined: ${up_bid + down_bid:.4f} | Edge: {eval_result['edge_pct']:.1f}% | γ={eval_result.get('gamma', 0):.2f}")
         else:
             # Live mode: place real post_only orders
             try:
@@ -1756,6 +1851,7 @@ class CryptoMarketMaker:
                     size_shares=float(up_shares),
                     size_usd=up_bid * up_shares,
                     placed_at=now_iso,
+                    placed_at_ts=now_ts,
                 )
 
                 # Place DOWN order
@@ -1787,11 +1883,12 @@ class CryptoMarketMaker:
                     size_shares=float(down_shares),
                     size_usd=down_bid * down_shares,
                     placed_at=now_iso,
+                    placed_at_ts=now_ts,
                 )
 
                 print(f"  [LIVE] Placed UP {up_order_id[:16]}... @ ${up_bid:.2f} x {up_shares}")
                 print(f"  [LIVE] Placed DN {dn_order_id[:16]}... @ ${down_bid:.2f} x {down_shares}")
-                print(f"         Combined: ${up_bid + down_bid:.4f} | Edge: {eval_result['edge_pct']:.1f}%")
+                print(f"         Combined: ${up_bid + down_bid:.4f} | Edge: {eval_result['edge_pct']:.1f}% | γ={eval_result.get('gamma', 0):.2f}")
 
             except Exception as e:
                 print(f"  [LIVE] Order error: {e}")
@@ -1813,10 +1910,17 @@ class CryptoMarketMaker:
             if pos.status in ("resolved", "cancelled", "riding"):
                 continue
 
+            prev_up = pos.up_filled
+            prev_down = pos.down_filled
+
             if self.paper:
                 await self._check_fills_paper(pos)
             else:
                 await self._check_fills_live(pos)
+
+            # V4.4: Track last fill time for filled order delay
+            if (pos.up_filled and not prev_up) or (pos.down_filled and not prev_down):
+                self._last_fill_time = time.time()
 
             # Update position status
             if pos.up_filled and pos.down_filled:
@@ -1892,12 +1996,16 @@ class CryptoMarketMaker:
                 print(f"  [PAPER FILL] {pos.asset} {order.side_label} @ ${order.price:.2f} x {order.size_shares:.0f} (p={fill_prob:.0%})")
 
     async def _check_fills_live(self, pos: PairPosition):
-        """Check real order fills via CLOB API."""
+        """Check real order fills via CLOB API. V4.4: Shadow duplicate detection."""
         if not self.client:
             return
 
         for order, attr in [(pos.up_order, "up_filled"), (pos.down_order, "down_filled")]:
             if not order or getattr(pos, attr):
+                continue
+
+            # V4.4: Skip if already processed (shadow cache)
+            if self.shadow.is_duplicate(order.order_id):
                 continue
 
             try:
@@ -1911,6 +2019,7 @@ class CryptoMarketMaker:
                         order.fill_shares = matched
                         setattr(pos, attr, True)
                         self.stats[f"fills_{order.side_label.lower()}"] += 1
+                        self.shadow.record(order.order_id)  # V4.4: prevent duplicate processing
                         print(f"  [FILL] {pos.asset} {order.side_label} @ ${order.price:.2f} x {matched:.0f}")
             except Exception:
                 pass
@@ -2125,7 +2234,7 @@ class CryptoMarketMaker:
                             self.stats["partial_pnl"] += sell_pnl
                             self.ml_optimizer.record(
                                 hour=pos.hour_utc if pos.hour_utc >= 0 else now.hour,
-                                offset=pos.bid_offset_used,
+                                gamma=pos.gamma_used,
                                 paired=False, partial=True, pnl=sell_pnl
                             )
                             print(f"  [SELL-CUT] {pos.asset} {filled_side} {shares:.0f}sh — "
@@ -2150,9 +2259,36 @@ class CryptoMarketMaker:
                     self.stats["pairs_partial"] += 1
                     self.ml_optimizer.record(
                         hour=pos.hour_utc if pos.hour_utc >= 0 else now.hour,
-                        offset=pos.bid_offset_used,
+                        gamma=pos.gamma_used,
                         paired=False, partial=True, pnl=0.0
                     )
+
+            # V4.4: Order refresh with tolerance — re-quote stale pending orders
+            # Only for fully-unfilled positions (both sides still open)
+            if (pos.status == "pending" and not pos.up_filled and not pos.down_filled
+                    and pos.up_order and pos.down_order
+                    and pos.up_order.placed_at_ts > 0):
+                order_age = (now - datetime.fromisoformat(pos.created_at)).total_seconds()
+                if order_age > self.config.ORDER_REFRESH:
+                    # Recalculate optimal offset with current Avellaneda params
+                    total_secs = pos.duration_min * 60.0
+                    secs_left = max(0, total_secs - order_age)
+                    avg_mid = (pos.up_order.price + pos.bid_offset_used + pos.down_order.price + pos.bid_offset_used) / 2.0
+                    new_offset, _ = self._get_bid_offset(avg_mid, secs_left, total_secs)
+                    if abs(new_offset - pos.bid_offset_used) > self.config.ORDER_REFRESH_TOLERANCE:
+                        # Cancel both orders and allow re-entry
+                        for order in [pos.up_order, pos.down_order]:
+                            if order and order.status == "open":
+                                order.status = "cancelled"
+                                if not self.paper:
+                                    try:
+                                        self.client.cancel(order.order_id)
+                                    except Exception:
+                                        pass
+                        print(f"  [REFRESH] {pos.asset} — offset shifted {pos.bid_offset_used:.2f}→{new_offset:.2f}, re-quoting")
+                        self._entered_markets.discard(market_id)
+                        del self.positions[market_id]
+                        continue  # Skip expiry check for this (now deleted) position
 
             # If approaching close, cancel unfilled orders
             # V1.6: 5M gets 1min buffer (was 2), 15M keeps 2min
@@ -2167,6 +2303,58 @@ class CryptoMarketMaker:
                             except Exception:
                                 pass
                         print(f"  [EXPIRE] Cancelled unfilled {order.side_label} order on {pos.asset}")
+
+    async def manage_riding_positions(self):
+        """V4.4: Monitor riding positions and sell early if price moved too far against us.
+        Frees locked capital for new profitable pairs."""
+        now = datetime.now(timezone.utc)
+        for market_id, pos in list(self.positions.items()):
+            if pos.status != "riding":
+                continue
+
+            # Rate limit: max 1 check per 30s per position
+            if time.time() - pos.last_ride_check_ts < 30:
+                continue
+
+            # Determine which side is filled
+            filled_order = pos.up_order if pos.up_filled else pos.down_order
+            if not filled_order or not filled_order.fill_price:
+                continue
+
+            # Check time remaining — don't sell if near resolution
+            created = datetime.fromisoformat(pos.created_at)
+            age_sec = (now - created).total_seconds()
+            secs_left = pos.duration_min * 60.0 - age_sec
+            if secs_left < 180:  # < 3 min left, just ride it out
+                continue
+
+            pos.last_ride_check_ts = time.time()
+
+            # Get current best bid for our filled token
+            try:
+                book = await self.get_order_book(filled_order.token_id)
+                if not book or not book.get("best_bid"):
+                    continue
+                best_bid = book["best_bid"]
+            except Exception:
+                continue
+
+            # If token dropped 20c+ from our entry, sell to free capital
+            if best_bid < filled_order.fill_price - self.config.RIDING_CUT_THRESHOLD:
+                if best_bid < 0.10:
+                    continue  # Too cheap to sell, just ride
+
+                sell_pnl = await self._sell_partial_at_market(pos, filled_order)
+                if sell_pnl is not None:
+                    pos.status = "resolved"
+                    pos.pnl = sell_pnl
+                    pos.outcome = f"RIDE_CUT_{filled_order.side_label}"
+                    self.stats["total_pnl"] += sell_pnl
+                    self.daily_pnl += sell_pnl
+                    self.stats["partial_pnl"] += sell_pnl
+                    print(f"  [RIDE-CUT] {pos.asset} {filled_order.side_label} — "
+                          f"dropped {filled_order.fill_price:.2f}→{best_bid:.2f}, "
+                          f"sold to free capital | PnL: ${sell_pnl:+.4f}")
 
     async def harvest_extreme_prices(self):
         """V2.4: Vague-sourdough pattern — sell paired positions at extreme prices
@@ -2280,7 +2468,7 @@ class CryptoMarketMaker:
 
                 self.ml_optimizer.record(
                     hour=pos.hour_utc if pos.hour_utc >= 0 else now.hour,
-                    offset=pos.bid_offset_used,
+                    gamma=pos.gamma_used,
                     paired=True, partial=False, pnl=actual_pnl
                 )
                 self.resolved.append({
@@ -3407,7 +3595,7 @@ class CryptoMarketMaker:
                     # ML: record unfilled/cancelled attempt
                     self.ml_optimizer.record(
                         hour=pos.hour_utc if pos.hour_utc >= 0 else datetime.now(timezone.utc).hour,
-                        offset=pos.bid_offset_used,
+                        gamma=pos.gamma_used,
                         paired=False, partial=pos.is_partial, pnl=0.0
                     )
                 continue
@@ -3438,10 +3626,10 @@ class CryptoMarketMaker:
             if pos.entry_type.startswith("late_candle"):
                 self.stats["late_candle_pnl"] = self.stats.get("late_candle_pnl", 0) + pnl
 
-            # ML: record outcome for offset optimization
+            # ML: record outcome for gamma optimization
             self.ml_optimizer.record(
                 hour=pos.hour_utc if pos.hour_utc >= 0 else datetime.now(timezone.utc).hour,
-                offset=pos.bid_offset_used,
+                gamma=pos.gamma_used,
                 paired=pos.is_paired,
                 partial=pos.is_partial,
                 pnl=pnl
@@ -3689,11 +3877,14 @@ class CryptoMarketMaker:
         """Main market maker loop."""
         print("=" * 70)
         mode = "PAPER" if self.paper else "LIVE"
-        print(f"TAKER HEDGE MAKER V4.3 - {mode} MODE")
-        print(f"Strategy: Deep maker bids + instant FOK hedge on first fill (guaranteed pairs)")
-        print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Maker offset: {self.config.BID_OFFSET*100:.0f}c+ | "
-              f"Hedge max combined: ${self.config.TAKER_HEDGE_MAX_COMBINED}")
-        print(f"Max combined (maker): ${self.config.MAX_COMBINED_PRICE} | Min edge: {self.config.MIN_SPREAD_EDGE*100:.0f}%")
+        print(f"AVELLANEDA MAKER V4.4 - {mode} MODE")
+        print(f"Strategy: Avellaneda time-decay spreads + inventory skew + FOK hedge + order refresh")
+        print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Gamma: {self.config.DEFAULT_GAMMA} (ML-tuned) | "
+              f"Base spread: {self.config.BASE_SPREAD*100:.0f}c")
+        print(f"Max combined: ${self.config.MAX_COMBINED_PRICE} | Min edge: {self.config.MIN_SPREAD_EDGE*100:.0f}% | "
+              f"Hedge max: ${self.config.TAKER_HEDGE_MAX_COMBINED}")
+        print(f"Order refresh: {self.config.ORDER_REFRESH}s (tolerance: ${self.config.ORDER_REFRESH_TOLERANCE}) | "
+              f"Fill delay: {self.config.FILLED_ORDER_DELAY}s | Ride cut: {self.config.RIDING_CUT_THRESHOLD*100:.0f}c")
         print(f"Daily loss limit: ${self.config.DAILY_LOSS_LIMIT}")
         if not self.paper:
             print(f"CIRCUIT BREAKER: Auto-switch to paper on $42 net session loss (~40% of $106 capital)")
@@ -3733,8 +3924,11 @@ class CryptoMarketMaker:
                 now_ts = time.time()
                 self.reset_daily()
 
-                # Phase 1: Cancel expiring unfilled orders
+                # Phase 1: Cancel expiring unfilled orders + V4.4 order refresh
                 await self.manage_expiring_orders()
+
+                # Phase 1.5: V4.4 Monitor riding positions (sell if price moved too far against)
+                await self.manage_riding_positions()
 
                 # Phase 2a: V2.4 Harvest paired positions at extreme prices (last 90s)
                 await self.harvest_extreme_prices()
@@ -3744,6 +3938,9 @@ class CryptoMarketMaker:
 
                 # Phase 3: Check fills on active orders
                 await self.check_fills()
+
+                # V4.4: Shadow tracker cleanup
+                self.shadow.cleanup()
 
                 # Phase 4: Discover new markets (always, even if risk limits hit for maker)
                 markets = await self.discover_markets()
@@ -3762,7 +3959,9 @@ class CryptoMarketMaker:
                     await self.run_late_winner_scanner(markets)
 
                 # Phase 5: Place maker orders if risk allows
-                if self.check_risk():
+                # V4.4: Filled order delay — skip new placements for 5s after any fill
+                fill_cooldown = time.time() - self._last_fill_time < self.config.FILLED_ORDER_DELAY
+                if self.check_risk() and not fill_cooldown:
                     # Phase 6: Evaluate and place orders on best pairs
                     # 5M markets get priority (shorter duration = higher priority)
                     markets.sort(key=lambda p: p.duration_min)
@@ -3791,7 +3990,7 @@ class CryptoMarketMaker:
 
                 # Phase 8: ML summary every 50 cycles (~25 min)
                 if cycle % 50 == 0 and cycle > 0:
-                    print(f"\n[ML OFFSET] Current optimal offsets:")
+                    print(f"\n[ML GAMMA] Current optimal gammas (Avellaneda):")
                     print(self.ml_optimizer.get_summary())
 
                 # Phase 9: Auto-redeem winnings every 45 seconds (live only)

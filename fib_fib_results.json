@@ -1,10 +1,43 @@
 {
   "stats": {
-    "wins": 0,
+    "wins": 1,
     "losses": 0,
-    "pnl": 0.0
+    "pnl": 2.71
   },
-  "resolved": [],
+  "resolved": [
+    {
+      "side": "UP",
+      "entry_price": 0.525,
+      "size_usd": 3.0,
+      "entry_time": "2026-02-15T04:09:15.088056+00:00",
+      "condition_id": "0xfc7fead2ab28589df91c168e260e0192bae7bc1330b7afd45a144214e825d260",
+      "market_numeric_id": "1375376",
+      "title": "Bitcoin Up or Down - February 14, 11:00PM-11:15PM ET",
+      "strategy": "FIB_FIB_CONFIRM",
+      "edge": 0.1028,
+      "fair_px": 0.6278,
+      "strength": 0.0,
+      "reason": "fib_fib_long",
+      "btc_price": 70334.0,
+      "detail": "1m_conf=0.84 5m_conf=0.00 rsi=78",
+      "tte_seconds": 344,
+      "ml_features": {
+        "conf": 0.8400000000000001,
+        "fib_conf_5m": 0.0,
+        "ema_gap": 0.002260686130121709,
+        "rsi": 78.14802159502457,
+        "atr_pct": 0.002424980399644154,
+        "hour_utc": 4.0,
+        "edge": 0.10282058390365123,
+        "strength": 0.0
+      },
+      "ml_prob": 0.5,
+      "status": "closed",
+      "pnl": 2.71,
+      "exit_price": 1.0,
+      "exit_time": "2026-02-15T04:17:20.072789+00:00"
+    }
+  ],
   "active": {},
-  "last_updated": "2026-02-14T21:39:13.625010+00:00"
+  "last_updated": "2026-02-16T04:19:55.673295+00:00"
 }
