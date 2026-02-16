@@ -426,13 +426,15 @@ class MakerConfig:
     MOMENTUM_MAX_MULT: float = 1.50      # Cap at 1.5x base size
     MOMENTUM_MIN_MULT: float = 0.60      # Floor at 0.6x base size
 
-    # V4.7: Paired mid-bid strategy — guaranteed $0.60/pair when both sides fill
+    # V4.7: Paired mid-bid strategy — guaranteed profit when both sides fill
     PAIRED_MODE_ENABLED: bool = True
-    PAIRED_BID_OFFSET: float = 0.05      # Small offset → bids at ~$0.45 (near mid)
+    PAIRED_BID_OFFSET: float = 0.05      # V4.7.3: Keep 10% edge — early entry is the real fix, not tighter offset
     PAIRED_MAX_COMBINED: float = 0.92    # Max combined cost (profit = $1.00 - combined)
     PAIRED_SIZE_PER_SIDE: float = 3.0    # $3/side for paired tier
     PAIRED_MAX_CONCURRENT: int = 3       # Separate cap from deep bids
     PAIRED_MIN_PROFIT: float = 0.08      # Min guaranteed profit per share ($0.08)
+    PAIRED_EARLY_ENTRY: bool = True      # V4.7.3: Enter paired BEFORE candle opens (price near 50/50)
+    PAIRED_EARLY_BUFFER_MIN: float = 2.0 # V4.7.3: Place orders up to 2 min before candle opens
 
     # V4.5: Dynamic scaling at $200+ PnL
     MAX_CONCURRENT_PAIRS_SCALED: int = 16
@@ -567,12 +569,16 @@ class OffsetOptimizer:
 
     def _load(self):
         self.offset_stats = {}  # V4.6.4: offset PnL tracking
+        self.paired_offset_stats = {}  # V4.7.3: paired offset tracking (both_filled, one_filled, pnl)
         if self.STATE_FILE.exists():
             try:
                 data = json.loads(self.STATE_FILE.read_text())
                 for h_str, gammas in data.items():
                     if h_str == "offset_stats":
                         self.offset_stats = gammas
+                        continue
+                    if h_str == "paired_offset_stats":
+                        self.paired_offset_stats = gammas
                         continue
                     h = int(h_str)
                     if h in self.hour_stats:
@@ -587,6 +593,8 @@ class OffsetOptimizer:
             data = {str(h): v for h, v in self.hour_stats.items()}
             if hasattr(self, "offset_stats"):
                 data["offset_stats"] = self.offset_stats
+            if hasattr(self, "paired_offset_stats"):
+                data["paired_offset_stats"] = self.paired_offset_stats
             self.STATE_FILE.write_text(json.dumps(data, indent=2))
         except Exception:
             pass
@@ -677,6 +685,55 @@ class OffsetOptimizer:
         cur_stats = self.offset_stats.get(cur_key, {})
         cur_avg = cur_stats.get("total_pnl", 0) / max(1, cur_stats.get("attempts", 1))
         if best_avg > cur_avg + 0.50:  # Must be $0.50/trade better to switch
+            return best_offset
+        return None
+
+    # V4.7.3: Paired offset ML tracking
+    PAIRED_OFFSET_BUCKETS = [0.01, 0.02, 0.03, 0.04, 0.05]
+
+    def record_paired_offset(self, offset: float, both_filled: bool, pnl: float):
+        """Track paired offset performance — key metric is both_filled rate."""
+        if not hasattr(self, "paired_offset_stats"):
+            self.paired_offset_stats = {}
+        key = f"{round(offset, 2):.2f}"
+        if key not in self.paired_offset_stats:
+            self.paired_offset_stats[key] = {
+                "attempts": 0, "both_filled": 0, "one_filled": 0,
+                "total_pnl": 0.0, "wins": 0
+            }
+        s = self.paired_offset_stats[key]
+        s["attempts"] += 1
+        s["total_pnl"] += pnl
+        if both_filled:
+            s["both_filled"] += 1
+        else:
+            s["one_filled"] += 1
+        if pnl > 0:
+            s["wins"] += 1
+
+    def get_optimal_paired_offset(self, current: float, min_trades: int = 15) -> Optional[float]:
+        """ML-driven: find the paired offset with best both-fill rate and PnL.
+        Explores different offsets, exploits the best after enough data."""
+        if not hasattr(self, "paired_offset_stats") or not self.paired_offset_stats:
+            return None
+        total = sum(s["attempts"] for s in self.paired_offset_stats.values())
+        if total < min_trades:
+            return None
+
+        # Score = both_fill_rate * 10 + avg_pnl (heavily weight both-fill rate)
+        best_offset = current
+        best_score = -999.0
+        for key, s in self.paired_offset_stats.items():
+            if s["attempts"] < 3:
+                continue
+            bfr = s["both_filled"] / s["attempts"]
+            avg_pnl = s["total_pnl"] / s["attempts"]
+            score = bfr * 10.0 + avg_pnl  # Both-fill rate is king
+            if score > best_score:
+                best_score = score
+                best_offset = float(key)
+
+        if best_offset != current:
             return best_offset
         return None
 
@@ -1906,7 +1963,8 @@ class CryptoMarketMaker:
 
     def evaluate_pair_mid(self, pair: MarketPair) -> dict:
         """V4.7: Evaluate a market pair for mid-bid PAIRED strategy.
-        Tight offset near mid-price. Goal: get BOTH sides filled for guaranteed profit."""
+        Tight offset near mid-price. Goal: get BOTH sides filled for guaranteed profit.
+        V4.7.3: Tighter offset ($0.02) + earlier entry to beat adverse selection."""
         mins_left = float(pair.duration_min)
         secs_left = pair.duration_min * 60.0
         if pair.end_time:
@@ -1914,7 +1972,11 @@ class CryptoMarketMaker:
             secs_left = max(0, delta)
             mins_left = secs_left / 60.0
 
-        offset = self.config.PAIRED_BID_OFFSET
+        # V4.7.3: Epsilon-greedy exploration of paired offsets for ML learning
+        if random.random() < 0.20:  # 20% explore
+            offset = random.choice(self.ml_optimizer.PAIRED_OFFSET_BUCKETS)
+        else:
+            offset = self.config.PAIRED_BID_OFFSET
 
         up_bid = round(pair.up_mid - offset, 2)
         down_bid = round(pair.down_mid - offset, 2)
@@ -1924,8 +1986,10 @@ class CryptoMarketMaker:
         combined = up_bid + down_bid
         profit_per_share = 1.0 - combined
 
-        min_time = 2.0 if pair.duration_min <= 5 else self.config.MIN_TIME_LEFT_MIN
-        max_time = pair.duration_min * 1.5
+        # V4.7.3: Paired enters EARLY — place orders 1-2 min before candle opens
+        # At candle open, UP/DOWN are both ~$0.50 = max chance of both filling
+        min_time = 1.0 if pair.duration_min <= 5 else 2.0
+        max_time = pair.duration_min + self.config.PAIRED_EARLY_BUFFER_MIN  # e.g. 5+2=7 min for 5M
 
         return {
             "up_bid": up_bid,
@@ -1945,7 +2009,7 @@ class CryptoMarketMaker:
                 and mins_left < max_time
                 and up_bid >= 0.35   # Don't bid below $0.35 for paired (need near-mid)
                 and down_bid >= 0.35
-                and up_bid <= 0.55   # Don't bid above $0.55 (too expensive)
+                and up_bid <= 0.55
                 and down_bid <= 0.55
             ),
         }
@@ -4225,6 +4289,13 @@ class CryptoMarketMaker:
             )
             # V4.6.4: Record offset for auto-tuning
             self.ml_optimizer.record_offset(pos.bid_offset_used, pnl)
+            # V4.7.3: Record paired offset for ML both-fill optimization
+            if pos.entry_tier == "paired":
+                self.ml_optimizer.record_paired_offset(
+                    pos.bid_offset_used,
+                    both_filled=pos.is_paired,
+                    pnl=pnl
+                )
 
             # Log
             pair_type = "PAIRED" if pos.is_paired else "PARTIAL" if pos.is_partial else "UNFILLED"
@@ -4499,7 +4570,7 @@ class CryptoMarketMaker:
         """Main market maker loop."""
         print("=" * 70)
         mode = "PAPER" if self.paper else "LIVE"
-        print(f"AVELLANEDA MAKER V4.6 - {mode} MODE")
+        print(f"AVELLANEDA MAKER V4.7.3 - {mode} MODE")
         paired_str = f" + PAIRED mid-bids (${self.config.PAIRED_SIZE_PER_SIDE:.0f}/side, max {self.config.PAIRED_MAX_CONCURRENT})" if self.config.PAIRED_MODE_ENABLED else ""
         print(f"Strategy: Deep bids + 5M+15M BTC+ETH + dir cap {self.config.MAX_SAME_DIRECTION} + momentum{paired_str}")
         print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Gamma: {self.config.DEFAULT_GAMMA} (ML-tuned) | "
@@ -4659,6 +4730,21 @@ class CryptoMarketMaker:
                         self.config.MIN_BID_OFFSET = new_offset
                         self.config.BID_OFFSET = new_offset
                         print(f"  [ML-TUNE] Bid offset auto-adjusted: {old:.2f} -> {new_offset:.2f}")
+
+                    # V4.7.3: Auto-tune paired offset — optimize for both-fill rate
+                    new_paired = self.ml_optimizer.get_optimal_paired_offset(self.config.PAIRED_BID_OFFSET)
+                    if new_paired is not None and new_paired != self.config.PAIRED_BID_OFFSET:
+                        old_p = self.config.PAIRED_BID_OFFSET
+                        self.config.PAIRED_BID_OFFSET = new_paired
+                        print(f"  [ML-TUNE] Paired offset auto-adjusted: {old_p:.2f} -> {new_paired:.2f}")
+                    # Log paired offset stats
+                    if hasattr(self.ml_optimizer, "paired_offset_stats") and self.ml_optimizer.paired_offset_stats:
+                        print("  --- Paired Offset ML ---")
+                        for key in sorted(self.ml_optimizer.paired_offset_stats.keys()):
+                            s = self.ml_optimizer.paired_offset_stats[key]
+                            bfr = s["both_filled"] / max(1, s["attempts"]) * 100
+                            avg = s["total_pnl"] / max(1, s["attempts"])
+                            print(f"  Offset {key}: {s['attempts']}T, {bfr:.0f}% both-fill, ${s['total_pnl']:+.2f} (${avg:+.2f}/T)")
 
                 # Phase 8b: V4.6 On-chain PnL verification every 25 cycles (~4 min)
                 if not self.paper and cycle % 25 == 0:
