@@ -400,7 +400,7 @@ class MakerConfig:
     # Position sizing
     SIZE_PER_SIDE_USD: float = 5.0       # V4.3: $5/side (proven profitable, scaling up)
     MAX_PAIR_EXPOSURE: float = 20.0      # V4: $20/pair (scaled for $3/side)
-    MAX_TOTAL_EXPOSURE: float = 50.0     # V4: $50 max (scaled for $43 account)
+    MAX_TOTAL_EXPOSURE: float = 90.0     # V4.3: $90 max (scaled for $111 account)
     MIN_SHARES: int = 5                  # CLOB minimum order size
 
     # Risk
@@ -413,7 +413,7 @@ class MakerConfig:
     PARTIAL_TIMEOUT_ACTION: str = "sell"  # V4: "sell" = dump filled side at market, "ride" = hold to resolution
 
     # Timing
-    SCAN_INTERVAL: int = 30              # Seconds between market scans
+    SCAN_INTERVAL: int = 10              # Seconds between market scans
     ORDER_REFRESH: int = 60              # Seconds before re-quoting orders
     CLOSE_BUFFER_MIN: float = 2.0        # Cancel orders N min before close
     FILL_CHECK_INTERVAL: int = 10        # Seconds between fill checks
@@ -485,10 +485,10 @@ class MakerConfig:
     # In the last 30-60s, buy the WINNER token at $0.85-$0.92.
     # Near-guaranteed $0.08-$0.15 profit per share. 90%+ WR.
     LATE_WINNER_ENABLED: bool = True
-    LATE_WINNER_WINDOW_SEC: float = 60.0      # Start buying 60s before market close
-    LATE_WINNER_MIN_SEC: float = 15.0         # Stop buying 15s before close (order needs time)
-    LATE_WINNER_MAX_BUY_PRICE: float = 0.92   # Don't pay more than $0.92 (min $0.08 edge)
-    LATE_WINNER_MIN_BUY_PRICE: float = 0.80   # Token must be at least $0.80 (direction clear)
+    LATE_WINNER_WINDOW_SEC: float = 120.0     # Start buying 120s before market close (12 chances at 10s cycles)
+    LATE_WINNER_MIN_SEC: float = 10.0         # Stop buying 10s before close (FOK is instant)
+    LATE_WINNER_MAX_BUY_PRICE: float = 0.95   # Don't pay more than $0.95 (min $0.05 edge)
+    LATE_WINNER_MIN_BUY_PRICE: float = 0.75   # Token must be at least $0.75 (75%+ implied prob)
     LATE_WINNER_SIZE_USD: float = 5.0         # Same as normal maker
 
 
@@ -2882,14 +2882,14 @@ class CryptoMarketMaker:
 
         now = datetime.now(timezone.utc)
 
-        # --- Source 1: Active partial positions near expiry ---
+        # --- Source 1: Unfilled maker positions near expiry ---
+        # When our maker orders haven't filled (pending) and the market is about to close,
+        # cancel them and buy the winner token instead. Pure standalone profit.
         for market_id, pos in list(self.positions.items()):
-            if pos.status in ("resolved", "cancelled"):
-                continue
-            if pos.is_paired:
-                continue  # Already have both sides
+            if pos.status not in ("pending",):
+                continue  # Only fully unfilled positions (both orders open)
             if pos.entry_type == "late_winner":
-                continue  # Don't double up on late-winner entries
+                continue
 
             # Estimate end time from created_at + duration
             try:
@@ -2904,37 +2904,85 @@ class CryptoMarketMaker:
             if secs_left < self.config.LATE_WINNER_MIN_SEC:
                 continue
 
-            # Determine which side we DON'T have — check order book for the unfilled side
-            if pos.up_filled and not pos.down_filled and pos.up_order:
-                # We hold UP, check if DOWN is the loser (UP winning = UP token expensive)
-                winner_token_id = pos.up_order.token_id
+            # Check both sides to find the winner
+            if not pos.up_order or not pos.down_order:
+                continue
+            up_book = await self.get_order_book(pos.up_order.token_id) if not self.paper else None
+            if not up_book:
+                continue
+            up_ask = up_book.get("best_ask", 0)
+            down_book = await self.get_order_book(pos.down_order.token_id) if not self.paper else None
+            if not down_book:
+                continue
+            down_ask = down_book.get("best_ask", 0)
+
+            # Pick the winner side
+            if up_ask >= self.config.LATE_WINNER_MIN_BUY_PRICE and up_ask <= self.config.LATE_WINNER_MAX_BUY_PRICE:
                 winner_side = "UP"
-            elif pos.down_filled and not pos.up_filled and pos.down_order:
-                winner_token_id = pos.down_order.token_id
+                buy_price = up_ask
+                winner_token_id = pos.up_order.token_id
+            elif down_ask >= self.config.LATE_WINNER_MIN_BUY_PRICE and down_ask <= self.config.LATE_WINNER_MAX_BUY_PRICE:
                 winner_side = "DOWN"
+                buy_price = down_ask
+                winner_token_id = pos.down_order.token_id
             else:
-                continue
+                continue  # Neither side is clearly winning at $0.80-$0.92
 
-            # Check if our held side IS the winner (token price >= $0.80)
-            if self.paper:
-                continue  # Can't check book in paper
-            book = await self.get_order_book(winner_token_id)
-            if not book:
-                continue
-            winner_bid = book.get("best_bid", 0)
-            if winner_bid < self.config.LATE_WINNER_MIN_BUY_PRICE:
-                continue  # Our side isn't winning clearly enough
+            # Cancel the unfilled maker orders first
+            if not self.paper:
+                try:
+                    self.client.cancel(pos.up_order.order_id)
+                except Exception:
+                    pass
+                try:
+                    self.client.cancel(pos.down_order.order_id)
+                except Exception:
+                    pass
 
-            # Our side is winning! Now buy the OTHER (loser) side cheap to complete the pair
-            # This is handled by late-candle scanner. Here we instead just log the opportunity.
-            # The REAL late-winner play: buy winner on markets we HAVEN'T entered yet.
-            pass
+            edge = 1.0 - buy_price
+            shares = max(self.config.MIN_SHARES, math.floor(self.config.LATE_WINNER_SIZE_USD / buy_price))
+            cost_usd = buy_price * shares
+            profit_if_win = edge * shares
+
+            # Place FOK buy on winner
+            try:
+                from py_clob_client.clob_types import OrderArgs, OrderType
+                from py_clob_client.order_builder.constants import BUY
+
+                args = OrderArgs(price=round(buy_price, 2), size=float(shares), side=BUY, token_id=winner_token_id)
+                signed = self.client.create_order(args)
+                resp = self.client.post_order(signed, OrderType.FOK)
+
+                if resp.get("success"):
+                    oid = resp.get("orderID", "")
+                    order = MakerOrder(
+                        order_id=oid, market_id=pos.market_id,
+                        token_id=winner_token_id, side_label=winner_side,
+                        price=buy_price, size_shares=float(shares),
+                        size_usd=cost_usd, placed_at=now.isoformat(),
+                        status="filled", fill_price=buy_price, fill_shares=float(shares),
+                    )
+                    if winner_side == "UP":
+                        pos.up_order = order
+                        pos.up_filled = True
+                    else:
+                        pos.down_order = order
+                        pos.down_filled = True
+                    pos.status = "partial"
+                    pos.entry_type = "late_winner"
+                    pos.first_fill_time = now.isoformat()
+                    self.stats["late_winner_attempts"] = self.stats.get("late_winner_attempts", 0) + 1
+                    print(f"  [LW-CONVERT] {pos.asset} {winner_side} @ ${buy_price:.2f} x {shares} "
+                          f"(${cost_usd:.2f}) | Edge: ${profit_if_win:.2f} | {secs_left:.0f}s left | oid={oid[:16]}...")
+                else:
+                    print(f"  [LW-FAIL] {pos.asset} {winner_side} @ ${buy_price:.2f} — FOK rejected")
+            except Exception as e:
+                print(f"  [LW-ERROR] {pos.asset}: {e}")
 
         # --- Source 2: Scan ALL 5M/15M markets via API for near-expiry opportunities ---
-        # Build candidates from the markets list + re-fetch near-expiry ones
         candidates = []
 
-        # Markets from discover that we haven't entered (these are already filtered)
+        # Markets from discover that we haven't entered (usually filtered by min_time)
         for pair in markets:
             if pair.market_id in self.positions:
                 continue
@@ -2944,16 +2992,18 @@ class CryptoMarketMaker:
             if self.config.LATE_WINNER_MIN_SEC <= secs_left <= self.config.LATE_WINNER_WINDOW_SEC:
                 candidates.append(pair)
 
-        # Also re-fetch markets that discover_markets filtered out (already entered with deep bids)
-        # These are markets we placed orders on but may want to add a winner buy
-        # Use the gamma-api to get fresh prices for near-expiry markets
+        # Gamma-api: fetch near-expiry markets for late-winner opportunities
+        # NOTE: These markets may already be in _entered_markets from maker orders —
+        # that's OK, late_winner is a separate strategy. Only skip if we have an
+        # ACTIVE position (to avoid doubling up).
+        lw_api_found = 0
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 for tag_slug, duration in [("5M", 5), ("15M", 15)]:
                     r = await client.get(
                         "https://gamma-api.polymarket.com/events",
                         params={"tag_slug": tag_slug, "active": "true", "closed": "false",
-                                "limit": 50, "order": "endDate", "ascending": "true"},
+                                "limit": 200},
                         headers={"User-Agent": "Mozilla/5.0"}
                     )
                     if r.status_code != 200:
@@ -2961,7 +3011,11 @@ class CryptoMarketMaker:
                     for event in r.json():
                         for m in event.get("markets", []):
                             cid = m.get("conditionId", "")
-                            if not cid or cid in self.positions:
+                            if not cid:
+                                continue
+                            # Skip if we already have a late_winner position on this market
+                            lw_key = f"lw_{cid}"
+                            if lw_key in self.positions:
                                 continue
                             end_date = m.get("endDate", "")
                             if not end_date:
@@ -2984,22 +3038,27 @@ class CryptoMarketMaker:
                                     break
                             if not matched_asset:
                                 continue
-                            # Parse into MarketPair
+                            lw_api_found += 1
+                            # Parse into MarketPair (skip entered check — late winner is standalone)
                             pair = self._parse_market(m, event, matched_asset, duration,
                                                        skip_entered_check=True)
-                            if pair and pair.market_id not in self.positions:
-                                # Override the filtered-out check by setting end_time
+                            if pair:
                                 pair.end_time = end_dt
                                 candidates.append(pair)
         except Exception as e:
-            pass  # Non-critical, skip silently
+            print(f"  [LW-API] Gamma fetch error: {e}")
 
-        # Process candidates
+        # Always log late winner scan results for debugging
+        pending_count = sum(1 for _, p in self.positions.items() if p.status == "pending")
+        if candidates or lw_api_found or pending_count:
+            print(f"  [LW-SCAN] candidates={len(candidates)} | api_found={lw_api_found} | pending_pos={pending_count}")
+
+        # Process candidates (skip risk check — late winner is near-guaranteed $0.05-$0.20/share)
         for pair in candidates:
-            if not self.check_risk():
-                break
 
             secs_left = (pair.end_time - now).total_seconds() if pair.end_time else 0
+            print(f"  [LW-EVAL] {pair.asset} {pair.question[:45]} | {secs_left:.0f}s left | "
+                  f"UP ${pair.up_mid:.2f} / DOWN ${pair.down_mid:.2f}")
 
             # Determine which side is winning by looking at mid prices
             if pair.up_mid >= self.config.LATE_WINNER_MIN_BUY_PRICE:
@@ -3011,12 +3070,15 @@ class CryptoMarketMaker:
                 winner_mid = pair.down_mid
                 winner_token_id = pair.down_token_id
             else:
-                continue  # Neither side clear enough
+                print(f"  [LW-SKIP] {pair.asset} {pair.question[:40]} — no clear winner "
+                      f"(UP ${pair.up_mid:.2f} / DOWN ${pair.down_mid:.2f})")
+                continue
 
             # Get actual best_ask from order book
             if not self.paper:
                 book = await self.get_order_book(winner_token_id)
                 if not book:
+                    print(f"  [LW-SKIP] {pair.asset} {winner_side} — no order book")
                     continue
                 buy_price = book.get("best_ask", 0)
                 if buy_price <= 0:
@@ -3026,8 +3088,10 @@ class CryptoMarketMaker:
 
             # Price guards
             if buy_price < self.config.LATE_WINNER_MIN_BUY_PRICE:
+                print(f"  [LW-SKIP] {pair.asset} {winner_side} @ ${buy_price:.2f} — below min ${self.config.LATE_WINNER_MIN_BUY_PRICE}")
                 continue
             if buy_price > self.config.LATE_WINNER_MAX_BUY_PRICE:
+                print(f"  [LW-SKIP] {pair.asset} {winner_side} @ ${buy_price:.2f} — above max ${self.config.LATE_WINNER_MAX_BUY_PRICE}")
                 continue
 
             edge = 1.0 - buy_price
@@ -3102,8 +3166,9 @@ class CryptoMarketMaker:
                     print(f"  [LW ERROR] {pair.asset}: {e}")
                     continue
 
-            self.positions[pair.market_id] = pos
-            self._persist_entered_market(pair.market_id)
+            # Use a unique key so late_winner doesn't overwrite maker positions
+            lw_key = f"lw_{pair.market_id}"
+            self.positions[lw_key] = pos
             self.stats["late_winner_attempts"] = self.stats.get("late_winner_attempts", 0) + 1
 
     async def _place_momentum_order(self, pair: MarketPair, direction: str,
