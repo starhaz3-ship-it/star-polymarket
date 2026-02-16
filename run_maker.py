@@ -395,7 +395,7 @@ class MakerConfig:
 
     # V4.3: Taker hedge — on first fill, FOK buy other side to guarantee pair
     TAKER_HEDGE_ENABLED: bool = True     # V4.3: Instant FOK hedge on first fill
-    TAKER_HEDGE_MAX_COMBINED: float = 0.96  # V4.3: Max combined cost (4% minimum edge for hedge)
+    TAKER_HEDGE_MAX_COMBINED: float = 1.08  # V4.3: Allow 8c/share overpay — beats riding EV (-$0.88 at 37% WR)
 
     # Position sizing
     SIZE_PER_SIDE_USD: float = 5.0       # V4.3: $5/side (proven profitable, scaling up)
@@ -1985,11 +1985,18 @@ class CryptoMarketMaker:
 
         # Step 3: Check if combined cost is acceptable
         combined = maker_fill_price + best_ask
+        overpay = max(0, combined - 1.0)
+        overpay_total = overpay * filled_order.fill_shares
         if combined > self.config.TAKER_HEDGE_MAX_COMBINED:
-            print(f"  [HEDGE-SKIP] {pos.asset} {hedge_side} — combined ${combined:.2f} > "
-                  f"${self.config.TAKER_HEDGE_MAX_COMBINED} limit, will ride")
+            print(f"  [HEDGE-SKIP] {pos.asset} {hedge_side} — combined ${combined:.2f} "
+                  f"(overpay ${overpay_total:.2f}), limit ${self.config.TAKER_HEDGE_MAX_COMBINED}, will ride")
             self.stats["hedge_failures"] = self.stats.get("hedge_failures", 0) + 1
             return
+
+        # Hedging at a small loss is better than riding at 37% partial WR
+        if combined > 1.0:
+            print(f"  [HEDGE-OVERPAY] {pos.asset} {hedge_side} — combined ${combined:.2f}, "
+                  f"overpay ${overpay_total:.2f} (beats riding EV -${0.88 * filled_order.fill_shares / 11:.2f})")
 
         edge_pct = (1.0 - combined) * 100
         # Match shares to filled side for balanced pair
