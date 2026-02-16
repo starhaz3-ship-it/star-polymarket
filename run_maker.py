@@ -428,11 +428,12 @@ class MakerConfig:
 
     # V4.7: Paired mid-bid strategy — guaranteed profit when both sides fill
     PAIRED_MODE_ENABLED: bool = True
-    PAIRED_BID_OFFSET: float = 0.05      # V4.7.3: Keep 10% edge — early entry is the real fix, not tighter offset
-    PAIRED_MAX_COMBINED: float = 0.92    # Max combined cost (profit = $1.00 - combined)
+    PAIRED_BID_OFFSET: float = 0.025     # V4.7.4: Tight offset — bids at ~$0.475, hedge completes the pair
+    PAIRED_MAX_COMBINED: float = 0.96    # V4.7.4: Allow up to $0.96 combined ($0.04/sh = 4% profit)
     PAIRED_SIZE_PER_SIDE: float = 3.0    # $3/side for paired tier
     PAIRED_MAX_CONCURRENT: int = 3       # Separate cap from deep bids
-    PAIRED_MIN_PROFIT: float = 0.08      # Min guaranteed profit per share ($0.08)
+    PAIRED_MIN_PROFIT: float = 0.04      # V4.7.4: Min $0.04/share (was $0.08) — 5% profit target
+    PAIRED_HEDGE_MAX_COMBINED: float = 0.98  # V4.7.4: Paired-specific hedge limit (2% guaranteed profit)
     PAIRED_EARLY_ENTRY: bool = True      # V4.7.3: Enter paired BEFORE candle opens (price near 50/50)
     PAIRED_EARLY_BUFFER_MIN: float = 2.0 # V4.7.3: Place orders up to 2 min before candle opens
 
@@ -689,7 +690,7 @@ class OffsetOptimizer:
         return None
 
     # V4.7.3: Paired offset ML tracking
-    PAIRED_OFFSET_BUCKETS = [0.01, 0.02, 0.03, 0.04, 0.05]
+    PAIRED_OFFSET_BUCKETS = [0.01, 0.02, 0.025, 0.03, 0.04, 0.05]
 
     def record_paired_offset(self, offset: float, both_filled: bool, pnl: float):
         """Track paired offset performance — key metric is both_filled rate."""
@@ -2002,13 +2003,14 @@ class CryptoMarketMaker:
             "mins_left": mins_left,
             "secs_left": secs_left,
             "total_secs": pair.duration_min * 60.0,
+            "entry_tier": "paired",  # V4.7.4: Tag for share matching in place_pair_orders
             "viable": (
                 combined <= self.config.PAIRED_MAX_COMBINED
                 and profit_per_share >= self.config.PAIRED_MIN_PROFIT
                 and mins_left > min_time
                 and mins_left < max_time
-                and up_bid >= 0.35   # Don't bid below $0.35 for paired (need near-mid)
-                and down_bid >= 0.35
+                and up_bid >= 0.40   # V4.7.4: Raised floor — we're bidding near mid now
+                and down_bid >= 0.40
                 and up_bid <= 0.55
                 and down_bid <= 0.55
             ),
@@ -2303,6 +2305,12 @@ class CryptoMarketMaker:
             up_shares = max(self.config.MIN_SHARES, math.floor(up_size / up_bid))
         if down_bid * down_shares > down_size:
             down_shares = max(self.config.MIN_SHARES, math.floor(down_size / down_bid))
+
+        # V4.7.4: Paired tier MUST have equal shares for guaranteed profit
+        if eval_result.get("entry_tier") == "paired":
+            matched = min(up_shares, down_shares)
+            up_shares = matched
+            down_shares = matched
 
         # Create position tracker
         pos = PairPosition(
@@ -2629,12 +2637,16 @@ class CryptoMarketMaker:
         maker_fill_price = filled_order.fill_price
 
         # Step 3: Check if combined cost is acceptable
+        # V4.7.4: Paired tier uses tighter hedge limit for guaranteed profit
+        max_combined = (self.config.PAIRED_HEDGE_MAX_COMBINED
+                        if pos.entry_tier == "paired"
+                        else self.config.TAKER_HEDGE_MAX_COMBINED)
         combined = maker_fill_price + best_ask
         overpay = max(0, combined - 1.0)
         overpay_total = overpay * filled_order.fill_shares
-        if combined > self.config.TAKER_HEDGE_MAX_COMBINED:
+        if combined > max_combined:
             print(f"  [HEDGE-SKIP] {pos.asset} {hedge_side} — combined ${combined:.2f} "
-                  f"(overpay ${overpay_total:.2f}), limit ${self.config.TAKER_HEDGE_MAX_COMBINED}, will ride")
+                  f"(overpay ${overpay_total:.2f}), limit ${max_combined}, will ride")
             self.stats["hedge_failures"] = self.stats.get("hedge_failures", 0) + 1
             return
 
@@ -4570,7 +4582,7 @@ class CryptoMarketMaker:
         """Main market maker loop."""
         print("=" * 70)
         mode = "PAPER" if self.paper else "LIVE"
-        print(f"AVELLANEDA MAKER V4.7.3 - {mode} MODE")
+        print(f"AVELLANEDA MAKER V4.7.4 - {mode} MODE")
         paired_str = f" + PAIRED mid-bids (${self.config.PAIRED_SIZE_PER_SIDE:.0f}/side, max {self.config.PAIRED_MAX_CONCURRENT})" if self.config.PAIRED_MODE_ENABLED else ""
         print(f"Strategy: Deep bids + 5M+15M BTC+ETH + dir cap {self.config.MAX_SAME_DIRECTION} + momentum{paired_str}")
         print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Gamma: {self.config.DEFAULT_GAMMA} (ML-tuned) | "
