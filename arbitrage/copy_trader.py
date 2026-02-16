@@ -106,6 +106,7 @@ class CopyTrader:
         # --- High-volume scalpers (added 2026-02-15) ---
         "gabagool22": "0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d",  # $849K PnL, $139M vol, 27K mkts, joined Oct 2025
         "late-to-tomorrow": "0x5924ca480d8b08cd5f3e5811fa378c4082475af6",  # $25.7K PnL, $1.07M vol, 674 trades, joined Feb 2026
+        "Supphieros": "0xde79cc7660d5c05b4cd2f4e72cae30cde2583d9a",  # User-added whale
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]

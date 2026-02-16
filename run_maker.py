@@ -3659,42 +3659,32 @@ class CryptoMarketMaker:
         for pair in candidates:
 
             secs_left = (pair.end_time - now).total_seconds() if pair.end_time else 0
-            print(f"  [LW-EVAL] {pair.asset} {pair.question[:45]} | {secs_left:.0f}s left | "
-                  f"UP ${pair.up_mid:.2f} / DOWN ${pair.down_mid:.2f}")
 
-            # Determine which side is winning by looking at mid prices
-            if pair.up_mid >= self.config.LATE_WINNER_MIN_BUY_PRICE:
+            # V4.6.1: Check LIVE order book prices instead of stale gamma-api mid prices.
+            # Gamma mid lags 10-30s which misses fast-moving 5M markets entirely.
+            if not self.paper:
+                up_book = await self.get_order_book(pair.up_token_id)
+                dn_book = await self.get_order_book(pair.down_token_id)
+                up_ask = up_book.get("best_ask", 0) if up_book else 0
+                dn_ask = dn_book.get("best_ask", 0) if dn_book else 0
+            else:
+                up_ask = pair.up_mid
+                dn_ask = pair.down_mid
+
+            print(f"  [LW-EVAL] {pair.asset} {pair.question[:45]} | {secs_left:.0f}s left | "
+                  f"UP ${up_ask:.2f} / DOWN ${dn_ask:.2f}")
+
+            # Determine which side is winning by live ask prices
+            if up_ask >= self.config.LATE_WINNER_MIN_BUY_PRICE and up_ask <= self.config.LATE_WINNER_MAX_BUY_PRICE:
                 winner_side = "UP"
-                winner_mid = pair.up_mid
+                buy_price = up_ask
                 winner_token_id = pair.up_token_id
-            elif pair.down_mid >= self.config.LATE_WINNER_MIN_BUY_PRICE:
+            elif dn_ask >= self.config.LATE_WINNER_MIN_BUY_PRICE and dn_ask <= self.config.LATE_WINNER_MAX_BUY_PRICE:
                 winner_side = "DOWN"
-                winner_mid = pair.down_mid
+                buy_price = dn_ask
                 winner_token_id = pair.down_token_id
             else:
-                print(f"  [LW-SKIP] {pair.asset} {pair.question[:40]} — no clear winner "
-                      f"(UP ${pair.up_mid:.2f} / DOWN ${pair.down_mid:.2f})")
-                continue
-
-            # Get actual best_ask from order book
-            if not self.paper:
-                book = await self.get_order_book(winner_token_id)
-                if not book:
-                    print(f"  [LW-SKIP] {pair.asset} {winner_side} — no order book")
-                    continue
-                buy_price = book.get("best_ask", 0)
-                if buy_price <= 0:
-                    buy_price = winner_mid
-            else:
-                buy_price = winner_mid
-
-            # Price guards
-            if buy_price < self.config.LATE_WINNER_MIN_BUY_PRICE:
-                print(f"  [LW-SKIP] {pair.asset} {winner_side} @ ${buy_price:.2f} — below min ${self.config.LATE_WINNER_MIN_BUY_PRICE}")
-                continue
-            if buy_price > self.config.LATE_WINNER_MAX_BUY_PRICE:
-                print(f"  [LW-SKIP] {pair.asset} {winner_side} @ ${buy_price:.2f} — above max ${self.config.LATE_WINNER_MAX_BUY_PRICE}")
-                continue
+                continue  # Neither side in LW zone
 
             edge = 1.0 - buy_price
             shares = max(self.config.MIN_SHARES, math.floor(self.config.LATE_WINNER_SIZE_USD / buy_price))
