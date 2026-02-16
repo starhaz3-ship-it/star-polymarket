@@ -3624,7 +3624,7 @@ class CryptoMarketMaker:
         print(f"Max combined (maker): ${self.config.MAX_COMBINED_PRICE} | Min edge: {self.config.MIN_SPREAD_EDGE*100:.0f}%")
         print(f"Daily loss limit: ${self.config.DAILY_LOSS_LIMIT}")
         if not self.paper:
-            print(f"CIRCUIT BREAKER: Auto-switch to paper on $15 net session loss (~40% of $38.44 capital)")
+            print(f"CIRCUIT BREAKER: Auto-switch to paper on $42 net session loss (~40% of $106 capital)")
         if self.config.TAKER_HEDGE_ENABLED:
             print(f"TAKER HEDGE: ON | Max combined: ${self.config.TAKER_HEDGE_MAX_COMBINED} | "
                   f"Fallback: ride to resolution")
