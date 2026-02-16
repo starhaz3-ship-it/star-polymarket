@@ -749,9 +749,9 @@
   },
   "17": {
     "0.150": {
-      "attempts": 1,
+      "attempts": 2,
       "paired": 0,
-      "partial": 1,
+      "partial": 2,
       "unfilled": 0,
       "total_pnl": 0.0
     },
@@ -770,18 +770,18 @@
       "total_pnl": -2.799461
     },
     "0.300": {
-      "attempts": 2,
+      "attempts": 12,
       "paired": 0,
-      "partial": 2,
+      "partial": 12,
       "unfilled": 0,
-      "total_pnl": 0.0
+      "total_pnl": -2.969999
     },
     "0.350": {
-      "attempts": 2,
+      "attempts": 4,
       "paired": 0,
-      "partial": 2,
+      "partial": 4,
       "unfilled": 0,
-      "total_pnl": 0.0
+      "total_pnl": -5.79
     },
     "0.400": {
       "attempts": 1,
@@ -1064,6 +1064,21 @@
     "0.15": {
       "attempts": 1,
       "total_pnl": -2.799461,
+      "wins": 0
+    },
+    "0.20": {
+      "attempts": 1,
+      "total_pnl": -3.0,
+      "wins": 0
+    },
+    "0.17": {
+      "attempts": 1,
+      "total_pnl": -2.969999,
+      "wins": 0
+    },
+    "0.19": {
+      "attempts": 1,
+      "total_pnl": -2.79,
       "wins": 0
     }
   }

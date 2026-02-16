@@ -457,7 +457,7 @@ class MakerConfig:
     MIN_TIME_LEFT_MIN: float = 5.0       # Don't enter markets with < 5 min left
     FILLED_ORDER_DELAY: float = 5.0      # V4.4: Pause new orders for 5s after any fill (adverse selection cooldown)
     RIDING_CUT_THRESHOLD: float = 0.20   # V4.4: Sell riding positions if token dropped 20c+ from entry
-    EARLY_PROFIT_TAKE: float = 0.85      # V4.6.3: Sell riding winners at $0.85+ (183% return on $0.30 entry)
+    EARLY_PROFIT_TAKE: float = 1.0       # V4.7.1: DISABLED — data shows -$25/session cost, 5-min candles rarely reverse from $0.85
 
     # Session control (from PolyData analysis)
     SKIP_HOURS_UTC: set = field(default_factory=set)  # All hours active
