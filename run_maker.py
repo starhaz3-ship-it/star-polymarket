@@ -386,15 +386,19 @@ def auto_redeem_winnings():
 
 @dataclass
 class MakerConfig:
-    """Market maker configuration — V4 Accumulation Maker."""
-    # Spread targets
-    MAX_COMBINED_PRICE: float = 0.80     # V4.2: 20% minimum edge (gabagool22 deep bids)
-    MIN_SPREAD_EDGE: float = 0.20        # V4.2: 20% minimum edge
-    BID_OFFSET: float = 0.12             # V4.2: 12c offset. Bids at ~$0.38 for 25%+ edge.
-    MIN_BID_OFFSET: float = 0.10         # V4.2: ML optimizer floor at 10c
+    """Market maker configuration — V4.3 Moderate Offset + Taker Hedge."""
+    # Spread targets — V4.3: Moderate offsets for better pair rate
+    MAX_COMBINED_PRICE: float = 0.92     # V4.3: 8% minimum edge (balanced pair rate vs edge)
+    MIN_SPREAD_EDGE: float = 0.08        # V4.3: 8% minimum edge
+    BID_OFFSET: float = 0.06            # V4.3: 6c offset. Bids at ~$0.44 — competitive enough for pairs
+    MIN_BID_OFFSET: float = 0.04         # V4.3: ML optimizer floor at 4c
+
+    # V4.3: Taker hedge — on first fill, FOK buy other side to guarantee pair
+    TAKER_HEDGE_ENABLED: bool = True     # V4.3: Instant FOK hedge on first fill
+    TAKER_HEDGE_MAX_COMBINED: float = 0.96  # V4.3: Max combined cost (4% minimum edge for hedge)
 
     # Position sizing
-    SIZE_PER_SIDE_USD: float = 5.0       # V4.2: $5/side
+    SIZE_PER_SIDE_USD: float = 3.0       # V4.3: $3/side (conservative while proving taker hedge)
     MAX_PAIR_EXPOSURE: float = 20.0      # V4: $20/pair (scaled for $3/side)
     MAX_TOTAL_EXPOSURE: float = 50.0     # V4: $50 max (scaled for $43 account)
     MIN_SHARES: int = 5                  # CLOB minimum order size
@@ -431,10 +435,10 @@ class MakerConfig:
     # "max_combined" = maximum combined bid price (lower = more edge required)
     # "balance_range" = (min, max) for each side price (tighter = more balanced)
     ASSET_TIERS: dict = field(default_factory=lambda: {
-        "BTC": {"max_combined": 0.80, "balance_range": (0.25, 0.75)},  # V4.2: Deep bids, wide range
-        "ETH": {"max_combined": 0.80, "balance_range": (0.25, 0.75)},  # V4.2: Deep bids, wide range
-        "SOL": {"max_combined": 0.80, "balance_range": (0.25, 0.75)},  # V4.2: Deep bids, wide range
-        "XRP": {"max_combined": 0.80, "balance_range": (0.25, 0.75)},  # V4.2: Deep bids, wide range
+        "BTC": {"max_combined": 0.92, "balance_range": (0.35, 0.65)},  # V4.3: Moderate offset
+        "ETH": {"max_combined": 0.92, "balance_range": (0.35, 0.65)},  # V4.3: Moderate offset
+        "SOL": {"max_combined": 0.92, "balance_range": (0.35, 0.65)},  # V4.3: Moderate offset
+        "XRP": {"max_combined": 0.92, "balance_range": (0.35, 0.65)},  # V4.3: Moderate offset
     })
 
     # V3.0: Momentum directional trading (@vague-sourdough reverse-engineered strategy)
@@ -473,7 +477,7 @@ class MakerConfig:
     LATE_CANDLE_ENABLED: bool = True
     LATE_CANDLE_WAIT_SEC: float = 90.0        # V4.2: 1.5 min into 5-min market (was 150s)
     LATE_CANDLE_MAX_WAIT_SEC: float = 240.0   # Stop at 4 min (60s before close)
-    LATE_CANDLE_SIZE_USD: float = 5.0         # Same as normal maker
+    LATE_CANDLE_SIZE_USD: float = 3.0         # Same as normal maker
     LATE_CANDLE_MAX_LOSER_PRICE: float = 0.30 # Only buy loser if <= $0.30
     LATE_CANDLE_MIN_MOMENTUM_BPS: float = 15.0  # Direction must be this clear
 
@@ -485,7 +489,7 @@ class MakerConfig:
     LATE_WINNER_MIN_SEC: float = 15.0         # Stop buying 15s before close (order needs time)
     LATE_WINNER_MAX_BUY_PRICE: float = 0.92   # Don't pay more than $0.92 (min $0.08 edge)
     LATE_WINNER_MIN_BUY_PRICE: float = 0.80   # Token must be at least $0.80 (direction clear)
-    LATE_WINNER_SIZE_USD: float = 5.0         # Same as normal maker
+    LATE_WINNER_SIZE_USD: float = 3.0         # Same as normal maker
 
 
 # ============================================================================
@@ -500,7 +504,7 @@ class OffsetOptimizer:
     Tracks per-hour, per-offset-bucket stats and uses Thompson Sampling
     to balance exploration vs exploitation of bid offsets.
     """
-    OFFSET_BUCKETS = [0.10, 0.11, 0.12, 0.13, 0.14, 0.15]  # V4.2: deep bids 10-15c
+    OFFSET_BUCKETS = [0.04, 0.05, 0.06, 0.07, 0.08, 0.09]  # V4.3: moderate 4-9c
     STATE_FILE = Path(__file__).parent / "maker_ml_state.json"
     EXPLORE_RATE = 0.15  # 15% explore, 85% exploit
 
@@ -1217,7 +1221,11 @@ class CryptoMarketMaker:
             "late_winner_attempts": 0,
             "late_winner_wins": 0,
             "late_winner_pnl": 0.0,
-            "version": "V4.2",
+            # V4.3: Taker hedge stats
+            "hedge_attempts": 0,
+            "hedge_successes": 0,
+            "hedge_failures": 0,
+            "version": "V4.3",
         }
 
         # Daily tracking
@@ -1818,10 +1826,14 @@ class CryptoMarketMaker:
                     (pos.down_order.fill_price * pos.down_order.fill_shares if pos.down_order else 0)
                 )
             elif pos.up_filled or pos.down_filled:
+                was_pending = pos.status == "pending"
                 pos.status = "partial"
                 # V1.3: Track when first side filled for fast partial-protect
                 if not pos.first_fill_time:
                     pos.first_fill_time = datetime.now(timezone.utc).isoformat()
+                # V4.3: Instant taker hedge — FOK buy other side on first detection
+                if was_pending and self.config.TAKER_HEDGE_ENABLED and not self.paper:
+                    await self._taker_hedge(pos)
 
     async def _check_fills_paper(self, pos: PairPosition):
         """Simulate fills for paper mode.
@@ -1902,6 +1914,138 @@ class CryptoMarketMaker:
                         print(f"  [FILL] {pos.asset} {order.side_label} @ ${order.price:.2f} x {matched:.0f}")
             except Exception:
                 pass
+
+    # ========================================================================
+    # V4.3: TAKER HEDGE
+    # ========================================================================
+
+    async def _taker_hedge(self, pos: PairPosition):
+        """V4.3: When one side fills, immediately FOK-buy the other side to guarantee a pair.
+
+        This eliminates partial-ride coin flips. Instead of losing ~$3-5 when the wrong
+        side fills, we lock in a guaranteed pair with known edge.
+
+        Flow:
+        1. Cancel the unfilled GTC order
+        2. Get order book for the unfilled side's token
+        3. FOK buy at best ask (up to max_combined limit)
+        4. If FOK fills -> paired, guaranteed profit
+        5. If FOK fails -> ride as partial (no worse than before)
+        """
+        if not self.client:
+            return
+
+        # V4.3: Only hedge if enough time remains — late fills mean the market has moved
+        created = datetime.fromisoformat(pos.created_at)
+        age_min = (datetime.now(timezone.utc) - created).total_seconds() / 60
+        time_left = pos.duration_min - age_min
+        if time_left < 3.0:
+            print(f"  [HEDGE-SKIP] {pos.asset} — only {time_left:.1f}min left, too late to hedge")
+            return
+
+        from py_clob_client.clob_types import OrderArgs, OrderType
+        from py_clob_client.order_builder.constants import BUY
+
+        # Determine which side filled and which needs hedging
+        if pos.up_filled and not pos.down_filled:
+            filled_order = pos.up_order
+            hedge_side = "DOWN"
+            hedge_token_id = pos.down_order.token_id if pos.down_order else None
+            unfilled_order = pos.down_order
+        elif pos.down_filled and not pos.up_filled:
+            filled_order = pos.down_order
+            hedge_side = "UP"
+            hedge_token_id = pos.up_order.token_id if pos.up_order else None
+            unfilled_order = pos.up_order
+        else:
+            return  # Both filled or neither — shouldn't happen
+
+        if not hedge_token_id or not filled_order:
+            return
+
+        self.stats["hedge_attempts"] = self.stats.get("hedge_attempts", 0) + 1
+
+        # Step 1: Cancel the unfilled GTC order
+        if unfilled_order and unfilled_order.status == "open":
+            try:
+                self.client.cancel(unfilled_order.order_id)
+                unfilled_order.status = "cancelled"
+            except Exception:
+                pass  # May already be cancelled/expired
+
+        # Step 2: Get order book for hedge side
+        book = await self.get_order_book(hedge_token_id)
+        if not book or book.get("best_ask", 1.0) >= 1.0:
+            print(f"  [HEDGE-SKIP] {pos.asset} {hedge_side} — no asks available, will ride")
+            self.stats["hedge_failures"] = self.stats.get("hedge_failures", 0) + 1
+            return
+
+        best_ask = book["best_ask"]
+        maker_fill_price = filled_order.fill_price
+
+        # Step 3: Check if combined cost is acceptable
+        combined = maker_fill_price + best_ask
+        if combined > self.config.TAKER_HEDGE_MAX_COMBINED:
+            print(f"  [HEDGE-SKIP] {pos.asset} {hedge_side} — combined ${combined:.2f} > "
+                  f"${self.config.TAKER_HEDGE_MAX_COMBINED} limit, will ride")
+            self.stats["hedge_failures"] = self.stats.get("hedge_failures", 0) + 1
+            return
+
+        edge_pct = (1.0 - combined) * 100
+        # Match shares to filled side for balanced pair
+        hedge_shares = filled_order.fill_shares
+        hedge_price = round(best_ask, 2)
+
+        # Step 4: Place FOK buy order
+        try:
+            args = OrderArgs(
+                price=hedge_price,
+                size=float(hedge_shares),
+                side=BUY,
+                token_id=hedge_token_id,
+            )
+            signed = self.client.create_order(args)
+            resp = self.client.post_order(signed, OrderType.FOK)
+
+            if resp.get("success"):
+                order_id = resp.get("orderID", "")
+                now_iso = datetime.now(timezone.utc).isoformat()
+                new_order = MakerOrder(
+                    order_id=order_id,
+                    market_id=pos.market_id,
+                    token_id=hedge_token_id,
+                    side_label=hedge_side,
+                    price=hedge_price,
+                    size_shares=float(hedge_shares),
+                    size_usd=hedge_price * hedge_shares,
+                    placed_at=now_iso,
+                    status="filled",
+                    fill_price=hedge_price,
+                    fill_shares=float(hedge_shares),
+                )
+                if hedge_side == "DOWN":
+                    pos.down_order = new_order
+                    pos.down_filled = True
+                else:
+                    pos.up_order = new_order
+                    pos.up_filled = True
+
+                pos.combined_cost = (maker_fill_price * filled_order.fill_shares) + (hedge_price * hedge_shares)
+                pos.status = "paired"
+                pos.entry_type = "taker_hedge"
+
+                self.stats["hedge_successes"] = self.stats.get("hedge_successes", 0) + 1
+                self.stats["fills_" + hedge_side.lower()] += 1
+
+                print(f"  [HEDGE-OK] {pos.asset} FOK {hedge_side} @ ${hedge_price:.2f} x {hedge_shares:.0f} | "
+                      f"Combined: ${combined:.2f} | Edge: {edge_pct:.1f}% | oid={order_id[:16]}...")
+            else:
+                err = resp.get("errorMsg", "?")
+                print(f"  [HEDGE-FAIL] {pos.asset} {hedge_side} FOK rejected ({err}), will ride")
+                self.stats["hedge_failures"] = self.stats.get("hedge_failures", 0) + 1
+        except Exception as e:
+            print(f"  [HEDGE-ERR] {pos.asset} {hedge_side}: {str(e)[:60]}, will ride")
+            self.stats["hedge_failures"] = self.stats.get("hedge_failures", 0) + 1
 
     # ========================================================================
     # RESOLUTION
@@ -3410,7 +3554,7 @@ class CryptoMarketMaker:
         if not self.paper and not self.circuit_tripped and self.starting_pnl is not None:
             session_pnl = self.stats["total_pnl"] - self.starting_pnl
             # Calculate 40% of the CLOB cash balance (~$76)
-            capital_loss_limit = 29.0  # 40% of $72.22 CLOB cash
+            capital_loss_limit = 15.0  # 40% of $38.44 CLOB cash
             if session_pnl < -capital_loss_limit:
                 print(f"\n{'='*70}")
                 print(f"[CIRCUIT BREAKER] NET CAPITAL LOSS EXCEEDED 40%!")
@@ -3473,14 +3617,17 @@ class CryptoMarketMaker:
         """Main market maker loop."""
         print("=" * 70)
         mode = "PAPER" if self.paper else "LIVE"
-        print(f"ACCUMULATION MAKER V4.2 - {mode} MODE")
-        print(f"Strategy: DEEP BIDS both sides @ {self.config.BID_OFFSET*100:.0f}c+ offset (gabagool22) + late-candle (5M BTC)")
-        print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Min offset: {self.config.MIN_BID_OFFSET}c | "
-              f"Timeout: {self.config.RIDE_AFTER_SEC}s -> {self.config.PARTIAL_TIMEOUT_ACTION}")
-        print(f"Max combined: ${self.config.MAX_COMBINED_PRICE} | Min edge: {self.config.MIN_SPREAD_EDGE*100:.0f}%")
+        print(f"TAKER HEDGE MAKER V4.3 - {mode} MODE")
+        print(f"Strategy: Deep maker bids + instant FOK hedge on first fill (guaranteed pairs)")
+        print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Maker offset: {self.config.BID_OFFSET*100:.0f}c+ | "
+              f"Hedge max combined: ${self.config.TAKER_HEDGE_MAX_COMBINED}")
+        print(f"Max combined (maker): ${self.config.MAX_COMBINED_PRICE} | Min edge: {self.config.MIN_SPREAD_EDGE*100:.0f}%")
         print(f"Daily loss limit: ${self.config.DAILY_LOSS_LIMIT}")
         if not self.paper:
-            print(f"CIRCUIT BREAKER: Auto-switch to paper on $29 net session loss (~40% of $72.22 capital)")
+            print(f"CIRCUIT BREAKER: Auto-switch to paper on $15 net session loss (~40% of $38.44 capital)")
+        if self.config.TAKER_HEDGE_ENABLED:
+            print(f"TAKER HEDGE: ON | Max combined: ${self.config.TAKER_HEDGE_MAX_COMBINED} | "
+                  f"Fallback: ride to resolution")
         print(f"Skip hours (UTC): {sorted(self.config.SKIP_HOURS_UTC)}")
         if self.config.MOMENTUM_ENABLED:
             print(f"MOMENTUM 5m: ${self.config.MOMENTUM_SIZE_USD}/trade | "
@@ -3621,8 +3768,12 @@ class CryptoMarketMaker:
         mode_tag = "PAPER" if self.paper else "LIVE"
         cb_tag = " [CIRCUIT TRIPPED]" if self.circuit_tripped else ""
         session_pnl = self.stats["total_pnl"] - (self.starting_pnl or 0)
+        h_ok = self.stats.get("hedge_successes", 0)
+        h_fail = self.stats.get("hedge_failures", 0)
+        h_att = self.stats.get("hedge_attempts", 0)
+        hedge_tag = f" | Hedge: {h_ok}/{h_att}" if h_att > 0 else ""
         print(f"\n--- Cycle {cycle} | {mode_tag}{cb_tag} | UTC {hour:02d} | "
-              f"Active: {active} ({paired} paired, {partial} partial) | "
+              f"Active: {active} ({paired} paired, {partial} partial){hedge_tag} | "
               f"Daily: ${self.daily_pnl:+.4f} | Session: ${session_pnl:+.4f} | Total: ${self.stats['total_pnl']:+.4f} | "
               f"Resolved: {len(self.resolved)} ---")
 
