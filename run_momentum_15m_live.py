@@ -68,6 +68,8 @@ SPREAD_OFFSET = 0.02        # paper fill spread simulation (ignored in live)
 RESOLVE_AGE_MIN = 18.0      # minutes before forcing resolution via API
 EMA_GAP_MIN_BP = 2          # chop filter threshold
 DAILY_LOSS_LIMIT = 15.0     # stop trading if session losses exceed $15
+AUTO_KILL_TRADES = 20       # V1.2: auto-shutdown after this many trades if WR < 50%
+AUTO_KILL_MIN_WR = 0.50     # V1.2: minimum win rate to stay alive
 MIN_SHARES = 5              # CLOB minimum order size
 
 # ============================================================================
@@ -180,6 +182,7 @@ class Momentum15MTrader:
         self.resolved: list = []
         self.stats = {"wins": 0, "losses": 0, "pnl": 0.0, "start_time": datetime.now(timezone.utc).isoformat()}
         self.session_pnl = 0.0  # session loss tracking for daily limit
+        self.running = True     # V1.2: auto-kill sets this to False
         self.tier = "PROBATION"  # current promotion tier
         self._load()
 
@@ -386,6 +389,22 @@ class Momentum15MTrader:
             if total_trades == promote_after:  # Only log once at threshold
                 print(f"[TIER] {self.tier} review @ {total_trades}T: NOT promoted — {', '.join(reasons)}")
 
+    def check_auto_kill(self):
+        """V1.2: Auto-shutdown if WR < 50% after 20+ trades."""
+        total = self.stats["wins"] + self.stats["losses"]
+        if total < AUTO_KILL_TRADES:
+            return False
+        wr = self.stats["wins"] / total
+        if wr < AUTO_KILL_MIN_WR:
+            print(f"\n{'='*60}")
+            print(f"[AUTO-KILL] {total}T | {self.stats['wins']}W/{self.stats['losses']}L | {wr:.1%} WR < {AUTO_KILL_MIN_WR:.0%}")
+            print(f"  PnL: ${self.stats['pnl']:+.2f} | Strategy not viable, shutting down.")
+            print(f"{'='*60}\n")
+            self.save_results()
+            self.running = False
+            return True
+        return False
+
     # ========================================================================
     # RESOLVE
     # ========================================================================
@@ -451,8 +470,10 @@ class Momentum15MTrader:
                                       f"session=${self.session_pnl:+.2f} | "
                                       f"[{self.tier}] | {trade.get('title', '')[:40]}")
 
-                                # Check promotion after each resolved trade
+                                # Check promotion or auto-kill after each resolved trade
                                 self.check_promotion()
+                                if self.check_auto_kill():
+                                    return
                 except Exception as e:
                     print(f"[RESOLVE] API error: {e}")
             elif age_min > 25:
@@ -465,6 +486,8 @@ class Momentum15MTrader:
                 self.resolved.append(trade)
                 del self.trades[tid]
                 print(f"[LOSS] {trade.get('_asset', '?')}:{trade['side']} ${trade['pnl']:+.2f} | aged out (no market ID)")
+                if self.check_auto_kill():
+                    return
 
     # ========================================================================
     # ENTRY
@@ -626,7 +649,7 @@ class Momentum15MTrader:
         mode = "PAPER" if self.paper else "LIVE"
         print("=" * 70)
         tier_size = TIERS[self.tier]["size"]
-        print(f"MOMENTUM 15M DIRECTIONAL TRADER V1.1 - {mode} MODE")
+        print(f"MOMENTUM 15M DIRECTIONAL TRADER V1.2 - {mode} MODE")
         print(f"Strategy: Multi-asset momentum_strong on Polymarket 15M markets")
         print(f"Paper-proven: 224W/134L, 63% WR, +$1,459 PnL")
         print(f"Assets: {', '.join(ASSETS.keys())}")
@@ -649,7 +672,7 @@ class Momentum15MTrader:
 
         cycle = 0
         last_redeem = 0
-        while True:
+        while self.running:
             try:
                 cycle += 1
                 now_ts = time.time()

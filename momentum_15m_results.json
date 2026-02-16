@@ -1,5 +1,42 @@
 {
-  "active": {},
+  "active": {
+    "15m_0x9de37d87ddc3a9bb944c58966908ebdeb1a6a028d6c2e14bfac8666684bbb483_UP": {
+      "side": "UP",
+      "entry_price": 0.47,
+      "size_usd": 2.5,
+      "entry_time": "2026-02-16T23:49:36.362321+00:00",
+      "condition_id": "0x9de37d87ddc3a9bb944c58966908ebdeb1a6a028d6c2e14bfac8666684bbb483",
+      "market_numeric_id": "1383477",
+      "title": "Bitcoin Up or Down - February 16, 6:45PM-7:00PM ET",
+      "strategy": "momentum_strong",
+      "asset": "BTC",
+      "_asset": "BTC",
+      "momentum_10m": 0.000922,
+      "momentum_5m": 0.000712,
+      "asset_price": 68895.0,
+      "order_id": "0x97f00ec716bb32c5bb3d9fdc459e6f7c21aeb31da00ba76b6653ad757e1a8815",
+      "status": "open",
+      "pnl": 0.0
+    },
+    "15m_0x1675c3c54637d2c3c84f71d251cb5dac1dfef8cbf76e40ffc31326a69d2bc54b_UP": {
+      "side": "UP",
+      "entry_price": 0.47,
+      "size_usd": 2.5,
+      "entry_time": "2026-02-16T23:49:36.362321+00:00",
+      "condition_id": "0x1675c3c54637d2c3c84f71d251cb5dac1dfef8cbf76e40ffc31326a69d2bc54b",
+      "market_numeric_id": "1383475",
+      "title": "Ethereum Up or Down - February 16, 6:45PM-7:00PM ET",
+      "strategy": "momentum_strong",
+      "asset": "ETH",
+      "_asset": "ETH",
+      "momentum_10m": 0.000681,
+      "momentum_5m": 0.00045,
+      "asset_price": 1999.11,
+      "order_id": "0x0eff67fcb87632dbdadc600988fb39a90692d8765fad970d1f0bdd2a15ce477d",
+      "status": "open",
+      "pnl": 0.0
+    }
+  },
   "resolved": [
     {
       "side": "DOWN",
@@ -229,6 +266,6 @@
     "start_time": "2026-02-16T22:01:09.229533+00:00"
   },
   "tier": "PROBATION",
-  "session_pnl": -5.0,
-  "last_updated": "2026-02-16T23:46:54.777759+00:00"
+  "session_pnl": 0.0,
+  "last_updated": "2026-02-16T23:56:43.824983+00:00"
 }
