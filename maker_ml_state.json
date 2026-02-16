@@ -712,11 +712,11 @@
       "total_pnl": 0.0
     },
     "0.200": {
-      "attempts": 10,
+      "attempts": 13,
       "paired": 0,
-      "partial": 10,
+      "partial": 13,
       "unfilled": 0,
-      "total_pnl": -7.459999999999999
+      "total_pnl": 2.9400000000000013
     },
     "0.250": {
       "attempts": 2,
@@ -726,11 +726,11 @@
       "total_pnl": 0.0
     },
     "0.300": {
-      "attempts": 5,
+      "attempts": 7,
       "paired": 0,
-      "partial": 5,
+      "partial": 7,
       "unfilled": 0,
-      "total_pnl": -1.2257749999999996
+      "total_pnl": -4.192671
     },
     "0.350": {
       "attempts": 2,
@@ -749,9 +749,9 @@
   },
   "17": {
     "0.150": {
-      "attempts": 0,
+      "attempts": 1,
       "paired": 0,
-      "partial": 0,
+      "partial": 1,
       "unfilled": 0,
       "total_pnl": 0.0
     },
@@ -763,32 +763,32 @@
       "total_pnl": 0.0
     },
     "0.250": {
-      "attempts": 0,
+      "attempts": 2,
       "paired": 0,
-      "partial": 0,
+      "partial": 2,
       "unfilled": 0,
-      "total_pnl": 0.0
+      "total_pnl": -2.799461
     },
     "0.300": {
-      "attempts": 0,
+      "attempts": 2,
       "paired": 0,
-      "partial": 0,
+      "partial": 2,
       "unfilled": 0,
       "total_pnl": 0.0
     },
     "0.350": {
-      "attempts": 0,
+      "attempts": 2,
       "paired": 0,
-      "partial": 0,
+      "partial": 2,
       "unfilled": 0,
       "total_pnl": 0.0
     },
     "0.400": {
-      "attempts": 0,
+      "attempts": 1,
       "paired": 0,
-      "partial": 0,
+      "partial": 1,
       "unfilled": 0,
-      "total_pnl": 0.0
+      "total_pnl": 6.12
     }
   },
   "18": {
@@ -1053,6 +1053,18 @@
       "partial": 0,
       "unfilled": 0,
       "total_pnl": 0.0
+    }
+  },
+  "offset_stats": {
+    "0.18": {
+      "attempts": 1,
+      "total_pnl": 6.12,
+      "wins": 1
+    },
+    "0.15": {
+      "attempts": 1,
+      "total_pnl": -2.799461,
+      "wins": 0
     }
   }
 }

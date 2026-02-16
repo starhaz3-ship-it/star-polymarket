@@ -386,12 +386,12 @@ def auto_redeem_winnings():
 
 @dataclass
 class MakerConfig:
-    """Market maker configuration — V4.6.3 BTC-only + direction cap."""
+    """Market maker configuration — V4.7 Dual-tier: deep bids + paired mid-bids."""
     # Spread targets — V4.6: Deep bids for better partial EV
     MAX_COMBINED_PRICE: float = 0.80     # V4.6: 20% minimum edge (deeper bids = lower combined)
     MIN_SPREAD_EDGE: float = 0.08        # V4.3: 8% minimum edge
-    BID_OFFSET: float = 0.15            # V4.6: Fallback — deep bids target ~$0.30
-    MIN_BID_OFFSET: float = 0.15         # V4.6: Floor at 15c (target bids ~$0.30-0.35)
+    BID_OFFSET: float = 0.17            # V4.6.4: Wider offset — $9.43/trade at 0.18+ vs $1.22 at 0.15
+    MIN_BID_OFFSET: float = 0.17         # V4.6.4: Floor at 17c (deeper bids = better W:L)
     # V4.4: Avellaneda time-decay spread parameters
     BASE_SPREAD: float = 0.05           # V4.6: 5c base spread (was 2c)
     DEFAULT_GAMMA: float = 0.50          # V4.6: Higher gamma = wider spreads = deeper bids
@@ -418,6 +418,21 @@ class MakerConfig:
 
     # V4.6.3: Direction cap — prevent correlated directional wipeouts
     MAX_SAME_DIRECTION: int = 3          # Max positions filled same direction (UP or DOWN)
+
+    # V4.6.4: Momentum sizing — scale bets based on recent win/loss streak
+    MOMENTUM_ENABLED: bool = True
+    MOMENTUM_WIN_MULT: float = 1.20      # Increase size 20% after a win (60% WR after wins)
+    MOMENTUM_LOSS_MULT: float = 0.80     # Decrease size 20% after a loss (33% WR after losses)
+    MOMENTUM_MAX_MULT: float = 1.50      # Cap at 1.5x base size
+    MOMENTUM_MIN_MULT: float = 0.60      # Floor at 0.6x base size
+
+    # V4.7: Paired mid-bid strategy — guaranteed $0.60/pair when both sides fill
+    PAIRED_MODE_ENABLED: bool = True
+    PAIRED_BID_OFFSET: float = 0.05      # Small offset → bids at ~$0.45 (near mid)
+    PAIRED_MAX_COMBINED: float = 0.92    # Max combined cost (profit = $1.00 - combined)
+    PAIRED_SIZE_PER_SIDE: float = 3.0    # $3/side for paired tier
+    PAIRED_MAX_CONCURRENT: int = 3       # Separate cap from deep bids
+    PAIRED_MIN_PROFIT: float = 0.08      # Min guaranteed profit per share ($0.08)
 
     # V4.5: Dynamic scaling at $200+ PnL
     MAX_CONCURRENT_PAIRS_SCALED: int = 16
@@ -451,7 +466,7 @@ class MakerConfig:
     # Assets
     ASSETS: dict = field(default_factory=lambda: {
         "BTC": {"keywords": ["bitcoin", "btc"], "enabled": True},
-        "ETH": {"keywords": ["ethereum", "eth"], "enabled": False},   # V4.6.3: DISABLED — -$11.40, coin-flip 50% WR
+        "ETH": {"keywords": ["ethereum", "eth"], "enabled": True},    # V4.6.4: RE-ENABLED — clean data shows +$3.29/trade, best per-trade asset
         "SOL": {"keywords": ["solana", "sol"], "enabled": False},   # V4.6.1: DISABLED — -$67 loss, worst asset by far
         "XRP": {"keywords": ["xrp", "ripple"], "enabled": False},   # V4.6.3: DISABLED — +$4.72 marginal, not worth variance
     })
@@ -460,10 +475,10 @@ class MakerConfig:
     # "max_combined" = maximum combined bid price (lower = more edge required)
     # "balance_range" = (min, max) for each side price (tighter = more balanced)
     ASSET_TIERS: dict = field(default_factory=lambda: {
-        "BTC": {"max_combined": 0.80, "balance_range": (0.20, 0.65)},  # V4.6: Deep bids ~$0.25-0.35
-        "ETH": {"max_combined": 0.80, "balance_range": (0.20, 0.65)},  # V4.6: Deep bids
-        "SOL": {"max_combined": 0.80, "balance_range": (0.20, 0.65)},  # V4.6: Deep bids
-        "XRP": {"max_combined": 0.80, "balance_range": (0.20, 0.65)},  # V4.6: Deep bids
+        "BTC": {"max_combined": 0.80, "balance_range": (0.25, 0.65)},  # V4.6.4: Floor $0.25 (0% WR below)
+        "ETH": {"max_combined": 0.80, "balance_range": (0.25, 0.65)},  # V4.6.4: Floor $0.25
+        "SOL": {"max_combined": 0.80, "balance_range": (0.25, 0.65)},  # V4.6.4: Floor $0.25
+        "XRP": {"max_combined": 0.80, "balance_range": (0.25, 0.65)},  # V4.6.4: Floor $0.25
     })
 
     # V3.0: Momentum directional trading (@vague-sourdough reverse-engineered strategy)
@@ -551,10 +566,14 @@ class OffsetOptimizer:
                 }
 
     def _load(self):
+        self.offset_stats = {}  # V4.6.4: offset PnL tracking
         if self.STATE_FILE.exists():
             try:
                 data = json.loads(self.STATE_FILE.read_text())
                 for h_str, gammas in data.items():
+                    if h_str == "offset_stats":
+                        self.offset_stats = gammas
+                        continue
                     h = int(h_str)
                     if h in self.hour_stats:
                         for g_key, stats in gammas.items():
@@ -565,8 +584,10 @@ class OffsetOptimizer:
 
     def save(self):
         try:
-            self.STATE_FILE.write_text(json.dumps(
-                {str(h): v for h, v in self.hour_stats.items()}, indent=2))
+            data = {str(h): v for h, v in self.hour_stats.items()}
+            if hasattr(self, "offset_stats"):
+                data["offset_stats"] = self.offset_stats
+            self.STATE_FILE.write_text(json.dumps(data, indent=2))
         except Exception:
             pass
 
@@ -619,6 +640,46 @@ class OffsetOptimizer:
             s["unfilled"] += 1
         s["total_pnl"] += pnl
 
+    def record_offset(self, offset: float, pnl: float):
+        """V4.6.4: Track PnL per bid offset bucket for auto-tuning."""
+        bucket = round(offset, 2)
+        key = f"{bucket:.2f}"
+        if "offset_stats" not in self.__dict__:
+            self.offset_stats = {}
+        if key not in self.offset_stats:
+            self.offset_stats[key] = {"attempts": 0, "total_pnl": 0.0, "wins": 0}
+        self.offset_stats[key]["attempts"] += 1
+        self.offset_stats[key]["total_pnl"] += pnl
+        if pnl > 0:
+            self.offset_stats[key]["wins"] += 1
+
+    def get_optimal_offset(self, current_offset: float, min_trades: int = 20) -> Optional[float]:
+        """V4.6.4: After enough data, recommend the best offset.
+        Returns new offset if significantly better, None if no change needed."""
+        if not hasattr(self, "offset_stats") or not self.offset_stats:
+            return None
+        total_trades = sum(s["attempts"] for s in self.offset_stats.values())
+        if total_trades < min_trades:
+            return None  # Not enough data yet
+
+        best_offset = current_offset
+        best_avg = -999.0
+        for key, s in self.offset_stats.items():
+            if s["attempts"] < 3:
+                continue
+            avg_pnl = s["total_pnl"] / s["attempts"]
+            if avg_pnl > best_avg:
+                best_avg = avg_pnl
+                best_offset = float(key)
+
+        # Only recommend change if meaningfully better
+        cur_key = f"{round(current_offset, 2):.2f}"
+        cur_stats = self.offset_stats.get(cur_key, {})
+        cur_avg = cur_stats.get("total_pnl", 0) / max(1, cur_stats.get("attempts", 1))
+        if best_avg > cur_avg + 0.50:  # Must be $0.50/trade better to switch
+            return best_offset
+        return None
+
     def get_summary(self) -> str:
         """Return brief summary of optimal gamma per hour."""
         lines = []
@@ -634,6 +695,14 @@ class OffsetOptimizer:
             pnl = s.get("total_pnl", 0)
             pr = s.get("paired", 0)
             lines.append(f"  UTC {h:02d}: gamma={best_g:.2f} ({pr}/{att} paired, ${pnl:+.2f})")
+        # V4.6.4: Add offset stats
+        if hasattr(self, "offset_stats") and self.offset_stats:
+            lines.append("  --- Offset PnL ---")
+            for key in sorted(self.offset_stats.keys()):
+                s = self.offset_stats[key]
+                avg = s["total_pnl"] / max(1, s["attempts"])
+                wr = s["wins"] / max(1, s["attempts"]) * 100
+                lines.append(f"  Offset {key}: {s['attempts']}T, {wr:.0f}%WR, ${s['total_pnl']:+.2f} (${avg:+.2f}/T)")
         return "\n".join(lines) if lines else "  No data yet"
 
 
@@ -1188,6 +1257,7 @@ class PairPosition:
     sell_attempts: int = 0             # V4.1: Track sell-back attempts (ride after 3 failures)
     last_ride_check_ts: float = 0.0    # V4.4: Rate limit ride monitoring API calls
     gamma_used: float = 0.25           # V4.4: Track which gamma was used (for ML)
+    entry_tier: str = "deep"           # V4.7: "deep" or "paired" — which strategy tier
 
     @property
     def is_paired(self) -> bool:
@@ -1298,6 +1368,8 @@ class CryptoMarketMaker:
         self._rest_cycle_counter: int = 0  # For REST fallback cadence
         self._onchain_pnl: float = 0.0     # V4.6: Last on-chain PnL check
         self._onchain_delta: float = 0.0   # V4.6: Internal vs on-chain delta
+        self._momentum_mult: float = 1.0   # V4.6.4: Current momentum multiplier
+        self._last_trade_won: Optional[bool] = None  # V4.6.4: Last trade outcome
 
         if not paper:
             self._init_client()
@@ -1832,6 +1904,52 @@ class CryptoMarketMaker:
             ),
         }
 
+    def evaluate_pair_mid(self, pair: MarketPair) -> dict:
+        """V4.7: Evaluate a market pair for mid-bid PAIRED strategy.
+        Tight offset near mid-price. Goal: get BOTH sides filled for guaranteed profit."""
+        mins_left = float(pair.duration_min)
+        secs_left = pair.duration_min * 60.0
+        if pair.end_time:
+            delta = (pair.end_time - datetime.now(timezone.utc)).total_seconds()
+            secs_left = max(0, delta)
+            mins_left = secs_left / 60.0
+
+        offset = self.config.PAIRED_BID_OFFSET
+
+        up_bid = round(pair.up_mid - offset, 2)
+        down_bid = round(pair.down_mid - offset, 2)
+        up_bid = max(0.01, min(0.95, up_bid))
+        down_bid = max(0.01, min(0.95, down_bid))
+
+        combined = up_bid + down_bid
+        profit_per_share = 1.0 - combined
+
+        min_time = 2.0 if pair.duration_min <= 5 else self.config.MIN_TIME_LEFT_MIN
+        max_time = pair.duration_min * 1.5
+
+        return {
+            "up_bid": up_bid,
+            "down_bid": down_bid,
+            "combined": combined,
+            "edge": profit_per_share,
+            "edge_pct": profit_per_share / combined * 100 if combined > 0 else 0,
+            "offset": offset,
+            "gamma": 0.0,
+            "mins_left": mins_left,
+            "secs_left": secs_left,
+            "total_secs": pair.duration_min * 60.0,
+            "viable": (
+                combined <= self.config.PAIRED_MAX_COMBINED
+                and profit_per_share >= self.config.PAIRED_MIN_PROFIT
+                and mins_left > min_time
+                and mins_left < max_time
+                and up_bid >= 0.35   # Don't bid below $0.35 for paired (need near-mid)
+                and down_bid >= 0.35
+                and up_bid <= 0.55   # Don't bid above $0.55 (too expensive)
+                and down_bid <= 0.55
+            ),
+        }
+
     # ========================================================================
     # V4.4: INVENTORY SKEW
     # ========================================================================
@@ -1858,6 +1976,22 @@ class CryptoMarketMaker:
         up_mult = max(0.5, min(1.0, 2.0 - 2.0 * up_ratio))
         down_mult = max(0.5, min(1.0, 2.0 * up_ratio))
         return (up_mult, down_mult)
+
+    def _update_momentum(self, pnl: float):
+        """V4.6.4: Update momentum multiplier based on trade outcome."""
+        if not self.config.MOMENTUM_ENABLED:
+            return
+        won = pnl > 0
+        if won:
+            self._momentum_mult = min(self.config.MOMENTUM_MAX_MULT,
+                                       self._momentum_mult * self.config.MOMENTUM_WIN_MULT)
+        else:
+            self._momentum_mult = max(self.config.MOMENTUM_MIN_MULT,
+                                       self._momentum_mult * self.config.MOMENTUM_LOSS_MULT)
+        self._last_trade_won = won
+        effective_size = self.config.SIZE_PER_SIDE_USD * self._momentum_mult
+        print(f"  [MOMENTUM] {'WIN' if won else 'LOSS'} — mult: {self._momentum_mult:.2f}x "
+              f"(${effective_size:.2f}/side)")
 
     def _get_unpaired_count(self) -> int:
         """V4.5: Count positions with exactly one side filled (unpaired partials)."""
@@ -2038,6 +2172,7 @@ class CryptoMarketMaker:
             pos.outcome = f"FAST_SELL_{filled_side}"
             self.stats["total_pnl"] += sell_pnl
             self.daily_pnl += sell_pnl
+            self._update_momentum(sell_pnl)
             self.stats["pairs_partial"] += 1
             self.stats["partial_pnl"] += sell_pnl
             now = datetime.now(timezone.utc)
@@ -2088,8 +2223,12 @@ class CryptoMarketMaker:
 
         # V4.4: Inventory skew — adjust sizes based on directional imbalance
         up_skew, down_skew = self._get_inventory_skew()
-        up_size = self.config.SIZE_PER_SIDE_USD * up_skew
-        down_size = self.config.SIZE_PER_SIDE_USD * down_skew
+        # V4.6.4: Momentum sizing — scale based on recent win/loss streak
+        base_size = self.config.SIZE_PER_SIDE_USD
+        if self.config.MOMENTUM_ENABLED:
+            base_size = self.config.SIZE_PER_SIDE_USD * self._momentum_mult
+        up_size = base_size * up_skew
+        down_size = base_size * down_skew
 
         # Calculate shares for each side (with skew-adjusted sizes)
         up_shares = max(self.config.MIN_SHARES, math.floor(up_size / up_bid))
@@ -2563,6 +2702,7 @@ class CryptoMarketMaker:
                             pos.outcome = f"SOLD_{filled_side}"
                             self.stats["total_pnl"] += sell_pnl
                             self.daily_pnl += sell_pnl
+                            self._update_momentum(sell_pnl)
                             self.stats["pairs_partial"] += 1
                             self.stats["partial_pnl"] += sell_pnl
                             self.ml_optimizer.record(
@@ -2780,6 +2920,7 @@ class CryptoMarketMaker:
                     self.stats["total_pnl"] += sell_pnl
                     self.daily_pnl += sell_pnl
                     self.stats["partial_pnl"] += sell_pnl
+                    self._update_momentum(sell_pnl)
                     print(f"  [PROFIT-TAKE] {pos.asset} {filled_order.side_label} — "
                           f"${best_bid:.2f} >= ${self.config.EARLY_PROFIT_TAKE} | "
                           f"entry ${filled_order.fill_price:.2f} | PnL: ${sell_pnl:+.4f}")
@@ -2802,6 +2943,7 @@ class CryptoMarketMaker:
                     self.stats["total_pnl"] += sell_pnl
                     self.daily_pnl += sell_pnl
                     self.stats["partial_pnl"] += sell_pnl
+                    self._update_momentum(sell_pnl)
                     print(f"  [RIDE-CUT] {pos.asset} {filled_order.side_label} — "
                           f"dropped {filled_order.fill_price:.2f}->{best_bid:.2f}, "
                           f"sold to free capital | PnL: ${sell_pnl:+.4f}")
@@ -2915,6 +3057,7 @@ class CryptoMarketMaker:
                 pos.outcome = f"HARVESTED_{extreme_side}"
                 self.stats["total_pnl"] += actual_pnl
                 self.daily_pnl += actual_pnl
+                self._update_momentum(actual_pnl)
                 self.stats["pairs_completed"] += 1
                 self.stats["paired_pnl"] += actual_pnl
                 self.stats["best_pair_pnl"] = max(self.stats["best_pair_pnl"], actual_pnl)
@@ -4051,6 +4194,7 @@ class CryptoMarketMaker:
             pos.pnl = pnl
             self.stats["total_pnl"] += pnl
             self.daily_pnl += pnl
+            self._update_momentum(pnl)
             self.stats["total_volume"] += pos.combined_cost
 
             if pos.is_paired:
@@ -4077,6 +4221,8 @@ class CryptoMarketMaker:
                 partial=pos.is_partial,
                 pnl=pnl
             )
+            # V4.6.4: Record offset for auto-tuning
+            self.ml_optimizer.record_offset(pos.bid_offset_used, pnl)
 
             # Log
             pair_type = "PAIRED" if pos.is_paired else "PARTIAL" if pos.is_partial else "UNFILLED"
@@ -4101,6 +4247,7 @@ class CryptoMarketMaker:
                 "resolved_at": now.isoformat(),
                 # V4.1: ML tracking fields
                 "entry_type": pos.entry_type,
+                "entry_tier": pos.entry_tier,
                 "loser_buy_price": pos.loser_buy_price,
             })
 
@@ -4351,7 +4498,8 @@ class CryptoMarketMaker:
         print("=" * 70)
         mode = "PAPER" if self.paper else "LIVE"
         print(f"AVELLANEDA MAKER V4.6 - {mode} MODE")
-        print(f"Strategy: Deep bids + 5M+15M BTC ONLY + WS fills + ping-pong + dir cap {self.config.MAX_SAME_DIRECTION}")
+        paired_str = f" + PAIRED mid-bids (${self.config.PAIRED_SIZE_PER_SIDE:.0f}/side, max {self.config.PAIRED_MAX_CONCURRENT})" if self.config.PAIRED_MODE_ENABLED else ""
+        print(f"Strategy: Deep bids + 5M+15M BTC+ETH + dir cap {self.config.MAX_SAME_DIRECTION} + momentum{paired_str}")
         print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Gamma: {self.config.DEFAULT_GAMMA} (ML-tuned) | "
               f"Base spread: {self.config.BASE_SPREAD*100:.0f}c")
         print(f"Max combined: ${self.config.MAX_COMBINED_PRICE} | Min edge: {self.config.MIN_SPREAD_EDGE*100:.0f}% | "
@@ -4464,6 +4612,31 @@ class CryptoMarketMaker:
 
                         await self.place_pair_orders(pair, eval_result)
 
+                # Phase 6b: V4.7 PAIRED MID-BID STRATEGY — parallel tier
+                if self.config.PAIRED_MODE_ENABLED and not fill_cooldown:
+                    paired_active = sum(1 for p in self.positions.values()
+                                        if p.status not in ("resolved", "cancelled")
+                                        and p.entry_tier == "paired")
+                    if paired_active < self.config.PAIRED_MAX_CONCURRENT:
+                        for pair in markets:
+                            if paired_active >= self.config.PAIRED_MAX_CONCURRENT:
+                                break
+                            # Skip markets already in deep tier
+                            if pair.market_id in self._entered_markets or pair.market_id in self.positions:
+                                continue
+                            eval_mid = self.evaluate_pair_mid(pair)
+                            if not eval_mid["viable"]:
+                                continue
+                            tag = f"{pair.duration_min}m"
+                            print(f"\n[PAIRED {pair.asset} {tag}] {pair.question[:50]}")
+                            print(f"  Mid bids: UP ${eval_mid['up_bid']:.2f} / DN ${eval_mid['down_bid']:.2f} | "
+                                  f"Combined ${eval_mid['combined']:.2f} | "
+                                  f"Guaranteed: ${eval_mid['edge']:.2f}/sh")
+                            pos = await self.place_pair_orders(pair, eval_mid)
+                            if pos:
+                                pos.entry_tier = "paired"
+                                paired_active += 1
+
                 # Phase 7: Status & save (ALWAYS, not just when placing)
                 if cycle % 5 == 0:
                     self._print_status(cycle)
@@ -4476,6 +4649,14 @@ class CryptoMarketMaker:
                 if cycle % 50 == 0 and cycle > 0:
                     print(f"\n[ML GAMMA] Current optimal gammas (Avellaneda):")
                     print(self.ml_optimizer.get_summary())
+
+                    # V4.6.4: Auto-tune bid offset after enough data
+                    new_offset = self.ml_optimizer.get_optimal_offset(self.config.MIN_BID_OFFSET)
+                    if new_offset is not None and new_offset != self.config.MIN_BID_OFFSET:
+                        old = self.config.MIN_BID_OFFSET
+                        self.config.MIN_BID_OFFSET = new_offset
+                        self.config.BID_OFFSET = new_offset
+                        print(f"  [ML-TUNE] Bid offset auto-adjusted: {old:.2f} -> {new_offset:.2f}")
 
                 # Phase 8b: V4.6 On-chain PnL verification every 25 cycles (~4 min)
                 if not self.paper and cycle % 25 == 0:
@@ -4544,6 +4725,17 @@ class CryptoMarketMaker:
               f"Active: {active} ({paired} paired, {partial} partial){hedge_tag}{pp_tag} | "
               f"Daily: ${self.daily_pnl:+.4f} | Session: ${session_pnl:+.4f} | Total: ${self.stats['total_pnl']:+.4f} | "
               f"Resolved: {len(self.resolved)} ---")
+
+        # V4.7: Paired tier stats
+        paired_tier = [p for p in self.positions.values() if p.entry_tier == "paired" and p.status not in ("resolved", "cancelled")]
+        deep_tier = [p for p in self.positions.values() if p.entry_tier == "deep" and p.status not in ("resolved", "cancelled")]
+        paired_resolved = [r for r in self.resolved if r.get("entry_tier") == "paired"]
+        if paired_tier or paired_resolved:
+            p_wins = sum(1 for r in paired_resolved if r.get("pnl", 0) > 0)
+            p_pnl = sum(r.get("pnl", 0) for r in paired_resolved)
+            mom_tag = f" | Mom: {self._momentum_mult:.2f}x" if self.config.MOMENTUM_ENABLED else ""
+            print(f"    Deep: {len(deep_tier)} active | Paired: {len(paired_tier)} active, "
+                  f"{len(paired_resolved)} resolved ({p_wins}W), ${p_pnl:+.2f}{mom_tag}")
 
         if self.stats["pairs_completed"] > 0:
             avg = self.stats["paired_pnl"] / self.stats["pairs_completed"]
