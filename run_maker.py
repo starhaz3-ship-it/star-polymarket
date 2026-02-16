@@ -398,7 +398,7 @@ class MakerConfig:
     TAKER_HEDGE_MAX_COMBINED: float = 0.96  # V4.3: Max combined cost (4% minimum edge for hedge)
 
     # Position sizing
-    SIZE_PER_SIDE_USD: float = 3.0       # V4.3: $3/side (conservative while proving taker hedge)
+    SIZE_PER_SIDE_USD: float = 5.0       # V4.3: $5/side (proven profitable, scaling up)
     MAX_PAIR_EXPOSURE: float = 20.0      # V4: $20/pair (scaled for $3/side)
     MAX_TOTAL_EXPOSURE: float = 50.0     # V4: $50 max (scaled for $43 account)
     MIN_SHARES: int = 5                  # CLOB minimum order size
@@ -477,7 +477,7 @@ class MakerConfig:
     LATE_CANDLE_ENABLED: bool = True
     LATE_CANDLE_WAIT_SEC: float = 90.0        # V4.2: 1.5 min into 5-min market (was 150s)
     LATE_CANDLE_MAX_WAIT_SEC: float = 240.0   # Stop at 4 min (60s before close)
-    LATE_CANDLE_SIZE_USD: float = 3.0         # Same as normal maker
+    LATE_CANDLE_SIZE_USD: float = 5.0         # Same as normal maker
     LATE_CANDLE_MAX_LOSER_PRICE: float = 0.30 # Only buy loser if <= $0.30
     LATE_CANDLE_MIN_MOMENTUM_BPS: float = 15.0  # Direction must be this clear
 
@@ -489,7 +489,7 @@ class MakerConfig:
     LATE_WINNER_MIN_SEC: float = 15.0         # Stop buying 15s before close (order needs time)
     LATE_WINNER_MAX_BUY_PRICE: float = 0.92   # Don't pay more than $0.92 (min $0.08 edge)
     LATE_WINNER_MIN_BUY_PRICE: float = 0.80   # Token must be at least $0.80 (direction clear)
-    LATE_WINNER_SIZE_USD: float = 3.0         # Same as normal maker
+    LATE_WINNER_SIZE_USD: float = 5.0         # Same as normal maker
 
 
 # ============================================================================
@@ -3554,7 +3554,7 @@ class CryptoMarketMaker:
         if not self.paper and not self.circuit_tripped and self.starting_pnl is not None:
             session_pnl = self.stats["total_pnl"] - self.starting_pnl
             # Calculate 40% of the CLOB cash balance (~$76)
-            capital_loss_limit = 15.0  # 40% of $38.44 CLOB cash
+            capital_loss_limit = 42.0  # 40% of $106 CLOB cash
             if session_pnl < -capital_loss_limit:
                 print(f"\n{'='*70}")
                 print(f"[CIRCUIT BREAKER] NET CAPITAL LOSS EXCEEDED 40%!")
