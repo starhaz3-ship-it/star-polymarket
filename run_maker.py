@@ -1032,6 +1032,196 @@ class DirectionPredictor:
 
 
 # ============================================================================
+# V4.9.2: VOLATILITY-ADAPTIVE PAIRED OFFSET (Thompson Sampling)
+# ============================================================================
+
+class VolAdaptiveOffset:
+    """Learns optimal paired offset per volatility regime using Thompson sampling.
+
+    In volatile markets, prices swing through wider ranges → can grab bigger
+    profits (8%+) with both sides still filling. In calm markets, prices hover
+    near 50/50 → need tight offsets (5%) to get fills.
+
+    Regimes are determined by ATR(14) percentile on 1m klines:
+      LOW (<33rd pctl)   → tight offset preferred
+      MEDIUM (33-67 pctl) → moderate offset
+      HIGH (>67th pctl)  → wide offset viable
+
+    Thompson sampling: each (regime, offset) pair tracks Beta(alpha, beta).
+    alpha += 1 on success (both filled), beta += 1 on failure (partial).
+    Sample from Beta distribution, pick offset with highest sample value.
+    """
+
+    OFFSET_CANDIDATES = [0.020, 0.025, 0.030, 0.040, 0.050]
+    VOL_REGIMES = ["low", "medium", "high"]
+    STATE_FILE = Path(__file__).parent / "paired_vol_offset_state.json"
+
+    # Informative priors: encode our belief that wider offsets work better in high vol
+    DEFAULT_PRIORS = {
+        "low":    {0.020: (3, 1), 0.025: (3, 1), 0.030: (2, 2), 0.040: (1, 3), 0.050: (1, 4)},
+        "medium": {0.020: (2, 2), 0.025: (3, 1), 0.030: (3, 1), 0.040: (2, 2), 0.050: (1, 3)},
+        "high":   {0.020: (1, 3), 0.025: (2, 2), 0.030: (3, 1), 0.040: (3, 1), 0.050: (3, 1)},
+    }
+
+    def __init__(self):
+        self.state = self._load_state()
+        self._atr_history: list = []  # Rolling ATR values for percentile computation
+
+    def compute_volatility(self, klines: list) -> dict:
+        """Compute ATR(14) as percentage of price from 1m Binance klines.
+        Returns dict with atr_pct, atr_percentile, regime, bb_width, range_pct."""
+        if not klines or len(klines) < 20:
+            return {"atr_pct": 0.05, "atr_percentile": 0.5, "regime": "medium",
+                    "bb_width": 0, "range_pct": 0}
+
+        closes = [float(k[4]) for k in klines]
+        highs = [float(k[2]) for k in klines]
+        lows = [float(k[3]) for k in klines]
+
+        # True Range series
+        trs = []
+        for i in range(1, len(closes)):
+            tr = max(highs[i] - lows[i],
+                     abs(highs[i] - closes[i - 1]),
+                     abs(lows[i] - closes[i - 1]))
+            trs.append(tr)
+
+        if len(trs) < 14:
+            return {"atr_pct": 0.05, "atr_percentile": 0.5, "regime": "medium",
+                    "bb_width": 0, "range_pct": 0}
+
+        atr14 = sum(trs[-14:]) / 14
+        current_price = closes[-1]
+        atr_pct = (atr14 / current_price) * 100 if current_price > 0 else 0
+
+        # Compute all ATR(14) values from kline series for percentile ranking
+        all_atrs = []
+        for i in range(14, len(trs) + 1):
+            all_atrs.append(sum(trs[i - 14:i]) / 14)
+
+        # Merge with historical ATR values for better percentile estimation
+        combined_atrs = list(self._atr_history) + all_atrs
+        if combined_atrs:
+            percentile = sum(1 for a in combined_atrs if a <= atr14) / len(combined_atrs)
+        else:
+            percentile = 0.5
+
+        # Store latest ATR for rolling history (cap at 500 values ≈ 8hrs of 1m data)
+        self._atr_history.extend(all_atrs)
+        if len(self._atr_history) > 500:
+            self._atr_history = self._atr_history[-500:]
+
+        # Regime classification
+        if percentile < 0.33:
+            regime = "low"
+        elif percentile < 0.67:
+            regime = "medium"
+        else:
+            regime = "high"
+
+        # BB width for logging context
+        n = min(20, len(closes))
+        sma = sum(closes[-n:]) / n
+        std = (sum((c - sma) ** 2 for c in closes[-n:]) / n) ** 0.5
+        bb_width = (2 * std / sma) * 100 if sma > 0 else 0
+
+        # Recent range as % of price (15-bar high-low)
+        n2 = min(15, len(highs))
+        range_pct = ((max(highs[-n2:]) - min(lows[-n2:])) / current_price) * 100 if current_price > 0 else 0
+
+        return {
+            "atr_pct": round(atr_pct, 4),
+            "atr_percentile": round(percentile, 2),
+            "regime": regime,
+            "bb_width": round(bb_width, 4),
+            "range_pct": round(range_pct, 4),
+        }
+
+    def recommend_offset(self, klines: list) -> Tuple[float, str, dict]:
+        """Returns (offset, regime, vol_metrics).
+        Uses Thompson sampling: sample Beta(alpha, beta) per offset, pick highest."""
+        vol = self.compute_volatility(klines)
+        regime = vol["regime"]
+
+        regime_state = self.state.get(regime, {})
+        best_offset = 0.025  # safe default
+        best_sample = -1.0
+
+        for offset in self.OFFSET_CANDIDATES:
+            key = str(offset)
+            if key in regime_state:
+                alpha = regime_state[key].get("alpha", 1)
+                beta_val = regime_state[key].get("beta", 1)
+            else:
+                priors = self.DEFAULT_PRIORS.get(regime, {})
+                alpha, beta_val = priors.get(offset, (1, 1))
+
+            sample = random.betavariate(max(0.1, alpha), max(0.1, beta_val))
+            if sample > best_sample:
+                best_sample = sample
+                best_offset = offset
+
+        return best_offset, regime, vol
+
+    def record_outcome(self, regime: str, offset: float, both_filled: bool, pnl: float):
+        """Update Thompson sampling: success = both filled, failure = partial."""
+        key = str(offset)
+        if regime not in self.state:
+            self.state[regime] = {}
+        if key not in self.state[regime]:
+            priors = self.DEFAULT_PRIORS.get(regime, {})
+            alpha, beta_val = priors.get(offset, (1, 1))
+            self.state[regime][key] = {"alpha": alpha, "beta": beta_val,
+                                        "trades": 0, "total_pnl": 0.0}
+
+        entry = self.state[regime][key]
+        entry["trades"] += 1
+        entry["total_pnl"] = round(entry.get("total_pnl", 0) + pnl, 4)
+
+        if both_filled:
+            entry["alpha"] += 1
+        else:
+            entry["beta"] += 1
+
+        self._save_state()
+
+    def get_report(self) -> str:
+        """Summary of learned offset performance by regime."""
+        lines = ["[VOL-OFFSET] Thompson sampling state:"]
+        for regime in self.VOL_REGIMES:
+            regime_data = self.state.get(regime, {})
+            if not regime_data:
+                lines.append(f"    {regime:>6}: no data")
+                continue
+            parts = []
+            for offset in self.OFFSET_CANDIDATES:
+                key = str(offset)
+                if key in regime_data:
+                    d = regime_data[key]
+                    a, b = d.get("alpha", 1), d.get("beta", 1)
+                    n = d.get("trades", 0)
+                    pnl = d.get("total_pnl", 0)
+                    wr = a / (a + b) * 100
+                    parts.append(f"{offset:.3f}({n}T,{wr:.0f}%,${pnl:+.2f})")
+            lines.append(f"    {regime:>6}: {' | '.join(parts)}")
+        return "\n".join(lines)
+
+    def _load_state(self) -> dict:
+        try:
+            with open(self.STATE_FILE) as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {}
+
+    def _save_state(self):
+        try:
+            with open(self.STATE_FILE, "w") as f:
+                json.dump(self.state, f, indent=2)
+        except Exception:
+            pass
+
+
+# ============================================================================
 # BINANCE MOMENTUM TRACKER (V3.0 — @vague-sourdough strategy)
 # ============================================================================
 
@@ -1607,6 +1797,8 @@ class PairPosition:
     skew_confidence: float = 0.0
     skew_features: dict = field(default_factory=dict)
     skew_contributions: dict = field(default_factory=dict)
+    # V4.9.2: Volatility regime when trade was placed (for adaptive offset learning)
+    vol_regime: str = ""
 
     @property
     def is_paired(self) -> bool:
@@ -1810,6 +2002,8 @@ class CryptoMarketMaker:
         # V4.8: Direction prediction for paired skew
         self.direction_predictor = DirectionPredictor()
         self.skew_shadow = SkewShadowTracker()
+        # V4.9.2: Volatility-adaptive paired offset
+        self.vol_offset = VolAdaptiveOffset()
 
         # State
         self.positions: Dict[str, PairPosition] = {}  # market_id -> PairPosition
@@ -2418,11 +2612,10 @@ class CryptoMarketMaker:
             secs_left = max(0, delta)
             mins_left = secs_left / 60.0
 
-        # V4.7.3: Epsilon-greedy exploration of paired offsets for ML learning
-        if random.random() < 0.20:  # 20% explore
-            offset = random.choice(self.ml_optimizer.PAIRED_OFFSET_BUCKETS)
-        else:
-            offset = self.config.PAIRED_BID_OFFSET
+        # V4.9.2: Volatility-adaptive offset (Thompson sampling per regime)
+        klines_for_vol = self.momentum.last_kline_data if (self.momentum and pair.asset == "BTC") else (
+            self.momentum.last_eth_kline_data if self.momentum else [])
+        offset, vol_regime, vol_metrics = self.vol_offset.recommend_offset(klines_for_vol)
 
         up_bid = round(pair.up_mid - offset, 2)
         down_bid = round(pair.down_mid - offset, 2)
@@ -2459,6 +2652,8 @@ class CryptoMarketMaker:
             "secs_left": secs_left,
             "total_secs": pair.duration_min * 60.0,
             "entry_tier": "paired",  # V4.7.4: Tag for share matching in place_pair_orders
+            "vol_regime": vol_regime,  # V4.9.2: For Thompson sampling feedback
+            "vol_metrics": vol_metrics,
             "skew_confidence": skew_conf,
             "skew_features": skew_feats,
             "skew_contributions": skew_contribs,
@@ -2745,27 +2940,35 @@ class CryptoMarketMaker:
         up_bid = eval_result["up_bid"]
         down_bid = eval_result["down_bid"]
 
-        # V4.4: Inventory skew — adjust sizes based on directional imbalance
-        up_skew, down_skew = self._get_inventory_skew()
-        # V4.6.4: Momentum sizing — scale based on recent win/loss streak
-        base_size = self.config.SIZE_PER_SIDE_USD
-        if self.config.MOMENTUM_ENABLED:
-            base_size = self.config.SIZE_PER_SIDE_USD * self._momentum_mult
-        up_size = base_size * up_skew
-        down_size = base_size * down_skew
+        # V4.9.1: Paired tier uses fixed size, no inventory skew or momentum (direction-neutral)
+        is_paired = eval_result.get("entry_tier") == "paired"
+        if is_paired:
+            base_size = self.config.PAIRED_SIZE_PER_SIDE
+            up_size = base_size
+            down_size = base_size
+            up_skew, down_skew = 1.0, 1.0
+        else:
+            # V4.4: Inventory skew — adjust sizes based on directional imbalance
+            up_skew, down_skew = self._get_inventory_skew()
+            # V4.6.4: Momentum sizing — scale based on recent win/loss streak
+            base_size = self.config.SIZE_PER_SIDE_USD
+            if self.config.MOMENTUM_ENABLED:
+                base_size = self.config.SIZE_PER_SIDE_USD * self._momentum_mult
+            up_size = base_size * up_skew
+            down_size = base_size * down_skew
 
-        # Calculate shares for each side (with skew-adjusted sizes)
+        # Calculate shares for each side
         up_shares = max(self.config.MIN_SHARES, math.floor(up_size / up_bid))
         down_shares = max(self.config.MIN_SHARES, math.floor(down_size / down_bid))
 
-        # Cap shares to skew-adjusted size
+        # Cap shares to size budget
         if up_bid * up_shares > up_size:
             up_shares = max(self.config.MIN_SHARES, math.floor(up_size / up_bid))
         if down_bid * down_shares > down_size:
             down_shares = max(self.config.MIN_SHARES, math.floor(down_size / down_bid))
 
         # V4.7.4: Paired tier MUST have equal shares for guaranteed profit
-        if eval_result.get("entry_tier") == "paired":
+        if is_paired:
             matched = min(up_shares, down_shares)
             up_shares = matched
             down_shares = matched
@@ -2786,6 +2989,8 @@ class CryptoMarketMaker:
             skew_confidence=eval_result.get("skew_confidence", 0.0),
             skew_features=eval_result.get("skew_features", {}),
             skew_contributions=eval_result.get("skew_contributions", {}),
+            # V4.9.2: Volatility regime for adaptive offset learning
+            vol_regime=eval_result.get("vol_regime", ""),
         )
 
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -4770,6 +4975,12 @@ class CryptoMarketMaker:
                     both_filled=pos.is_paired,
                     pnl=pnl
                 )
+                # V4.9.2: Record outcome for volatility-adaptive offset learning
+                if pos.vol_regime:
+                    self.vol_offset.record_outcome(
+                        pos.vol_regime, pos.bid_offset_used,
+                        both_filled=pos.is_paired, pnl=pnl
+                    )
 
             # V4.8: Record skew shadow data for paired trades
             if (pos.entry_tier == "paired" and self.config.PAIRED_SKEW_SHADOW
@@ -5117,6 +5328,9 @@ class CryptoMarketMaker:
             skew_mode = "LIVE SKEW" if self.config.PAIRED_SKEW_ENABLED else "shadow-only"
             print(f"DIRECTION SKEW: {skew_mode} | 8 features (EMA/RSI/BB/mom/VWAP/flow/MACD/ADX) | "
                   f"min conf: {self.config.PAIRED_MIN_CONFIDENCE} | max skew: {self.config.PAIRED_MAX_SKEW:.0%}")
+        offsets_str = "/".join(f"{o:.3f}" for o in VolAdaptiveOffset.OFFSET_CANDIDATES)
+        print(f"VOL-ADAPTIVE OFFSET: Thompson sampling | offsets: [{offsets_str}] | "
+              f"regimes: low/med/high (ATR percentile)")
         print("=" * 70)
 
         if self.stats["total_pnl"] != 0:
@@ -5201,10 +5415,10 @@ class CryptoMarketMaker:
 
                 # Phase 6b: V4.7 PAIRED MID-BID STRATEGY — parallel tier
                 if self.config.PAIRED_MODE_ENABLED and not fill_cooldown:
-                    # V4.8: Fetch klines for direction prediction (both assets)
-                    if self.momentum and self.config.PAIRED_SKEW_SHADOW:
-                        await self.momentum.fetch_btc_klines(limit=30)
-                        await self.momentum.fetch_eth_klines(limit=30)
+                    # V4.9.2: Fetch extra klines for volatility percentile (100 bars ≈ 1.6h)
+                    if self.momentum:
+                        await self.momentum.fetch_btc_klines(limit=100)
+                        await self.momentum.fetch_eth_klines(limit=100)
 
                     paired_active = sum(1 for p in self.positions.values()
                                         if p.status not in ("resolved", "cancelled")
@@ -5224,6 +5438,11 @@ class CryptoMarketMaker:
                             print(f"  Mid bids: UP ${eval_mid['up_bid']:.2f} / DN ${eval_mid['down_bid']:.2f} | "
                                   f"Combined ${eval_mid['combined']:.2f} | "
                                   f"Guaranteed: ${eval_mid['edge']:.2f}/sh")
+                            # V4.9.2: Log volatility regime + adaptive offset
+                            vr = eval_mid.get("vol_regime", "?")
+                            vm = eval_mid.get("vol_metrics", {})
+                            atr_p = vm.get("atr_percentile", 0)
+                            print(f"  [VOL] regime={vr} (ATR pctl={atr_p:.0%}) | offset={eval_mid['offset']:.3f}")
                             # V4.8: Log direction prediction
                             sc = eval_mid.get("skew_confidence", 0)
                             if sc != 0:
@@ -5258,12 +5477,7 @@ class CryptoMarketMaker:
                         self.config.BID_OFFSET = new_offset
                         print(f"  [ML-TUNE] Bid offset auto-adjusted: {old:.2f} -> {new_offset:.2f}")
 
-                    # V4.7.3: Auto-tune paired offset — optimize for both-fill rate
-                    new_paired = self.ml_optimizer.get_optimal_paired_offset(self.config.PAIRED_BID_OFFSET)
-                    if new_paired is not None and new_paired != self.config.PAIRED_BID_OFFSET:
-                        old_p = self.config.PAIRED_BID_OFFSET
-                        self.config.PAIRED_BID_OFFSET = new_paired
-                        print(f"  [ML-TUNE] Paired offset auto-adjusted: {old_p:.2f} -> {new_paired:.2f}")
+                    # V4.7.3: Paired offset — now handled by VolAdaptiveOffset (V4.9.2)
                     # Log paired offset stats
                     if hasattr(self.ml_optimizer, "paired_offset_stats") and self.ml_optimizer.paired_offset_stats:
                         print("  --- Paired Offset ML ---")
@@ -5277,6 +5491,9 @@ class CryptoMarketMaker:
                     if self.config.PAIRED_SKEW_SHADOW and self.skew_shadow.records:
                         print(self.skew_shadow.get_comparison_report())
                         self.direction_predictor.update_weights(self.skew_shadow.records)
+
+                    # V4.9.2: Volatility-adaptive offset report
+                    print(self.vol_offset.get_report())
 
                 # Phase 8b: V4.6 On-chain PnL verification every 25 cycles (~4 min)
                 if not self.paper and cycle % 25 == 0:

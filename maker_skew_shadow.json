@@ -155,37 +155,76 @@
         "skew_65": -0.070467,
         "skew_70": -0.135622
       }
+    },
+    {
+      "market_id": "0x8ef22e6eab62d9",
+      "asset": "BTC",
+      "outcome": "DOWN",
+      "actual_pnl": -4.86,
+      "confidence": -0.1803,
+      "predicted_dir": "DOWN",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": -0.1339,
+        "rsi_zone": -0.1587,
+        "bb_position": -0.2908,
+        "momentum_z": 0.3042,
+        "vwap_dev": -0.1579,
+        "taker_flow": -0.1395,
+        "macd_hist": -1.0,
+        "adx_trend": -0.4218
+      },
+      "contributions": {
+        "ema_cross": -0.1339,
+        "rsi_zone": -0.1587,
+        "bb_position": -0.2908,
+        "momentum_z": 0.3042,
+        "vwap_dev": -0.1579,
+        "taker_flow": -0.1395,
+        "macd_hist": -1.0,
+        "adx_trend": -0.4218
+      },
+      "up_price": 0.54,
+      "down_price": 0.41,
+      "total_shares": 9.0,
+      "timestamp": "2026-02-16T23:07:36.679844+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.316689,
+        "skew_60": 0.408378,
+        "skew_65": 0.500067,
+        "skew_70": 0.591756
+      }
     }
   ],
   "summary": {
     "prediction_accuracy": {
-      "correct": 1,
-      "total": 4,
+      "correct": 2,
+      "total": 5,
       "neutral": 0
     },
     "skew_55": {
-      "total_pnl": 0.449115,
-      "trades": 4,
-      "wins": 2
+      "total_pnl": 0.765804,
+      "trades": 5,
+      "wins": 3
     },
     "skew_60": {
-      "total_pnl": 0.148229,
-      "trades": 4,
-      "wins": 1
+      "total_pnl": 0.556607,
+      "trades": 5,
+      "wins": 2
     },
     "skew_65": {
-      "total_pnl": -0.152656,
-      "trades": 4,
-      "wins": 1
+      "total_pnl": 0.347411,
+      "trades": 5,
+      "wins": 2
     },
     "skew_70": {
-      "total_pnl": -0.453541,
-      "trades": 4,
-      "wins": 1
+      "total_pnl": 0.138215,
+      "trades": 5,
+      "wins": 2
     },
     "actual": {
-      "total_pnl": 0.75,
-      "trades": 4,
+      "total_pnl": -4.11,
+      "trades": 5,
       "wins": 3
     }
   }
