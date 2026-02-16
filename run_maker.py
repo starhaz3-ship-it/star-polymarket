@@ -386,15 +386,15 @@ def auto_redeem_winnings():
 
 @dataclass
 class MakerConfig:
-    """Market maker configuration — V4.4 Avellaneda + Hummingbot patterns."""
-    # Spread targets — V4.4: Avellaneda time-decay spreads
-    MAX_COMBINED_PRICE: float = 0.92     # V4.3: 8% minimum edge (balanced pair rate vs edge)
+    """Market maker configuration — V4.6 Deep bids + 15M-only + fast sell-back."""
+    # Spread targets — V4.6: Deep bids for better partial EV
+    MAX_COMBINED_PRICE: float = 0.80     # V4.6: 20% minimum edge (deeper bids = lower combined)
     MIN_SPREAD_EDGE: float = 0.08        # V4.3: 8% minimum edge
-    BID_OFFSET: float = 0.06            # V4.4: Fallback only — Avellaneda computes dynamic offset
-    MIN_BID_OFFSET: float = 0.04         # V4.4: Avellaneda floor at 4c
+    BID_OFFSET: float = 0.15            # V4.6: Fallback — deep bids target ~$0.30
+    MIN_BID_OFFSET: float = 0.15         # V4.6: Floor at 15c (target bids ~$0.30-0.35)
     # V4.4: Avellaneda time-decay spread parameters
-    BASE_SPREAD: float = 0.02           # Minimum 2c spread even at expiry
-    DEFAULT_GAMMA: float = 0.25          # Risk aversion (ML-tuned). Higher = wider spreads
+    BASE_SPREAD: float = 0.05           # V4.6: 5c base spread (was 2c)
+    DEFAULT_GAMMA: float = 0.50          # V4.6: Higher gamma = wider spreads = deeper bids
 
     # V4.3: Taker hedge — on first fill, FOK buy other side to guarantee pair
     TAKER_HEDGE_ENABLED: bool = True     # V4.3: Instant FOK hedge on first fill
@@ -456,10 +456,10 @@ class MakerConfig:
     # "max_combined" = maximum combined bid price (lower = more edge required)
     # "balance_range" = (min, max) for each side price (tighter = more balanced)
     ASSET_TIERS: dict = field(default_factory=lambda: {
-        "BTC": {"max_combined": 0.92, "balance_range": (0.35, 0.65)},  # V4.3: Moderate offset
-        "ETH": {"max_combined": 0.92, "balance_range": (0.35, 0.65)},  # V4.3: Moderate offset
-        "SOL": {"max_combined": 0.92, "balance_range": (0.35, 0.65)},  # V4.3: Moderate offset
-        "XRP": {"max_combined": 0.92, "balance_range": (0.35, 0.65)},  # V4.3: Moderate offset
+        "BTC": {"max_combined": 0.80, "balance_range": (0.20, 0.65)},  # V4.6: Deep bids ~$0.25-0.35
+        "ETH": {"max_combined": 0.80, "balance_range": (0.20, 0.65)},  # V4.6: Deep bids
+        "SOL": {"max_combined": 0.80, "balance_range": (0.20, 0.65)},  # V4.6: Deep bids
+        "XRP": {"max_combined": 0.80, "balance_range": (0.20, 0.65)},  # V4.6: Deep bids
     })
 
     # V3.0: Momentum directional trading (@vague-sourdough reverse-engineered strategy)
@@ -1271,7 +1271,7 @@ class CryptoMarketMaker:
             "hedge_attempts": 0,
             "hedge_successes": 0,
             "hedge_failures": 0,
-            "version": "V4.5",
+            "version": "V4.6",
         }
 
         # Daily tracking
@@ -1292,6 +1292,8 @@ class CryptoMarketMaker:
         self._ws_connected: bool = False
         self._ws = None  # websocket connection object
         self._rest_cycle_counter: int = 0  # For REST fallback cadence
+        self._onchain_pnl: float = 0.0     # V4.6: Last on-chain PnL check
+        self._onchain_delta: float = 0.0   # V4.6: Internal vs on-chain delta
 
         if not paper:
             self._init_client()
@@ -1449,6 +1451,93 @@ class CryptoMarketMaker:
         except Exception as e:
             print(f"[MAKER] On-chain sync error: {e}")
 
+    def _verify_pnl_onchain(self):
+        """V4.6: Cross-check internal PnL against on-chain closed positions.
+        Uses data-api.polymarket.com/closed-positions with pagination.
+        Filters to positions closed since bot session start for apples-to-apples."""
+        proxy = os.getenv("POLYMARKET_PROXY_ADDRESS", "")
+        if not proxy:
+            return
+        try:
+            all_closed = []
+            offset = 0
+            limit = 50  # API max per request
+            while True:
+                r = httpx.get(
+                    "https://data-api.polymarket.com/closed-positions",
+                    params={"user": proxy.lower(), "limit": limit, "offset": offset},
+                    headers={"User-Agent": "Mozilla/5.0"},
+                    timeout=15,
+                )
+                if r.status_code != 200:
+                    break
+                batch = r.json()
+                if not batch:
+                    break
+                all_closed.extend(batch)
+                if len(batch) < limit:
+                    break
+                offset += limit
+                if offset > 500:  # Safety cap
+                    break
+
+            if not all_closed:
+                return
+
+            # Lifetime on-chain PnL (all time)
+            lifetime_pnl = sum(float(p.get("realizedPnl", 0) or 0) for p in all_closed)
+
+            # Session PnL: filter to positions closed since session start
+            session_start = self.stats.get("start_time", "")
+            session_closed = []
+            if session_start:
+                for p in all_closed:
+                    close_time = p.get("closedTime", p.get("updatedAt", ""))
+                    if close_time and close_time >= session_start:
+                        session_closed.append(p)
+            session_onchain = sum(float(p.get("realizedPnl", 0) or 0) for p in session_closed)
+            internal_pnl = self.stats.get("total_pnl", 0.0)
+            delta = session_onchain - internal_pnl
+
+            print(f"  [PNL-CHECK] Session on-chain: ${session_onchain:+.2f} | Internal: ${internal_pnl:+.2f} | "
+                  f"Delta: ${delta:+.2f} | Lifetime: ${lifetime_pnl:+.2f} ({len(all_closed)} total)")
+
+            # Store for status display
+            self._onchain_pnl = session_onchain
+            self._onchain_delta = delta
+        except Exception as e:
+            print(f"  [PNL-CHECK] Error: {str(e)[:80]}")
+
+    async def _scout_competitors(self):
+        """V4.6: Look up top maker wallet stats via polymarketanalytics.com API."""
+        # Known successful maker wallets to track (add more as discovered)
+        wallets = {
+            "gabagool22": "0x83B4F522F9a24bC10ea268a5e3d0608B88d2C9E6",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                for name, addr in wallets.items():
+                    r = await client.post(
+                        "https://polymarketanalytics.com/api/traders-tag-performance",
+                        json={"searchQuery": addr, "sortColumn": "overall_gain",
+                              "sortDirection": "DESC", "tag": "Overall"},
+                        headers={"User-Agent": "Mozilla/5.0"},
+                    )
+                    if r.status_code != 200:
+                        continue
+                    data = r.json()
+                    if not data:
+                        continue
+                    stats = data[0] if isinstance(data, list) else data
+                    wr = stats.get("win_rate", 0)
+                    gain = stats.get("overall_gain", 0)
+                    positions = stats.get("total_positions", 0)
+                    active = stats.get("active_positions", 0)
+                    print(f"  [SCOUT] {name}: WR={wr:.1%} | PnL=${gain:+.0f} | "
+                          f"{positions} total ({active} active)")
+        except Exception as e:
+            print(f"  [SCOUT] Error: {str(e)[:80]}")
+
     def _save(self):
         """Save state to disk."""
         data = {
@@ -1474,7 +1563,7 @@ class CryptoMarketMaker:
         V2.4: 5M markets moved to tag_slug='5M' (was under '15M' before)."""
         pairs = []
         async with httpx.AsyncClient(timeout=15) as client:
-            for tag_slug, duration in [("5M", 5), ("15M", 15)]:  # V4.2: 5M BTC + 15M all assets
+            for tag_slug, duration in [("15M", 15)]:  # V4.6: 15M only — 5M too fast for hedge
                 try:
                     r = await client.get(
                         "https://gamma-api.polymarket.com/events",
@@ -1675,8 +1764,8 @@ class CryptoMarketMaker:
         # Avellaneda spread
         offset = gamma * vol * time_frac + self.config.BASE_SPREAD
 
-        # Clamp to [MIN_BID_OFFSET, 0.15]
-        offset = max(self.config.MIN_BID_OFFSET, min(0.15, offset))
+        # Clamp to [MIN_BID_OFFSET, 0.25] — V4.6: raised max for deep bids
+        offset = max(self.config.MIN_BID_OFFSET, min(0.25, offset))
         return (offset, gamma)
 
     def evaluate_pair(self, pair: MarketPair) -> dict:
@@ -1896,7 +1985,8 @@ class CryptoMarketMaker:
             await self._on_ws_fill(pos)
 
     async def _on_ws_fill(self, pos: 'PairPosition'):
-        """Handle a WS-detected fill: update status and trigger hedge."""
+        """Handle a WS-detected fill: update status, try hedge, then fast sell-back.
+        V4.6: If hedge fails, immediately sell back filled tokens while they still have value."""
         prev_status = pos.status
         self._last_fill_time = time.time()
 
@@ -1909,8 +1999,52 @@ class CryptoMarketMaker:
             if not pos.first_fill_time:
                 pos.first_fill_time = datetime.now(timezone.utc).isoformat()
             # Trigger instant FOK hedge on first partial detection
-            if was_pending and self.config.TAKER_HEDGE_ENABLED and not self.paper:
-                await self._taker_hedge(pos)
+            if was_pending and not self.paper:
+                if self.config.TAKER_HEDGE_ENABLED:
+                    await self._taker_hedge(pos)
+                # V4.6: If hedge didn't pair us, try immediate sell-back
+                # Token still has value (<1s after fill) — don't wait 120s
+                if pos.status == "partial" and not (pos.up_filled and pos.down_filled):
+                    await self._fast_sellback(pos)
+
+    async def _fast_sellback(self, pos: 'PairPosition'):
+        """V4.6: Immediately sell back filled tokens after hedge fails.
+        Called <1s after WS fill detection — token still has value.
+        Caps loss at ~$0.50 instead of riding to $4.62 loss (63% of time)."""
+        filled_order = pos.up_order if pos.up_filled else pos.down_order
+        filled_side = "UP" if pos.up_filled else "DOWN"
+        if not filled_order:
+            return
+
+        # Cancel the unfilled passive order first
+        unfilled_order = pos.down_order if pos.up_filled else pos.up_order
+        if unfilled_order and unfilled_order.status == "open":
+            try:
+                self.client.cancel(unfilled_order.order_id)
+                unfilled_order.status = "cancelled"
+            except Exception:
+                pass
+
+        # Try to sell back at market
+        sell_pnl = await self._sell_partial_at_market(pos, filled_order)
+        if sell_pnl is not None:
+            pos.status = "resolved"
+            pos.pnl = sell_pnl
+            pos.outcome = f"FAST_SELL_{filled_side}"
+            self.stats["total_pnl"] += sell_pnl
+            self.daily_pnl += sell_pnl
+            self.stats["pairs_partial"] += 1
+            self.stats["partial_pnl"] += sell_pnl
+            now = datetime.now(timezone.utc)
+            self.ml_optimizer.record(
+                hour=pos.hour_utc if pos.hour_utc >= 0 else now.hour,
+                gamma=pos.gamma_used,
+                paired=False, partial=True, pnl=sell_pnl
+            )
+            print(f"  [FAST-SELL] {pos.asset} {filled_side} — sold back ${sell_pnl:+.2f} "
+                  f"(capped loss vs ride)")
+        else:
+            print(f"  [FAST-SELL-FAIL] {pos.asset} {filled_side} — sell failed, will ride to resolution")
 
     async def _ws_resubscribe(self):
         """Re-send subscription with updated market list. Called after new positions added."""
@@ -2243,13 +2377,8 @@ class CryptoMarketMaker:
         if not self.client:
             return
 
-        # V4.3: Only hedge if enough time remains — late fills mean the market has moved
-        created = datetime.fromisoformat(pos.created_at)
-        age_min = (datetime.now(timezone.utc) - created).total_seconds() / 60
-        time_left = pos.duration_min - age_min
-        if time_left < 3.0:
-            print(f"  [HEDGE-SKIP] {pos.asset} — only {time_left:.1f}min left, too late to hedge")
-            return
+        # V4.6: Removed time guard — combined price check is the only guard needed.
+        # If combined < $1.08, hedge is profitable regardless of time remaining.
 
         from py_clob_client.clob_types import OrderArgs, OrderType
         from py_clob_client.order_builder.constants import BUY
@@ -2547,15 +2676,16 @@ class CryptoMarketMaker:
                         print(f"  [EXPIRE] Cancelled unfilled {order.side_label} order on {pos.asset}")
 
     async def manage_riding_positions(self):
-        """V4.4: Monitor riding positions and sell early if price moved too far against us.
-        Frees locked capital for new profitable pairs."""
+        """V4.6: Monitor partial/riding positions for hedge opportunities + ride cuts.
+        Key insight: hedge fails at fill time (adverse selection $0.97+) but market
+        often reverts minutes later — other side drops to $0.40-0.50 making hedge viable."""
         now = datetime.now(timezone.utc)
         for market_id, pos in list(self.positions.items()):
-            if pos.status != "riding":
+            if pos.status not in ("partial", "riding"):
                 continue
 
-            # Rate limit: max 1 check per 30s per position
-            if time.time() - pos.last_ride_check_ts < 30:
+            # Rate limit: max 1 check per 10s per position
+            if time.time() - pos.last_ride_check_ts < 10:
                 continue
 
             # Determine which side is filled
@@ -2563,14 +2693,38 @@ class CryptoMarketMaker:
             if not filled_order or not filled_order.fill_price:
                 continue
 
-            # Check time remaining — don't sell if near resolution
-            created = datetime.fromisoformat(pos.created_at)
-            age_sec = (now - created).total_seconds()
-            secs_left = pos.duration_min * 60.0 - age_sec
-            if secs_left < 180:  # < 3 min left, just ride it out
-                continue
-
             pos.last_ride_check_ts = time.time()
+
+            # V4.6: CONTINUOUS HEDGE RETRY — try to buy other side every check
+            # No time guard — if combined < $1.08, hedge is profitable at ANY time.
+            # Market often reverts after initial adverse selection spike.
+            hedge_enabled = self.config.TAKER_HEDGE_ENABLED and not self.paper
+            if hedge_enabled:
+                hedge_token_id = pos.down_order.token_id if pos.up_filled else (pos.up_order.token_id if pos.up_order else None)
+                hedge_side = "DOWN" if pos.up_filled else "UP"
+                if hedge_token_id:
+                    try:
+                        book = await self.get_order_book(hedge_token_id)
+                        if book and book.get("best_ask", 1.0) < 1.0:
+                            best_ask = book["best_ask"]
+                            combined = filled_order.fill_price + best_ask
+                            if combined <= self.config.TAKER_HEDGE_MAX_COMBINED:
+                                # Hedge is viable! Try FOK buy
+                                print(f"  [RETRY-HEDGE] {pos.asset} {hedge_side} — "
+                                      f"combined ${combined:.2f} now viable, attempting FOK...")
+                                await self._taker_hedge(pos)
+                                if pos.status == "paired":
+                                    continue  # Successfully hedged!
+                            elif combined < 1.20:
+                                # Log near-miss for debugging
+                                print(f"  [HEDGE-WATCH] {pos.asset} {hedge_side} — "
+                                      f"combined ${combined:.2f} (need <${self.config.TAKER_HEDGE_MAX_COMBINED})")
+                    except Exception as e:
+                        print(f"  [HEDGE-RETRY-ERR] {pos.asset}: {str(e)[:60]}")
+
+            # Skip ride-cut checks for non-riding positions
+            if pos.status != "riding":
+                continue
 
             # Get current best bid for our filled token
             try:
@@ -3429,7 +3583,7 @@ class CryptoMarketMaker:
         lw_api_found = 0
         try:
             async with httpx.AsyncClient(timeout=10) as client:
-                for tag_slug, duration in [("5M", 5), ("15M", 15)]:
+                for tag_slug, duration in [("5M", 5), ("15M", 15)]:  # V4.6: LW can scan 5M (no hedge needed)
                     r = await client.get(
                         "https://gamma-api.polymarket.com/events",
                         params={"tag_slug": tag_slug, "active": "true", "closed": "false",
@@ -4131,8 +4285,8 @@ class CryptoMarketMaker:
         """Main market maker loop."""
         print("=" * 70)
         mode = "PAPER" if self.paper else "LIVE"
-        print(f"AVELLANEDA MAKER V4.5 - {mode} MODE")
-        print(f"Strategy: Avellaneda + WS fills + ping-pong + inventory skew + FOK hedge")
+        print(f"AVELLANEDA MAKER V4.6 - {mode} MODE")
+        print(f"Strategy: Deep bids + 15M-only + fast sell-back + WS fills + ping-pong")
         print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Gamma: {self.config.DEFAULT_GAMMA} (ML-tuned) | "
               f"Base spread: {self.config.BASE_SPREAD*100:.0f}c")
         print(f"Max combined: ${self.config.MAX_COMBINED_PRICE} | Min edge: {self.config.MIN_SPREAD_EDGE*100:.0f}% | "
@@ -4255,6 +4409,14 @@ class CryptoMarketMaker:
                     print(f"\n[ML GAMMA] Current optimal gammas (Avellaneda):")
                     print(self.ml_optimizer.get_summary())
 
+                # Phase 8b: V4.6 On-chain PnL verification every 25 cycles (~4 min)
+                if not self.paper and cycle % 25 == 0:
+                    self._verify_pnl_onchain()
+
+                # Phase 8c: V4.6 Competitor scout every 100 cycles (~17 min)
+                if not self.paper and cycle % 100 == 0 and cycle > 0:
+                    await self._scout_competitors()
+
                 # Phase 9: Auto-redeem winnings every 45 seconds (live only)
                 if not self.paper and now_ts - last_redeem_check >= 300:
                     try:
@@ -4334,6 +4496,10 @@ class CryptoMarketMaker:
 
         if self.momentum and self.config.MOMENTUM_ENABLED:
             print(f"    {self.momentum.get_stats_summary()}")
+
+        # V4.6: On-chain PnL delta (if checked)
+        if self._onchain_pnl != 0:
+            print(f"    On-chain PnL: ${self._onchain_pnl:+.2f} | Delta: ${self._onchain_delta:+.2f}")
 
 
 # ============================================================================
