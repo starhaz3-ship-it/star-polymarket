@@ -265,31 +265,31 @@
   },
   "6": {
     "0.150": {
+      "attempts": 4,
+      "paired": 0,
+      "partial": 3,
+      "unfilled": 1,
+      "total_pnl": 0.0
+    },
+    "0.200": {
       "attempts": 3,
       "paired": 0,
       "partial": 3,
       "unfilled": 0,
-      "total_pnl": 0.0
-    },
-    "0.200": {
-      "attempts": 2,
-      "paired": 0,
-      "partial": 2,
-      "unfilled": 0,
-      "total_pnl": 0.0
+      "total_pnl": 9.1
     },
     "0.250": {
-      "attempts": 0,
-      "paired": 0,
-      "partial": 0,
-      "unfilled": 0,
-      "total_pnl": 0.0
-    },
-    "0.300": {
-      "attempts": 2,
+      "attempts": 3,
       "paired": 0,
       "partial": 2,
-      "unfilled": 0,
+      "unfilled": 1,
+      "total_pnl": 9.1
+    },
+    "0.300": {
+      "attempts": 3,
+      "paired": 0,
+      "partial": 2,
+      "unfilled": 1,
       "total_pnl": 9.1
     },
     "0.350": {
@@ -309,11 +309,11 @@
   },
   "7": {
     "0.150": {
-      "attempts": 0,
+      "attempts": 2,
       "paired": 0,
-      "partial": 0,
+      "partial": 2,
       "unfilled": 0,
-      "total_pnl": 0.0
+      "total_pnl": 9.1
     },
     "0.200": {
       "attempts": 0,
@@ -323,23 +323,23 @@
       "total_pnl": 0.0
     },
     "0.250": {
-      "attempts": 0,
+      "attempts": 4,
       "paired": 0,
-      "partial": 0,
+      "partial": 4,
       "unfilled": 0,
-      "total_pnl": 0.0
+      "total_pnl": 4.199999999999999
     },
     "0.300": {
-      "attempts": 0,
+      "attempts": 4,
       "paired": 0,
-      "partial": 0,
+      "partial": 4,
       "unfilled": 0,
-      "total_pnl": 0.0
+      "total_pnl": -4.9
     },
     "0.350": {
-      "attempts": 0,
+      "attempts": 2,
       "paired": 0,
-      "partial": 0,
+      "partial": 2,
       "unfilled": 0,
       "total_pnl": 0.0
     },

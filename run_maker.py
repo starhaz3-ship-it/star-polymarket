@@ -386,7 +386,7 @@ def auto_redeem_winnings():
 
 @dataclass
 class MakerConfig:
-    """Market maker configuration — V4.6 Deep bids + 15M-only + fast sell-back."""
+    """Market maker configuration — V4.6.1 Refresh double-exposure fix."""
     # Spread targets — V4.6: Deep bids for better partial EV
     MAX_COMBINED_PRICE: float = 0.80     # V4.6: 20% minimum edge (deeper bids = lower combined)
     MIN_SPREAD_EDGE: float = 0.08        # V4.3: 8% minimum edge
@@ -509,7 +509,7 @@ class MakerConfig:
     LATE_WINNER_WINDOW_SEC: float = 120.0     # Start buying 120s before market close (12 chances at 10s cycles)
     LATE_WINNER_MIN_SEC: float = 10.0         # Stop buying 10s before close (FOK is instant)
     LATE_WINNER_MAX_BUY_PRICE: float = 0.95   # Don't pay more than $0.95 (min $0.05 edge)
-    LATE_WINNER_MIN_BUY_PRICE: float = 0.75   # Token must be at least $0.75 (75%+ implied prob)
+    LATE_WINNER_MIN_BUY_PRICE: float = 0.70   # V4.6: Lowered from $0.75 — catch 70%+ winners
     LATE_WINNER_SIZE_USD: float = 5.0         # Same as normal maker
 
 
@@ -2605,6 +2605,24 @@ class CryptoMarketMaker:
                     avg_mid = (pos.up_order.price + pos.bid_offset_used + pos.down_order.price + pos.bid_offset_used) / 2.0
                     new_offset, new_gamma = self._get_bid_offset(avg_mid, secs_left, total_secs)
                     if abs(new_offset - pos.bid_offset_used) > self.config.ORDER_REFRESH_TOLERANCE:
+                        # V4.6.1: Verify orders aren't filled before cancel+re-place
+                        # Bug fix: if order filled between fill-check cycles, cancel fails silently
+                        # and re-place creates DOUBLE exposure (30 shares instead of 14)
+                        cancel_ok = True
+                        if not self.paper:
+                            for order in [pos.up_order, pos.down_order]:
+                                if order and order.status == "open":
+                                    try:
+                                        resp = self.client.get_order(order.order_id)
+                                        sts = resp.get("status", "") if isinstance(resp, dict) else getattr(resp, 'status', '')
+                                        if sts in ("MATCHED", "FILLED"):
+                                            print(f"  [REFRESH-ABORT] {pos.asset} {order.side_label} already filled — skipping refresh")
+                                            cancel_ok = False
+                                            break
+                                    except Exception:
+                                        pass  # If we can't check, proceed with cancel
+                        if not cancel_ok:
+                            continue
                         # Cancel old orders
                         for order in [pos.up_order, pos.down_order]:
                             if order and order.status == "open":
