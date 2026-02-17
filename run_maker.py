@@ -811,6 +811,8 @@ class DirectionPredictor:
             "taker_flow": 1.0,
             "macd_hist": 1.0,
             "adx_trend": 1.0,
+            "obi": 1.0,          # V5.1: Order Book Imbalance from WS L2 data
+            "ha_streak": 1.0,    # V5.1: Heikin Ashi streak length
         }
         self._load_weights()
 
@@ -969,6 +971,61 @@ class DirectionPredictor:
                 # ADX < 20 = no trend (dampener), ADX > 40 = strong trend
                 adx_mult = max(0.0, min(1.0, (adx - 15) / 30))
                 features["adx_trend"] = di_dir * adx_mult
+
+        # 9. Heikin Ashi streak — count consecutive green/red HA candles
+        if n >= 5:
+            # Compute HA candles
+            ha_close = [(float(bars[i][1]) + float(bars[i][2]) + float(bars[i][3]) + float(bars[i][4])) / 4
+                        for i in range(n)]
+            ha_open = [float(bars[0][1])]
+            for i in range(1, n):
+                ha_open.append((ha_open[-1] + ha_close[i - 1]) / 2)
+            # Count streak from end
+            streak = 0
+            if ha_close[-1] > ha_open[-1]:  # Green
+                for i in range(n - 1, -1, -1):
+                    if ha_close[i] > ha_open[i]:
+                        streak += 1
+                    else:
+                        break
+                features["ha_streak"] = max(-1.0, min(1.0, streak / 5.0))
+            else:  # Red
+                for i in range(n - 1, -1, -1):
+                    if ha_close[i] <= ha_open[i]:
+                        streak += 1
+                    else:
+                        break
+                features["ha_streak"] = max(-1.0, min(1.0, -streak / 5.0))
+
+        return features
+
+    def compute_features_with_book(self, klines: List[list],
+                                    book_cache: Dict[str, dict],
+                                    up_token: str, down_token: str) -> Dict[str, float]:
+        """Compute features including OBI from live order book data."""
+        features = self.compute_features(klines)
+
+        # 10. OBI (Order Book Imbalance) — bid vs ask depth from WS L2 book
+        up_book = book_cache.get(up_token, {})
+        down_book = book_cache.get(down_token, {})
+
+        if up_book and down_book:
+            # UP bid depth = demand for UP tokens (bullish pressure)
+            # DOWN bid depth = demand for DOWN tokens (bearish pressure)
+            up_bid_depth = sum(float(b.get("size", 0)) for b in up_book.get("bids", [])[:5])
+            down_bid_depth = sum(float(b.get("size", 0)) for b in down_book.get("bids", [])[:5])
+            up_ask_depth = sum(float(a.get("size", 0)) for a in up_book.get("asks", [])[:5])
+            down_ask_depth = sum(float(a.get("size", 0)) for a in down_book.get("asks", [])[:5])
+
+            # OBI = (total buy pressure - total sell pressure) / total
+            # Buy pressure = UP bids + DOWN asks (people wanting UP outcome)
+            # Sell pressure = UP asks + DOWN bids (people wanting DOWN outcome)
+            buy_pressure = up_bid_depth + down_ask_depth
+            sell_pressure = up_ask_depth + down_bid_depth
+            total = buy_pressure + sell_pressure
+            if total > 0:
+                obi = (buy_pressure - sell_pressure) / total
+                features["obi"] = max(-1.0, min(1.0, obi))
 
         return features
 
@@ -2839,7 +2896,12 @@ class CryptoMarketMaker:
         if self.config.PAIRED_SKEW_SHADOW and self.momentum:
             klines = self.momentum.last_kline_data if pair.asset == "BTC" else self.momentum.last_eth_kline_data
             if klines and len(klines) >= 15:
-                skew_feats = self.direction_predictor.compute_features(klines)
+                # V5.1: Include OBI from WS book cache when available
+                if self._book_cache and pair.up_token_id and pair.down_token_id:
+                    skew_feats = self.direction_predictor.compute_features_with_book(
+                        klines, self._book_cache, pair.up_token_id, pair.down_token_id)
+                else:
+                    skew_feats = self.direction_predictor.compute_features(klines)
                 skew_conf, skew_contribs = self.direction_predictor.predict_direction(skew_feats)
 
         return {
@@ -3208,52 +3270,210 @@ class CryptoMarketMaker:
             except Exception as e:
                 print(f"[WS-BOOK] Subscribe error: {str(e)[:60]}")
 
-    async def _handle_book_snapshot(self, event: dict):
-        """Process full order book snapshot. Check taker-taker opportunity."""
-        asset_id = event.get("asset_id", "")
-        if not asset_id:
-            return
+    # ---- CachedOrderBook: proper L2 book maintenance with delta updates ----
 
-        bids = event.get("bids", [])
-        asks = event.get("asks", [])
-
-        # Sort: bids descending, asks ascending
-        bids_sorted = sorted(bids, key=lambda x: float(x.get("price", 0)), reverse=True)
-        asks_sorted = sorted(asks, key=lambda x: float(x.get("price", 1)), reverse=False)
-
+    def _book_update_snapshot(self, asset_id: str, bids_raw: list, asks_raw: list):
+        """Replace entire book from snapshot. Sorts and caches."""
+        bids = sorted(
+            [{"price": float(b.get("price", 0)), "size": float(b.get("size", 0))} for b in bids_raw if float(b.get("size", 0)) > 0],
+            key=lambda x: x["price"], reverse=True)
+        asks = sorted(
+            [{"price": float(a.get("price", 0)), "size": float(a.get("size", 0))} for a in asks_raw if float(a.get("size", 0)) > 0],
+            key=lambda x: x["price"])
         self._book_cache[asset_id] = {
-            "bids": bids_sorted,
-            "asks": asks_sorted,
-            "best_bid": float(bids_sorted[0]["price"]) if bids_sorted else 0.0,
-            "best_ask": float(asks_sorted[0]["price"]) if asks_sorted else 1.0,
-            "ask_depth": sum(float(a.get("size", 0)) for a in asks_sorted[:3]),
+            "bids": bids,
+            "asks": asks,
+            "best_bid": bids[0]["price"] if bids else 0.0,
+            "best_ask": asks[0]["price"] if asks else 1.0,
+            "ask_depth": sum(a["size"] for a in asks[:5]),
+            "bid_depth": sum(b["size"] for b in bids[:5]),
+            "spread": (asks[0]["price"] - bids[0]["price"]) if (bids and asks) else 1.0,
             "ts": time.time(),
         }
 
-        # Check taker-taker opportunity
+    def _book_apply_delta(self, asset_id: str, side: str, price: float, size: float):
+        """Apply incremental update to cached book. size==0 removes the level."""
+        book = self._book_cache.get(asset_id)
+        if not book:
+            return
+
+        key = "bids" if side == "BID" else "asks"
+        levels = book[key]
+        PRICE_TOL = 0.0001
+
+        # Find existing level by price
+        found_idx = None
+        for i, lvl in enumerate(levels):
+            if abs(lvl["price"] - price) < PRICE_TOL:
+                found_idx = i
+                break
+
+        if size <= 0:
+            # Remove level
+            if found_idx is not None:
+                levels.pop(found_idx)
+        elif found_idx is not None:
+            # Update existing level
+            levels[found_idx]["size"] = size
+        else:
+            # Insert new level
+            levels.append({"price": price, "size": size})
+
+        # Re-sort
+        if key == "bids":
+            levels.sort(key=lambda x: x["price"], reverse=True)
+        else:
+            levels.sort(key=lambda x: x["price"])
+
+        # Recalculate derived fields
+        book["best_bid"] = levels[0]["price"] if (key == "bids" and levels) else book.get("best_bid", 0.0)
+        book["best_ask"] = levels[0]["price"] if (key == "asks" and levels) else book.get("best_ask", 1.0)
+        if key == "bids":
+            book["bids"] = levels
+            book["bid_depth"] = sum(b["size"] for b in levels[:5])
+        else:
+            book["asks"] = levels
+            book["ask_depth"] = sum(a["size"] for a in levels[:5])
+        # Recalc best values from both sides
+        if book["bids"] and book["asks"]:
+            book["best_bid"] = book["bids"][0]["price"]
+            book["best_ask"] = book["asks"][0]["price"]
+            book["spread"] = book["best_ask"] - book["best_bid"]
+        book["ts"] = time.time()
+
+    def get_execution_price(self, asset_id: str, side: str, amount_usd: float) -> Optional[dict]:
+        """Walk the order book to compute VWAP execution price for a given USD amount.
+        side='buy' walks asks, side='sell' walks bids.
+        Returns {exec_price, total_shares, slippage_pct, fill_pct, levels_consumed}."""
+        book = self._book_cache.get(asset_id)
+        if not book:
+            return None
+
+        levels = book["asks"] if side == "buy" else book["bids"]
+        if not levels:
+            return None
+
+        best_price = levels[0]["price"]
+        remaining_usd = amount_usd
+        total_cost = 0.0
+        total_shares = 0.0
+        levels_consumed = 0
+
+        for lvl in levels:
+            price = lvl["price"]
+            available_shares = lvl["size"]
+            available_usd = price * available_shares
+
+            if available_usd >= remaining_usd:
+                # Partial fill on this level
+                shares_needed = remaining_usd / price
+                total_cost += remaining_usd
+                total_shares += shares_needed
+                remaining_usd = 0
+                levels_consumed += 1
+                break
+            else:
+                # Consume entire level
+                total_cost += available_usd
+                total_shares += available_shares
+                remaining_usd -= available_usd
+                levels_consumed += 1
+
+        if total_shares <= 0:
+            return None
+
+        exec_price = total_cost / total_shares
+        slippage_pct = abs(exec_price - best_price) / best_price * 100 if best_price > 0 else 0
+        fill_pct = (amount_usd - remaining_usd) / amount_usd * 100
+
+        return {
+            "exec_price": round(exec_price, 4),
+            "total_shares": round(total_shares, 2),
+            "slippage_pct": round(slippage_pct, 2),
+            "fill_pct": round(fill_pct, 1),
+            "levels_consumed": levels_consumed,
+            "best_price": best_price,
+        }
+
+    def tt_quality_check(self, pair: 'MarketPair') -> tuple:
+        """Selective quality filter for taker-taker execution.
+        Returns (pass: bool, reason: str, details: dict)."""
+        up_book = self._book_cache.get(pair.up_token_id)
+        down_book = self._book_cache.get(pair.down_token_id)
+        if not up_book or not down_book:
+            return False, "missing_book", {}
+
+        now = time.time()
+        # Staleness
+        if now - up_book["ts"] > 10 or now - down_book["ts"] > 10:
+            return False, "stale_book", {"up_age": now - up_book["ts"], "dn_age": now - down_book["ts"]}
+
+        # Spread check — wide spread = illiquid = dangerous
+        up_spread = up_book.get("spread", 1.0)
+        dn_spread = down_book.get("spread", 1.0)
+        max_spread = 0.10  # 10c max spread per side
+        if up_spread > max_spread:
+            return False, "up_spread_wide", {"up_spread": up_spread}
+        if dn_spread > max_spread:
+            return False, "dn_spread_wide", {"dn_spread": dn_spread}
+
+        # Depth check — need real liquidity, not paper-thin
+        size_usd = self.config.TAKER_TAKER_SIZE
+        up_exec = self.get_execution_price(pair.up_token_id, "buy", size_usd)
+        dn_exec = self.get_execution_price(pair.down_token_id, "buy", size_usd)
+        if not up_exec or not dn_exec:
+            return False, "no_exec_price", {}
+
+        # Fill check — must be able to fill full amount
+        if up_exec["fill_pct"] < 100 or dn_exec["fill_pct"] < 100:
+            return False, "insufficient_depth", {
+                "up_fill": up_exec["fill_pct"], "dn_fill": dn_exec["fill_pct"]}
+
+        # Slippage check — VWAP slippage > 2% means book is too thin
+        if up_exec["slippage_pct"] > 2.0 or dn_exec["slippage_pct"] > 2.0:
+            return False, "high_slippage", {
+                "up_slip": up_exec["slippage_pct"], "dn_slip": dn_exec["slippage_pct"]}
+
+        # Combined VWAP check — use real execution prices, not just best_ask
+        combined_vwap = up_exec["exec_price"] + dn_exec["exec_price"]
+        if combined_vwap >= self.config.TAKER_TAKER_MAX_COMBINED:
+            return False, "vwap_too_high", {"combined_vwap": combined_vwap}
+
+        return True, "pass", {
+            "up_exec": up_exec["exec_price"], "dn_exec": dn_exec["exec_price"],
+            "combined_vwap": combined_vwap,
+            "up_slip": up_exec["slippage_pct"], "dn_slip": dn_exec["slippage_pct"],
+            "up_shares": up_exec["total_shares"], "dn_shares": dn_exec["total_shares"],
+        }
+
+    async def _handle_book_snapshot(self, event: dict):
+        """Process full order book snapshot via CachedOrderBook. Check taker-taker."""
+        asset_id = event.get("asset_id", "")
+        if not asset_id:
+            return
+        self._book_update_snapshot(asset_id, event.get("bids", []), event.get("asks", []))
         await self._check_tt_opportunity(asset_id)
 
     async def _handle_price_change(self, event: dict):
-        """Process incremental price update. Check taker-taker opportunity."""
+        """Process incremental book delta. Handles size==0 removals."""
         asset_id = event.get("asset_id", "")
         if not asset_id or asset_id not in self._book_cache:
             return
 
-        # Price change gives us new best bid/ask directly
-        changes = event.get("price_changes", [event])  # Sometimes nested, sometimes flat
+        # Handle both flat and nested change formats
+        changes = event.get("changes", [event])
         for change in changes:
             side = change.get("side", "")
             price = float(change.get("price", 0))
-            if side == "ASK" and price > 0:
-                self._book_cache[asset_id]["best_ask"] = price
-            elif side == "BID" and price > 0:
-                self._book_cache[asset_id]["best_bid"] = price
-        self._book_cache[asset_id]["ts"] = time.time()
+            size = float(change.get("size", 0))
+            if side in ("ASK", "BID") and price > 0:
+                self._book_apply_delta(asset_id, side, price, size)
 
         await self._check_tt_opportunity(asset_id)
 
     async def _check_tt_opportunity(self, updated_token: str):
-        """On any book update, check if this token's pair has combined ask < threshold."""
+        """On any book update, check if this token's pair has combined ask < threshold.
+        V5.1: Uses CachedOrderBook + selective quality filter + VWAP execution pricing."""
         if not self.config.TAKER_TAKER_ENABLED:
             return
 
@@ -3267,25 +3487,13 @@ class CryptoMarketMaker:
         if not up_book or not down_book:
             return
 
-        # Stale check — don't act on >30s old data
-        now = time.time()
-        if now - up_book["ts"] > 30 or now - down_book["ts"] > 30:
+        # Quick pre-filter on best_ask before expensive checks
+        combined_quick = up_book["best_ask"] + down_book["best_ask"]
+        if combined_quick >= self.config.TAKER_TAKER_MAX_COMBINED:
             return
 
         # Skip if already entered
         if pair.market_id in self._entered_markets or pair.market_id in self.positions:
-            return
-
-        up_ask = up_book["best_ask"]
-        down_ask = down_book["best_ask"]
-        combined = up_ask + down_ask
-
-        if combined >= self.config.TAKER_TAKER_MAX_COMBINED:
-            return
-
-        up_depth = up_book.get("ask_depth", 0)
-        down_depth = down_book.get("ask_depth", 0)
-        if up_depth < self.config.TAKER_TAKER_MIN_DEPTH or down_depth < self.config.TAKER_TAKER_MIN_DEPTH:
             return
 
         # Check time remaining
@@ -3308,24 +3516,37 @@ class CryptoMarketMaker:
         if tt_active >= self.config.TAKER_TAKER_MAX_CONCURRENT:
             return
 
-        edge = 1.0 - combined
-        edge_pct = edge / combined * 100
-        shares = max(self.config.MIN_SHARES, math.floor(self.config.TAKER_TAKER_SIZE / max(up_ask, down_ask)))
-        guaranteed_profit = edge * shares
+        # V5.1: Full selective quality filter (spread, depth, slippage, VWAP)
+        qc_pass, qc_reason, qc_details = self.tt_quality_check(pair)
 
-        # Shadow tracking
+        up_ask = up_book["best_ask"]
+        down_ask = down_book["best_ask"]
+        combined = up_ask + down_ask
+        edge = 1.0 - combined
+        edge_pct = edge / combined * 100 if combined > 0 else 0
+
+        # Use VWAP-based shares if quality check passed
+        if qc_pass:
+            up_exec_price = qc_details["up_exec"]
+            dn_exec_price = qc_details["dn_exec"]
+            combined_vwap = qc_details["combined_vwap"]
+            shares = min(int(qc_details.get("up_shares", 5)), int(qc_details.get("dn_shares", 5)))
+            edge_vwap = 1.0 - combined_vwap
+            guaranteed_profit = edge_vwap * shares
+        else:
+            shares = max(self.config.MIN_SHARES, math.floor(self.config.TAKER_TAKER_SIZE / max(up_ask, down_ask)))
+            guaranteed_profit = edge * shares
+
+        # Shadow tracking (always, even if quality check fails)
         if not hasattr(self, '_tt_shadow'):
             tt_file = Path("taker_taker_shadow.json")
             if tt_file.exists():
                 try:
                     self._tt_shadow = json.loads(tt_file.read_text())
                 except Exception:
-                    self._tt_shadow = {"opportunities": [], "stats": {"seen": 0, "qualified": 0, "would_profit": 0.0}}
+                    self._tt_shadow = {"opportunities": [], "stats": {"seen": 0, "qualified": 0, "would_profit": 0.0, "filtered": 0}}
             else:
-                self._tt_shadow = {"opportunities": [], "stats": {"seen": 0, "qualified": 0, "would_profit": 0.0}}
-
-        self._tt_shadow["stats"]["qualified"] += 1
-        self._tt_shadow["stats"]["would_profit"] += guaranteed_profit
+                self._tt_shadow = {"opportunities": [], "stats": {"seen": 0, "qualified": 0, "would_profit": 0.0, "filtered": 0}}
 
         opp = {
             "ts": datetime.now(timezone.utc).isoformat(),
@@ -3333,29 +3554,47 @@ class CryptoMarketMaker:
             "up_ask": up_ask, "down_ask": down_ask, "combined": round(combined, 4),
             "edge_pct": round(edge_pct, 2), "shares": shares,
             "hypothetical_profit": round(guaranteed_profit, 4),
-            "up_depth": round(up_depth, 1), "down_depth": round(down_depth, 1),
+            "qc_pass": qc_pass, "qc_reason": qc_reason,
             "source": "ws_realtime",
         }
+        if qc_details:
+            opp["qc_details"] = {k: round(v, 4) if isinstance(v, float) else v for k, v in qc_details.items()}
+
         self._tt_shadow["opportunities"].append(opp)
         if len(self._tt_shadow["opportunities"]) > 500:
             self._tt_shadow["opportunities"] = self._tt_shadow["opportunities"][-500:]
+
+        if qc_pass:
+            self._tt_shadow["stats"]["qualified"] += 1
+            self._tt_shadow["stats"]["would_profit"] += guaranteed_profit
+        else:
+            self._tt_shadow["stats"]["filtered"] = self._tt_shadow["stats"].get("filtered", 0) + 1
 
         try:
             Path("taker_taker_shadow.json").write_text(json.dumps(self._tt_shadow, indent=2))
         except Exception:
             pass
 
-        print(f"\n[TT-WS {pair.asset} {pair.duration_min}m] OPPORTUNITY DETECTED via WebSocket!")
-        print(f"  Asks: UP ${up_ask:.2f} / DN ${down_ask:.2f} | Combined ${combined:.3f} | Edge {edge_pct:.1f}%")
-        print(f"  Would profit: ${guaranteed_profit:.2f} on {shares} shares")
+        if not qc_pass:
+            # Log filtered opportunities at low frequency
+            if self._tt_shadow["stats"].get("filtered", 0) % 10 == 1:
+                print(f"  [TT-FILTER] {pair.asset} {pair.duration_min}m combined=${combined:.3f} BLOCKED: {qc_reason}")
+            return
+
+        print(f"\n[TT-WS {pair.asset} {pair.duration_min}m] OPPORTUNITY via WebSocket!")
+        print(f"  Best: UP ${up_ask:.2f} / DN ${down_ask:.2f} | VWAP: ${qc_details.get('combined_vwap', combined):.3f}")
+        print(f"  Edge {edge_pct:.1f}% | Slip: UP {qc_details.get('up_slip', 0):.1f}% DN {qc_details.get('dn_slip', 0):.1f}% | {shares}sh")
+        print(f"  Guaranteed: ${guaranteed_profit:.2f} | Total shadow: ${self._tt_shadow['stats']['would_profit']:.2f}")
 
         is_live_tt = getattr(self.config, 'TAKER_TAKER_LIVE', False)
         if not is_live_tt:
-            print(f"  [SHADOW] Not executing — TAKER_TAKER_LIVE=False | Total shadow: ${self._tt_shadow['stats']['would_profit']:.2f}")
+            print(f"  [SHADOW] Not executing — TAKER_TAKER_LIVE=False")
             return
 
-        # === LIVE EXECUTION — PARALLEL FOK (both sides simultaneously) ===
-        await self._execute_taker_taker(pair, up_ask, down_ask, shares, edge, edge_pct)
+        # === LIVE EXECUTION — PARALLEL FOK with VWAP prices ===
+        exec_up = qc_details.get("up_exec", up_ask)
+        exec_dn = qc_details.get("dn_exec", down_ask)
+        await self._execute_taker_taker(pair, exec_up, exec_dn, shares, edge, edge_pct)
 
     async def _execute_taker_taker(self, pair: 'MarketPair', up_ask: float, down_ask: float,
                                     shares: int, edge: float, edge_pct: float):
@@ -6167,7 +6406,7 @@ class CryptoMarketMaker:
                   f"Last {self.config.LATE_WINNER_WINDOW_SEC:.0f}s before close")
         if self.config.PAIRED_SKEW_SHADOW:
             skew_mode = "LIVE SKEW" if self.config.PAIRED_SKEW_ENABLED else "shadow-only"
-            print(f"DIRECTION SKEW: {skew_mode} | 8 features (EMA/RSI/BB/mom/VWAP/flow/MACD/ADX) | "
+            print(f"DIRECTION SKEW: {skew_mode} | 10 features (EMA/RSI/BB/mom/VWAP/flow/MACD/ADX/OBI/HA) | "
                   f"min conf: {self.config.PAIRED_MIN_CONFIDENCE} | max skew: {self.config.PAIRED_MAX_SKEW:.0%}")
         offsets_str = "/".join(f"{o:.3f}" for o in VolAdaptiveOffset.OFFSET_CANDIDATES)
         print(f"VOL-ADAPTIVE OFFSET: Thompson sampling | offsets: [{offsets_str}] | "
@@ -6309,7 +6548,11 @@ class CryptoMarketMaker:
                                 top = sorted(eval_mid.get("skew_contributions", {}).items(),
                                              key=lambda x: abs(x[1]), reverse=True)[:3]
                                 top_str = " ".join(f"{k}={v:+.2f}" for k, v in top)
-                                print(f"  [SKEW] conf={sc:+.2f} ({d}) | {top_str}")
+                                bias_pct = (sc + 1) / 2 * 100  # Convert [-1,+1] to 0-100%
+                                bias_label = "BULLISH" if bias_pct > 55 else "BEARISH" if bias_pct < 45 else "NEUTRAL"
+                                has_obi = "obi" in eval_mid.get("skew_features", {})
+                                obi_tag = f" OBI={'%.2f' % eval_mid['skew_features']['obi']}" if has_obi else ""
+                                print(f"  [SKEW] conf={sc:+.2f} ({d}) bias={bias_pct:.0f}% {bias_label}{obi_tag} | {top_str}")
                             pos = await self.place_pair_orders(pair, eval_mid)
                             if pos:
                                 pos.entry_tier = "paired"
