@@ -302,9 +302,108 @@ class Momentum15MTrader:
         self.tier = "PROBATION"  # current promotion tier
         self.filter_ml = AdaptiveFilterML()  # V1.4: adaptive filter ML
         self._load()
+        self._init_streak_tracker()  # V1.5: streak detection
 
         if not self.paper:
             self._init_clob()
+
+    # ========================================================================
+    # V1.5: STREAK DETECTION — track consecutive market outcomes per asset
+    # ========================================================================
+
+    def _init_streak_tracker(self):
+        """Initialize streak tracking from resolved outcomes."""
+        # Per-asset outcome history: {"BTC": ["UP", "DOWN", "UP", ...], "ETH": [...]}
+        self._streak_outcomes: Dict[str, list] = {"BTC": [], "ETH": []}
+        self._streak_shadow: list = []  # Shadow log for streak reversal strategy
+
+        # Rebuild from resolved trades (they record actual market outcome)
+        for trade in self.resolved:
+            asset = trade.get("_asset", trade.get("asset", ""))
+            side = trade.get("side", "")
+            won = trade.get("pnl", 0) > 0
+            if not asset or not side:
+                continue
+            # The market outcome is the OPPOSITE of our side if we lost
+            outcome = side if won else ("DOWN" if side == "UP" else "UP")
+            if asset in self._streak_outcomes:
+                self._streak_outcomes[asset].append(outcome)
+
+        # Keep last 20 outcomes per asset
+        for asset in self._streak_outcomes:
+            self._streak_outcomes[asset] = self._streak_outcomes[asset][-20:]
+
+    def record_market_outcome(self, asset: str, outcome: str):
+        """Record a resolved market outcome (UP or DOWN) for streak tracking."""
+        if asset not in self._streak_outcomes:
+            self._streak_outcomes[asset] = []
+        self._streak_outcomes[asset].append(outcome)
+        # Keep last 20
+        if len(self._streak_outcomes[asset]) > 20:
+            self._streak_outcomes[asset] = self._streak_outcomes[asset][-20:]
+
+    def get_streak(self, asset: str) -> tuple:
+        """Get current streak for an asset.
+        Returns (streak_length, streak_direction) e.g. (4, "UP") or (2, "DOWN").
+        streak_length=0 means no streak (mixed recent outcomes)."""
+        outcomes = self._streak_outcomes.get(asset, [])
+        if not outcomes:
+            return (0, None)
+
+        last = outcomes[-1]
+        streak = 0
+        for o in reversed(outcomes):
+            if o == last:
+                streak += 1
+            else:
+                break
+        return (streak, last)
+
+    def streak_confluence(self, asset: str, proposed_side: str) -> dict:
+        """Evaluate streak signal for a proposed entry.
+        Returns {streak_len, streak_dir, alignment, boost}.
+        alignment: 'WITH' if betting same as streak, 'AGAINST' if reversal, 'NEUTRAL'.
+        boost: multiplier for entry confidence (1.0 = no effect)."""
+        streak_len, streak_dir = self.get_streak(asset)
+
+        if streak_len < 2 or streak_dir is None:
+            return {"streak_len": streak_len, "streak_dir": streak_dir,
+                    "alignment": "NEUTRAL", "boost": 1.0}
+
+        if proposed_side == streak_dir:
+            alignment = "WITH"
+        else:
+            alignment = "AGAINST"
+
+        # Reversal rates from 570-market backtest:
+        # 2-streak: 54%, 3-streak: 58%, 4-streak: 67%, 5+streak: 82%
+        reversal_rates = {2: 0.54, 3: 0.58, 4: 0.67, 5: 0.82}
+        capped_len = min(streak_len, 5)
+        reversal_prob = reversal_rates.get(capped_len, 0.50)
+
+        if alignment == "WITH":
+            # Betting WITH a streak — continuation is less likely at long streaks
+            continuation_prob = 1.0 - reversal_prob
+            if streak_len >= 4:
+                boost = 0.5  # HALVE confidence — 67% chance streak breaks
+            elif streak_len >= 3:
+                boost = 0.8  # Slight penalty
+            else:
+                boost = 1.0
+        else:
+            # Betting AGAINST a streak — reversal expected
+            if streak_len >= 4:
+                boost = 1.3  # BOOST confidence — 67%+ reversal rate
+            elif streak_len >= 3:
+                boost = 1.1  # Slight boost
+            else:
+                boost = 1.0
+
+        return {
+            "streak_len": streak_len, "streak_dir": streak_dir,
+            "alignment": alignment, "boost": boost,
+            "reversal_prob": reversal_prob,
+        }
 
     def _init_clob(self):
         try:
@@ -587,6 +686,15 @@ class Momentum15MTrader:
                                       f"session=${self.session_pnl:+.2f} | "
                                       f"[{self.tier}] | {trade.get('title', '')[:40]}")
 
+                                # V1.5: Record market outcome for streak tracking
+                                asset = trade.get("_asset", trade.get("asset", ""))
+                                # Market outcome: if we won, outcome = our side; if lost, outcome = opposite
+                                market_outcome = trade["side"] if won else ("DOWN" if trade["side"] == "UP" else "UP")
+                                self.record_market_outcome(asset, market_outcome)
+                                streak_len, streak_dir = self.get_streak(asset)
+                                if streak_len >= 3:
+                                    print(f"[STREAK] {asset}: {streak_len}x {streak_dir} consecutive")
+
                                 # V1.4: Update ML filter with outcome
                                 ml_rsi = trade.get("rsi") or 50
                                 ml_shadow = self.filter_ml.record_outcome(
@@ -727,6 +835,14 @@ class Momentum15MTrader:
             if not side or not entry_price or entry_price > MAX_ENTRY:
                 continue
 
+            # V1.5: Streak confluence — skip if betting WITH a long streak (likely to reverse)
+            streak_info = self.streak_confluence(asset, side)
+            streak_boost = streak_info["boost"]
+            if streak_boost < 0.7:
+                print(f"[STREAK-SKIP] {asset}:{side} | {streak_info['streak_len']}x {streak_info['streak_dir']} "
+                      f"streak | boost={streak_boost:.1f} (betting WITH, reversal likely)")
+                continue
+
             # Size based on current promotion tier
             trade_size = TIERS[self.tier]["size"]
             shares = round(trade_size / entry_price, 2)
@@ -787,6 +903,10 @@ class Momentum15MTrader:
                 "ml_preset": ml_preset,
                 "asset_price": asset_price,
                 "order_id": order_id,
+                "streak_len": streak_info["streak_len"],
+                "streak_dir": streak_info["streak_dir"],
+                "streak_alignment": streak_info["alignment"],
+                "streak_boost": streak_boost,
                 "status": "open",
                 "pnl": 0.0,
             }
@@ -794,9 +914,12 @@ class Momentum15MTrader:
 
             mode = "LIVE" if not self.paper else "PAPER"
             rsi_str = f"RSI={rsi_val:.0f}" if rsi_val is not None else "RSI=?"
+            streak_str = ""
+            if streak_info["streak_len"] >= 2:
+                streak_str = f" | streak={streak_info['streak_len']}x{streak_info['streak_dir']} {streak_info['alignment']} b={streak_boost:.1f}"
             print(f"[ENTRY] {asset}:{side} ${entry_price:.2f} ${trade_size:.2f} ({shares:.0f}sh) | momentum_strong | "
                   f"mom_10m={momentum_10m:+.4%} mom_5m={momentum_5m:+.4%} {rsi_str} | "
-                  f"[ML:{ml_preset}] | {asset}=${asset_price:,.2f} | time={time_left:.1f}m | [{mode}] | "
+                  f"[ML:{ml_preset}] | {asset}=${asset_price:,.2f} | time={time_left:.1f}m | [{mode}]{streak_str} | "
                   f"{question[:50]}")
 
     # ========================================================================
@@ -807,7 +930,7 @@ class Momentum15MTrader:
         mode = "PAPER" if self.paper else "LIVE"
         print("=" * 70)
         tier_size = TIERS[self.tier]["size"]
-        print(f"MOMENTUM 15M DIRECTIONAL TRADER V1.4 - {mode} MODE")
+        print(f"MOMENTUM 15M DIRECTIONAL TRADER V1.5 - {mode} MODE")
         print(f"Strategy: Multi-asset momentum_strong on Polymarket 15M markets")
         print(f"Paper-proven: 224W/134L, 63% WR, +$1,459 PnL")
         print(f"Assets: {', '.join(ASSETS.keys())}")
@@ -819,6 +942,7 @@ class Momentum15MTrader:
         print(f"Entry window: {TIME_WINDOW[0]}-{TIME_WINDOW[1]} min before close")
         print(f"Min momentum: {MIN_MOMENTUM_10M:.4%} (10m) + {MIN_MOMENTUM_5M:.4%} (5m) | RSI: >{RSI_CONFIRM_UP} UP, <{RSI_CONFIRM_DOWN} DOWN")
         print(f"ML Filter: Thompson sampling | presets: relaxed/moderate/strict/ultra | auto-tunes thresholds")
+        print(f"Streak: Skip entries WITH 4+ streaks (reversal likely) | Boost AGAINST 4+ streaks")
         print(f"Daily loss limit: ${DAILY_LOSS_LIMIT}")
         print(f"Scan interval: {SCAN_INTERVAL}s")
         print("=" * 70)

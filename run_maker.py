@@ -413,7 +413,7 @@ class MakerConfig:
     MIN_SHARES: int = 5                  # CLOB minimum order size
 
     # Risk
-    DAILY_LOSS_LIMIT: float = 53.0       # V5.1: ~40% of $132 capital
+    DAILY_LOSS_LIMIT: float = 47.0       # V5.2: ~40% of $118.89 capital
     MAX_CONCURRENT_PAIRS: int = 6        # V4.4: 3 assets × 2 timeframes max (prevents balance exhaustion)
     MAX_SINGLE_SIDED: int = 8            # V4.2: 4 assets × 2 timeframes, allow partials to ride
     RIDE_AFTER_SEC: float = 30.0         # V5.2: Sell back after 30s if WS fast-sell missed it (was 9999 = ride forever)
@@ -435,8 +435,8 @@ class MakerConfig:
     # V4.9: Deep bids only for these assets (ETH 47% WR, -$0.15/trade — cut from deep)
     DEEP_ASSETS: list = field(default_factory=lambda: ["BTC"])
 
-    # V4.7: Paired mid-bid strategy — guaranteed profit when both sides fill
-    PAIRED_MODE_ENABLED: bool = True
+    # V4.7: Paired mid-bid strategy — KILLED V5.4: 1c spreads = no edge, -$47 lifetime
+    PAIRED_MODE_ENABLED: bool = False
     PAIRED_BID_OFFSET: float = 0.025     # V4.7.4: Tight offset — bids at ~$0.475, hedge completes the pair
     PAIRED_MAX_COMBINED: float = 0.96    # V4.7.4: Allow up to $0.96 combined ($0.04/sh = 4% profit)
     PAIRED_SIZE_PER_SIDE: float = 3.0    # V5.2: $3/side (was $5 — reduce partial loss exposure)
@@ -446,17 +446,17 @@ class MakerConfig:
     PAIRED_EARLY_ENTRY: bool = True      # V4.7.3: Enter paired BEFORE candle opens (price near 50/50)
     PAIRED_EARLY_BUFFER_MIN: float = 2.0 # V4.7.3: Place orders up to 2 min before candle opens
 
-    # V5.0: Taker-taker paired mode — market-buy both sides simultaneously
-    TAKER_TAKER_ENABLED: bool = True     # Scan order books for combined ask < threshold
-    TAKER_TAKER_LIVE: bool = True         # V5.1: LIVE — WS real-time detection + parallel FOK execution
+    # V5.0: Taker-taker paired mode — KILLED V5.4: combined ask always $1.01, zero opportunities
+    TAKER_TAKER_ENABLED: bool = False
+    TAKER_TAKER_LIVE: bool = False
     TAKER_TAKER_MAX_COMBINED: float = 0.96  # Max combined ask to trigger (4% guaranteed profit)
     TAKER_TAKER_SIZE: float = 3.0        # V5.2: $3/side (was $5)
     TAKER_TAKER_MAX_CONCURRENT: int = 2  # Max simultaneous taker-taker positions
     TAKER_TAKER_MIN_DEPTH: float = 5.0   # Min $ depth on each side's ask (avoid thin books)
 
-    # V4.8: ML Direction Skew for Paired Trades
-    PAIRED_SKEW_SHADOW: bool = True       # Shadow-track skewed PnL (Phase 1, zero risk)
-    PAIRED_SKEW_ENABLED: bool = False     # Phase 2/3: actually skew shares (off for now)
+    # V4.8: ML Direction Skew for Paired Trades — KILLED with paired V5.4
+    PAIRED_SKEW_SHADOW: bool = False
+    PAIRED_SKEW_ENABLED: bool = False
     PAIRED_MAX_SKEW: float = 0.60         # Max 60% allocation to favored side
     PAIRED_MIN_CONFIDENCE: float = 0.15   # Below this |confidence| = no skew (50/50)
 
@@ -518,7 +518,7 @@ class MakerConfig:
     MOMENTUM_MAX_WAIT_SECONDS: float = 210.0  # Don't enter after 3.5 min (too late)
     MOMENTUM_MAX_CONCURRENT: int = 3     # Max simultaneous momentum positions
     MOMENTUM_DAILY_LOSS_LIMIT: float = 10.0  # Separate daily loss limit for momentum
-    PNL_RESET_OFFSET: float = -55.7081       # V5.1: Subtract from total_pnl for display (reset baseline)
+    PNL_RESET_OFFSET: float = -69.4081       # V5.2: Subtract from total_pnl for display (reset baseline $118.89)
 
     # V12a: Order Flow (Taker Flow Imbalance) — non-overlapping with V3.0 momentum
     # Fires when taker buy volume is heavily skewed AND volume surges >= 2x average.
@@ -4507,6 +4507,27 @@ class CryptoMarketMaker:
             created = datetime.fromisoformat(pos.created_at)
             age_min = (now - created).total_seconds() / 60
 
+            # V5.3: Cancel unfilled paired orders before endgame crash.
+            # Paired bids at $0.475 get adversely selected during resolution — token crashes
+            # from $0.50 to $0.01, filling our bid along the way. Cancel early to prevent this.
+            if pos.entry_tier == "paired" and pos.status == "pending":
+                # No fills yet — cancel if < 5 min left (for 15M) or < 2 min (for 5M)
+                cancel_buffer = 300.0 if pos.duration_min >= 15 else 120.0
+                age_sec = (now - created).total_seconds()
+                time_to_close = pos.duration_min * 60.0 - age_sec
+                if time_to_close < cancel_buffer:
+                    for order in [pos.up_order, pos.down_order]:
+                        if order and order.status == "open":
+                            order.status = "cancelled"
+                            if not self.paper:
+                                try:
+                                    self.client.cancel(order.order_id)
+                                except Exception:
+                                    pass
+                    pos.status = "cancelled"
+                    print(f"  [PAIRED-CANCEL] {pos.asset} — no fills, {time_to_close:.0f}s left, cancelling to avoid endgame fill")
+                    continue
+
             # V3.3: NO HEDGE — ride unpaired fills to resolution.
             # Data showed hedging was #1 PnL destroyer: -$0.60/hedge guaranteed loss.
             # Rides at $0.48 are +EV at 50% WR (+$0.40 EV). Accept variance, kill bleed.
@@ -4517,7 +4538,14 @@ class CryptoMarketMaker:
                 since_first_fill_sec = (now - first_fill_dt).total_seconds()
                 # V4.1: Duration-aware sell-back — 5M markets need faster action
                 # 120s on a 5M market = token already near-worthless
-                sell_timeout = 45.0 if pos.duration_min <= 5 else self.config.RIDE_AFTER_SEC
+                # V5.3: Paired gets 10s — sell while token still has value ($0.45+ not $0.01)
+                # Deep gets 30s (RIDE_AFTER_SEC) — momentum-guided, accepts directional risk
+                if pos.entry_tier == "paired":
+                    sell_timeout = 10.0
+                elif pos.duration_min <= 5:
+                    sell_timeout = 45.0
+                else:
+                    sell_timeout = self.config.RIDE_AFTER_SEC
                 if since_first_fill_sec > sell_timeout:
                     # Cancel the unfilled passive order
                     for order, attr in [(pos.up_order, "up_filled"), (pos.down_order, "down_filled")]:
@@ -6335,7 +6363,7 @@ class CryptoMarketMaker:
         if not self.paper and not self.circuit_tripped and self.starting_pnl is not None:
             session_pnl = self.stats["total_pnl"] - self.starting_pnl
             # Calculate 40% of the CLOB cash balance (~$76)
-            capital_loss_limit = 53.0  # 40% of $132.49 CLOB balance
+            capital_loss_limit = 47.0  # 40% of $118.89 CLOB balance
             if session_pnl < -capital_loss_limit:
                 print(f"\n{'='*70}")
                 print(f"[CIRCUIT BREAKER] NET CAPITAL LOSS EXCEEDED 40%!")
@@ -6428,7 +6456,7 @@ class CryptoMarketMaker:
         """Main market maker loop."""
         print("=" * 70)
         mode = "PAPER" if self.paper else "LIVE"
-        print(f"AVELLANEDA MAKER V5.2 - {mode} MODE")
+        print(f"AVELLANEDA MAKER V5.4 - {mode} MODE")
         deep_assets = ",".join(self.config.DEEP_ASSETS)
         if self.config.DEEP_MOMENTUM_GUIDED:
             deep_dir_tag = " MOMENTUM-GUIDED"
@@ -6450,9 +6478,11 @@ class CryptoMarketMaker:
         print(f"Daily loss limit: ${self.config.DAILY_LOSS_LIMIT}")
         print(f"STOPLOSS GUARD: Halt after 3 losses in 30min, cooldown 15min")
         print(f"PARTIAL SELL-BACK: ALL tiers sell immediately (no riding to resolution)")
+        print(f"V5.4: PAIRED KILLED (1c spreads = no edge, -$47 lifetime) | TAKER-TAKER KILLED (combined ask always $1.01)")
+        print(f"  Deep bids ONLY — momentum-guided directional entries")
         print(f"MARKETS: 15M ONLY (5M killed — -$82/12hr)")
         if not self.paper:
-            print(f"CIRCUIT BREAKER: Auto-switch to paper on ${self.config.DAILY_LOSS_LIMIT:.0f} net session loss (~40% of $132 capital)")
+            print(f"CIRCUIT BREAKER: Auto-switch to paper on ${self.config.DAILY_LOSS_LIMIT:.0f} net session loss (~40% of $119 capital)")
         if self.config.TAKER_HEDGE_ENABLED:
             print(f"TAKER HEDGE: paired-only (V5.0: deep hedge disabled — 0/158 success, adversely selected) | "
                   f"Max combined: ${self.config.TAKER_HEDGE_MAX_COMBINED}")
