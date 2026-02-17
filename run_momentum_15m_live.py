@@ -1025,12 +1025,12 @@ class Momentum15MTrader:
 
             # Size based on current promotion tier
             trade_size = TIERS[self.tier]["size"]
-            shares = round(trade_size / entry_price, 2)
+            shares = int(trade_size / entry_price)  # V1.9b: integer shares — CLOB rejects excess decimals
 
             # Enforce CLOB minimum shares
             if shares < MIN_SHARES:
                 shares = MIN_SHARES
-                trade_size = round(shares * entry_price, 2)
+            trade_size = round(shares * entry_price, 2)
 
             # === PLACE TRADE ===
             trade_key = f"15m_{cid}_{side}"
