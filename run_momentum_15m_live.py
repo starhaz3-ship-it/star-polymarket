@@ -59,8 +59,10 @@ from pid_lock import acquire_pid_lock, release_pid_lock
 # ============================================================================
 SCAN_INTERVAL = 30          # seconds between cycles
 MAX_CONCURRENT = 3          # max open positions
-MIN_MOMENTUM_10M = 0.0005   # 0.05% threshold (matches paper bot)
+MIN_MOMENTUM_10M = 0.0008   # V1.3: Raised from 0.05% to 0.08% — stronger signal required
 MIN_MOMENTUM_5M = 0.0003    # V1.1: 0.03% min 5m momentum (Trade 9 lost with 5m=-0.0001%)
+RSI_CONFIRM_UP = 55         # V1.3: RSI(14) must be above this for UP entries
+RSI_CONFIRM_DOWN = 45       # V1.3: RSI(14) must be below this for DOWN entries
 MIN_ENTRY = 0.35            # V1.1: Raised from $0.10 — entries <$0.35 were 0W/3L (0% WR, -$7.50)
 MAX_ENTRY = 0.60            # maximum entry price (avoid paying premium)
 TIME_WINDOW = (2.0, 12.0)   # 2-12 min before market close (matches paper bot)
@@ -542,6 +544,23 @@ class Momentum15MTrader:
                 if ema_gap_bp < EMA_GAP_MIN_BP:
                     continue
 
+            # V1.3: RSI(14) confirmation
+            rsi_val = None
+            if len(all_closes) >= 15:
+                deltas = [all_closes[i] - all_closes[i-1] for i in range(1, len(all_closes))]
+                gains = [d if d > 0 else 0 for d in deltas]
+                losses_r = [-d if d < 0 else 0 for d in deltas]
+                avg_gain = sum(gains[:14]) / 14
+                avg_loss = sum(losses_r[:14]) / 14
+                for i in range(14, len(deltas)):
+                    avg_gain = (avg_gain * 13 + gains[i]) / 14
+                    avg_loss = (avg_loss * 13 + losses_r[i]) / 14
+                if avg_loss > 0:
+                    rs = avg_gain / avg_loss
+                    rsi_val = 100 - (100 / (1 + rs))
+                else:
+                    rsi_val = 100.0
+
             up_price, down_price = self.get_prices(market)
             if up_price is None or down_price is None:
                 continue
@@ -560,11 +579,15 @@ class Momentum15MTrader:
 
             if momentum_10m > MIN_MOMENTUM_10M and momentum_5m > MIN_MOMENTUM_5M:
                 # Upward momentum, both timeframes aligned with minimum thresholds
+                if rsi_val is not None and rsi_val < RSI_CONFIRM_UP:
+                    continue  # V1.3: RSI too weak to confirm UP
                 if MIN_ENTRY <= up_price <= MAX_ENTRY:
                     side = "UP"
                     entry_price = round(up_price + (SPREAD_OFFSET if self.paper else 0), 2)
             elif momentum_10m < -MIN_MOMENTUM_10M and momentum_5m < -MIN_MOMENTUM_5M:
                 # Downward momentum, both timeframes aligned with minimum thresholds
+                if rsi_val is not None and rsi_val > RSI_CONFIRM_DOWN:
+                    continue  # V1.3: RSI too strong to confirm DOWN
                 if MIN_ENTRY <= down_price <= MAX_ENTRY:
                     side = "DOWN"
                     entry_price = round(down_price + (SPREAD_OFFSET if self.paper else 0), 2)
@@ -628,6 +651,7 @@ class Momentum15MTrader:
                 "_asset": asset,
                 "momentum_10m": round(momentum_10m, 6),
                 "momentum_5m": round(momentum_5m, 6),
+                "rsi": round(rsi_val, 1) if rsi_val is not None else None,
                 "asset_price": asset_price,
                 "order_id": order_id,
                 "status": "open",
@@ -636,8 +660,9 @@ class Momentum15MTrader:
             open_count += 1
 
             mode = "LIVE" if not self.paper else "PAPER"
+            rsi_str = f"RSI={rsi_val:.0f}" if rsi_val is not None else "RSI=?"
             print(f"[ENTRY] {asset}:{side} ${entry_price:.2f} ${trade_size:.2f} ({shares:.0f}sh) | momentum_strong | "
-                  f"mom_10m={momentum_10m:+.4%} mom_5m={momentum_5m:+.4%} | "
+                  f"mom_10m={momentum_10m:+.4%} mom_5m={momentum_5m:+.4%} {rsi_str} | "
                   f"{asset}=${asset_price:,.2f} | time={time_left:.1f}m | [{mode}] | "
                   f"{question[:50]}")
 
@@ -649,7 +674,7 @@ class Momentum15MTrader:
         mode = "PAPER" if self.paper else "LIVE"
         print("=" * 70)
         tier_size = TIERS[self.tier]["size"]
-        print(f"MOMENTUM 15M DIRECTIONAL TRADER V1.2 - {mode} MODE")
+        print(f"MOMENTUM 15M DIRECTIONAL TRADER V1.3 - {mode} MODE")
         print(f"Strategy: Multi-asset momentum_strong on Polymarket 15M markets")
         print(f"Paper-proven: 224W/134L, 63% WR, +$1,459 PnL")
         print(f"Assets: {', '.join(ASSETS.keys())}")
@@ -659,7 +684,7 @@ class Momentum15MTrader:
         print(f"  CHAMPION:  $10.00/trade (max tier)")
         print(f"Entry price: ${MIN_ENTRY:.2f}-${MAX_ENTRY:.2f} (V1.1: raised floor — <$0.35 was 0W/3L)")
         print(f"Entry window: {TIME_WINDOW[0]}-{TIME_WINDOW[1]} min before close")
-        print(f"Min momentum: {MIN_MOMENTUM_10M:.4%} (10m) + {MIN_MOMENTUM_5M:.4%} (5m)")
+        print(f"Min momentum: {MIN_MOMENTUM_10M:.4%} (10m) + {MIN_MOMENTUM_5M:.4%} (5m) | RSI: >{RSI_CONFIRM_UP} UP, <{RSI_CONFIRM_DOWN} DOWN")
         print(f"Daily loss limit: ${DAILY_LOSS_LIMIT}")
         print(f"Scan interval: {SCAN_INTERVAL}s")
         print("=" * 70)
