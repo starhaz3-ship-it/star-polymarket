@@ -49,17 +49,26 @@ cat weather_paper_results.json | python -m json.tool
 - **Weather Paper** (`run_weather_paper.py`) - NOAA forecast vs Polymarket temperature arbitrage
 - **Whale Watcher** (`run_whale_watcher.py`) - 39 whale wallets tracked (incl. 2 weather whales)
 
-### Current Status (Last Updated: 2026-02-09)
-- **Live Trader: OFF** — Shut down due to zero mid-price liquidity on 15-min order books
-- Paper Trader: **V3.5** RUNNING — Systematic trading features, 5 new ML-tunable features
-- Weather Trader: **v1.0** RUNNING — NOAA forecast arbitrage on temperature markets
-- Strategy: TA + Bregman + Kelly + NYU Vol + ML + Systematic V3.5 (overnight/invvol/MTF/volspike/volregime)
-- Markets: BTC/SOL/ETH paper (15-min Up/Down) + Weather (daily temperature)
-- **PID locks**: All traders locked via shared `pid_lock.py` (ta_paper, weather_paper, whale_watcher, daily_king, ta_live)
-- **V3.5 Features**: BTC overnight seasonality, inverse vol sizing, multi-TF confirmation, volume spike filter, vol regime routing
-- **Realistic paper fills**: +$0.03 spread offset (order books show zero mid-price liquidity)
-- Skip hours: {0, 1, 8} UTC (reopened 22,23 for overnight seasonality)
-- **Account**: ~$74 live (not trading), paper only until Monday liquidity check
+### Current Status (Last Updated: 2026-02-17)
+- **Momentum 15M LIVE** — V1.6 PROMOTED tier ($5/trade). 20W/5L (80% WR), +$41.66 PnL
+- **Maker: DEAD** — Killed permanently. Lost ~$300 on 1c spreads.
+- Paper traders: TA Paper, 15M Strategies, 5M Experiments all running
+- Whale Watcher: Running (restarted after sqlite crash on 1.4GB DB)
+
+### Performance Analysis (2026-02-17)
+- **momentum_strong: 90% WR, +$44.86** — THE proven edge, especially BTC (92.3% WR)
+- **streak_reversal: 33% WR, -$5.70** — LOSING MONEY, needs to be disabled
+- **Best hours (UTC): 0-6** (7PM-1AM ET) — 100% WR at hours 0,2,3,4
+- **Dead hours (UTC): 7-8** (2-3AM ET) — 0-33% WR, lose money
+- **Entry price edge: <$0.50 wins, >$0.50 loses**
+- **CSV vs internal gap: ~$98** — old maker positions still resolving as losses on-chain
+
+### ACTION ITEMS (Discuss with Star on next session)
+1. **Disable streak_reversal** — 33% WR coin flip, -$5.70 drag
+2. **Lower max entry to $0.50** — expensive entries lose
+3. **Skip hours 7-8 UTC** — dead money zone
+4. **Consider BTC-only mode** — 92% WR vs ETH's 61%
+5. **If WR stays >85% for 50+ trades** — promote to CHAMPION ($10/trade)
 
 ### Standing Orders
 - **AUTO-TUNE**: Continuously analyze trade data and auto-adjust settings for max profit, then win rate. Don't ask - just optimize. Log changes made.
