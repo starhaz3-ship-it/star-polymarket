@@ -401,7 +401,8 @@ class MakerConfig:
     TAKER_HEDGE_MAX_COMBINED: float = 1.08  # V4.3: Allow 8c/share overpay — beats riding EV (-$0.88 at 37% WR)
 
     # Position sizing
-    SIZE_PER_SIDE_USD: float = 5.0       # V4.9: $5/side (was $3 — BTC 63% WR justifies scaling)
+    SIZE_PER_SIDE_USD: float = 3.0       # V5.0: $3/side for deep (was $5 — reduce risk on directional bets)
+    DEEP_UP_ONLY: bool = True            # V5.0: Deep bids UP-only (DOWN lost -$111 total, bullish crypto bias)
     MAX_PAIR_EXPOSURE: float = 30.0      # V4.9: $30/pair (scaled for $5/side)
     MAX_TOTAL_EXPOSURE: float = 50.0     # V4.9: $50 max (leaves buffer on $102 account)
     MIN_SHARES: int = 5                  # CLOB minimum order size
@@ -487,10 +488,10 @@ class MakerConfig:
     # "max_combined" = maximum combined bid price (lower = more edge required)
     # "balance_range" = (min, max) for each side price (tighter = more balanced)
     ASSET_TIERS: dict = field(default_factory=lambda: {
-        "BTC": {"max_combined": 0.80, "balance_range": (0.25, 0.65)},  # V4.6.4: Floor $0.25 (0% WR below)
-        "ETH": {"max_combined": 0.80, "balance_range": (0.25, 0.65)},  # V4.6.4: Floor $0.25
-        "SOL": {"max_combined": 0.80, "balance_range": (0.25, 0.65)},  # V4.6.4: Floor $0.25
-        "XRP": {"max_combined": 0.80, "balance_range": (0.25, 0.65)},  # V4.6.4: Floor $0.25
+        "BTC": {"max_combined": 0.80, "balance_range": (0.30, 0.65)},  # V5.0: Floor $0.30 (CSV: $0.30-0.40 = 95%WR, <$0.30 = 83%WR higher variance)
+        "ETH": {"max_combined": 0.80, "balance_range": (0.30, 0.65)},  # V5.0: Floor $0.30
+        "SOL": {"max_combined": 0.80, "balance_range": (0.30, 0.65)},  # V5.0: Floor $0.30
+        "XRP": {"max_combined": 0.80, "balance_range": (0.30, 0.65)},  # V5.0: Floor $0.30
     })
 
     # V3.0: Momentum directional trading (@vague-sourdough reverse-engineered strategy)
@@ -2150,6 +2151,13 @@ class CryptoMarketMaker:
                     if mid:
                         self._entered_markets.add(mid)
                 print(f"[MAKER] Loaded {len(self.resolved)} resolved, {len(self.positions)} active")
+                # V5.0: Reconcile total_pnl with resolved trades (fixes drift after restarts)
+                resolved_pnl = sum(r.get("pnl", 0) for r in self.resolved)
+                tracked_pnl = self.stats.get("total_pnl", 0)
+                if abs(resolved_pnl - tracked_pnl) > 0.01:
+                    print(f"  [PNL-RECONCILE] Resolved sum: ${resolved_pnl:+.2f} vs tracked: ${tracked_pnl:+.2f} "
+                          f"(delta ${resolved_pnl - tracked_pnl:+.2f}) — using resolved sum")
+                    self.stats["total_pnl"] = resolved_pnl
             except Exception as e:
                 print(f"[MAKER] Load error: {e}")
 
@@ -2942,6 +2950,9 @@ class CryptoMarketMaker:
 
         # V4.9.1: Paired tier uses fixed size, no inventory skew or momentum (direction-neutral)
         is_paired = eval_result.get("entry_tier") == "paired"
+        # V5.0: Deep tier is UP-only (skip DOWN entirely)
+        is_deep_up_only = (not is_paired and self.config.DEEP_UP_ONLY)
+
         if is_paired:
             base_size = self.config.PAIRED_SIZE_PER_SIDE
             up_size = base_size
@@ -2959,12 +2970,12 @@ class CryptoMarketMaker:
 
         # Calculate shares for each side
         up_shares = max(self.config.MIN_SHARES, math.floor(up_size / up_bid))
-        down_shares = max(self.config.MIN_SHARES, math.floor(down_size / down_bid))
+        down_shares = 0 if is_deep_up_only else max(self.config.MIN_SHARES, math.floor(down_size / down_bid))
 
         # Cap shares to size budget
         if up_bid * up_shares > up_size:
             up_shares = max(self.config.MIN_SHARES, math.floor(up_size / up_bid))
-        if down_bid * down_shares > down_size:
+        if not is_deep_up_only and down_bid * down_shares > down_size:
             down_shares = max(self.config.MIN_SHARES, math.floor(down_size / down_bid))
 
         # V4.7.4: Paired tier MUST have equal shares for guaranteed profit
@@ -3013,18 +3024,22 @@ class CryptoMarketMaker:
                 placed_at=now_iso,
                 placed_at_ts=now_ts,
             )
-            pos.down_order = MakerOrder(
-                order_id=f"paper_dn_{pair.market_id[:12]}_{int(time.time())}",
-                market_id=pair.market_id,
-                token_id=pair.down_token_id,
-                side_label="DOWN",
-                price=down_bid,
-                size_shares=float(down_shares),
-                size_usd=down_bid * down_shares,
-                placed_at=now_iso,
-                placed_at_ts=now_ts,
-            )
-            print(f"  [PAPER] Placed UP bid ${up_bid:.2f} x {up_shares} + DOWN bid ${down_bid:.2f} x {down_shares}")
+            if not is_deep_up_only:
+                pos.down_order = MakerOrder(
+                    order_id=f"paper_dn_{pair.market_id[:12]}_{int(time.time())}",
+                    market_id=pair.market_id,
+                    token_id=pair.down_token_id,
+                    side_label="DOWN",
+                    price=down_bid,
+                    size_shares=float(down_shares),
+                    size_usd=down_bid * down_shares,
+                    placed_at=now_iso,
+                    placed_at_ts=now_ts,
+                )
+            if is_deep_up_only:
+                print(f"  [PAPER] Placed UP-ONLY bid ${up_bid:.2f} x {up_shares} (V5.0: deep UP-only)")
+            else:
+                print(f"  [PAPER] Placed UP bid ${up_bid:.2f} x {up_shares} + DOWN bid ${down_bid:.2f} x {down_shares}")
             print(f"          Combined: ${up_bid + down_bid:.4f} | Edge: {eval_result['edge_pct']:.1f}% | g={eval_result.get('gamma', 0):.2f}")
         else:
             # Live mode: place real post_only orders
@@ -3059,41 +3074,45 @@ class CryptoMarketMaker:
                     placed_at_ts=now_ts,
                 )
 
-                # Place DOWN order
-                dn_args = OrderArgs(
-                    price=down_bid,
-                    size=float(down_shares),
-                    side=BUY,
-                    token_id=pair.down_token_id,
-                )
-                dn_signed = self.client.create_order(dn_args)
-                dn_resp = self.client.post_order(dn_signed, OrderType.GTC)
+                if is_deep_up_only:
+                    # V5.0: Deep UP-only — no DOWN order
+                    print(f"  [LIVE] Placed UP-ONLY {up_order_id[:16]}... @ ${up_bid:.2f} x {up_shares} (V5.0: deep UP-only)")
+                else:
+                    # Place DOWN order
+                    dn_args = OrderArgs(
+                        price=down_bid,
+                        size=float(down_shares),
+                        side=BUY,
+                        token_id=pair.down_token_id,
+                    )
+                    dn_signed = self.client.create_order(dn_args)
+                    dn_resp = self.client.post_order(dn_signed, OrderType.GTC)
 
-                if not dn_resp.get("success"):
-                    print(f"  [LIVE] DOWN order failed: {dn_resp.get('errorMsg', '?')}")
-                    # Cancel UP order since we can't pair
-                    try:
-                        self.client.cancel(up_order_id)
-                    except Exception:
-                        pass
-                    return None
+                    if not dn_resp.get("success"):
+                        print(f"  [LIVE] DOWN order failed: {dn_resp.get('errorMsg', '?')}")
+                        # Cancel UP order since we can't pair
+                        try:
+                            self.client.cancel(up_order_id)
+                        except Exception:
+                            pass
+                        return None
 
-                dn_order_id = dn_resp.get("orderID", "")
-                pos.down_order = MakerOrder(
-                    order_id=dn_order_id,
-                    market_id=pair.market_id,
-                    token_id=pair.down_token_id,
-                    side_label="DOWN",
-                    price=down_bid,
-                    size_shares=float(down_shares),
-                    size_usd=down_bid * down_shares,
-                    placed_at=now_iso,
-                    placed_at_ts=now_ts,
-                )
+                    dn_order_id = dn_resp.get("orderID", "")
+                    pos.down_order = MakerOrder(
+                        order_id=dn_order_id,
+                        market_id=pair.market_id,
+                        token_id=pair.down_token_id,
+                        side_label="DOWN",
+                        price=down_bid,
+                        size_shares=float(down_shares),
+                        size_usd=down_bid * down_shares,
+                        placed_at=now_iso,
+                        placed_at_ts=now_ts,
+                    )
 
-                print(f"  [LIVE] Placed UP {up_order_id[:16]}... @ ${up_bid:.2f} x {up_shares}")
-                print(f"  [LIVE] Placed DN {dn_order_id[:16]}... @ ${down_bid:.2f} x {down_shares}")
-                print(f"         Combined: ${up_bid + down_bid:.4f} | Edge: {eval_result['edge_pct']:.1f}% | g={eval_result.get('gamma', 0):.2f}")
+                    print(f"  [LIVE] Placed UP {up_order_id[:16]}... @ ${up_bid:.2f} x {up_shares}")
+                    print(f"  [LIVE] Placed DN {dn_order_id[:16]}... @ ${down_bid:.2f} x {down_shares}")
+                    print(f"         Combined: ${up_bid + down_bid:.4f} | Edge: {eval_result['edge_pct']:.1f}% | g={eval_result.get('gamma', 0):.2f}")
 
             except Exception as e:
                 print(f"  [LIVE] Order error: {e}")
@@ -3152,7 +3171,9 @@ class CryptoMarketMaker:
                 if not pos.first_fill_time:
                     pos.first_fill_time = datetime.now(timezone.utc).isoformat()
                 # V4.3: Instant taker hedge — FOK buy other side on first detection
-                if was_pending and self.config.TAKER_HEDGE_ENABLED and not self.paper:
+                # V5.0: Only hedge paired tier (deep hedge was 0/158 — adversely selected fills)
+                if (was_pending and self.config.TAKER_HEDGE_ENABLED
+                        and not self.paper and pos.entry_tier == "paired"):
                     await self._taker_hedge(pos)
 
     async def _check_fills_paper(self, pos: PairPosition):
@@ -5286,11 +5307,12 @@ class CryptoMarketMaker:
         """Main market maker loop."""
         print("=" * 70)
         mode = "PAPER" if self.paper else "LIVE"
-        print(f"AVELLANEDA MAKER V4.9 - {mode} MODE")
+        print(f"AVELLANEDA MAKER V5.0 - {mode} MODE")
         deep_assets = ",".join(self.config.DEEP_ASSETS)
+        up_only_tag = " UP-ONLY" if self.config.DEEP_UP_ONLY else ""
         paired_str = f" + PAIRED mid-bids BTC+ETH (${self.config.PAIRED_SIZE_PER_SIDE:.0f}/side, max {self.config.PAIRED_MAX_CONCURRENT})" if self.config.PAIRED_MODE_ENABLED else ""
-        print(f"Strategy: Deep bids {deep_assets} only + dir cap {self.config.MAX_SAME_DIRECTION} + momentum{paired_str}")
-        print(f"Size: ${self.config.SIZE_PER_SIDE_USD}/side | Gamma: {self.config.DEFAULT_GAMMA} (ML-tuned) | "
+        print(f"Strategy: Deep bids {deep_assets}{up_only_tag} (${self.config.SIZE_PER_SIDE_USD}/side) + dir cap {self.config.MAX_SAME_DIRECTION}{paired_str}")
+        print(f"Deep size: ${self.config.SIZE_PER_SIDE_USD}/side | Paired size: ${self.config.PAIRED_SIZE_PER_SIDE}/side | Gamma: {self.config.DEFAULT_GAMMA} (ML-tuned) | "
               f"Base spread: {self.config.BASE_SPREAD*100:.0f}c")
         print(f"Max combined: ${self.config.MAX_COMBINED_PRICE} | Min edge: {self.config.MIN_SPREAD_EDGE*100:.0f}% | "
               f"Hedge max: ${self.config.TAKER_HEDGE_MAX_COMBINED}")
@@ -5303,8 +5325,8 @@ class CryptoMarketMaker:
         if not self.paper:
             print(f"CIRCUIT BREAKER: Auto-switch to paper on ${self.config.DAILY_LOSS_LIMIT:.0f} net session loss (~40% of $102 capital)")
         if self.config.TAKER_HEDGE_ENABLED:
-            print(f"TAKER HEDGE: ON | Max combined: ${self.config.TAKER_HEDGE_MAX_COMBINED} | "
-                  f"Fallback: ride to resolution")
+            print(f"TAKER HEDGE: paired-only (V5.0: deep hedge disabled — 0/158 success, adversely selected) | "
+                  f"Max combined: ${self.config.TAKER_HEDGE_MAX_COMBINED}")
         print(f"Skip hours (UTC): {sorted(self.config.SKIP_HOURS_UTC)}")
         if self.config.MOMENTUM_ENABLED:
             print(f"MOMENTUM 5m: ${self.config.MOMENTUM_SIZE_USD}/trade | "

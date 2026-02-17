@@ -1,0 +1,98 @@
+{
+  "betas": {
+    "relaxed": [
+      7,
+      3
+    ],
+    "moderate": [
+      7,
+      2
+    ],
+    "strict": [
+      4,
+      3
+    ],
+    "ultra": [
+      3,
+      2
+    ]
+  },
+  "history": [
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.002137,
+      "abs_m5": 0.000351,
+      "rsi": 36.8,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W"
+      }
+    },
+    {
+      "preset_used": "relaxed",
+      "won": true,
+      "abs_m10": 0.002601,
+      "abs_m5": 0.000904,
+      "rsi": 70.2,
+      "side": "UP",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W",
+        "strict": "W",
+        "ultra": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.001823,
+      "abs_m5": 0.000426,
+      "rsi": 71.7,
+      "side": "UP",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W"
+      }
+    },
+    {
+      "preset_used": "strict",
+      "won": false,
+      "abs_m10": 0.001599,
+      "abs_m5": 0.00076,
+      "rsi": 41.9,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "L",
+        "moderate": "L",
+        "strict": "L"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.002093,
+      "abs_m5": 0.001873,
+      "rsi": 70.5,
+      "side": "UP",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W",
+        "strict": "W",
+        "ultra": "W"
+      }
+    },
+    {
+      "preset_used": "relaxed",
+      "won": true,
+      "abs_m10": 0.00077,
+      "abs_m5": 0.000821,
+      "rsi": 29.5,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "W"
+      }
+    }
+  ]
+}

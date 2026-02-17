@@ -1,0 +1,36 @@
+{
+  "low": {
+    "0.02": {
+      "alpha": 4,
+      "beta": 5,
+      "trades": 5,
+      "total_pnl": -8.4
+    },
+    "0.025": {
+      "alpha": 4,
+      "beta": 2,
+      "trades": 2,
+      "total_pnl": -4.1
+    },
+    "0.03": {
+      "alpha": 2,
+      "beta": 3,
+      "trades": 1,
+      "total_pnl": -4.4
+    }
+  },
+  "medium": {
+    "0.03": {
+      "alpha": 3,
+      "beta": 3,
+      "trades": 2,
+      "total_pnl": -9.3
+    },
+    "0.025": {
+      "alpha": 4,
+      "beta": 2,
+      "trades": 2,
+      "total_pnl": 5.7912
+    }
+  }
+}
