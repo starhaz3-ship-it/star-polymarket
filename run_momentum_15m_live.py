@@ -93,6 +93,120 @@ ASSETS = {
 
 RESULTS_FILE = Path(__file__).parent / "momentum_15m_results.json"
 
+
+# ============================================================================
+# V1.4: ADAPTIVE FILTER ML — Thompson sampling on filter presets
+# ============================================================================
+class AdaptiveFilterML:
+    """
+    Learns optimal momentum/RSI filter strictness via Thompson sampling.
+
+    4 presets from relaxed to ultra-strict. Each has Beta(alpha, beta) prior.
+    On each entry opportunity: sample all presets, pick highest, use its filters.
+    On resolution: update all presets that would have taken the trade.
+    Shadow-tracks what each preset would have done for faster learning.
+    """
+    PRESETS = {
+        "relaxed":  {"m10": 0.0005, "m5": 0.0002, "rsi_up": 52, "rsi_dn": 48},
+        "moderate": {"m10": 0.0008, "m5": 0.0003, "rsi_up": 55, "rsi_dn": 45},
+        "strict":   {"m10": 0.0012, "m5": 0.0005, "rsi_up": 58, "rsi_dn": 42},
+        "ultra":    {"m10": 0.0018, "m5": 0.0008, "rsi_up": 60, "rsi_dn": 40},
+    }
+    STATE_FILE = Path(__file__).parent / "momentum_ml_filter_state.json"
+    # Initial priors: moderate gets a slight head start (our V1.3 default)
+    DEFAULT_PRIORS = {
+        "relaxed":  [2, 2],
+        "moderate": [3, 1],
+        "strict":   [2, 2],
+        "ultra":    [1, 2],
+    }
+
+    def __init__(self):
+        self.betas = {}  # {preset_name: [alpha, beta]}
+        self.history = []  # [{preset, won, m10, m5, rsi, ...}]
+        self._load()
+
+    def _load(self):
+        try:
+            with open(self.STATE_FILE) as f:
+                data = json.load(f)
+            self.betas = data.get("betas", {})
+            self.history = data.get("history", [])
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+        # Ensure all presets have priors
+        for name, prior in self.DEFAULT_PRIORS.items():
+            if name not in self.betas:
+                self.betas[name] = list(prior)
+
+    def _save(self):
+        with open(self.STATE_FILE, "w") as f:
+            json.dump({"betas": self.betas, "history": self.history[-500:]}, f, indent=2)
+
+    def would_pass(self, preset_name: str, abs_m10: float, abs_m5: float,
+                   rsi: float, side: str) -> bool:
+        """Check if a candidate entry would pass a given preset's filters."""
+        p = self.PRESETS[preset_name]
+        if abs_m10 < p["m10"] or abs_m5 < p["m5"]:
+            return False
+        if side == "UP" and rsi < p["rsi_up"]:
+            return False
+        if side == "DOWN" and rsi > p["rsi_dn"]:
+            return False
+        return True
+
+    def select_preset(self) -> str:
+        """Thompson sampling: sample from each preset's Beta, return highest."""
+        import random
+        best_name, best_sample = None, -1
+        for name, (a, b) in self.betas.items():
+            sample = random.betavariate(max(a, 0.1), max(b, 0.1))
+            if sample > best_sample:
+                best_sample = sample
+                best_name = name
+        return best_name
+
+    def get_active_filters(self) -> dict:
+        """Return the filter thresholds for the selected preset."""
+        selected = self.select_preset()
+        return {"preset": selected, **self.PRESETS[selected]}
+
+    def record_outcome(self, won: bool, abs_m10: float, abs_m5: float,
+                       rsi: float, side: str, preset_used: str):
+        """Update all presets that would have taken this trade."""
+        record = {
+            "preset_used": preset_used, "won": won,
+            "abs_m10": abs_m10, "abs_m5": abs_m5, "rsi": rsi, "side": side,
+        }
+        shadow = {}
+        for name in self.PRESETS:
+            if self.would_pass(name, abs_m10, abs_m5, rsi, side):
+                # This preset would have taken this trade — update it
+                if won:
+                    self.betas[name][0] += 1  # alpha++
+                else:
+                    self.betas[name][1] += 1  # beta++
+                shadow[name] = "W" if won else "L"
+        record["shadow"] = shadow
+        self.history.append(record)
+        self._save()
+        return shadow
+
+    def get_report(self) -> str:
+        """Summary of each preset's learned performance."""
+        lines = ["[ML FILTER] Preset performance (Thompson sampling):"]
+        for name in ["relaxed", "moderate", "strict", "ultra"]:
+            a, b = self.betas.get(name, [1, 1])
+            total = a + b - sum(self.DEFAULT_PRIORS.get(name, [0, 0]))
+            wr = a / (a + b) * 100 if (a + b) > 0 else 0
+            lines.append(f"  {name:10s} | alpha={a:.0f} beta={b:.0f} | "
+                         f"~{wr:.0f}%WR | {total:.0f} data points")
+        # Current favorite
+        best = max(self.betas.items(), key=lambda x: x[1][0] / (x[1][0] + x[1][1]))
+        lines.append(f"  Favorite: {best[0]} ({best[1][0]/(best[1][0]+best[1][1])*100:.0f}% mean)")
+        return "\n".join(lines)
+
+
 # ============================================================================
 # AUTO-REDEEM (gasless relayer) — same as maker bot
 # ============================================================================
@@ -186,6 +300,7 @@ class Momentum15MTrader:
         self.session_pnl = 0.0  # session loss tracking for daily limit
         self.running = True     # V1.2: auto-kill sets this to False
         self.tier = "PROBATION"  # current promotion tier
+        self.filter_ml = AdaptiveFilterML()  # V1.4: adaptive filter ML
         self._load()
 
         if not self.paper:
@@ -472,6 +587,19 @@ class Momentum15MTrader:
                                       f"session=${self.session_pnl:+.2f} | "
                                       f"[{self.tier}] | {trade.get('title', '')[:40]}")
 
+                                # V1.4: Update ML filter with outcome
+                                ml_rsi = trade.get("rsi") or 50
+                                ml_shadow = self.filter_ml.record_outcome(
+                                    won=won,
+                                    abs_m10=abs(trade.get("momentum_10m", 0)),
+                                    abs_m5=abs(trade.get("momentum_5m", 0)),
+                                    rsi=ml_rsi,
+                                    side=trade["side"],
+                                    preset_used=trade.get("ml_preset", "moderate"),
+                                )
+                                if ml_shadow:
+                                    print(f"[ML] Shadow: {ml_shadow}")
+
                                 # Check promotion or auto-kill after each resolved trade
                                 self.check_promotion()
                                 if self.check_auto_kill():
@@ -573,21 +701,25 @@ class Momentum15MTrader:
             if f"15m_{cid}_UP" in self.trades or f"15m_{cid}_DOWN" in self.trades:
                 continue
 
-            # === MOMENTUM_STRONG ONLY ===
+            # === MOMENTUM_STRONG + ML FILTER (V1.4) ===
             side = None
             entry_price = None
+            ml_filters = self.filter_ml.get_active_filters()
+            ml_preset = ml_filters["preset"]
+            ml_m10 = ml_filters["m10"]
+            ml_m5 = ml_filters["m5"]
+            ml_rsi_up = ml_filters["rsi_up"]
+            ml_rsi_dn = ml_filters["rsi_dn"]
 
-            if momentum_10m > MIN_MOMENTUM_10M and momentum_5m > MIN_MOMENTUM_5M:
-                # Upward momentum, both timeframes aligned with minimum thresholds
-                if rsi_val is not None and rsi_val < RSI_CONFIRM_UP:
-                    continue  # V1.3: RSI too weak to confirm UP
+            if momentum_10m > ml_m10 and momentum_5m > ml_m5:
+                if rsi_val is not None and rsi_val < ml_rsi_up:
+                    continue  # V1.4: RSI below ML preset threshold for UP
                 if MIN_ENTRY <= up_price <= MAX_ENTRY:
                     side = "UP"
                     entry_price = round(up_price + (SPREAD_OFFSET if self.paper else 0), 2)
-            elif momentum_10m < -MIN_MOMENTUM_10M and momentum_5m < -MIN_MOMENTUM_5M:
-                # Downward momentum, both timeframes aligned with minimum thresholds
-                if rsi_val is not None and rsi_val > RSI_CONFIRM_DOWN:
-                    continue  # V1.3: RSI too strong to confirm DOWN
+            elif momentum_10m < -ml_m10 and momentum_5m < -ml_m5:
+                if rsi_val is not None and rsi_val > ml_rsi_dn:
+                    continue  # V1.4: RSI above ML preset threshold for DOWN
                 if MIN_ENTRY <= down_price <= MAX_ENTRY:
                     side = "DOWN"
                     entry_price = round(down_price + (SPREAD_OFFSET if self.paper else 0), 2)
@@ -652,6 +784,7 @@ class Momentum15MTrader:
                 "momentum_10m": round(momentum_10m, 6),
                 "momentum_5m": round(momentum_5m, 6),
                 "rsi": round(rsi_val, 1) if rsi_val is not None else None,
+                "ml_preset": ml_preset,
                 "asset_price": asset_price,
                 "order_id": order_id,
                 "status": "open",
@@ -663,7 +796,7 @@ class Momentum15MTrader:
             rsi_str = f"RSI={rsi_val:.0f}" if rsi_val is not None else "RSI=?"
             print(f"[ENTRY] {asset}:{side} ${entry_price:.2f} ${trade_size:.2f} ({shares:.0f}sh) | momentum_strong | "
                   f"mom_10m={momentum_10m:+.4%} mom_5m={momentum_5m:+.4%} {rsi_str} | "
-                  f"{asset}=${asset_price:,.2f} | time={time_left:.1f}m | [{mode}] | "
+                  f"[ML:{ml_preset}] | {asset}=${asset_price:,.2f} | time={time_left:.1f}m | [{mode}] | "
                   f"{question[:50]}")
 
     # ========================================================================
@@ -674,7 +807,7 @@ class Momentum15MTrader:
         mode = "PAPER" if self.paper else "LIVE"
         print("=" * 70)
         tier_size = TIERS[self.tier]["size"]
-        print(f"MOMENTUM 15M DIRECTIONAL TRADER V1.3 - {mode} MODE")
+        print(f"MOMENTUM 15M DIRECTIONAL TRADER V1.4 - {mode} MODE")
         print(f"Strategy: Multi-asset momentum_strong on Polymarket 15M markets")
         print(f"Paper-proven: 224W/134L, 63% WR, +$1,459 PnL")
         print(f"Assets: {', '.join(ASSETS.keys())}")
@@ -685,6 +818,7 @@ class Momentum15MTrader:
         print(f"Entry price: ${MIN_ENTRY:.2f}-${MAX_ENTRY:.2f} (V1.1: raised floor — <$0.35 was 0W/3L)")
         print(f"Entry window: {TIME_WINDOW[0]}-{TIME_WINDOW[1]} min before close")
         print(f"Min momentum: {MIN_MOMENTUM_10M:.4%} (10m) + {MIN_MOMENTUM_5M:.4%} (5m) | RSI: >{RSI_CONFIRM_UP} UP, <{RSI_CONFIRM_DOWN} DOWN")
+        print(f"ML Filter: Thompson sampling | presets: relaxed/moderate/strict/ultra | auto-tunes thresholds")
         print(f"Daily loss limit: ${DAILY_LOSS_LIMIT}")
         print(f"Scan interval: {SCAN_INTERVAL}s")
         print("=" * 70)
@@ -756,6 +890,10 @@ class Momentum15MTrader:
                     if in_window:
                         mkt_str = " ".join(f"{a}={n}" for a, n in sorted(in_window.items()))
                         print(f"    Markets in window: {mkt_str}")
+
+                # V1.4: ML filter report every 25 cycles
+                if cycle % 25 == 0 and cycle > 0:
+                    print(self.filter_ml.get_report())
 
                 # Auto-redeem every 45s (live only)
                 if not self.paper and now_ts - last_redeem >= 45:
