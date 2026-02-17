@@ -402,7 +402,12 @@ class MakerConfig:
 
     # Position sizing
     SIZE_PER_SIDE_USD: float = 3.0       # V5.0: $3/side for deep (was $5 — reduce risk on directional bets)
-    DEEP_UP_ONLY: bool = True            # V5.0: Deep bids UP-only (DOWN lost -$111 total, bullish crypto bias)
+    DEEP_UP_ONLY: bool = False           # V5.0: Superseded by DEEP_MOMENTUM_GUIDED
+    DEEP_MOMENTUM_GUIDED: bool = True    # V5.0: Use Binance momentum to pick deep bid direction
+    DEEP_MOM_MIN_10M: float = 0.0008    # Min 10m momentum to trigger (same as momentum 15M moderate)
+    DEEP_MOM_MIN_5M: float = 0.0003     # Min 5m momentum to trigger
+    DEEP_MOM_RSI_UP: float = 55.0       # RSI > this for UP direction
+    DEEP_MOM_RSI_DOWN: float = 45.0     # RSI < this for DOWN direction
     MAX_PAIR_EXPOSURE: float = 30.0      # V4.9: $30/pair (scaled for $5/side)
     MAX_TOTAL_EXPOSURE: float = 50.0     # V4.9: $50 max (leaves buffer on $102 account)
     MIN_SHARES: int = 5                  # CLOB minimum order size
@@ -1800,6 +1805,11 @@ class PairPosition:
     skew_contributions: dict = field(default_factory=dict)
     # V4.9.2: Volatility regime when trade was placed (for adaptive offset learning)
     vol_regime: str = ""
+    # V5.0: Momentum-guided deep direction
+    momentum_direction: str = ""  # "UP" or "DOWN" — what momentum signal said at entry
+    momentum_10m: float = 0.0
+    momentum_5m: float = 0.0
+    momentum_rsi: float = 50.0
 
     @property
     def is_paired(self) -> bool:
@@ -1985,6 +1995,123 @@ class SkewShadowTracker:
 
 
 # ============================================================================
+# V5.0: DEEP MOMENTUM TRACKER — ML comparison of momentum-guided vs UP-only
+# ============================================================================
+
+class DeepMomentumTracker:
+    """Shadow-tracks momentum-guided deep bids vs UP-only baseline.
+    Records each deep trade with what momentum predicted and what UP-only
+    would have done. Reports comparison to validate the momentum edge."""
+
+    STATE_FILE = Path(__file__).parent / "deep_momentum_ml.json"
+
+    def __init__(self):
+        self.trades: List[dict] = []
+        self.summary = {
+            "momentum_guided": {"wins": 0, "losses": 0, "total_pnl": 0.0},
+            "up_only_shadow": {"wins": 0, "losses": 0, "total_pnl": 0.0},
+            "no_signal_skipped": 0,
+        }
+        self._load()
+
+    def _load(self):
+        if self.STATE_FILE.exists():
+            try:
+                data = json.loads(self.STATE_FILE.read_text())
+                self.trades = data.get("trades", [])
+                self.summary = data.get("summary", self.summary)
+            except Exception:
+                pass
+
+    def _save(self):
+        try:
+            self.STATE_FILE.write_text(json.dumps({
+                "trades": self.trades[-500:],
+                "summary": self.summary,
+                "last_updated": datetime.now(timezone.utc).isoformat(),
+            }, indent=2, default=str))
+        except Exception:
+            pass
+
+    def record_trade(self, asset: str, outcome: str, fill_price: float,
+                     fill_side: str, momentum_dir: str, momentum_10m: float,
+                     momentum_5m: float, rsi: float, pnl: float):
+        """Record a resolved deep trade for ML comparison."""
+        # What UP-only would have done
+        if fill_side == "UP":
+            up_only_pnl = pnl  # Same trade
+        else:
+            # We bid DOWN via momentum. UP-only would have bid UP at similar price.
+            # If outcome is UP, UP-only wins; if DOWN, UP-only loses.
+            if outcome == "UP":
+                up_only_pnl = (1.0 - fill_price) * (abs(pnl) / max(0.01, fill_price if pnl < 0 else 1.0 - fill_price))
+            else:
+                up_only_pnl = -fill_price * (abs(pnl) / max(0.01, 1.0 - fill_price if pnl > 0 else fill_price))
+
+        record = {
+            "asset": asset,
+            "outcome": outcome,
+            "fill_side": fill_side,
+            "fill_price": fill_price,
+            "momentum_dir": momentum_dir,
+            "momentum_10m": momentum_10m,
+            "momentum_5m": momentum_5m,
+            "rsi": rsi,
+            "pnl": round(pnl, 4),
+            "up_only_shadow_pnl": round(up_only_pnl, 4),
+            "correct_direction": (momentum_dir == outcome),
+            "ts": datetime.now(timezone.utc).isoformat(),
+        }
+        self.trades.append(record)
+
+        # Update summary
+        mg = self.summary["momentum_guided"]
+        if pnl > 0:
+            mg["wins"] += 1
+        else:
+            mg["losses"] += 1
+        mg["total_pnl"] = round(mg["total_pnl"] + pnl, 4)
+
+        uo = self.summary["up_only_shadow"]
+        if up_only_pnl > 0:
+            uo["wins"] += 1
+        else:
+            uo["losses"] += 1
+        uo["total_pnl"] = round(uo["total_pnl"] + up_only_pnl, 4)
+
+        self._save()
+
+    def record_skip(self):
+        """Record when no momentum signal = no deep bid placed."""
+        self.summary["no_signal_skipped"] += 1
+
+    def get_report(self) -> str:
+        """Comparison report: momentum-guided vs UP-only shadow."""
+        mg = self.summary["momentum_guided"]
+        uo = self.summary["up_only_shadow"]
+        mg_total = mg["wins"] + mg["losses"]
+        uo_total = uo["wins"] + uo["losses"]
+
+        if mg_total == 0:
+            return "[DEEP-ML] No momentum-guided trades yet"
+
+        mg_wr = mg["wins"] / mg_total * 100
+        uo_wr = uo["wins"] / uo_total * 100 if uo_total > 0 else 0
+        correct = sum(1 for t in self.trades if t.get("correct_direction"))
+        acc = correct / len(self.trades) * 100 if self.trades else 0
+        skipped = self.summary["no_signal_skipped"]
+
+        lines = [
+            f"[DEEP-ML] Momentum-guided vs UP-only ({mg_total} trades, {skipped} skipped):",
+            f"  Momentum: {mg['wins']}W/{mg['losses']}L ({mg_wr:.0f}%WR) | ${mg['total_pnl']:+.2f}",
+            f"  UP-only:  {uo['wins']}W/{uo['losses']}L ({uo_wr:.0f}%WR) | ${uo['total_pnl']:+.2f}",
+            f"  Delta: ${mg['total_pnl'] - uo['total_pnl']:+.2f} (momentum {'BETTER' if mg['total_pnl'] > uo['total_pnl'] else 'WORSE'})",
+            f"  Direction accuracy: {correct}/{len(self.trades)} = {acc:.0f}%",
+        ]
+        return "\n".join(lines)
+
+
+# ============================================================================
 # MARKET MAKER BOT
 # ============================================================================
 
@@ -1999,12 +2126,14 @@ class CryptoMarketMaker:
         self.config = MakerConfig()
         self.client = None  # ClobClient (live only)
         self.ml_optimizer = OffsetOptimizer()
-        self.momentum = BinanceMomentum() if (self.config.MOMENTUM_ENABLED or self.config.LATE_CANDLE_ENABLED or self.config.PAIRED_MODE_ENABLED) else None
+        self.momentum = BinanceMomentum() if (self.config.MOMENTUM_ENABLED or self.config.LATE_CANDLE_ENABLED or self.config.PAIRED_MODE_ENABLED or self.config.DEEP_MOMENTUM_GUIDED) else None
         # V4.8: Direction prediction for paired skew
         self.direction_predictor = DirectionPredictor()
         self.skew_shadow = SkewShadowTracker()
         # V4.9.2: Volatility-adaptive paired offset
         self.vol_offset = VolAdaptiveOffset()
+        # V5.0: Momentum-guided deep bid direction tracking
+        self.deep_momentum_ml = DeepMomentumTracker()
 
         # State
         self.positions: Dict[str, PairPosition] = {}  # market_id -> PairPosition
@@ -2609,6 +2738,56 @@ class CryptoMarketMaker:
             ),
         }
 
+    def compute_deep_momentum(self, asset: str = "BTC") -> dict:
+        """V5.0: Compute momentum direction for deep bids from Binance 1m klines.
+        Returns {"direction": "UP"/"DOWN"/None, "m10": float, "m5": float, "rsi": float}"""
+        klines = []
+        if self.momentum:
+            klines = (self.momentum.last_kline_data if asset == "BTC"
+                      else self.momentum.last_eth_kline_data)
+        if not klines or len(klines) < 15:
+            return {"direction": None, "m10": 0, "m5": 0, "rsi": 50}
+
+        closes = [float(k[4]) for k in klines]  # index 4 = close price
+
+        # Momentum: 10m = last 10 bars, 5m = last 5 bars
+        if len(closes) >= 10:
+            m10 = (closes[-1] - closes[-10]) / closes[-10]
+        else:
+            m10 = 0
+        if len(closes) >= 5:
+            m5 = (closes[-1] - closes[-5]) / closes[-5]
+        else:
+            m5 = 0
+
+        # RSI(14) — Wilder's smoothing
+        rsi = 50.0
+        if len(closes) >= 15:
+            deltas = [closes[i] - closes[i-1] for i in range(1, len(closes))]
+            gains = [d if d > 0 else 0 for d in deltas]
+            losses_r = [-d if d < 0 else 0 for d in deltas]
+            avg_gain = sum(gains[:14]) / 14
+            avg_loss = sum(losses_r[:14]) / 14
+            for i in range(14, len(deltas)):
+                avg_gain = (avg_gain * 13 + gains[i]) / 14
+                avg_loss = (avg_loss * 13 + losses_r[i]) / 14
+            if avg_loss > 0:
+                rsi = 100 - (100 / (1 + avg_gain / avg_loss))
+            else:
+                rsi = 100.0
+
+        # Determine direction
+        direction = None
+        cfg = self.config
+        if m10 > cfg.DEEP_MOM_MIN_10M and m5 > cfg.DEEP_MOM_MIN_5M:
+            if rsi >= cfg.DEEP_MOM_RSI_UP:
+                direction = "UP"
+        elif m10 < -cfg.DEEP_MOM_MIN_10M and m5 < -cfg.DEEP_MOM_MIN_5M:
+            if rsi <= cfg.DEEP_MOM_RSI_DOWN:
+                direction = "DOWN"
+
+        return {"direction": direction, "m10": m10, "m5": m5, "rsi": rsi}
+
     def evaluate_pair_mid(self, pair: MarketPair) -> dict:
         """V4.7: Evaluate a market pair for mid-bid PAIRED strategy.
         Tight offset near mid-price. Goal: get BOTH sides filled for guaranteed profit.
@@ -2865,10 +3044,11 @@ class CryptoMarketMaker:
             if not pos.first_fill_time:
                 pos.first_fill_time = datetime.now(timezone.utc).isoformat()
             # Trigger instant FOK hedge on first partial detection
-            if was_pending and not self.paper:
+            # V5.0: Only hedge + sell-back for paired tier (deep rides as momentum-guided directional)
+            if was_pending and not self.paper and pos.entry_tier == "paired":
                 if self.config.TAKER_HEDGE_ENABLED:
                     await self._taker_hedge(pos)
-                # V4.6: If hedge didn't pair us, try immediate sell-back
+                # V5.0: If hedge didn't pair us, sell back immediately
                 # Token still has value (<1s after fill) — don't wait 120s
                 if pos.status == "partial" and not (pos.up_filled and pos.down_filled):
                     await self._fast_sellback(pos)
@@ -2950,8 +3130,21 @@ class CryptoMarketMaker:
 
         # V4.9.1: Paired tier uses fixed size, no inventory skew or momentum (direction-neutral)
         is_paired = eval_result.get("entry_tier") == "paired"
-        # V5.0: Deep tier is UP-only (skip DOWN entirely)
-        is_deep_up_only = (not is_paired and self.config.DEEP_UP_ONLY)
+        # V5.0: Deep tier momentum-guided direction (or UP-only fallback)
+        deep_direction = None  # None = place both sides (paired behavior)
+        if not is_paired:
+            if self.config.DEEP_MOMENTUM_GUIDED:
+                mom = self.compute_deep_momentum(pair.asset)
+                deep_direction = mom["direction"]  # "UP", "DOWN", or None
+                if deep_direction is None:
+                    # No clear signal — skip this deep bid entirely
+                    self.deep_momentum_ml.record_skip()
+                    print(f"  [DEEP-MOM] No signal (m10={mom['m10']:+.4%} m5={mom['m5']:+.4%} RSI={mom['rsi']:.0f}) — skipping")
+                    return None
+                print(f"  [DEEP-MOM] Signal: {deep_direction} (m10={mom['m10']:+.4%} m5={mom['m5']:+.4%} RSI={mom['rsi']:.0f})")
+            elif self.config.DEEP_UP_ONLY:
+                deep_direction = "UP"
+        is_deep_single_side = (deep_direction is not None)
 
         if is_paired:
             base_size = self.config.PAIRED_SIZE_PER_SIDE
@@ -2969,13 +3162,16 @@ class CryptoMarketMaker:
             down_size = base_size * down_skew
 
         # Calculate shares for each side
-        up_shares = max(self.config.MIN_SHARES, math.floor(up_size / up_bid))
-        down_shares = 0 if is_deep_up_only else max(self.config.MIN_SHARES, math.floor(down_size / down_bid))
+        # V5.0: For momentum-guided deep, only compute shares for the chosen side
+        skip_up = (is_deep_single_side and deep_direction == "DOWN")
+        skip_down = (is_deep_single_side and deep_direction == "UP")
+        up_shares = 0 if skip_up else max(self.config.MIN_SHARES, math.floor(up_size / up_bid))
+        down_shares = 0 if skip_down else max(self.config.MIN_SHARES, math.floor(down_size / down_bid))
 
         # Cap shares to size budget
-        if up_bid * up_shares > up_size:
+        if not skip_up and up_bid * up_shares > up_size:
             up_shares = max(self.config.MIN_SHARES, math.floor(up_size / up_bid))
-        if not is_deep_up_only and down_bid * down_shares > down_size:
+        if not skip_down and down_bid * down_shares > down_size:
             down_shares = max(self.config.MIN_SHARES, math.floor(down_size / down_bid))
 
         # V4.7.4: Paired tier MUST have equal shares for guaranteed profit
@@ -3002,6 +3198,11 @@ class CryptoMarketMaker:
             skew_contributions=eval_result.get("skew_contributions", {}),
             # V4.9.2: Volatility regime for adaptive offset learning
             vol_regime=eval_result.get("vol_regime", ""),
+            # V5.0: Momentum-guided deep direction
+            momentum_direction=deep_direction or "",
+            momentum_10m=mom["m10"] if (not is_paired and self.config.DEEP_MOMENTUM_GUIDED) else 0,
+            momentum_5m=mom["m5"] if (not is_paired and self.config.DEEP_MOMENTUM_GUIDED) else 0,
+            momentum_rsi=mom["rsi"] if (not is_paired and self.config.DEEP_MOMENTUM_GUIDED) else 50,
         )
 
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -3013,18 +3214,19 @@ class CryptoMarketMaker:
 
         if self.paper:
             # Paper mode: simulate immediate placement, simulate fills probabilistically
-            pos.up_order = MakerOrder(
-                order_id=f"paper_up_{pair.market_id[:12]}_{int(time.time())}",
-                market_id=pair.market_id,
-                token_id=pair.up_token_id,
-                side_label="UP",
-                price=up_bid,
-                size_shares=float(up_shares),
-                size_usd=up_bid * up_shares,
-                placed_at=now_iso,
-                placed_at_ts=now_ts,
-            )
-            if not is_deep_up_only:
+            if not skip_up:
+                pos.up_order = MakerOrder(
+                    order_id=f"paper_up_{pair.market_id[:12]}_{int(time.time())}",
+                    market_id=pair.market_id,
+                    token_id=pair.up_token_id,
+                    side_label="UP",
+                    price=up_bid,
+                    size_shares=float(up_shares),
+                    size_usd=up_bid * up_shares,
+                    placed_at=now_iso,
+                    placed_at_ts=now_ts,
+                )
+            if not skip_down:
                 pos.down_order = MakerOrder(
                     order_id=f"paper_dn_{pair.market_id[:12]}_{int(time.time())}",
                     market_id=pair.market_id,
@@ -3036,8 +3238,10 @@ class CryptoMarketMaker:
                     placed_at=now_iso,
                     placed_at_ts=now_ts,
                 )
-            if is_deep_up_only:
-                print(f"  [PAPER] Placed UP-ONLY bid ${up_bid:.2f} x {up_shares} (V5.0: deep UP-only)")
+            if is_deep_single_side:
+                bid = up_bid if deep_direction == "UP" else down_bid
+                shares = up_shares if deep_direction == "UP" else down_shares
+                print(f"  [PAPER] Placed {deep_direction}-ONLY bid ${bid:.2f} x {shares} (momentum-guided)")
             else:
                 print(f"  [PAPER] Placed UP bid ${up_bid:.2f} x {up_shares} + DOWN bid ${down_bid:.2f} x {down_shares}")
             print(f"          Combined: ${up_bid + down_bid:.4f} | Edge: {eval_result['edge_pct']:.1f}% | g={eval_result.get('gamma', 0):.2f}")
@@ -3047,38 +3251,38 @@ class CryptoMarketMaker:
                 from py_clob_client.clob_types import OrderArgs, OrderType
                 from py_clob_client.order_builder.constants import BUY
 
-                # Place UP order
-                up_args = OrderArgs(
-                    price=up_bid,
-                    size=float(up_shares),
-                    side=BUY,
-                    token_id=pair.up_token_id,
-                )
-                up_signed = self.client.create_order(up_args)
-                up_resp = self.client.post_order(up_signed, OrderType.GTC)
+                # V5.0: Place orders based on direction (momentum-guided = single side, paired = both)
+                up_order_id = ""
+                dn_order_id = ""
 
-                if not up_resp.get("success"):
-                    print(f"  [LIVE] UP order failed: {up_resp.get('errorMsg', '?')}")
-                    return None
+                # Place UP order (unless momentum says DOWN-only)
+                if not skip_up:
+                    up_args = OrderArgs(
+                        price=up_bid,
+                        size=float(up_shares),
+                        side=BUY,
+                        token_id=pair.up_token_id,
+                    )
+                    up_signed = self.client.create_order(up_args)
+                    up_resp = self.client.post_order(up_signed, OrderType.GTC)
+                    if not up_resp.get("success"):
+                        print(f"  [LIVE] UP order failed: {up_resp.get('errorMsg', '?')}")
+                        return None
+                    up_order_id = up_resp.get("orderID", "")
+                    pos.up_order = MakerOrder(
+                        order_id=up_order_id,
+                        market_id=pair.market_id,
+                        token_id=pair.up_token_id,
+                        side_label="UP",
+                        price=up_bid,
+                        size_shares=float(up_shares),
+                        size_usd=up_bid * up_shares,
+                        placed_at=now_iso,
+                        placed_at_ts=now_ts,
+                    )
 
-                up_order_id = up_resp.get("orderID", "")
-                pos.up_order = MakerOrder(
-                    order_id=up_order_id,
-                    market_id=pair.market_id,
-                    token_id=pair.up_token_id,
-                    side_label="UP",
-                    price=up_bid,
-                    size_shares=float(up_shares),
-                    size_usd=up_bid * up_shares,
-                    placed_at=now_iso,
-                    placed_at_ts=now_ts,
-                )
-
-                if is_deep_up_only:
-                    # V5.0: Deep UP-only — no DOWN order
-                    print(f"  [LIVE] Placed UP-ONLY {up_order_id[:16]}... @ ${up_bid:.2f} x {up_shares} (V5.0: deep UP-only)")
-                else:
-                    # Place DOWN order
+                # Place DOWN order (unless momentum says UP-only)
+                if not skip_down:
                     dn_args = OrderArgs(
                         price=down_bid,
                         size=float(down_shares),
@@ -3087,16 +3291,14 @@ class CryptoMarketMaker:
                     )
                     dn_signed = self.client.create_order(dn_args)
                     dn_resp = self.client.post_order(dn_signed, OrderType.GTC)
-
                     if not dn_resp.get("success"):
                         print(f"  [LIVE] DOWN order failed: {dn_resp.get('errorMsg', '?')}")
-                        # Cancel UP order since we can't pair
-                        try:
-                            self.client.cancel(up_order_id)
-                        except Exception:
-                            pass
+                        if up_order_id:
+                            try:
+                                self.client.cancel(up_order_id)
+                            except Exception:
+                                pass
                         return None
-
                     dn_order_id = dn_resp.get("orderID", "")
                     pos.down_order = MakerOrder(
                         order_id=dn_order_id,
@@ -3110,6 +3312,13 @@ class CryptoMarketMaker:
                         placed_at_ts=now_ts,
                     )
 
+                # Log placement
+                if is_deep_single_side:
+                    bid = up_bid if deep_direction == "UP" else down_bid
+                    shares = up_shares if deep_direction == "UP" else down_shares
+                    oid = up_order_id if deep_direction == "UP" else dn_order_id
+                    print(f"  [LIVE] Placed {deep_direction}-ONLY {oid[:16]}... @ ${bid:.2f} x {shares} (momentum-guided)")
+                else:
                     print(f"  [LIVE] Placed UP {up_order_id[:16]}... @ ${up_bid:.2f} x {up_shares}")
                     print(f"  [LIVE] Placed DN {dn_order_id[:16]}... @ ${down_bid:.2f} x {down_shares}")
                     print(f"         Combined: ${up_bid + down_bid:.4f} | Edge: {eval_result['edge_pct']:.1f}% | g={eval_result.get('gamma', 0):.2f}")
@@ -3175,6 +3384,12 @@ class CryptoMarketMaker:
                 if (was_pending and self.config.TAKER_HEDGE_ENABLED
                         and not self.paper and pos.entry_tier == "paired"):
                     await self._taker_hedge(pos)
+                # V5.0: Sell-back paired partials if hedge failed (REST path)
+                if (was_pending and not self.paper
+                        and pos.entry_tier == "paired"
+                        and pos.status == "partial"
+                        and not (pos.up_filled and pos.down_filled)):
+                    await self._fast_sellback(pos)
 
     async def _check_fills_paper(self, pos: PairPosition):
         """Simulate fills for paper mode.
@@ -5030,15 +5245,36 @@ class CryptoMarketMaker:
                         timestamp=now.isoformat(),
                     )
 
+            # V5.0: Record momentum-guided deep trade for ML comparison
+            if pos.entry_tier == "deep" and pos.momentum_direction:
+                fill_side = "UP" if pos.up_filled else "DOWN" if pos.down_filled else ""
+                fill_price = 0
+                if pos.up_filled and pos.up_order:
+                    fill_price = pos.up_order.fill_price
+                elif pos.down_filled and pos.down_order:
+                    fill_price = pos.down_order.fill_price
+                if fill_side and fill_price > 0:
+                    self.deep_momentum_ml.record_trade(
+                        asset=pos.asset, outcome=outcome,
+                        fill_price=fill_price, fill_side=fill_side,
+                        momentum_dir=pos.momentum_direction,
+                        momentum_10m=pos.momentum_10m,
+                        momentum_5m=pos.momentum_5m,
+                        rsi=pos.momentum_rsi, pnl=pnl,
+                    )
+
             # Log
             pair_type = "PAIRED" if pos.is_paired else "PARTIAL" if pos.is_partial else "UNFILLED"
             lc_tag = f" [LC:{pos.entry_type}]" if pos.entry_type != "maker" else ""
             icon = "+" if pnl > 0 else "-" if pnl < 0 else "="
             skew_tag = ""
+            mom_tag = ""
             if pos.entry_tier == "paired" and pos.skew_confidence != 0.0:
                 d = "UP" if pos.skew_confidence > 0 else "DN"
                 skew_tag = f" [skew:{d} {pos.skew_confidence:+.2f}]"
-            print(f"  [{pair_type}]{lc_tag}{skew_tag} {pos.asset} {pos.question[:50]} | {outcome} | PnL: {icon}${abs(pnl):.4f} (off={pos.bid_offset_used:.1%})")
+            if pos.momentum_direction:
+                mom_tag = f" [mom:{pos.momentum_direction}]"
+            print(f"  [{pair_type}]{lc_tag}{skew_tag}{mom_tag} {pos.asset} {pos.question[:50]} | {outcome} | PnL: {icon}${abs(pnl):.4f} (off={pos.bid_offset_used:.1%})")
 
             # Archive
             self.resolved.append({
@@ -5059,6 +5295,8 @@ class CryptoMarketMaker:
                 "entry_type": pos.entry_type,
                 "entry_tier": pos.entry_tier,
                 "loser_buy_price": pos.loser_buy_price,
+                # V5.0: Momentum-guided direction
+                "momentum_direction": pos.momentum_direction,
             })
 
         # Clean resolved from active
@@ -5309,9 +5547,14 @@ class CryptoMarketMaker:
         mode = "PAPER" if self.paper else "LIVE"
         print(f"AVELLANEDA MAKER V5.0 - {mode} MODE")
         deep_assets = ",".join(self.config.DEEP_ASSETS)
-        up_only_tag = " UP-ONLY" if self.config.DEEP_UP_ONLY else ""
+        if self.config.DEEP_MOMENTUM_GUIDED:
+            deep_dir_tag = " MOMENTUM-GUIDED"
+        elif self.config.DEEP_UP_ONLY:
+            deep_dir_tag = " UP-ONLY"
+        else:
+            deep_dir_tag = ""
         paired_str = f" + PAIRED mid-bids BTC+ETH (${self.config.PAIRED_SIZE_PER_SIDE:.0f}/side, max {self.config.PAIRED_MAX_CONCURRENT})" if self.config.PAIRED_MODE_ENABLED else ""
-        print(f"Strategy: Deep bids {deep_assets}{up_only_tag} (${self.config.SIZE_PER_SIDE_USD}/side) + dir cap {self.config.MAX_SAME_DIRECTION}{paired_str}")
+        print(f"Strategy: Deep bids {deep_assets}{deep_dir_tag} (${self.config.SIZE_PER_SIDE_USD}/side) + dir cap {self.config.MAX_SAME_DIRECTION}{paired_str}")
         print(f"Deep size: ${self.config.SIZE_PER_SIDE_USD}/side | Paired size: ${self.config.PAIRED_SIZE_PER_SIDE}/side | Gamma: {self.config.DEFAULT_GAMMA} (ML-tuned) | "
               f"Base spread: {self.config.BASE_SPREAD*100:.0f}c")
         print(f"Max combined: ${self.config.MAX_COMBINED_PRICE} | Min edge: {self.config.MIN_SPREAD_EDGE*100:.0f}% | "
@@ -5413,6 +5656,10 @@ class CryptoMarketMaker:
                 # V4.4: Filled order delay — skip new placements for 5s after any fill
                 fill_cooldown = time.time() - self._last_fill_time < self.config.FILLED_ORDER_DELAY
                 if self.check_risk() and not fill_cooldown:
+                    # V5.0: Fetch klines for momentum-guided deep bids (before Phase 6)
+                    if self.momentum and self.config.DEEP_MOMENTUM_GUIDED:
+                        await self.momentum.fetch_btc_klines(limit=25)
+
                     # Phase 6: Evaluate and place orders on best pairs
                     # 5M markets get priority (shorter duration = higher priority)
                     markets.sort(key=lambda p: p.duration_min)
@@ -5516,6 +5763,10 @@ class CryptoMarketMaker:
 
                     # V4.9.2: Volatility-adaptive offset report
                     print(self.vol_offset.get_report())
+
+                    # V5.0: Deep momentum-guided comparison report
+                    if self.config.DEEP_MOMENTUM_GUIDED:
+                        print(self.deep_momentum_ml.get_report())
 
                 # Phase 8b: V4.6 On-chain PnL verification every 25 cycles (~4 min)
                 if not self.paper and cycle % 25 == 0:
