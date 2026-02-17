@@ -4,6 +4,9 @@
 **Owner:** Star
 **Resume Command:** "Access Star-Polymarket"
 
+## DISPLAY PREFERENCES
+- **Always use MST (Mountain Standard Time) when displaying times to Star.** Never use ET/Eastern. UTC is also acceptable. Format: "12:00 AM MST" or "07:00 UTC".
+
 ## CRITICAL RULES
 - **NEVER** launch copy traders (`run_copy_live.py`, `run_copy_k9Q2.py`) without Star's explicit consent
 - **NEVER** run directional traders live (`run_ta_live.py`, `run_ema_rsi_5m.py`, `run_trend_scalp_15m.py`, `run_momentum_5m.py`). Directional trading has 40% WR and -$214 lifetime losses.
