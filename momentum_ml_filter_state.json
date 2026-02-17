@@ -1,15 +1,15 @@
 {
   "betas": {
     "relaxed": [
-      7,
-      3
+      19,
+      4
     ],
     "moderate": [
-      7,
+      19,
       2
     ],
     "strict": [
-      4,
+      8,
       3
     ],
     "ultra": [
@@ -92,6 +92,165 @@
       "side": "DOWN",
       "shadow": {
         "relaxed": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.000879,
+      "abs_m5": 0.000644,
+      "rsi": 58.7,
+      "side": "UP",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.001066,
+      "abs_m5": 0.000386,
+      "rsi": 29.0,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W"
+      }
+    },
+    {
+      "preset_used": "relaxed",
+      "won": true,
+      "abs_m10": 0.001582,
+      "abs_m5": 0.001045,
+      "rsi": 22.6,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W",
+        "strict": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.000958,
+      "abs_m5": 0.000739,
+      "rsi": 38.5,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.001149,
+      "abs_m5": 0.000612,
+      "rsi": 37.0,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.000844,
+      "abs_m5": 0.00093,
+      "rsi": 39.2,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.00136,
+      "abs_m5": 0.000661,
+      "rsi": 35.9,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W",
+        "strict": "W"
+      }
+    },
+    {
+      "preset_used": "relaxed",
+      "won": true,
+      "abs_m10": 0.001486,
+      "abs_m5": 0.000985,
+      "rsi": 59.6,
+      "side": "UP",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W",
+        "strict": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.001853,
+      "abs_m5": 0.000421,
+      "rsi": 20.7,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.003315,
+      "abs_m5": 0.000794,
+      "rsi": 16.3,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W",
+        "strict": "W"
+      }
+    },
+    {
+      "preset_used": "relaxed",
+      "won": false,
+      "abs_m10": 0.001255,
+      "abs_m5": 0.000292,
+      "rsi": 24.4,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "L"
+      }
+    },
+    {
+      "preset_used": "relaxed",
+      "won": true,
+      "abs_m10": 0.000957,
+      "abs_m5": 0.00076,
+      "rsi": 57.8,
+      "side": "UP",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.000884,
+      "abs_m5": 0.000404,
+      "rsi": 75.4,
+      "side": "UP",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W"
       }
     }
   ]

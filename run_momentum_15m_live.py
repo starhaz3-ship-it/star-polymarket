@@ -74,6 +74,10 @@ AUTO_KILL_TRADES = 20       # V1.2: auto-shutdown after this many trades if WR <
 AUTO_KILL_MIN_WR = 0.50     # V1.2: minimum win rate to stay alive
 MIN_SHARES = 5              # CLOB minimum order size
 
+# V1.6: Streak reversal — bet AGAINST long streaks (backtested on 50K markets: 55% WR)
+STREAK_REVERSAL_MIN_STREAK = 3   # Minimum streak length to trigger reversal entry
+STREAK_REVERSAL_SIZE = 2.50      # Always minimal size (user directive)
+
 # ============================================================================
 # PROMOTION PIPELINE: PROBATION -> PROMOTED -> CHAMPION
 # ============================================================================
@@ -375,9 +379,9 @@ class Momentum15MTrader:
         else:
             alignment = "AGAINST"
 
-        # Reversal rates from 570-market backtest:
-        # 2-streak: 54%, 3-streak: 58%, 4-streak: 67%, 5+streak: 82%
-        reversal_rates = {2: 0.54, 3: 0.58, 4: 0.67, 5: 0.82}
+        # Reversal rates from 50,348-market PolyData backtest (Feb 2026):
+        # Conservative estimates — old 570-market sample was overly optimistic
+        reversal_rates = {2: 0.53, 3: 0.55, 4: 0.56, 5: 0.56}
         capped_len = min(streak_len, 5)
         reversal_prob = reversal_rates.get(capped_len, 0.50)
 
@@ -385,17 +389,17 @@ class Momentum15MTrader:
             # Betting WITH a streak — continuation is less likely at long streaks
             continuation_prob = 1.0 - reversal_prob
             if streak_len >= 4:
-                boost = 0.5  # HALVE confidence — 67% chance streak breaks
+                boost = 0.7  # Moderate penalty — 56% reversal rate (50K backtest)
             elif streak_len >= 3:
-                boost = 0.8  # Slight penalty
+                boost = 0.85  # Slight penalty — 55% reversal rate
             else:
                 boost = 1.0
         else:
             # Betting AGAINST a streak — reversal expected
             if streak_len >= 4:
-                boost = 1.3  # BOOST confidence — 67%+ reversal rate
+                boost = 1.15  # Modest boost — 56% reversal rate (50K backtest)
             elif streak_len >= 3:
-                boost = 1.1  # Slight boost
+                boost = 1.05  # Slight boost
             else:
                 boost = 1.0
 
@@ -922,6 +926,108 @@ class Momentum15MTrader:
                   f"[ML:{ml_preset}] | {asset}=${asset_price:,.2f} | time={time_left:.1f}m | [{mode}]{streak_str} | "
                   f"{question[:50]}")
 
+        # ================================================================
+        # V1.6: STREAK REVERSAL ENTRIES — bet AGAINST long streaks
+        # Separate from momentum: no EMA/RSI/momentum required, always minimal size
+        # Backtested on 50,348 PolyData markets: 55% WR (p<0.000001)
+        # ================================================================
+        if open_count < MAX_CONCURRENT and self.session_pnl > -DAILY_LOSS_LIMIT:
+            for market in markets:
+                if open_count >= MAX_CONCURRENT:
+                    break
+
+                asset = market.get("_asset", "BTC")
+                streak_len, streak_dir = self.get_streak(asset)
+                if streak_len < STREAK_REVERSAL_MIN_STREAK or not streak_dir:
+                    continue
+
+                time_left = market.get("_time_left", 99)
+                if time_left < TIME_WINDOW[0] or time_left > TIME_WINDOW[1]:
+                    continue
+
+                cid = market.get("conditionId", "")
+                question = market.get("question", "")
+                nid = market.get("id")
+
+                # Skip if already trading this market (from momentum OR streak)
+                if f"15m_{cid}_UP" in self.trades or f"15m_{cid}_DOWN" in self.trades:
+                    continue
+
+                up_price, down_price = self.get_prices(market)
+                if up_price is None or down_price is None:
+                    continue
+
+                reversal_side = "DOWN" if streak_dir == "UP" else "UP"
+                rev_price = up_price if reversal_side == "UP" else down_price
+                if rev_price < MIN_ENTRY or rev_price > MAX_ENTRY:
+                    continue
+
+                entry_price = round(rev_price + (SPREAD_OFFSET if self.paper else 0), 2)
+                if entry_price > MAX_ENTRY:
+                    continue
+
+                trade_size = STREAK_REVERSAL_SIZE
+                shares = round(trade_size / entry_price, 2)
+                if shares < MIN_SHARES:
+                    shares = MIN_SHARES
+                    trade_size = round(shares * entry_price, 2)
+
+                trade_key = f"15m_{cid}_{reversal_side}"
+                order_id = None
+
+                if not self.paper and self.client:
+                    try:
+                        from py_clob_client.clob_types import OrderArgs, OrderType
+                        from py_clob_client.order_builder.constants import BUY
+
+                        up_tid, down_tid = self.get_token_ids(market)
+                        token_id = up_tid if reversal_side == "UP" else down_tid
+                        if not token_id:
+                            continue
+
+                        order_args = OrderArgs(
+                            price=round(entry_price, 2),
+                            size=shares,
+                            side=BUY,
+                            token_id=token_id,
+                        )
+                        signed = self.client.create_order(order_args)
+                        resp = self.client.post_order(signed, OrderType.GTC)
+                        if resp.get("success"):
+                            order_id = resp.get("orderID", "?")
+                            print(f"[LIVE] STREAK {asset} {reversal_side} order {order_id[:20]}... @ ${entry_price:.2f} x {shares:.0f}sh")
+                        else:
+                            print(f"[LIVE] Streak order failed: {resp.get('errorMsg', '?')}")
+                            continue
+                    except Exception as e:
+                        print(f"[LIVE] Streak order error: {e}")
+                        continue
+
+                self.trades[trade_key] = {
+                    "side": reversal_side,
+                    "entry_price": entry_price,
+                    "size_usd": trade_size,
+                    "entry_time": now.isoformat(),
+                    "condition_id": cid,
+                    "market_numeric_id": nid,
+                    "title": question,
+                    "strategy": "streak_reversal",
+                    "asset": asset,
+                    "_asset": asset,
+                    "streak_len": streak_len,
+                    "streak_dir": streak_dir,
+                    "streak_alignment": "REVERSAL",
+                    "streak_boost": 1.0,
+                    "status": "open",
+                    "pnl": 0.0,
+                }
+                open_count += 1
+
+                mode = "LIVE" if not self.paper else "PAPER"
+                print(f"[ENTRY] {asset}:{reversal_side} ${entry_price:.2f} ${trade_size:.2f} ({shares:.0f}sh) | "
+                      f"streak_reversal | {streak_len}x{streak_dir} -> bet {reversal_side} | "
+                      f"time={time_left:.1f}m | [{mode}] | {question[:50]}")
+
     # ========================================================================
     # MAIN LOOP
     # ========================================================================
@@ -930,8 +1036,8 @@ class Momentum15MTrader:
         mode = "PAPER" if self.paper else "LIVE"
         print("=" * 70)
         tier_size = TIERS[self.tier]["size"]
-        print(f"MOMENTUM 15M DIRECTIONAL TRADER V1.5 - {mode} MODE")
-        print(f"Strategy: Multi-asset momentum_strong on Polymarket 15M markets")
+        print(f"MOMENTUM 15M DIRECTIONAL TRADER V1.6 - {mode} MODE")
+        print(f"Strategy: Multi-asset momentum_strong + streak_reversal on Polymarket 15M")
         print(f"Paper-proven: 224W/134L, 63% WR, +$1,459 PnL")
         print(f"Assets: {', '.join(ASSETS.keys())}")
         print(f"Tier: {self.tier} (${tier_size:.2f}/trade) | Max concurrent: {MAX_CONCURRENT}")
@@ -942,7 +1048,8 @@ class Momentum15MTrader:
         print(f"Entry window: {TIME_WINDOW[0]}-{TIME_WINDOW[1]} min before close")
         print(f"Min momentum: {MIN_MOMENTUM_10M:.4%} (10m) + {MIN_MOMENTUM_5M:.4%} (5m) | RSI: >{RSI_CONFIRM_UP} UP, <{RSI_CONFIRM_DOWN} DOWN")
         print(f"ML Filter: Thompson sampling | presets: relaxed/moderate/strict/ultra | auto-tunes thresholds")
-        print(f"Streak: Skip entries WITH 4+ streaks (reversal likely) | Boost AGAINST 4+ streaks")
+        print(f"Streak reversal: {STREAK_REVERSAL_MIN_STREAK}+ streak -> bet AGAINST @ ${STREAK_REVERSAL_SIZE:.2f} always (50K backtest: 55% WR)")
+        print(f"Streak momentum filter: Skip WITH 4+ streaks | Boost AGAINST 4+ streaks")
         print(f"Daily loss limit: ${DAILY_LOSS_LIMIT}")
         print(f"Scan interval: {SCAN_INTERVAL}s")
         print("=" * 70)
