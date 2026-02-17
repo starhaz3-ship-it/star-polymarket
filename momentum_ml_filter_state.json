@@ -1,11 +1,11 @@
 {
   "betas": {
     "relaxed": [
-      19,
+      20,
       4
     ],
     "moderate": [
-      19,
+      20,
       2
     ],
     "strict": [
@@ -252,6 +252,54 @@
         "relaxed": "W",
         "moderate": "W"
       }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.000801,
+      "abs_m5": 0.000366,
+      "rsi": 65.4,
+      "side": "UP",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": false,
+      "abs_m10": 0,
+      "abs_m5": 0,
+      "rsi": 50,
+      "side": "UP",
+      "shadow": {}
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0,
+      "abs_m5": 0,
+      "rsi": 50,
+      "side": "DOWN",
+      "shadow": {}
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0,
+      "abs_m5": 0,
+      "rsi": 50,
+      "side": "DOWN",
+      "shadow": {}
+    },
+    {
+      "preset_used": "moderate",
+      "won": false,
+      "abs_m10": 0,
+      "abs_m5": 0,
+      "rsi": 50,
+      "side": "UP",
+      "shadow": {}
     }
   ]
 }

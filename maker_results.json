@@ -2,11 +2,11 @@
   "stats": {
     "pairs_attempted": 250,
     "pairs_completed": 12,
-    "pairs_partial": 459,
+    "pairs_partial": 460,
     "pairs_cancelled": 10,
-    "total_pnl": -70.05814999999997,
+    "total_pnl": -64.02814999999997,
     "paired_pnl": 7.031198,
-    "partial_pnl": -77.089348,
+    "partial_pnl": -71.059348,
     "total_volume": 80.95187504,
     "best_pair_pnl": 13.14,
     "worst_pair_pnl": -7.4778,
@@ -4325,56 +4325,28 @@
       "entry_tier": "deep",
       "loser_buy_price": 0.0,
       "momentum_direction": "UP"
+    },
+    {
+      "market_id": "0x154fedd7aed2aaf0a566ed83b8e8850940c17685182dd46ca2426964c0f3c71f",
+      "question": "Bitcoin Up or Down - February 17, 1:30AM-1:45AM ET",
+      "asset": "BTC",
+      "outcome": "UP",
+      "paired": false,
+      "partial": true,
+      "combined_cost": 0.0,
+      "pnl": 6.03,
+      "bid_offset": 0.15000000000000002,
+      "hour_utc": 6,
+      "up_price": 0.33,
+      "down_price": 0,
+      "resolved_at": "2026-02-17T06:54:30.474708+00:00",
+      "entry_type": "maker",
+      "entry_tier": "deep",
+      "loser_buy_price": 0.0,
+      "momentum_direction": "UP"
     }
   ],
   "active_positions": [
-    {
-      "market_id": "0x154fedd7aed2aaf0a566ed83b8e8850940c17685182dd46ca2426964c0f3c71f",
-      "market_num_id": "1384378",
-      "question": "Bitcoin Up or Down - February 17, 1:30AM-1:45AM ET",
-      "asset": "BTC",
-      "up_order": {
-        "order_id": "0xbbfdc2df5adfe72fc80ad13e78e16e2d3717a6040ca6ad625df20401dbe10d09",
-        "market_id": "0x154fedd7aed2aaf0a566ed83b8e8850940c17685182dd46ca2426964c0f3c71f",
-        "token_id": "104133533007631095107276584786979148457024640383879940892893651689546218318292",
-        "side_label": "UP",
-        "price": 0.33,
-        "size_shares": 9.0,
-        "size_usd": 2.97,
-        "placed_at": "2026-02-17T06:28:50.077868+00:00",
-        "placed_at_ts": 1771309730.0778682,
-        "status": "filled",
-        "fill_price": 0.33,
-        "fill_shares": 9.0
-      },
-      "down_order": null,
-      "up_filled": true,
-      "down_filled": false,
-      "combined_cost": 0.0,
-      "outcome": null,
-      "pnl": 0.0,
-      "status": "riding",
-      "created_at": "2026-02-17T06:28:50.077868+00:00",
-      "bid_offset_used": 0.15000000000000002,
-      "hour_utc": 6,
-      "first_fill_time": "2026-02-17T06:31:04.567280+00:00",
-      "duration_min": 15,
-      "entry_type": "maker",
-      "late_candle_pending": false,
-      "loser_buy_price": 0.0,
-      "sell_attempts": 3,
-      "last_ride_check_ts": 0.0,
-      "gamma_used": 0.2,
-      "entry_tier": "deep",
-      "skew_confidence": 0.0,
-      "skew_features": {},
-      "skew_contributions": {},
-      "vol_regime": "",
-      "momentum_direction": "UP",
-      "momentum_10m": 0.001220211631094688,
-      "momentum_5m": 0.0012776240113736403,
-      "momentum_rsi": 71.22140132355747
-    },
     {
       "market_id": "0xebbc44dde2ef2b74473369a64dd0ea1a55fb2c98b2bbf87c36431a913c11ddd3",
       "market_num_id": "1384389",
@@ -4423,5 +4395,5 @@
       "momentum_rsi": 63.85486621387022
     }
   ],
-  "last_updated": "2026-02-17T06:50:04.121819+00:00"
+  "last_updated": "2026-02-17T06:56:49.652157+00:00"
 }
