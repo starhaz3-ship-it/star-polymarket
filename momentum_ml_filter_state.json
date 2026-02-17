@@ -1,19 +1,19 @@
 {
   "betas": {
     "relaxed": [
-      20,
-      4
+      32,
+      10
     ],
     "moderate": [
-      20,
-      2
+      30,
+      7
     ],
     "strict": [
-      8,
+      14,
       3
     ],
     "ultra": [
-      3,
+      5,
       2
     ]
   },
@@ -309,6 +309,299 @@
       "rsi": 50,
       "side": "UP",
       "shadow": {}
+    },
+    {
+      "preset_used": "moderate",
+      "won": false,
+      "abs_m10": 0,
+      "abs_m5": 0,
+      "rsi": 50,
+      "side": "UP",
+      "shadow": {}
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.001741,
+      "abs_m5": 0.001695,
+      "rsi": 25.1,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W",
+        "strict": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.001048,
+      "abs_m5": 0.000335,
+      "rsi": 29.8,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": false,
+      "abs_m10": 0,
+      "abs_m5": 0,
+      "rsi": 50,
+      "side": "UP",
+      "shadow": {}
+    },
+    {
+      "preset_used": "moderate",
+      "won": false,
+      "abs_m10": 0,
+      "abs_m5": 0,
+      "rsi": 50,
+      "side": "UP",
+      "shadow": {}
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.001328,
+      "abs_m5": 0.000571,
+      "rsi": 34.7,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W",
+        "strict": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": false,
+      "abs_m10": 0.001115,
+      "abs_m5": 0.000365,
+      "rsi": 38.0,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "L",
+        "moderate": "L"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0,
+      "abs_m5": 0,
+      "rsi": 50,
+      "side": "UP",
+      "shadow": {}
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0,
+      "abs_m5": 0,
+      "rsi": 50,
+      "side": "UP",
+      "shadow": {}
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0,
+      "abs_m5": 0,
+      "rsi": 50,
+      "side": "UP",
+      "shadow": {}
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.001012,
+      "abs_m5": 0.000641,
+      "rsi": 22.4,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.001413,
+      "abs_m5": 0.00125,
+      "rsi": 30.9,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W",
+        "strict": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.001414,
+      "abs_m5": 0.001019,
+      "rsi": 29.8,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W",
+        "strict": "W"
+      }
+    },
+    {
+      "preset_used": "relaxed",
+      "won": false,
+      "abs_m10": 0.00057,
+      "abs_m5": 0.000366,
+      "rsi": 44.3,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "L"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": false,
+      "abs_m10": 0.001054,
+      "abs_m5": 0.000427,
+      "rsi": 35.0,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "L",
+        "moderate": "L"
+      }
+    },
+    {
+      "preset_used": "relaxed",
+      "won": true,
+      "abs_m10": 0.000535,
+      "abs_m5": 0.000286,
+      "rsi": 44.1,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.000925,
+      "abs_m5": 0.000635,
+      "rsi": 43.9,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.000823,
+      "abs_m5": 0.000464,
+      "rsi": 74.6,
+      "side": "UP",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": false,
+      "abs_m10": 0.001289,
+      "abs_m5": 0.000477,
+      "rsi": 29.2,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "L",
+        "moderate": "L"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": false,
+      "abs_m10": 0.000889,
+      "abs_m5": 0.000412,
+      "rsi": 29.1,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "L",
+        "moderate": "L"
+      }
+    },
+    {
+      "preset_used": "relaxed",
+      "won": true,
+      "abs_m10": 0.000707,
+      "abs_m5": 0.00037,
+      "rsi": 54.0,
+      "side": "UP",
+      "shadow": {
+        "relaxed": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": false,
+      "abs_m10": 0.000807,
+      "abs_m5": 0.000424,
+      "rsi": 66.8,
+      "side": "UP",
+      "shadow": {
+        "relaxed": "L",
+        "moderate": "L"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": false,
+      "abs_m10": 0,
+      "abs_m5": 0,
+      "rsi": 50,
+      "side": "DOWN",
+      "shadow": {}
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.00518,
+      "abs_m5": 0.002021,
+      "rsi": 73.6,
+      "side": "UP",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W",
+        "strict": "W",
+        "ultra": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0,
+      "abs_m5": 0,
+      "rsi": 50,
+      "side": "DOWN",
+      "shadow": {}
+    },
+    {
+      "preset_used": "strict",
+      "won": true,
+      "abs_m10": 0.004208,
+      "abs_m5": 0.004459,
+      "rsi": 72.8,
+      "side": "UP",
+      "shadow": {
+        "relaxed": "W",
+        "moderate": "W",
+        "strict": "W",
+        "ultra": "W"
+      }
     }
   ]
 }
