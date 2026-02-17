@@ -447,7 +447,8 @@ class MakerConfig:
     PAIRED_EARLY_BUFFER_MIN: float = 2.0 # V4.7.3: Place orders up to 2 min before candle opens
 
     # V5.0: Taker-taker paired mode — market-buy both sides simultaneously
-    TAKER_TAKER_ENABLED: bool = True     # Scan order books, buy both sides when combined < threshold
+    TAKER_TAKER_ENABLED: bool = True     # Scan order books, log opportunities (shadow mode)
+    TAKER_TAKER_LIVE: bool = False        # Actually place orders (False = shadow-only, tracks hypothetical PnL)
     TAKER_TAKER_MAX_COMBINED: float = 0.96  # Max combined ask to trigger (4% guaranteed profit)
     TAKER_TAKER_SIZE: float = 5.0        # $ per side
     TAKER_TAKER_MAX_CONCURRENT: int = 2  # Max simultaneous taker-taker positions
@@ -3101,23 +3102,37 @@ class CryptoMarketMaker:
             print(f"  [FAST-SELL-FAIL] {pos.asset} {filled_side} — sell failed, will ride to resolution")
 
     async def taker_taker_scan(self, markets: List['MarketPair']):
-        """V5.0: Scan order books and instantly buy BOTH sides when combined ask < threshold.
-        Guarantees 100% pair rate — no adverse selection because both sides fill atomically."""
-        if self.paper or not self.client:
+        """V5.0: Scan order books for combined ask < threshold.
+        SHADOW MODE: logs opportunities and tracks hypothetical PnL without placing real orders.
+        Set TAKER_TAKER_LIVE=True to actually execute (after shadow proves profitable)."""
+        if not self.config.TAKER_TAKER_ENABLED:
             return
 
-        from py_clob_client.clob_types import OrderArgs, OrderType
-        from py_clob_client.order_builder.constants import BUY
+        # Shadow tracking state
+        if not hasattr(self, '_tt_shadow'):
+            tt_file = Path("taker_taker_shadow.json")
+            if tt_file.exists():
+                try:
+                    self._tt_shadow = json.loads(tt_file.read_text())
+                except Exception:
+                    self._tt_shadow = {"opportunities": [], "stats": {"seen": 0, "qualified": 0, "would_profit": 0.0}}
+            else:
+                self._tt_shadow = {"opportunities": [], "stats": {"seen": 0, "qualified": 0, "would_profit": 0.0}}
 
-        # Count active taker-taker positions
-        tt_active = sum(1 for p in self.positions.values()
-                        if p.status not in ("resolved", "cancelled")
-                        and p.entry_type == "taker_taker")
-        if tt_active >= self.config.TAKER_TAKER_MAX_CONCURRENT:
-            return
+        is_live_tt = getattr(self.config, 'TAKER_TAKER_LIVE', False)
+
+        # Count active taker-taker positions (only relevant in live mode)
+        if is_live_tt:
+            tt_active = sum(1 for p in self.positions.values()
+                            if p.status not in ("resolved", "cancelled")
+                            and p.entry_type == "taker_taker")
+            if tt_active >= self.config.TAKER_TAKER_MAX_CONCURRENT:
+                return
+        else:
+            tt_active = 0
 
         for pair in markets:
-            if tt_active >= self.config.TAKER_TAKER_MAX_CONCURRENT:
+            if is_live_tt and tt_active >= self.config.TAKER_TAKER_MAX_CONCURRENT:
                 break
             if pair.market_id in self._entered_markets or pair.market_id in self.positions:
                 continue
@@ -3143,6 +3158,8 @@ class CryptoMarketMaker:
             down_depth = down_book.get("ask_depth", 0)
             combined = up_ask + down_ask
 
+            self._tt_shadow["stats"]["seen"] += 1
+
             # Check if profitable
             if combined >= self.config.TAKER_TAKER_MAX_COMBINED:
                 continue
@@ -3152,11 +3169,41 @@ class CryptoMarketMaker:
             edge = 1.0 - combined
             edge_pct = edge / combined * 100
             shares = max(self.config.MIN_SHARES, math.floor(self.config.TAKER_TAKER_SIZE / max(up_ask, down_ask)))
+            guaranteed_profit = edge * shares
 
-            print(f"\n[TAKER-TAKER {pair.asset} {pair.duration_min}m] {pair.question[:50]}")
-            print(f"  Asks: UP ${up_ask:.2f} / DN ${down_ask:.2f} | Combined ${combined:.3f} | Edge {edge_pct:.1f}% | {shares} shares")
+            self._tt_shadow["stats"]["qualified"] += 1
+            self._tt_shadow["stats"]["would_profit"] += guaranteed_profit
 
-            # Place UP FOK
+            opp = {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "asset": pair.asset, "duration": pair.duration_min,
+                "up_ask": up_ask, "down_ask": down_ask, "combined": round(combined, 4),
+                "edge_pct": round(edge_pct, 2), "shares": shares,
+                "hypothetical_profit": round(guaranteed_profit, 4),
+                "up_depth": round(up_depth, 1), "down_depth": round(down_depth, 1),
+                "executed": is_live_tt,
+            }
+            self._tt_shadow["opportunities"].append(opp)
+            # Keep last 500 opportunities
+            if len(self._tt_shadow["opportunities"]) > 500:
+                self._tt_shadow["opportunities"] = self._tt_shadow["opportunities"][-500:]
+
+            try:
+                Path("taker_taker_shadow.json").write_text(json.dumps(self._tt_shadow, indent=2))
+            except Exception:
+                pass
+
+            print(f"\n[TT-SHADOW {pair.asset} {pair.duration_min}m] {pair.question[:50]}")
+            print(f"  Asks: UP ${up_ask:.2f} / DN ${down_ask:.2f} | Combined ${combined:.3f} | Edge {edge_pct:.1f}%")
+            print(f"  Would profit: ${guaranteed_profit:.2f} on {shares} shares | Total shadow: ${self._tt_shadow['stats']['would_profit']:.2f} ({self._tt_shadow['stats']['qualified']} opps)")
+
+            if not is_live_tt:
+                continue  # Shadow only — don't place orders
+
+            # === LIVE EXECUTION (only when TAKER_TAKER_LIVE=True) ===
+            from py_clob_client.clob_types import OrderArgs, OrderType
+            from py_clob_client.order_builder.constants import BUY
+
             try:
                 up_args = OrderArgs(price=round(up_ask, 2), size=float(shares), side=BUY, token_id=pair.up_token_id)
                 up_signed = self.client.create_order(up_args)
@@ -3168,14 +3215,12 @@ class CryptoMarketMaker:
 
                 up_order_id = up_resp.get("orderID", "")
 
-                # Place DOWN FOK immediately after
                 dn_args = OrderArgs(price=round(down_ask, 2), size=float(shares), side=BUY, token_id=pair.down_token_id)
                 dn_signed = self.client.create_order(dn_args)
                 dn_resp = self.client.post_order(dn_signed, OrderType.FOK)
 
                 if not dn_resp.get("success"):
-                    print(f"  [TT] DOWN FOK failed after UP filled — will sell UP back")
-                    # UP filled but DOWN didn't — sell UP back immediately
+                    print(f"  [TT] DOWN FOK failed after UP filled — selling UP back")
                     now_iso = datetime.now(timezone.utc).isoformat()
                     temp_pos = PairPosition(
                         market_id=pair.market_id, market_num_id=pair.market_num_id,
@@ -3203,7 +3248,6 @@ class CryptoMarketMaker:
                 now_iso = datetime.now(timezone.utc).isoformat()
                 now_ts = time.time()
 
-                # Both filled! Create paired position
                 pos = PairPosition(
                     market_id=pair.market_id, market_num_id=pair.market_num_id,
                     question=pair.question, asset=pair.asset,
@@ -3235,7 +3279,6 @@ class CryptoMarketMaker:
                 self.stats["pairs_attempted"] += 1
                 tt_active += 1
 
-                guaranteed_profit = edge * shares
                 print(f"  [TT-PAIRED] BOTH sides filled! ${up_ask:.2f} + ${down_ask:.2f} = ${combined:.3f}")
                 print(f"  Guaranteed profit: ${guaranteed_profit:.2f} ({edge_pct:.1f}%) on {shares} shares")
 
@@ -5749,7 +5792,8 @@ class CryptoMarketMaker:
         print(f"VOL-ADAPTIVE OFFSET: Thompson sampling | offsets: [{offsets_str}] | "
               f"regimes: low/med/high (ATR percentile)")
         if self.config.TAKER_TAKER_ENABLED:
-            print(f"TAKER-TAKER: ON | max combined ${self.config.TAKER_TAKER_MAX_COMBINED} | "
+            tt_mode = "LIVE" if self.config.TAKER_TAKER_LIVE else "SHADOW"
+            print(f"TAKER-TAKER: {tt_mode} | max combined ${self.config.TAKER_TAKER_MAX_COMBINED} | "
                   f"${self.config.TAKER_TAKER_SIZE}/side | max {self.config.TAKER_TAKER_MAX_CONCURRENT} concurrent | "
                   f"min depth ${self.config.TAKER_TAKER_MIN_DEPTH}")
         print("=" * 70)
