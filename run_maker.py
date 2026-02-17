@@ -413,10 +413,10 @@ class MakerConfig:
     MIN_SHARES: int = 5                  # CLOB minimum order size
 
     # Risk
-    DAILY_LOSS_LIMIT: float = 40.0       # V4.6.1: $40 daily loss limit (user override)
+    DAILY_LOSS_LIMIT: float = 53.0       # V5.1: ~40% of $132 capital
     MAX_CONCURRENT_PAIRS: int = 6        # V4.4: 3 assets × 2 timeframes max (prevents balance exhaustion)
     MAX_SINGLE_SIDED: int = 8            # V4.2: 4 assets × 2 timeframes, allow partials to ride
-    RIDE_AFTER_SEC: float = 9999.0       # V4.6.3: Don't cancel unfilled side — let it ride full duration for paired chance
+    RIDE_AFTER_SEC: float = 30.0         # V5.2: Sell back after 30s if WS fast-sell missed it (was 9999 = ride forever)
 
     # V4.5: Ping-pong mode
     PINGPONG_ENABLED: bool = True        # Block new entries when unpaired partials accumulate
@@ -439,7 +439,7 @@ class MakerConfig:
     PAIRED_MODE_ENABLED: bool = True
     PAIRED_BID_OFFSET: float = 0.025     # V4.7.4: Tight offset — bids at ~$0.475, hedge completes the pair
     PAIRED_MAX_COMBINED: float = 0.96    # V4.7.4: Allow up to $0.96 combined ($0.04/sh = 4% profit)
-    PAIRED_SIZE_PER_SIDE: float = 5.0    # V4.9: $5/side for paired tier (match deep size)
+    PAIRED_SIZE_PER_SIDE: float = 3.0    # V5.2: $3/side (was $5 — reduce partial loss exposure)
     PAIRED_MAX_CONCURRENT: int = 3       # Separate cap from deep bids
     PAIRED_MIN_PROFIT: float = 0.04      # V4.7.4: Min $0.04/share (was $0.08) — 5% profit target
     PAIRED_HEDGE_MAX_COMBINED: float = 0.98  # V4.7.4: Paired-specific hedge limit (2% guaranteed profit)
@@ -450,7 +450,7 @@ class MakerConfig:
     TAKER_TAKER_ENABLED: bool = True     # Scan order books for combined ask < threshold
     TAKER_TAKER_LIVE: bool = True         # V5.1: LIVE — WS real-time detection + parallel FOK execution
     TAKER_TAKER_MAX_COMBINED: float = 0.96  # Max combined ask to trigger (4% guaranteed profit)
-    TAKER_TAKER_SIZE: float = 5.0        # $ per side
+    TAKER_TAKER_SIZE: float = 3.0        # V5.2: $3/side (was $5)
     TAKER_TAKER_MAX_CONCURRENT: int = 2  # Max simultaneous taker-taker positions
     TAKER_TAKER_MIN_DEPTH: float = 5.0   # Min $ depth on each side's ask (avoid thin books)
 
@@ -518,6 +518,7 @@ class MakerConfig:
     MOMENTUM_MAX_WAIT_SECONDS: float = 210.0  # Don't enter after 3.5 min (too late)
     MOMENTUM_MAX_CONCURRENT: int = 3     # Max simultaneous momentum positions
     MOMENTUM_DAILY_LOSS_LIMIT: float = 10.0  # Separate daily loss limit for momentum
+    PNL_RESET_OFFSET: float = -55.7081       # V5.1: Subtract from total_pnl for display (reset baseline)
 
     # V12a: Order Flow (Taker Flow Imbalance) — non-overlapping with V3.0 momentum
     # Fires when taker buy volume is heavily skewed AND volume surges >= 2x average.
@@ -540,7 +541,7 @@ class MakerConfig:
     # Key insight: loser token drops to $0.10-$0.25. Buy it to:
     #   1. Complete partials into cheap pairs ($0.67 combined vs $0.93 normal)
     #   2. Standalone reversal bets (small loss if wrong, huge win if BTC reverses)
-    LATE_CANDLE_ENABLED: bool = True
+    LATE_CANDLE_ENABLED: bool = False   # V5.2: Disabled — 5M markets killed entirely
     LATE_CANDLE_WAIT_SEC: float = 90.0        # V4.2: 1.5 min into 5-min market (was 150s)
     LATE_CANDLE_MAX_WAIT_SEC: float = 240.0   # Stop at 4 min (60s before close)
     LATE_CANDLE_SIZE_USD: float = 3.0         # V4.6.3: Aligned with main $3/side
@@ -2063,6 +2064,60 @@ class SkewShadowTracker:
 # V5.0: DEEP MOMENTUM TRACKER — ML comparison of momentum-guided vs UP-only
 # ============================================================================
 
+class StoplossGuard:
+    """V5.2: Halt all new entries after N consecutive losses within a time window.
+    Prevents catastrophic drawdowns during hostile market regimes.
+    After 3 losses in 30 min, pause for 15 min. Auto-resumes."""
+
+    def __init__(self, max_consecutive: int = 3, window_min: float = 30.0, cooldown_min: float = 15.0):
+        self.max_consecutive = max_consecutive
+        self.window_sec = window_min * 60
+        self.cooldown_sec = cooldown_min * 60
+        self.recent_losses: List[float] = []  # timestamps of recent losses
+        self.pause_until: float = 0.0  # timestamp when cooldown ends
+        self.total_pauses: int = 0
+
+    def record_loss(self):
+        """Record a losing trade."""
+        now = time.time()
+        self.recent_losses.append(now)
+        # Trim old losses outside window
+        cutoff = now - self.window_sec
+        self.recent_losses = [t for t in self.recent_losses if t > cutoff]
+        # Check if we hit the threshold
+        if len(self.recent_losses) >= self.max_consecutive:
+            self.pause_until = now + self.cooldown_sec
+            self.total_pauses += 1
+            self.recent_losses.clear()  # Reset after triggering
+            mins = self.cooldown_sec / 60
+            print(f"\n{'='*60}")
+            print(f"[STOPLOSS GUARD] {self.max_consecutive} losses in {self.window_sec/60:.0f}min!")
+            print(f"  PAUSING all new entries for {mins:.0f} minutes")
+            print(f"  Resume at: {datetime.fromtimestamp(self.pause_until).strftime('%H:%M:%S')}")
+            print(f"  Total pauses this session: {self.total_pauses}")
+            print(f"{'='*60}\n")
+
+    def record_win(self):
+        """Record a winning trade — resets the consecutive counter."""
+        self.recent_losses.clear()
+
+    def is_paused(self) -> bool:
+        """Check if trading is paused due to stoploss guard."""
+        if time.time() < self.pause_until:
+            return True
+        return False
+
+    def status_str(self) -> str:
+        """Short status for the cycle line."""
+        if self.is_paused():
+            remaining = int(self.pause_until - time.time())
+            return f" SL-GUARD:{remaining}s"
+        n = len(self.recent_losses)
+        if n > 0:
+            return f" SL:{n}/{self.max_consecutive}"
+        return ""
+
+
 class DeepMomentumTracker:
     """Shadow-tracks momentum-guided deep bids vs UP-only baseline.
     Records each deep trade with what momentum predicted and what UP-only
@@ -2199,6 +2254,8 @@ class CryptoMarketMaker:
         self.vol_offset = VolAdaptiveOffset()
         # V5.0: Momentum-guided deep bid direction tracking
         self.deep_momentum_ml = DeepMomentumTracker()
+        # V5.2: StoplossGuard — halt after 3 losses in 30 min, cooldown 15 min
+        self.stoploss_guard = StoplossGuard(max_consecutive=3, window_min=30.0, cooldown_min=15.0)
 
         # State
         self.positions: Dict[str, PairPosition] = {}  # market_id -> PairPosition
@@ -2545,7 +2602,7 @@ class CryptoMarketMaker:
         V2.4: 5M markets moved to tag_slug='5M' (was under '15M' before)."""
         pairs = []
         async with httpx.AsyncClient(timeout=15) as client:
-            for tag_slug, duration in [("5M", 5), ("15M", 15)]:  # V4.6.1: Re-enabled 5M — BTC 5M is +$50 profitable
+            for tag_slug, duration in [("15M", 15)]:  # V5.2: KILLED 5M — -$82 in 12hrs, only 15M now
                 try:
                     r = await client.get(
                         "https://gamma-api.polymarket.com/events",
@@ -2961,7 +3018,14 @@ class CryptoMarketMaker:
         return (up_mult, down_mult)
 
     def _update_momentum(self, pnl: float):
-        """V4.6.4: Update momentum multiplier based on trade outcome."""
+        """V4.6.4: Update momentum multiplier based on trade outcome.
+        V5.2: Also feeds StoplossGuard."""
+        # V5.2: StoplossGuard tracking
+        if pnl > 0:
+            self.stoploss_guard.record_win()
+        elif pnl < 0:
+            self.stoploss_guard.record_loss()
+
         if not self.config.MOMENTUM_ENABLED:
             return
         won = pnl > 0
@@ -3121,12 +3185,12 @@ class CryptoMarketMaker:
             if not pos.first_fill_time:
                 pos.first_fill_time = datetime.now(timezone.utc).isoformat()
             # Trigger instant FOK hedge on first partial detection
-            # V5.0: Only hedge + sell-back for paired tier (deep rides as momentum-guided directional)
-            if was_pending and not self.paper and pos.entry_tier == "paired":
-                if self.config.TAKER_HEDGE_ENABLED:
+            # V5.2: ALL tiers sell back immediately — partials at 34% WR lose -$93/12hr
+            if was_pending and not self.paper:
+                if self.config.TAKER_HEDGE_ENABLED and pos.entry_tier == "paired":
                     await self._taker_hedge(pos)
-                # V5.0: If hedge didn't pair us, sell back immediately
-                # Token still has value (<1s after fill) — don't wait 120s
+                # V5.2: If still partial after hedge attempt, sell back IMMEDIATELY
+                # Applies to ALL tiers (deep + paired) — $0.50 loss beats $4.50 wipeout
                 if pos.status == "partial" and not (pos.up_filled and pos.down_filled):
                     await self._fast_sellback(pos)
 
@@ -6208,10 +6272,10 @@ class CryptoMarketMaker:
 
                 best_bid = book["best_bid"]
 
-                # V4.1: Don't sell for pennies — if token is nearly worthless (<$0.10),
-                # ride instead. Selling at $0.02 saves ~$0.10 vs riding, but kills reversal upside.
-                if best_bid < 0.10:
-                    print(f"  [SELL-SKIP] best_bid=${best_bid:.2f} < $0.10 — too cheap, ride instead")
+                # V5.2: Sell at any price > $0.02 — even a bad sell beats riding to $0.
+                # Old threshold ($0.10) blocked sell-backs, causing $4.50 total wipeouts.
+                if best_bid < 0.02:
+                    print(f"  [SELL-SKIP] best_bid=${best_bid:.2f} < $0.02 — essentially worthless, ride")
                     return None
 
                 sell_price = max(0.01, round(best_bid - 0.01, 2))  # 1c below bid for fast fill
@@ -6263,11 +6327,15 @@ class CryptoMarketMaker:
 
     def check_risk(self) -> bool:
         """Check if we should continue trading. Returns True if OK."""
+        # V5.2: StoplossGuard — halt after consecutive losses
+        if self.stoploss_guard.is_paused():
+            return False
+
         # V1.4: Capital loss circuit breaker (40% net loss -> auto-switch to paper)
         if not self.paper and not self.circuit_tripped and self.starting_pnl is not None:
             session_pnl = self.stats["total_pnl"] - self.starting_pnl
             # Calculate 40% of the CLOB cash balance (~$76)
-            capital_loss_limit = 41.0  # 40% of $102.58 CLOB balance
+            capital_loss_limit = 53.0  # 40% of $132.49 CLOB balance
             if session_pnl < -capital_loss_limit:
                 print(f"\n{'='*70}")
                 print(f"[CIRCUIT BREAKER] NET CAPITAL LOSS EXCEEDED 40%!")
@@ -6360,7 +6428,7 @@ class CryptoMarketMaker:
         """Main market maker loop."""
         print("=" * 70)
         mode = "PAPER" if self.paper else "LIVE"
-        print(f"AVELLANEDA MAKER V5.1 - {mode} MODE")
+        print(f"AVELLANEDA MAKER V5.2 - {mode} MODE")
         deep_assets = ",".join(self.config.DEEP_ASSETS)
         if self.config.DEEP_MOMENTUM_GUIDED:
             deep_dir_tag = " MOMENTUM-GUIDED"
@@ -6380,8 +6448,11 @@ class CryptoMarketMaker:
         print(f"WebSocket fills: {ws_tag} | Ping-pong: {self.config.PINGPONG_THRESHOLD} max unpaired | "
               f"Max concurrent: {self.config.MAX_CONCURRENT_PAIRS} (scales to {self.config.MAX_CONCURRENT_PAIRS_SCALED} at ${self.config.SCALE_UP_PNL_THRESHOLD:.0f} PnL)")
         print(f"Daily loss limit: ${self.config.DAILY_LOSS_LIMIT}")
+        print(f"STOPLOSS GUARD: Halt after 3 losses in 30min, cooldown 15min")
+        print(f"PARTIAL SELL-BACK: ALL tiers sell immediately (no riding to resolution)")
+        print(f"MARKETS: 15M ONLY (5M killed — -$82/12hr)")
         if not self.paper:
-            print(f"CIRCUIT BREAKER: Auto-switch to paper on ${self.config.DAILY_LOSS_LIMIT:.0f} net session loss (~40% of $102 capital)")
+            print(f"CIRCUIT BREAKER: Auto-switch to paper on ${self.config.DAILY_LOSS_LIMIT:.0f} net session loss (~40% of $132 capital)")
         if self.config.TAKER_HEDGE_ENABLED:
             print(f"TAKER HEDGE: paired-only (V5.0: deep hedge disabled — 0/158 success, adversely selected) | "
                   f"Max combined: ${self.config.TAKER_HEDGE_MAX_COMBINED}")
@@ -6419,7 +6490,8 @@ class CryptoMarketMaker:
         print("=" * 70)
 
         if self.stats["total_pnl"] != 0:
-            print(f"[RESUME] Total PnL: ${self.stats['total_pnl']:.4f} | "
+            adjusted_pnl = self.stats['total_pnl'] - self.config.PNL_RESET_OFFSET
+            print(f"[RESUME] Total PnL: ${adjusted_pnl:+.4f} (raw: ${self.stats['total_pnl']:.4f}) | "
                   f"Pairs: {self.stats['pairs_completed']} complete, {self.stats['pairs_partial']} partial")
 
         # V4.5: Start WebSocket fill listener (live mode only)
@@ -6670,9 +6742,10 @@ class CryptoMarketMaker:
         book_tag = " BOOK-WS" if self._book_ws_connected else ""
         ws_tag += book_tag
         pp_tag = f" | PP:{unpaired}" if unpaired > 0 else ""
-        print(f"\n--- Cycle {cycle} | {mode_tag}{cb_tag}{ws_tag} | UTC {hour:02d} | "
+        sl_tag = self.stoploss_guard.status_str()
+        print(f"\n--- Cycle {cycle} | {mode_tag}{cb_tag}{ws_tag}{sl_tag} | UTC {hour:02d} | "
               f"Active: {active} ({paired} paired, {partial} partial){hedge_tag}{pp_tag} | "
-              f"Daily: ${self.daily_pnl:+.4f} | Session: ${session_pnl:+.4f} | Total: ${self.stats['total_pnl']:+.4f} | "
+              f"Daily: ${self.daily_pnl:+.4f} | Session: ${session_pnl:+.4f} | Total: ${self.stats['total_pnl'] - self.config.PNL_RESET_OFFSET:+.4f} | "
               f"Resolved: {len(self.resolved)} ---")
 
         # V4.7: Paired tier stats

@@ -111,6 +111,7 @@ class CopyTrader:
         "Revolving-Solvency": "0xe34503821da4e193a79659a69a20ee3fc391a364",  # $13.4K PnL, 122 trades, 15% ROI, concentrated bets
         "100USDollars": "0x781a48229e2c08e20d1eaad90ef73710988c96e6",  # $33.4K PnL, 672 trades, $533K vol, joined Feb 2026, @Boku8figs
         "lesstidy": "0xd4583c4704a8c2e416f0e7fa5b763f92f0291733",  # $12.9K PnL, 382 trades, $1.3M vol, high-volume grinder
+        "likebot": "0x03c3b0236c5a01051381482e77f2210349073a1d",  # $94K PnL, 15K trades, $17.5M vol, BTC 5m + ETH 15m market maker, both-sides with directional skew
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]
