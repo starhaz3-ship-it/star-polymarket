@@ -61,14 +61,14 @@ SCAN_INTERVAL = 30          # seconds between cycles
 MAX_CONCURRENT = 3          # max open positions
 MIN_MOMENTUM_10M = 0.0008   # V1.3: Raised from 0.05% to 0.08% — stronger signal required
 MIN_MOMENTUM_5M = 0.0003    # V1.1: 0.03% min 5m momentum (Trade 9 lost with 5m=-0.0001%)
-RSI_CONFIRM_UP = 55         # V1.3: RSI(14) must be above this for UP entries
-RSI_CONFIRM_DOWN = 45       # V1.3: RSI(14) must be below this for DOWN entries
+RSI_CONFIRM_UP = 65         # V1.7: Tightened from 55 to 65 (backtest: 99.4% WR vs 97.9%)
+RSI_CONFIRM_DOWN = 35       # V1.7: Tightened from 45 to 35
 MIN_ENTRY = 0.35            # V1.1: Raised from $0.10 — entries <$0.35 were 0W/3L (0% WR, -$7.50)
 MAX_ENTRY = 0.60            # maximum entry price (avoid paying premium)
-TIME_WINDOW = (2.0, 12.0)   # 2-12 min before market close (matches paper bot)
+TIME_WINDOW = (2.0, 5.0)    # V1.7: Tightened from (2,12) to (2,5) — 7-12min entries were 75% WR
 SPREAD_OFFSET = 0.02        # paper fill spread simulation (ignored in live)
 RESOLVE_AGE_MIN = 18.0      # minutes before forcing resolution via API
-EMA_GAP_MIN_BP = 2          # chop filter threshold
+EMA_GAP_MIN_BP = None        # V1.7: REMOVED — was 2bp, cost 24% signals for 0.9% WR gain
 DAILY_LOSS_LIMIT = 15.0     # stop trading if session losses exceed $15
 AUTO_KILL_TRADES = 20       # V1.2: auto-shutdown after this many trades if WR < 50%
 AUTO_KILL_MIN_WR = 0.50     # V1.2: minimum win rate to stay alive
@@ -91,7 +91,8 @@ TIER_ORDER = ["PROBATION", "PROMOTED", "CHAMPION"]
 # Multi-asset support (matches paper bot scope)
 ASSETS = {
     "BTC": {"symbol": "BTCUSDT", "keywords": ["bitcoin", "btc"]},
-    "ETH": {"symbol": "ETHUSDT", "keywords": ["ethereum", "eth"]},
+    # ETH PAUSED V1.7 — 58% WR vs BTC 81%, underperforming
+    # "ETH": {"symbol": "ETHUSDT", "keywords": ["ethereum", "eth"]},
     # SOL BLOCKED — never trade SOL
 }
 
@@ -111,10 +112,10 @@ class AdaptiveFilterML:
     Shadow-tracks what each preset would have done for faster learning.
     """
     PRESETS = {
-        "relaxed":  {"m10": 0.0005, "m5": 0.0002, "rsi_up": 52, "rsi_dn": 48},
-        "moderate": {"m10": 0.0008, "m5": 0.0003, "rsi_up": 55, "rsi_dn": 45},
-        "strict":   {"m10": 0.0012, "m5": 0.0005, "rsi_up": 58, "rsi_dn": 42},
-        "ultra":    {"m10": 0.0018, "m5": 0.0008, "rsi_up": 60, "rsi_dn": 40},
+        "relaxed":  {"m10": 0.0005, "m5": 0.0002, "rsi_up": 60, "rsi_dn": 40},  # V1.7: shifted up
+        "moderate": {"m10": 0.0008, "m5": 0.0003, "rsi_up": 65, "rsi_dn": 35},  # V1.7: was 55/45
+        "strict":   {"m10": 0.0012, "m5": 0.0005, "rsi_up": 68, "rsi_dn": 32},  # V1.7: was 58/42
+        "ultra":    {"m10": 0.0018, "m5": 0.0008, "rsi_up": 72, "rsi_dn": 28},  # V1.7: was 60/40
     }
     STATE_FILE = Path(__file__).parent / "momentum_ml_filter_state.json"
     # Initial priors: moderate gets a slight head start (our V1.3 default)
@@ -212,6 +213,108 @@ class AdaptiveFilterML:
 
 
 # ============================================================================
+# V1.7 CHANGE TRACKER — shadow-tracks old vs new settings for auto-revert
+# ============================================================================
+class V17ChangeTracker:
+    """
+    Tracks V1.7 parameter changes vs V1.6 baseline.
+    Shadow-records what old settings would have done on each trade.
+    If new settings underperform old by >10% WR over 30+ trades, flags for revert.
+    """
+    STATE_FILE = Path(__file__).parent / "v17_change_tracker.json"
+    OLD_SETTINGS = {
+        "time_window": (2.0, 12.0),
+        "rsi_up": 55, "rsi_dn": 45,
+        "ema_gap_bp": 2,
+    }
+    NEW_SETTINGS = {
+        "time_window": (2.0, 5.0),
+        "rsi_up": 65, "rsi_dn": 35,
+        "ema_gap_bp": None,
+    }
+
+    def __init__(self):
+        self.trades = []  # [{won, time_left, rsi, ema_gap_bp, old_would_enter, new_entered}]
+        self._load()
+
+    def _load(self):
+        try:
+            with open(self.STATE_FILE) as f:
+                self.trades = json.load(f).get("trades", [])
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+
+    def _save(self):
+        with open(self.STATE_FILE, "w") as f:
+            json.dump({"trades": self.trades[-200:]}, f, indent=2)
+
+    def record_trade(self, won: bool, time_left: float, rsi: float,
+                     ema_gap_bp: float, side: str):
+        """Record a trade and compute what old settings would have done."""
+        old_time_ok = self.OLD_SETTINGS["time_window"][0] <= time_left <= self.OLD_SETTINGS["time_window"][1]
+        old_rsi_ok = True
+        if side == "UP" and rsi < self.OLD_SETTINGS["rsi_up"]:
+            old_rsi_ok = False
+        if side == "DOWN" and rsi > self.OLD_SETTINGS["rsi_dn"]:
+            old_rsi_ok = False
+        old_ema_ok = ema_gap_bp is None or ema_gap_bp >= self.OLD_SETTINGS["ema_gap_bp"]
+        old_would_enter = old_time_ok and old_rsi_ok and old_ema_ok
+
+        self.trades.append({
+            "won": won, "time_left": round(time_left, 1),
+            "rsi": round(rsi, 1) if rsi else None,
+            "ema_gap_bp": round(ema_gap_bp, 1) if ema_gap_bp else None,
+            "side": side, "old_would_enter": old_would_enter,
+        })
+        self._save()
+
+    def record_skipped(self, time_left: float, rsi: float, ema_gap_bp: float,
+                       side: str, reason: str):
+        """Record an entry the NEW settings skipped (for tracking missed signals)."""
+        old_time_ok = self.OLD_SETTINGS["time_window"][0] <= time_left <= self.OLD_SETTINGS["time_window"][1]
+        old_rsi_ok = True
+        if side == "UP" and rsi < self.OLD_SETTINGS["rsi_up"]:
+            old_rsi_ok = False
+        if side == "DOWN" and rsi > self.OLD_SETTINGS["rsi_dn"]:
+            old_rsi_ok = False
+        old_ema_ok = ema_gap_bp is None or ema_gap_bp >= self.OLD_SETTINGS["ema_gap_bp"]
+        if old_time_ok and old_rsi_ok and old_ema_ok:
+            self.trades.append({
+                "won": None, "time_left": round(time_left, 1),
+                "rsi": round(rsi, 1) if rsi else None,
+                "ema_gap_bp": round(ema_gap_bp, 1) if ema_gap_bp else None,
+                "side": side, "old_would_enter": True,
+                "new_skipped": True, "skip_reason": reason,
+            })
+            self._save()
+
+    def get_report(self) -> str:
+        """Compare new vs old settings performance."""
+        new_trades = [t for t in self.trades if t.get("won") is not None]
+        old_overlap = [t for t in new_trades if t.get("old_would_enter")]
+        new_only = [t for t in new_trades if not t.get("old_would_enter")]
+        old_skipped = [t for t in self.trades if t.get("new_skipped")]
+
+        new_w = sum(1 for t in new_trades if t["won"])
+        new_l = len(new_trades) - new_w
+        new_wr = new_w / len(new_trades) * 100 if new_trades else 0
+
+        lines = [f"[V1.7 TRACKER] {len(new_trades)} trades | {new_w}W/{new_l}L ({new_wr:.0f}% WR)"]
+        if new_only:
+            nw = sum(1 for t in new_only if t["won"])
+            lines.append(f"  New-only entries (EMA removed): {len(new_only)} trades, {nw}W/{len(new_only)-nw}L")
+        if old_skipped:
+            lines.append(f"  Old would have entered (new skipped): {len(old_skipped)} "
+                        f"(time_window: {sum(1 for t in old_skipped if t.get('skip_reason')=='time_window')}, "
+                        f"rsi: {sum(1 for t in old_skipped if t.get('skip_reason')=='rsi')})")
+
+        # Revert check
+        if len(new_trades) >= 30 and new_wr < 70:
+            lines.append(f"  *** WARNING: V1.7 WR={new_wr:.0f}% below 70% threshold — CONSIDER REVERTING ***")
+        return "\n".join(lines)
+
+
+# ============================================================================
 # AUTO-REDEEM (gasless relayer) — same as maker bot
 # ============================================================================
 _poly_web3_service = None
@@ -305,6 +408,7 @@ class Momentum15MTrader:
         self.running = True     # V1.2: auto-kill sets this to False
         self.tier = "PROBATION"  # current promotion tier
         self.filter_ml = AdaptiveFilterML()  # V1.4: adaptive filter ML
+        self.v17_tracker = V17ChangeTracker()  # V1.7: track parameter changes
         self._load()
         self._init_streak_tracker()  # V1.5: streak detection
 
@@ -712,6 +816,16 @@ class Momentum15MTrader:
                                 if ml_shadow:
                                     print(f"[ML] Shadow: {ml_shadow}")
 
+                                # V1.7: Track parameter change impact
+                                if trade.get("strategy") == "momentum_strong":
+                                    self.v17_tracker.record_trade(
+                                        won=won,
+                                        time_left=trade.get("_time_left", 5.0),
+                                        rsi=trade.get("rsi") or 50,
+                                        ema_gap_bp=trade.get("_ema_gap_bp"),
+                                        side=trade["side"],
+                                    )
+
                                 # Check promotion or auto-kill after each resolved trade
                                 self.check_promotion()
                                 if self.check_auto_kill():
@@ -738,6 +852,12 @@ class Momentum15MTrader:
     async def find_entries(self, all_candles: dict, markets: list):
         """Find momentum-based entries on 15M markets across all assets."""
         now = datetime.now(timezone.utc)
+
+        # V1.7: Skip dead hours (33% WR zones — hours 7,13 UTC)
+        SKIP_HOURS = {7, 13}
+        if now.hour in SKIP_HOURS:
+            return
+
         open_count = sum(1 for t in self.trades.values() if t.get("status") == "open")
         if open_count >= MAX_CONCURRENT:
             return
@@ -771,6 +891,7 @@ class Momentum15MTrader:
 
             # EMA chop filter
             all_closes = [c["close"] for c in candles]
+            ema_gap_bp = None
             if len(all_closes) >= 21:
                 ema9 = sum(all_closes[:9]) / 9
                 m9 = 2 / (9 + 1)
@@ -781,7 +902,7 @@ class Momentum15MTrader:
                 for p in all_closes[21:]:
                     ema21 = (p - ema21) * m21 + ema21
                 ema_gap_bp = abs(ema9 - ema21) / asset_price * 10000.0
-                if ema_gap_bp < EMA_GAP_MIN_BP:
+                if EMA_GAP_MIN_BP is not None and ema_gap_bp < EMA_GAP_MIN_BP:
                     continue
 
             # V1.3: RSI(14) confirmation
@@ -911,6 +1032,8 @@ class Momentum15MTrader:
                 "streak_dir": streak_info["streak_dir"],
                 "streak_alignment": streak_info["alignment"],
                 "streak_boost": streak_boost,
+                "_time_left": round(time_left, 1),  # V1.7: for change tracker
+                "_ema_gap_bp": round(ema_gap_bp, 1) if ema_gap_bp is not None else None,
                 "status": "open",
                 "pnl": 0.0,
             }
@@ -927,11 +1050,11 @@ class Momentum15MTrader:
                   f"{question[:50]}")
 
         # ================================================================
-        # V1.6: STREAK REVERSAL ENTRIES — bet AGAINST long streaks
-        # Separate from momentum: no EMA/RSI/momentum required, always minimal size
-        # Backtested on 50,348 PolyData markets: 55% WR (p<0.000001)
+        # V1.6: STREAK REVERSAL ENTRIES — DISABLED V1.7
+        # Live data: 46% WR (13 trades, 6W/7L, -$4.20) — worse than coin flip
+        # Backtested 55% WR did not hold in live trading
         # ================================================================
-        if open_count < MAX_CONCURRENT and self.session_pnl > -DAILY_LOSS_LIMIT:
+        if False and open_count < MAX_CONCURRENT and self.session_pnl > -DAILY_LOSS_LIMIT:
             for market in markets:
                 if open_count >= MAX_CONCURRENT:
                     break
@@ -1037,7 +1160,7 @@ class Momentum15MTrader:
         print("=" * 70)
         tier_size = TIERS[self.tier]["size"]
         print(f"MOMENTUM 15M DIRECTIONAL TRADER V1.6 - {mode} MODE")
-        print(f"Strategy: Multi-asset momentum_strong + streak_reversal on Polymarket 15M")
+        print(f"Strategy: Multi-asset momentum_strong on Polymarket 15M (streak_reversal DISABLED V1.7)")
         print(f"Paper-proven: 224W/134L, 63% WR, +$1,459 PnL")
         print(f"Assets: {', '.join(ASSETS.keys())}")
         print(f"Tier: {self.tier} (${tier_size:.2f}/trade) | Max concurrent: {MAX_CONCURRENT}")
@@ -1047,9 +1170,12 @@ class Momentum15MTrader:
         print(f"Entry price: ${MIN_ENTRY:.2f}-${MAX_ENTRY:.2f} (V1.1: raised floor — <$0.35 was 0W/3L)")
         print(f"Entry window: {TIME_WINDOW[0]}-{TIME_WINDOW[1]} min before close")
         print(f"Min momentum: {MIN_MOMENTUM_10M:.4%} (10m) + {MIN_MOMENTUM_5M:.4%} (5m) | RSI: >{RSI_CONFIRM_UP} UP, <{RSI_CONFIRM_DOWN} DOWN")
+        ema_str = f"{EMA_GAP_MIN_BP}bp" if EMA_GAP_MIN_BP else "DISABLED"
+        print(f"EMA chop filter: {ema_str} | V1.7 change tracker: ON")
         print(f"ML Filter: Thompson sampling | presets: relaxed/moderate/strict/ultra | auto-tunes thresholds")
         print(f"Streak reversal: {STREAK_REVERSAL_MIN_STREAK}+ streak -> bet AGAINST @ ${STREAK_REVERSAL_SIZE:.2f} always (50K backtest: 55% WR)")
-        print(f"Streak momentum filter: Skip WITH 4+ streaks | Boost AGAINST 4+ streaks")
+        print(f"Streak reversal: DISABLED V1.7 (46% WR live, -$4.20)")
+        print(f"Skip hours (UTC): {{7, 13}} (2-3AM & 8-9AM ET — 33% WR dead zones)")
         print(f"Daily loss limit: ${DAILY_LOSS_LIMIT}")
         print(f"Scan interval: {SCAN_INTERVAL}s")
         print("=" * 70)
@@ -1125,6 +1251,7 @@ class Momentum15MTrader:
                 # V1.4: ML filter report every 25 cycles
                 if cycle % 25 == 0 and cycle > 0:
                     print(self.filter_ml.get_report())
+                    print(self.v17_tracker.get_report())
 
                 # Auto-redeem every 45s (live only)
                 if not self.paper and now_ts - last_redeem >= 45:

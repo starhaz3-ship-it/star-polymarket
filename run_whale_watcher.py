@@ -22,9 +22,11 @@ from arbitrage.copy_trader import CopyTrader
 # ---------------------------------------------------------------------------
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "whale_watcher.db")
 DATA_API = "https://data-api.polymarket.com"
+GAMMA_API = "https://gamma-api.polymarket.com"
 POLL_SEC = 30          # seconds between full whale scan
 SNAPSHOT_SEC = 300     # position snapshots every 5 min
 REPORT_SEC = 1800      # console summary every 30 min
+SWEEP_SEC = 600        # resolve stale open trades every 10 min
 ACTIVITY_LIMIT = 15    # recent activities per whale per poll
 
 WHALES = CopyTrader.WHALES  # {name: address, ...}
@@ -132,6 +134,7 @@ class WhaleWatcher:
         self.db = db
         self.seen_tx: dict[str, set[str]] = {name: set() for name in WHALES}
         self.known_positions: dict[str, set[str]] = {name: set() for name in WHALES}
+        self._resolution_cache: dict[str, dict | None] = {}  # condition_id -> {outcome: price} or None
         self._load_seen()
 
     def _load_seen(self):
@@ -150,6 +153,58 @@ class WhaleWatcher:
         for name, cid in rows:
             if name in self.known_positions:
                 self.known_positions[name].add(cid)
+
+    # ----- market resolution -----
+
+    async def resolve_market_outcome(self, client: httpx.AsyncClient, condition_id: str) -> dict | None:
+        """Query gamma-api for actual market resolution outcome.
+
+        Returns dict mapping outcome name -> final price (e.g. {"Up": 1.0, "Down": 0.0})
+        or None if market is not yet resolved.
+        """
+        if condition_id in self._resolution_cache:
+            return self._resolution_cache[condition_id]
+
+        try:
+            r = await client.get(
+                f"{GAMMA_API}/markets",
+                params={"condition_id": condition_id},
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=10,
+            )
+            r.raise_for_status()
+            data = r.json()
+            if isinstance(data, list):
+                data = data[0] if data else None
+            if not data:
+                return None
+
+            prices = data.get("outcomePrices", "")
+            outcomes = data.get("outcomes", "")
+            if isinstance(prices, str):
+                prices = json.loads(prices) if prices else []
+            if isinstance(outcomes, str):
+                outcomes = json.loads(outcomes) if outcomes else []
+
+            if not prices or not outcomes or len(prices) < 2:
+                return None
+
+            result = {}
+            resolved = False
+            for i, outcome_name in enumerate(outcomes):
+                if i < len(prices):
+                    p = float(prices[i])
+                    result[outcome_name] = p
+                    if p >= 0.95 or p <= 0.05:
+                        resolved = True
+
+            if resolved:
+                self._resolution_cache[condition_id] = result
+                return result
+
+            return None
+        except Exception:
+            return None
 
     # ----- activity polling -----
 
@@ -224,34 +279,115 @@ class WhaleWatcher:
         closed = self.known_positions[name] - current_cids
 
         now = time.time()
+        resolved_any = False
+        retry_cids = set()
         for cid in closed:
-            # Position gone -> resolved or sold.  Assume resolved at extreme (1 or 0).
-            row = self.db.execute(
+            rows = self.db.execute(
                 "SELECT id, outcome, paper_entry_price, size, side FROM whale_trades "
-                "WHERE whale_name = ? AND condition_id = ? AND status = 'open' ORDER BY timestamp DESC LIMIT 1",
+                "WHERE whale_name = ? AND condition_id = ? AND status = 'open'",
                 (name, cid),
-            ).fetchone()
-            if not row:
+            ).fetchall()
+            if not rows:
                 continue
-            tid, outcome, entry_p, sz, side = row
-            # We don't know final price yet; mark as closed at entry (conservative).
-            # A smarter approach polls market resolution, but for now use exit_price=0 as placeholder.
-            # We'll update via the snapshot diff: if the position disappears it either resolved or was sold.
-            # Conservative: assume won (exit=1.0) if position gone normally for short-term markets.
-            # For accuracy, we check the current price of the token in the positions data.
-            exit_price = 1.0  # Default: assume resolved favorably (will be corrected by activity SELL records)
-            pnl = (exit_price - entry_p) * sz if side == "BUY" else 0
 
-            self.db.execute(
-                "UPDATE whale_trades SET status = 'resolved', paper_exit_price = ?, paper_pnl = ?, resolved_at = ? "
-                "WHERE id = ?",
-                (exit_price, pnl, now, tid),
-            )
-            log(f"  CLOSE: {name} {outcome} resolved - Paper PnL: ${pnl:+.2f}")
+            # Query actual market outcome
+            outcome_prices = await self.resolve_market_outcome(client, cid)
+            if outcome_prices is None:
+                # Market not resolved yet (whale may have sold) — keep tracking
+                retry_cids.add(cid)
+                continue
 
-        self.known_positions[name] = (self.known_positions[name] & current_cids)
-        if closed:
+            for tid, outcome, entry_p, sz, side in rows:
+                if side != "BUY":
+                    continue
+                outcome_price = outcome_prices.get(outcome, 0.0)
+                if outcome_price >= 0.95:
+                    exit_price = 1.0
+                    pnl = (1.0 - entry_p) * sz
+                else:
+                    exit_price = 0.0
+                    pnl = -(entry_p * sz)
+
+                self.db.execute(
+                    "UPDATE whale_trades SET status = 'resolved', paper_exit_price = ?, paper_pnl = ?, resolved_at = ? "
+                    "WHERE id = ?",
+                    (exit_price, pnl, now, tid),
+                )
+                log(f"  CLOSE: {name} {outcome} {'WIN' if exit_price > 0.5 else 'LOSS'} - Paper PnL: ${pnl:+.2f}")
+                resolved_any = True
+
+        # Remove resolved cids, keep unresolved ones for retry next cycle
+        self.known_positions[name] = (self.known_positions[name] & current_cids) | retry_cids
+        if resolved_any:
             self.db.commit()
+
+    # ----- stale trade sweep -----
+
+    async def sweep_stale_trades(self, client: httpx.AsyncClient):
+        """Resolve old open trades by querying gamma-api for market outcomes."""
+        cutoff = time.time() - 7200  # trades older than 2 hours
+        rows = self.db.execute(
+            "SELECT DISTINCT condition_id FROM whale_trades "
+            "WHERE status = 'open' AND side = 'BUY' AND timestamp < ?",
+            (cutoff,),
+        ).fetchall()
+
+        unique_cids = [r[0] for r in rows if r[0]]
+        if not unique_cids:
+            return
+
+        log(f"[SWEEP] Checking {len(unique_cids)} stale condition_ids...")
+        resolved_wins = 0
+        resolved_losses = 0
+        resolved_trades = 0
+        now = time.time()
+        api_calls = 0
+
+        for cid in unique_cids:
+            if api_calls >= 60:
+                log(f"[SWEEP] Rate limit reached, continuing next cycle")
+                break
+            api_calls += 1
+
+            outcome_prices = await self.resolve_market_outcome(client, cid)
+            await asyncio.sleep(0.2)
+
+            if outcome_prices is None:
+                continue
+
+            trades = self.db.execute(
+                "SELECT id, whale_name, outcome, paper_entry_price, size FROM whale_trades "
+                "WHERE condition_id = ? AND status = 'open' AND side = 'BUY'",
+                (cid,),
+            ).fetchall()
+
+            for tid, whale_name, outcome, entry_p, sz in trades:
+                outcome_price = outcome_prices.get(outcome, 0.0)
+                if outcome_price >= 0.95:
+                    exit_price = 1.0
+                    pnl = (1.0 - entry_p) * sz
+                    resolved_wins += 1
+                else:
+                    exit_price = 0.0
+                    pnl = -(entry_p * sz)
+                    resolved_losses += 1
+                resolved_trades += 1
+
+                self.db.execute(
+                    "UPDATE whale_trades SET status = 'resolved', paper_exit_price = ?, paper_pnl = ?, resolved_at = ? "
+                    "WHERE id = ?",
+                    (exit_price, pnl, now, tid),
+                )
+
+                # Remove from known_positions if present
+                if whale_name in self.known_positions:
+                    self.known_positions[whale_name].discard(cid)
+
+        if resolved_trades:
+            self.db.commit()
+            log(f"[SWEEP] Resolved {resolved_trades} trades ({resolved_wins}W/{resolved_losses}L) from {api_calls} markets checked")
+        else:
+            log(f"[SWEEP] Checked {api_calls} markets, none newly resolved")
 
     # ----- snapshots -----
 
@@ -314,9 +450,14 @@ async def main():
     whale_list = list(WHALES.items())
     last_snapshot = 0
     last_report = 0
+    last_sweep = 0
     delay_per_whale = max(1.0, POLL_SEC / len(whale_list))  # stagger requests
 
     async with httpx.AsyncClient(timeout=30) as client:
+        # Startup sweep: resolve trades that closed while watcher was offline
+        log("[STARTUP] Running initial stale-trade sweep...")
+        await watcher.sweep_stale_trades(client)
+
         while True:
             cycle_start = time.time()
 
@@ -325,6 +466,12 @@ async def main():
                 await watcher.poll_whale_activity(client, name, address)
                 await watcher.check_positions(client, name, address)
                 await asyncio.sleep(delay_per_whale)
+
+            # --- Periodic stale-trade sweep ---
+            now = time.time()
+            if now - last_sweep >= SWEEP_SEC:
+                await watcher.sweep_stale_trades(client)
+                last_sweep = now
 
             # --- Periodic snapshots ---
             now = time.time()
