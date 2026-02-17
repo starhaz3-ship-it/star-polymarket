@@ -2200,6 +2200,13 @@ class CryptoMarketMaker:
         self._ws_task: Optional[asyncio.Task] = None
         self._ws_connected: bool = False
         self._ws = None  # websocket connection object
+        # V5.1: WS order book streamer state
+        self._book_ws_task: Optional[asyncio.Task] = None
+        self._book_ws_connected: bool = False
+        self._book_ws = None
+        self._book_cache: Dict[str, dict] = {}
+        self._token_to_pair: Dict[str, 'MarketPair'] = {}
+        self._book_subscribed: set = set()
         self._rest_cycle_counter: int = 0  # For REST fallback cadence
         self._onchain_pnl: float = 0.0     # V4.6: Last on-chain PnL check
         self._onchain_delta: float = 0.0   # V4.6: Internal vs on-chain delta
@@ -3101,8 +3108,382 @@ class CryptoMarketMaker:
         else:
             print(f"  [FAST-SELL-FAIL] {pos.asset} {filled_side} — sell failed, will ride to resolution")
 
+    # ========================================================================
+    # V5.1: WEBSOCKET ORDER BOOK STREAMER — real-time taker-taker detection
+    # ========================================================================
+
+    async def _ws_book_listener(self):
+        """Background task: stream order book updates via CLOB Market WebSocket.
+        Detects taker-taker opportunities in real-time (<100ms) vs 30s REST polling.
+        Inspired by rvenandowsley/Polymarket-crypto-5min-arbitrage-bot."""
+        try:
+            from websockets.asyncio.client import connect as ws_connect
+        except ImportError:
+            print("[WS-BOOK] websockets package not installed")
+            return
+
+        WSS_MARKET_URL = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
+        reconnect_delay = 3.0
+
+        # Local order book cache: token_id -> {"bids": [...], "asks": [...]}
+        self._book_cache: Dict[str, dict] = {}
+        # Token -> MarketPair mapping for fast lookup
+        self._token_to_pair: Dict[str, 'MarketPair'] = {}
+        # Track subscribed tokens to avoid re-subscribing
+        self._book_subscribed: set = set()
+
+        while True:
+            try:
+                async with ws_connect(WSS_MARKET_URL, ping_interval=20, ping_timeout=10,
+                                      max_size=10 * 1024 * 1024) as ws:  # 10MB — book snapshots can be large
+                    self._book_ws = ws
+                    self._book_ws_connected = True
+                    reconnect_delay = 3.0
+
+                    # Subscribe to any tokens we already know about
+                    if self._book_subscribed:
+                        sub_msg = {
+                            "type": "market",
+                            "assets_ids": list(self._book_subscribed),
+                        }
+                        await ws.send(json.dumps(sub_msg))
+                    print(f"[WS-BOOK] Connected, tracking {len(self._book_subscribed)} tokens")
+
+                    async for message in ws:
+                        try:
+                            data = json.loads(message)
+                            events = data if isinstance(data, list) else [data]
+                            for event in events:
+                                if not isinstance(event, dict):
+                                    continue
+                                evt_type = event.get("event_type", "")
+
+                                if evt_type == "book":
+                                    await self._handle_book_snapshot(event)
+                                elif evt_type == "price_change":
+                                    await self._handle_price_change(event)
+
+                        except json.JSONDecodeError:
+                            pass
+                        except Exception as e:
+                            if "cancel" not in str(e).lower():
+                                print(f"[WS-BOOK] Event error: {str(e)[:80]}")
+
+            except asyncio.CancelledError:
+                print("[WS-BOOK] Listener cancelled")
+                break
+            except Exception as e:
+                print(f"[WS-BOOK] Disconnected: {str(e)[:80]}, reconnecting in {reconnect_delay:.0f}s...")
+            finally:
+                self._book_ws_connected = False
+                self._book_ws = None
+
+            await asyncio.sleep(reconnect_delay)
+            reconnect_delay = min(60.0, reconnect_delay * 1.5)
+
+    async def ws_book_subscribe(self, markets: List['MarketPair']):
+        """Subscribe to order book updates for new markets. Called from main loop."""
+        if not getattr(self, '_book_ws_connected', False) or not getattr(self, '_book_ws', None):
+            return
+
+        new_tokens = []
+        for pair in markets:
+            if pair.up_token_id not in self._book_subscribed:
+                new_tokens.append(pair.up_token_id)
+                self._token_to_pair[pair.up_token_id] = pair
+                self._book_subscribed.add(pair.up_token_id)
+            if pair.down_token_id not in self._book_subscribed:
+                new_tokens.append(pair.down_token_id)
+                self._token_to_pair[pair.down_token_id] = pair
+                self._book_subscribed.add(pair.down_token_id)
+
+        if new_tokens:
+            try:
+                sub_msg = {
+                    "type": "market",
+                    "assets_ids": list(self._book_subscribed),
+                }
+                await self._book_ws.send(json.dumps(sub_msg))
+                print(f"[WS-BOOK] Subscribed to {len(new_tokens)} new tokens ({len(self._book_subscribed)} total)")
+            except Exception as e:
+                print(f"[WS-BOOK] Subscribe error: {str(e)[:60]}")
+
+    async def _handle_book_snapshot(self, event: dict):
+        """Process full order book snapshot. Check taker-taker opportunity."""
+        asset_id = event.get("asset_id", "")
+        if not asset_id:
+            return
+
+        bids = event.get("bids", [])
+        asks = event.get("asks", [])
+
+        # Sort: bids descending, asks ascending
+        bids_sorted = sorted(bids, key=lambda x: float(x.get("price", 0)), reverse=True)
+        asks_sorted = sorted(asks, key=lambda x: float(x.get("price", 1)), reverse=False)
+
+        self._book_cache[asset_id] = {
+            "bids": bids_sorted,
+            "asks": asks_sorted,
+            "best_bid": float(bids_sorted[0]["price"]) if bids_sorted else 0.0,
+            "best_ask": float(asks_sorted[0]["price"]) if asks_sorted else 1.0,
+            "ask_depth": sum(float(a.get("size", 0)) for a in asks_sorted[:3]),
+            "ts": time.time(),
+        }
+
+        # Check taker-taker opportunity
+        await self._check_tt_opportunity(asset_id)
+
+    async def _handle_price_change(self, event: dict):
+        """Process incremental price update. Check taker-taker opportunity."""
+        asset_id = event.get("asset_id", "")
+        if not asset_id or asset_id not in self._book_cache:
+            return
+
+        # Price change gives us new best bid/ask directly
+        changes = event.get("price_changes", [event])  # Sometimes nested, sometimes flat
+        for change in changes:
+            side = change.get("side", "")
+            price = float(change.get("price", 0))
+            if side == "ASK" and price > 0:
+                self._book_cache[asset_id]["best_ask"] = price
+            elif side == "BID" and price > 0:
+                self._book_cache[asset_id]["best_bid"] = price
+        self._book_cache[asset_id]["ts"] = time.time()
+
+        await self._check_tt_opportunity(asset_id)
+
+    async def _check_tt_opportunity(self, updated_token: str):
+        """On any book update, check if this token's pair has combined ask < threshold."""
+        if not self.config.TAKER_TAKER_ENABLED:
+            return
+
+        pair = self._token_to_pair.get(updated_token)
+        if not pair:
+            return
+
+        # Need books for BOTH sides
+        up_book = self._book_cache.get(pair.up_token_id)
+        down_book = self._book_cache.get(pair.down_token_id)
+        if not up_book or not down_book:
+            return
+
+        # Stale check — don't act on >30s old data
+        now = time.time()
+        if now - up_book["ts"] > 30 or now - down_book["ts"] > 30:
+            return
+
+        # Skip if already entered
+        if pair.market_id in self._entered_markets or pair.market_id in self.positions:
+            return
+
+        up_ask = up_book["best_ask"]
+        down_ask = down_book["best_ask"]
+        combined = up_ask + down_ask
+
+        if combined >= self.config.TAKER_TAKER_MAX_COMBINED:
+            return
+
+        up_depth = up_book.get("ask_depth", 0)
+        down_depth = down_book.get("ask_depth", 0)
+        if up_depth < self.config.TAKER_TAKER_MIN_DEPTH or down_depth < self.config.TAKER_TAKER_MIN_DEPTH:
+            return
+
+        # Check time remaining
+        mins_left = float(pair.duration_min)
+        if pair.end_time:
+            delta = (pair.end_time - datetime.now(timezone.utc)).total_seconds()
+            mins_left = max(0, delta) / 60.0
+        min_time = 2.0 if pair.duration_min <= 5 else self.config.MIN_TIME_LEFT_MIN
+        if mins_left < min_time or mins_left > pair.duration_min * 1.5:
+            return
+
+        # Risk check
+        if not self.check_risk():
+            return
+
+        # Count active taker-taker positions
+        tt_active = sum(1 for p in self.positions.values()
+                        if p.status not in ("resolved", "cancelled")
+                        and getattr(p, 'entry_type', '') == "taker_taker")
+        if tt_active >= self.config.TAKER_TAKER_MAX_CONCURRENT:
+            return
+
+        edge = 1.0 - combined
+        edge_pct = edge / combined * 100
+        shares = max(self.config.MIN_SHARES, math.floor(self.config.TAKER_TAKER_SIZE / max(up_ask, down_ask)))
+        guaranteed_profit = edge * shares
+
+        # Shadow tracking
+        if not hasattr(self, '_tt_shadow'):
+            tt_file = Path("taker_taker_shadow.json")
+            if tt_file.exists():
+                try:
+                    self._tt_shadow = json.loads(tt_file.read_text())
+                except Exception:
+                    self._tt_shadow = {"opportunities": [], "stats": {"seen": 0, "qualified": 0, "would_profit": 0.0}}
+            else:
+                self._tt_shadow = {"opportunities": [], "stats": {"seen": 0, "qualified": 0, "would_profit": 0.0}}
+
+        self._tt_shadow["stats"]["qualified"] += 1
+        self._tt_shadow["stats"]["would_profit"] += guaranteed_profit
+
+        opp = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "asset": pair.asset, "duration": pair.duration_min,
+            "up_ask": up_ask, "down_ask": down_ask, "combined": round(combined, 4),
+            "edge_pct": round(edge_pct, 2), "shares": shares,
+            "hypothetical_profit": round(guaranteed_profit, 4),
+            "up_depth": round(up_depth, 1), "down_depth": round(down_depth, 1),
+            "source": "ws_realtime",
+        }
+        self._tt_shadow["opportunities"].append(opp)
+        if len(self._tt_shadow["opportunities"]) > 500:
+            self._tt_shadow["opportunities"] = self._tt_shadow["opportunities"][-500:]
+
+        try:
+            Path("taker_taker_shadow.json").write_text(json.dumps(self._tt_shadow, indent=2))
+        except Exception:
+            pass
+
+        print(f"\n[TT-WS {pair.asset} {pair.duration_min}m] OPPORTUNITY DETECTED via WebSocket!")
+        print(f"  Asks: UP ${up_ask:.2f} / DN ${down_ask:.2f} | Combined ${combined:.3f} | Edge {edge_pct:.1f}%")
+        print(f"  Would profit: ${guaranteed_profit:.2f} on {shares} shares")
+
+        is_live_tt = getattr(self.config, 'TAKER_TAKER_LIVE', False)
+        if not is_live_tt:
+            print(f"  [SHADOW] Not executing — TAKER_TAKER_LIVE=False | Total shadow: ${self._tt_shadow['stats']['would_profit']:.2f}")
+            return
+
+        # === LIVE EXECUTION — PARALLEL FOK (both sides simultaneously) ===
+        await self._execute_taker_taker(pair, up_ask, down_ask, shares, edge, edge_pct)
+
+    async def _execute_taker_taker(self, pair: 'MarketPair', up_ask: float, down_ask: float,
+                                    shares: int, edge: float, edge_pct: float):
+        """Execute taker-taker: parallel FOK buy both sides simultaneously."""
+        from py_clob_client.clob_types import OrderArgs, OrderType
+        from py_clob_client.order_builder.constants import BUY
+
+        async def buy_side(token_id: str, price: float, label: str):
+            """Place a single FOK order. Returns (success, order_id, label)."""
+            try:
+                args = OrderArgs(price=round(price, 2), size=float(shares), side=BUY, token_id=token_id)
+                signed = self.client.create_order(args)
+                resp = self.client.post_order(signed, OrderType.FOK)
+                success = resp.get("success", False)
+                order_id = resp.get("orderID", "")
+                if not success:
+                    print(f"  [TT] {label} FOK failed: {resp.get('errorMsg', '?')}")
+                return (success, order_id, label)
+            except Exception as e:
+                print(f"  [TT-ERR] {label}: {e}")
+                return (False, "", label)
+
+        # PARALLEL execution — both FOKs fire simultaneously
+        print(f"  [TT-EXEC] Firing parallel FOK: UP@${up_ask:.2f} + DN@${down_ask:.2f} x {shares}sh")
+        up_result, dn_result = await asyncio.gather(
+            buy_side(pair.up_token_id, up_ask, "UP"),
+            buy_side(pair.down_token_id, down_ask, "DOWN"),
+        )
+
+        up_ok, up_oid, _ = up_result
+        dn_ok, dn_oid, _ = dn_result
+
+        if up_ok and dn_ok:
+            # BOTH FILLED — guaranteed profit!
+            now_iso = datetime.now(timezone.utc).isoformat()
+            now_ts = time.time()
+            pos = PairPosition(
+                market_id=pair.market_id, market_num_id=pair.market_num_id,
+                question=pair.question, asset=pair.asset,
+                created_at=now_iso, status="paired",
+                entry_type="taker_taker", entry_tier="taker_taker",
+                bid_offset_used=0.0, hour_utc=datetime.now(timezone.utc).hour,
+                duration_min=pair.duration_min,
+            )
+            pos.up_order = MakerOrder(
+                order_id=up_oid, market_id=pair.market_id,
+                token_id=pair.up_token_id, side_label="UP",
+                price=round(up_ask, 2), size_shares=float(shares),
+                size_usd=up_ask * shares, placed_at=now_iso, placed_at_ts=now_ts,
+                status="filled", fill_price=round(up_ask, 2), fill_shares=float(shares),
+            )
+            pos.down_order = MakerOrder(
+                order_id=dn_oid, market_id=pair.market_id,
+                token_id=pair.down_token_id, side_label="DOWN",
+                price=round(down_ask, 2), size_shares=float(shares),
+                size_usd=down_ask * shares, placed_at=now_iso, placed_at_ts=now_ts,
+                status="filled", fill_price=round(down_ask, 2), fill_shares=float(shares),
+            )
+            pos.up_filled = True
+            pos.down_filled = True
+            pos.combined_cost = (up_ask + down_ask) * shares
+
+            self.positions[pair.market_id] = pos
+            self._persist_entered_market(pair.market_id)
+            self.stats["pairs_attempted"] += 1
+
+            guaranteed_profit = edge * shares
+            print(f"  [TT-PAIRED] BOTH sides filled! ${up_ask:.2f} + ${down_ask:.2f} = ${up_ask + down_ask:.3f}")
+            print(f"  Guaranteed profit: ${guaranteed_profit:.2f} ({edge_pct:.1f}%) on {shares} shares")
+
+            await self._ws_resubscribe()
+
+        elif up_ok and not dn_ok:
+            # UP filled, DOWN failed — sell UP back
+            print(f"  [TT] DOWN failed after UP filled — selling UP back")
+            now_iso = datetime.now(timezone.utc).isoformat()
+            temp_pos = PairPosition(
+                market_id=pair.market_id, market_num_id=pair.market_num_id,
+                question=pair.question, asset=pair.asset,
+                created_at=now_iso, status="partial",
+                entry_type="taker_taker", entry_tier="taker_taker",
+            )
+            temp_order = MakerOrder(
+                order_id=up_oid, market_id=pair.market_id,
+                token_id=pair.up_token_id, side_label="UP",
+                price=round(up_ask, 2), size_shares=float(shares),
+                size_usd=up_ask * shares, placed_at=now_iso,
+                status="filled", fill_price=round(up_ask, 2), fill_shares=float(shares),
+            )
+            temp_pos.up_order = temp_order
+            temp_pos.up_filled = True
+            sell_pnl = await self._sell_partial_at_market(temp_pos, temp_order)
+            if sell_pnl is not None:
+                print(f"  [TT-RESCUE] Sold UP back: ${sell_pnl:+.2f}")
+                self.stats["total_pnl"] += sell_pnl
+                self.daily_pnl += sell_pnl
+
+        elif dn_ok and not up_ok:
+            # DOWN filled, UP failed — sell DOWN back
+            print(f"  [TT] UP failed after DOWN filled — selling DOWN back")
+            now_iso = datetime.now(timezone.utc).isoformat()
+            temp_pos = PairPosition(
+                market_id=pair.market_id, market_num_id=pair.market_num_id,
+                question=pair.question, asset=pair.asset,
+                created_at=now_iso, status="partial",
+                entry_type="taker_taker", entry_tier="taker_taker",
+            )
+            temp_order = MakerOrder(
+                order_id=dn_oid, market_id=pair.market_id,
+                token_id=pair.down_token_id, side_label="DOWN",
+                price=round(down_ask, 2), size_shares=float(shares),
+                size_usd=down_ask * shares, placed_at=now_iso,
+                status="filled", fill_price=round(down_ask, 2), fill_shares=float(shares),
+            )
+            temp_pos.down_order = temp_order
+            temp_pos.down_filled = True
+            sell_pnl = await self._sell_partial_at_market(temp_pos, temp_order)
+            if sell_pnl is not None:
+                print(f"  [TT-RESCUE] Sold DOWN back: ${sell_pnl:+.2f}")
+                self.stats["total_pnl"] += sell_pnl
+                self.daily_pnl += sell_pnl
+
+        else:
+            # Both failed — nothing to clean up
+            print(f"  [TT] Both FOKs failed — no fills")
+
     async def taker_taker_scan(self, markets: List['MarketPair']):
-        """V5.0: Scan order books for combined ask < threshold.
+        """V5.0: REST fallback scan for taker-taker (runs alongside WS for redundancy).
         SHADOW MODE: logs opportunities and tracks hypothetical PnL without placing real orders.
         Set TAKER_TAKER_LIVE=True to actually execute (after shadow proves profitable)."""
         if not self.config.TAKER_TAKER_ENABLED:
@@ -5740,7 +6121,7 @@ class CryptoMarketMaker:
         """Main market maker loop."""
         print("=" * 70)
         mode = "PAPER" if self.paper else "LIVE"
-        print(f"AVELLANEDA MAKER V5.0 - {mode} MODE")
+        print(f"AVELLANEDA MAKER V5.1 - {mode} MODE")
         deep_assets = ",".join(self.config.DEEP_ASSETS)
         if self.config.DEEP_MOMENTUM_GUIDED:
             deep_dir_tag = " MOMENTUM-GUIDED"
@@ -5793,7 +6174,7 @@ class CryptoMarketMaker:
               f"regimes: low/med/high (ATR percentile)")
         if self.config.TAKER_TAKER_ENABLED:
             tt_mode = "LIVE" if self.config.TAKER_TAKER_LIVE else "SHADOW"
-            print(f"TAKER-TAKER: {tt_mode} | max combined ${self.config.TAKER_TAKER_MAX_COMBINED} | "
+            print(f"TAKER-TAKER: {tt_mode} | WS real-time book + REST fallback | max combined ${self.config.TAKER_TAKER_MAX_COMBINED} | "
                   f"${self.config.TAKER_TAKER_SIZE}/side | max {self.config.TAKER_TAKER_MAX_CONCURRENT} concurrent | "
                   f"min depth ${self.config.TAKER_TAKER_MIN_DEPTH}")
         print("=" * 70)
@@ -5806,6 +6187,11 @@ class CryptoMarketMaker:
         if not self.paper and self.config.WS_ENABLED:
             self._ws_task = asyncio.create_task(self._ws_fill_listener())
             print("[WS] Fill listener task started")
+
+        # V5.1: Start WebSocket order book streamer (taker-taker real-time detection)
+        if self.config.TAKER_TAKER_ENABLED and not self.paper:
+            self._book_ws_task = asyncio.create_task(self._ws_book_listener())
+            print("[WS-BOOK] Order book streamer task started")
 
         cycle = 0
         last_redeem_check = 0
@@ -5838,6 +6224,10 @@ class CryptoMarketMaker:
 
                 # Phase 4: Discover new markets (always, even if risk limits hit for maker)
                 markets = await self.discover_markets()
+
+                # V5.1: Subscribe WS book streamer to new market tokens
+                if self.config.TAKER_TAKER_ENABLED and markets:
+                    await self.ws_book_subscribe(markets)
 
                 # Phase 4a: Momentum directional trading (V3.0)
                 if self.momentum and self.config.MOMENTUM_ENABLED:
@@ -6034,6 +6424,8 @@ class CryptoMarketMaker:
         hedge_tag = f" | Hedge: {h_ok}/{h_att}" if h_att > 0 else ""
         unpaired = self._get_unpaired_count()
         ws_tag = " WS" if self._ws_connected else ""
+        book_tag = " BOOK-WS" if self._book_ws_connected else ""
+        ws_tag += book_tag
         pp_tag = f" | PP:{unpaired}" if unpaired > 0 else ""
         print(f"\n--- Cycle {cycle} | {mode_tag}{cb_tag}{ws_tag} | UTC {hour:02d} | "
               f"Active: {active} ({paired} paired, {partial} partial){hedge_tag}{pp_tag} | "
