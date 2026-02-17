@@ -447,8 +447,8 @@ class MakerConfig:
     PAIRED_EARLY_BUFFER_MIN: float = 2.0 # V4.7.3: Place orders up to 2 min before candle opens
 
     # V5.0: Taker-taker paired mode — market-buy both sides simultaneously
-    TAKER_TAKER_ENABLED: bool = True     # Scan order books, log opportunities (shadow mode)
-    TAKER_TAKER_LIVE: bool = False        # Actually place orders (False = shadow-only, tracks hypothetical PnL)
+    TAKER_TAKER_ENABLED: bool = True     # Scan order books for combined ask < threshold
+    TAKER_TAKER_LIVE: bool = True         # V5.1: LIVE — WS real-time detection + parallel FOK execution
     TAKER_TAKER_MAX_COMBINED: float = 0.96  # Max combined ask to trigger (4% guaranteed profit)
     TAKER_TAKER_SIZE: float = 5.0        # $ per side
     TAKER_TAKER_MAX_CONCURRENT: int = 2  # Max simultaneous taker-taker positions
