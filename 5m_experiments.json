@@ -704,100 +704,340 @@
       "outcome": "DOWN",
       "pnl": 2.375,
       "resolve_time": "2026-02-17T07:32:11.473687+00:00"
+    },
+    {
+      "experiment": "whale",
+      "market_id": "0x901935f2b025c865f63b8ad11d9d20d78dd711895ddef17d6db715f40d5fba2b",
+      "question": "Bitcoin Up or Down - February 17, 2:20AM-2:25AM ET",
+      "direction": "DOWN",
+      "entry_price": 0.52,
+      "shares": 5,
+      "cost": 2.6,
+      "entry_time": "2026-02-17T07:20:26.014615+00:00",
+      "signal_detail": "consensus | whales=k9Q2mX4L8A7ZP3R,late-to-tomorrow | tiers=2,3",
+      "whale_names": "k9Q2mX4L8A7ZP3R,late-to-tomorrow",
+      "whale_tiers": "2,3",
+      "consensus_type": "consensus",
+      "duration_min": 5,
+      "asset": "BTC",
+      "resolved": true,
+      "outcome": "UP",
+      "pnl": -2.6,
+      "resolve_time": "2026-02-17T07:34:49.790272+00:00"
+    },
+    {
+      "experiment": "whale_solo",
+      "market_id": "0xded87a1d64224d074e4a89dedbb2e87223c297424d1cadbfdf9e951e313a2847",
+      "question": "Solana Up or Down - February 17, 2:15AM-2:30AM ET",
+      "direction": "UP",
+      "entry_price": 0.505,
+      "shares": 5,
+      "cost": 2.525,
+      "entry_time": "2026-02-17T07:16:45.354373+00:00",
+      "signal_detail": "solo | whale=k9Q2mX4L8A7ZP3R | tier=2",
+      "whale_names": "k9Q2mX4L8A7ZP3R",
+      "whale_tiers": "2",
+      "consensus_type": "solo_shadow",
+      "duration_min": 15,
+      "asset": "SOL",
+      "resolved": true,
+      "outcome": "DOWN",
+      "pnl": -2.525,
+      "resolve_time": "2026-02-17T07:35:38.233037+00:00"
+    },
+    {
+      "experiment": "whale_solo",
+      "market_id": "0xb85db01fc54d37ba150dee817d555f7c930b95a8f54bb16cfeb016699f508c35",
+      "question": "XRP Up or Down - February 17, 2:15AM-2:30AM ET",
+      "direction": "DOWN",
+      "entry_price": 0.46499999999999997,
+      "shares": 6,
+      "cost": 2.79,
+      "entry_time": "2026-02-17T07:16:45.354373+00:00",
+      "signal_detail": "solo | whale=distinct-baguette | tier=2",
+      "whale_names": "distinct-baguette",
+      "whale_tiers": "2",
+      "consensus_type": "solo_shadow",
+      "duration_min": 15,
+      "asset": "XRP",
+      "resolved": true,
+      "outcome": "UP",
+      "pnl": -2.79,
+      "resolve_time": "2026-02-17T07:35:38.233037+00:00"
+    },
+    {
+      "experiment": "whale",
+      "market_id": "0xded87a1d64224d074e4a89dedbb2e87223c297424d1cadbfdf9e951e313a2847",
+      "question": "Solana Up or Down - February 17, 2:15AM-2:30AM ET",
+      "direction": "UP",
+      "entry_price": 0.645,
+      "shares": 5,
+      "cost": 3.225,
+      "entry_time": "2026-02-17T07:17:31.515806+00:00",
+      "signal_detail": "consensus | whales=k9Q2mX4L8A7ZP3R,distinct-baguette | tiers=2,2",
+      "whale_names": "k9Q2mX4L8A7ZP3R,distinct-baguette",
+      "whale_tiers": "2,2",
+      "consensus_type": "consensus",
+      "duration_min": 15,
+      "asset": "SOL",
+      "resolved": true,
+      "outcome": "DOWN",
+      "pnl": -3.225,
+      "resolve_time": "2026-02-17T07:35:38.233037+00:00"
+    },
+    {
+      "experiment": "whale",
+      "market_id": "0xb85db01fc54d37ba150dee817d555f7c930b95a8f54bb16cfeb016699f508c35",
+      "question": "XRP Up or Down - February 17, 2:15AM-2:30AM ET",
+      "direction": "DOWN",
+      "entry_price": 0.535,
+      "shares": 5,
+      "cost": 2.675,
+      "entry_time": "2026-02-17T07:19:43.286399+00:00",
+      "signal_detail": "consensus | whales=distinct-baguette,k9Q2mX4L8A7ZP3R | tiers=2,2",
+      "whale_names": "distinct-baguette,k9Q2mX4L8A7ZP3R",
+      "whale_tiers": "2,2",
+      "consensus_type": "consensus",
+      "duration_min": 15,
+      "asset": "XRP",
+      "resolved": true,
+      "outcome": "UP",
+      "pnl": -2.675,
+      "resolve_time": "2026-02-17T07:35:38.233037+00:00"
+    },
+    {
+      "experiment": "whale",
+      "market_id": "0x3eed29a70c9779c16601542298ebf8d416bf22241c786ac3571d951c9afdb3fa",
+      "question": "Bitcoin Up or Down - February 17, 2:25AM-2:30AM ET",
+      "direction": "DOWN",
+      "entry_price": 0.615,
+      "shares": 5,
+      "cost": 3.075,
+      "entry_time": "2026-02-17T07:25:33.469229+00:00",
+      "signal_detail": "t1_solo | whales=0x8dxd,MuseumOfBees | tiers=1,2",
+      "whale_names": "0x8dxd,MuseumOfBees",
+      "whale_tiers": "1,2",
+      "consensus_type": "t1_solo",
+      "duration_min": 5,
+      "asset": "BTC",
+      "resolved": true,
+      "outcome": "DOWN",
+      "pnl": 1.925,
+      "resolve_time": "2026-02-17T07:35:38.233037+00:00"
+    },
+    {
+      "experiment": "flow",
+      "market_id": "0xede4fad9169b7ca6a1b53c5e15316788787f475d9b21ebd2f709f4c7a4794cb0",
+      "question": "Bitcoin Up or Down - February 17, 3:35AM-3:40AM ET",
+      "direction": "UP",
+      "entry_price": 0.5700000000000001,
+      "shares": 5,
+      "cost": 2.85,
+      "entry_time": "2026-02-17T08:35:39.028354+00:00",
+      "signal_detail": "drift=+0.130 (UP:+0.065, DN:-0.065) | UP:0.51->0.57 | DN:0.49->0.43 | age=267s | snapshots=7",
+      "whale_names": "",
+      "whale_tiers": "",
+      "consensus_type": "",
+      "duration_min": 5,
+      "asset": "BTC",
+      "resolved": true,
+      "outcome": "DOWN",
+      "pnl": -2.85,
+      "resolve_time": "2026-02-17T08:46:19.670939+00:00"
+    },
+    {
+      "experiment": "whale_solo",
+      "market_id": "0x7a30715a8ab7899a51a2d3df278c6e91f5cba4ea9ac4a6b6b4b0e0bf0f328eed",
+      "question": "Ethereum Up or Down - February 17, 3:30AM-3:45AM ET",
+      "direction": "UP",
+      "entry_price": 0.615,
+      "shares": 5,
+      "cost": 3.075,
+      "entry_time": "2026-02-17T08:31:41.378951+00:00",
+      "signal_detail": "solo | whale=distinct-baguette | tier=2",
+      "whale_names": "distinct-baguette",
+      "whale_tiers": "2",
+      "consensus_type": "solo_shadow",
+      "duration_min": 15,
+      "asset": "ETH",
+      "resolved": true,
+      "outcome": "DOWN",
+      "pnl": -3.075,
+      "resolve_time": "2026-02-17T08:47:07.252402+00:00"
+    },
+    {
+      "experiment": "whale_solo",
+      "market_id": "0xe7e3f74c2331dfcd92166af7a8a035216207c919fead5f1afaa1aa03603da08c",
+      "question": "Bitcoin Up or Down - February 17, 3:30AM-3:45AM ET",
+      "direction": "UP",
+      "entry_price": 0.605,
+      "shares": 5,
+      "cost": 3.025,
+      "entry_time": "2026-02-17T08:31:41.378951+00:00",
+      "signal_detail": "solo | whale=distinct-baguette | tier=2",
+      "whale_names": "distinct-baguette",
+      "whale_tiers": "2",
+      "consensus_type": "solo_shadow",
+      "duration_min": 15,
+      "asset": "BTC",
+      "resolved": true,
+      "outcome": "DOWN",
+      "pnl": -3.025,
+      "resolve_time": "2026-02-17T08:47:07.252402+00:00"
+    },
+    {
+      "experiment": "whale",
+      "market_id": "0x7a30715a8ab7899a51a2d3df278c6e91f5cba4ea9ac4a6b6b4b0e0bf0f328eed",
+      "question": "Ethereum Up or Down - February 17, 3:30AM-3:45AM ET",
+      "direction": "UP",
+      "entry_price": 0.615,
+      "shares": 5,
+      "cost": 3.075,
+      "entry_time": "2026-02-17T08:32:20.661597+00:00",
+      "signal_detail": "t1_solo | whales=distinct-baguette,0x8dxd | tiers=2,1",
+      "whale_names": "distinct-baguette,0x8dxd",
+      "whale_tiers": "2,1",
+      "consensus_type": "t1_solo",
+      "duration_min": 15,
+      "asset": "ETH",
+      "resolved": true,
+      "outcome": "DOWN",
+      "pnl": -3.075,
+      "resolve_time": "2026-02-17T08:47:07.252402+00:00"
+    },
+    {
+      "experiment": "whale",
+      "market_id": "0xe7e3f74c2331dfcd92166af7a8a035216207c919fead5f1afaa1aa03603da08c",
+      "question": "Bitcoin Up or Down - February 17, 3:30AM-3:45AM ET",
+      "direction": "UP",
+      "entry_price": 0.635,
+      "shares": 5,
+      "cost": 3.175,
+      "entry_time": "2026-02-17T08:32:20.661597+00:00",
+      "signal_detail": "t1_solo | whales=distinct-baguette,0x8dxd,k9Q2mX4L8A7ZP3R | tiers=2,1,2",
+      "whale_names": "distinct-baguette,0x8dxd,k9Q2mX4L8A7ZP3R",
+      "whale_tiers": "2,1,2",
+      "consensus_type": "t1_solo",
+      "duration_min": 15,
+      "asset": "BTC",
+      "resolved": true,
+      "outcome": "DOWN",
+      "pnl": -3.175,
+      "resolve_time": "2026-02-17T08:47:07.252402+00:00"
+    },
+    {
+      "experiment": "whale_solo",
+      "market_id": "0x6faccb9da5d978364194a99d07c2042b90df94a0aa0982e9f10bc68b966840da",
+      "question": "XRP Up or Down - February 17, 3:30AM-3:45AM ET",
+      "direction": "UP",
+      "entry_price": 0.605,
+      "shares": 5,
+      "cost": 3.025,
+      "entry_time": "2026-02-17T08:32:20.661597+00:00",
+      "signal_detail": "solo | whale=distinct-baguette | tier=2",
+      "whale_names": "distinct-baguette",
+      "whale_tiers": "2",
+      "consensus_type": "solo_shadow",
+      "duration_min": 15,
+      "asset": "XRP",
+      "resolved": true,
+      "outcome": "DOWN",
+      "pnl": -3.025,
+      "resolve_time": "2026-02-17T08:47:07.252402+00:00"
     }
   ],
   "stats": {
     "flow": {
-      "trades": 8,
+      "trades": 9,
       "wins": 5,
-      "losses": 3,
-      "pnl": 3.35
+      "losses": 4,
+      "pnl": 0.5
     },
     "whale": {
-      "trades": 20,
-      "wins": 11,
-      "losses": 9,
-      "pnl": 5.355
+      "trades": 26,
+      "wins": 12,
+      "losses": 14,
+      "pnl": -7.47
     },
     "whale_solo": {
-      "trades": 9,
+      "trades": 14,
       "wins": 2,
-      "losses": 7,
-      "pnl": -16.955
+      "losses": 12,
+      "pnl": -31.395
     }
   },
   "whale_stats": {
     "0x8dxd": {
-      "trades": 15,
-      "wins": 6,
-      "losses": 9,
-      "pnl": -9.49
+      "trades": 18,
+      "wins": 7,
+      "losses": 11,
+      "pnl": -13.815
     },
     "k9Q2mX4L8A7ZP3R": {
-      "trades": 17,
+      "trades": 22,
       "wins": 9,
-      "losses": 8,
-      "pnl": 2.185
+      "losses": 13,
+      "pnl": -12.015
     },
     "MuseumOfBees": {
-      "trades": 5,
-      "wins": 2,
+      "trades": 6,
+      "wins": 3,
       "losses": 3,
-      "pnl": -1.905
+      "pnl": 0.02
     },
     "_all_0x8dxd": {
-      "trades": 22,
-      "wins": 10,
-      "losses": 12,
-      "pnl": -6.0
+      "trades": 29,
+      "wins": 12,
+      "losses": 17,
+      "pnl": -15.0
     },
     "_all_k9Q2mX4L8A7ZP3R": {
-      "trades": 29,
-      "wins": 16,
-      "losses": 13,
-      "pnl": 9.0
+      "trades": 41,
+      "wins": 20,
+      "losses": 21,
+      "pnl": -3.0
     },
     "_all_Internal-Collection": {
-      "trades": 10,
-      "wins": 3,
-      "losses": 7,
+      "trades": 12,
+      "wins": 4,
+      "losses": 8,
       "pnl": -12.0
     },
     "_all_MuseumOfBees": {
-      "trades": 9,
-      "wins": 4,
+      "trades": 10,
+      "wins": 5,
       "losses": 5,
-      "pnl": -3.0
+      "pnl": 0.0
     },
     "_all_late-to-tomorrow": {
-      "trades": 7,
+      "trades": 8,
       "wins": 5,
-      "losses": 2,
-      "pnl": 9.0
+      "losses": 3,
+      "pnl": 6.0
     },
     "_all_BoneReader": {
-      "trades": 19,
-      "wins": 18,
+      "trades": 27,
+      "wins": 26,
       "losses": 1,
-      "pnl": 51.0
+      "pnl": 75.0
     },
     "_all_distinct-baguette": {
-      "trades": 14,
+      "trades": 23,
       "wins": 13,
-      "losses": 1,
-      "pnl": 36.0
+      "losses": 10,
+      "pnl": 9.0
     },
     "distinct-baguette": {
-      "trades": 3,
+      "trades": 11,
       "wins": 3,
-      "losses": 0,
-      "pnl": 8.84
+      "losses": 8,
+      "pnl": -15.225
     },
     "late-to-tomorrow": {
-      "trades": 1,
+      "trades": 2,
       "wins": 1,
-      "losses": 0,
-      "pnl": 1.975
+      "losses": 1,
+      "pnl": -0.625
     },
     "BoneReader": {
       "trades": 2,
@@ -806,5 +1046,5 @@
       "pnl": 6.18
     }
   },
-  "last_updated": "2026-02-17T07:32:13.867141+00:00"
+  "last_updated": "2026-02-17T08:47:09.887217+00:00"
 }

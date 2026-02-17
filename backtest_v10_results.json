@@ -1,0 +1,46 @@
+{
+  "timestamp": "2026-02-15T07:59:17.672003+00:00",
+  "data_range": "2026-02-08 08:00 to 2026-02-15 07:59",
+  "bars_1m": 10080,
+  "bars_5m": 2016,
+  "natural_up_pct": 51.74,
+  "v30": {
+    "label": "V3.0 - Simple Momentum (2min, 15bp, $5)",
+    "trades": 353,
+    "wins": 318,
+    "win_rate": 90.08,
+    "total_pnl": 1241.73,
+    "avg_pnl": 3.5176,
+    "avg_win": 4.41,
+    "avg_loss": -4.59,
+    "max_drawdown": 13.77,
+    "total_cost": 1620.27,
+    "roi_pct": 76.64,
+    "max_win_streak": 45,
+    "max_loss_streak": 3,
+    "trades_per_day": 50.4
+  },
+  "v10": {
+    "label": "V10.0 - PSAR+HMA+Ulcer+WR+Klinger+ATR ($5)",
+    "trades": 0,
+    "wins": 0,
+    "win_rate": 0,
+    "total_pnl": 0,
+    "avg_pnl": 0,
+    "avg_win": 0,
+    "avg_loss": 0,
+    "max_drawdown": 0,
+    "total_cost": 0,
+    "roi_pct": 0,
+    "max_win_streak": 0,
+    "max_loss_streak": 0,
+    "trades_per_day": 0
+  },
+  "overlap": {
+    "v30": 353,
+    "v10": 0,
+    "both": 0,
+    "v10_unique": 0,
+    "v30_unique": 353
+  }
+}

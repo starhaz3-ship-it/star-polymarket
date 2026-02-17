@@ -8,14 +8,20 @@
 - **NEVER** launch copy traders (`run_copy_live.py`, `run_copy_k9Q2.py`) without Star's explicit consent
 - **NEVER** run directional traders live (`run_ta_live.py`, `run_ema_rsi_5m.py`, `run_trend_scalp_15m.py`, `run_momentum_5m.py`). Directional trading has 40% WR and -$214 lifetime losses.
 - **EXCEPTION (2026-02-16)**: `run_momentum_15m_live.py --live` is APPROVED by Star. Monitor closely — kill if WR drops below 50% over 20+ trades or daily loss limit hit.
-- **ON SESSION START**: Verify NO unauthorized directional traders are running. `run_momentum_15m_live.py` and `run_maker.py` are the only two allowed live.
-- Allowed live: `run_maker.py --live` (maker) + `run_momentum_15m_live.py --live` (momentum directional)
+- **NEVER** run `run_maker.py` — KILLED permanently. Lost ~$300 on 1c spreads with no edge. Do NOT restart, do NOT suggest restarting.
+- **ON SESSION START**: Verify NO unauthorized directional traders are running. `run_momentum_15m_live.py` is the only allowed live trader.
+- Allowed live: `run_momentum_15m_live.py --live` (momentum directional) — ONLY live trader permitted
 - Paper-only processes (safe): `run_ta_paper.py`, `run_15m_strategies.py`, `run_fib_fib_paper.py`, `run_momentum_5m.py --paper`
 
+## CORE STACK (launch by default on "Access Star-Polymarket")
+On session start, offer to launch any that aren't already running:
+1. **Momentum 15M LIVE** — `python -u run_momentum_15m_live.py --live` — ONLY live trader
+2. **TA Paper** — `python -u run_ta_paper.py` — paper trading
+3. **15M Strategies** — `python -u run_15m_strategies.py` — paper 15m strategy lab
+4. **5M Experiments** — `python -u run_5m_experiments.py` — whale consensus + 5m experiments
+5. **Whale Watcher** — `python -u run_whale_watcher.py` — whale wallet tracker
+
 ## DO NOT KILL THESE PROCESSES
-- **Maker LIVE** (`run_maker.py --live`) — PID in `maker.pid` — both-sides market maker
-- **Momentum 15M LIVE** (`run_momentum_15m_live.py --live`) — PID in `momentum_15m_live.pid` — directional momentum (APPROVED, monitor WR)
-- **TA Paper Trader** (`run_ta_paper.py`) — PID in `ta_paper.pid` — paper trading
 - Check PID files before killing ANY Python process in this project
 - If you need to restart a trader, read the PID file first and only kill that specific PID
 

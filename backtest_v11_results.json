@@ -1,0 +1,46 @@
+{
+  "timestamp": "2026-02-15T08:08:30.294614+00:00",
+  "data_range": "2026-02-08 08:09 to 2026-02-15 08:08",
+  "bars_1m": 10080,
+  "bars_5m": 2016,
+  "natural_up_pct": 51.04,
+  "v30": {
+    "label": "V3.0 - Simple Momentum (2min, 15bp, $5)",
+    "trades": 283,
+    "wins": 258,
+    "win_rate": 91.17,
+    "total_pnl": 1023.03,
+    "avg_pnl": 3.6149,
+    "avg_win": 4.41,
+    "avg_loss": -4.59,
+    "max_drawdown": 13.77,
+    "total_cost": 1298.97,
+    "roi_pct": 78.76,
+    "max_win_streak": 48,
+    "max_loss_streak": 3,
+    "trades_per_day": 40.4
+  },
+  "v11": {
+    "label": "V11.0 - Vortex+Coppock+KAMA+Fisher+Aroon+OBV ($5)",
+    "trades": 1641,
+    "wins": 850,
+    "win_rate": 51.8,
+    "total_pnl": 117.81,
+    "avg_pnl": 0.0718,
+    "avg_win": 4.41,
+    "avg_loss": -4.59,
+    "max_drawdown": 134.82,
+    "total_cost": 7532.19,
+    "roi_pct": 1.56,
+    "max_win_streak": 10,
+    "max_loss_streak": 7,
+    "trades_per_day": 234.4
+  },
+  "overlap": {
+    "v30": 283,
+    "v11": 1641,
+    "both": 211,
+    "v11_unique": 1430,
+    "v30_unique": 72
+  }
+}

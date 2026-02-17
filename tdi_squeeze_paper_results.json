@@ -1,0 +1,57 @@
+{
+  "stats": {
+    "wins": 0,
+    "losses": 2,
+    "pnl": -13.61
+  },
+  "resolved": [
+    {
+      "side": "UP",
+      "entry_price": 0.495,
+      "size_usd": 6.81,
+      "entry_time": "2026-02-15T00:12:05.223238+00:00",
+      "condition_id": "0x128f17c3be840b9f37c68c08f942a0edec5f6f29e5931d16343f66af889915b9",
+      "market_numeric_id": "1375133",
+      "title": "Bitcoin Up or Down - February 14, 7:00PM-7:15PM ET",
+      "strategy": "TDI_SQUEEZE_15m",
+      "confidence": 0.821,
+      "edge": 0.025,
+      "fair_px": 0.52,
+      "strength": 0.761,
+      "reason": "tdi_squeeze_release",
+      "btc_price": 69747.99,
+      "detail": "rsi=39.0 tdi_u=54.1 tdi_l=40.2 sq=9bars RELEASE ema9=69789",
+      "tte_seconds": 174,
+      "hour_utc": 0,
+      "status": "closed",
+      "pnl": -6.81,
+      "exit_price": 0.0,
+      "exit_time": "2026-02-15T00:28:19.279072+00:00"
+    },
+    {
+      "side": "DOWN",
+      "entry_price": 0.235,
+      "size_usd": 6.8,
+      "entry_time": "2026-02-15T00:55:08.152652+00:00",
+      "condition_id": "0xc4952879177d8600bb96bd5f3989ab60eb099353955bc8531a7ab84e5bb88be1",
+      "market_numeric_id": "1375153",
+      "title": "Bitcoin Up or Down - February 14, 7:45PM-8:00PM ET",
+      "strategy": "TDI_SQUEEZE_15m",
+      "confidence": 0.835,
+      "edge": 0.285,
+      "fair_px": 0.52,
+      "strength": 0.76,
+      "reason": "tdi_squeeze_release",
+      "btc_price": 69752.0,
+      "detail": "rsi=59.5 tdi_u=55.2 tdi_l=36.2 sq=3bars RELEASE ema9=69707",
+      "tte_seconds": 291,
+      "hour_utc": 0,
+      "status": "closed",
+      "pnl": -6.8,
+      "exit_price": 0.0,
+      "exit_time": "2026-02-15T01:11:24.564210+00:00"
+    }
+  ],
+  "active": {},
+  "last_updated": "2026-02-15T04:59:45.935925+00:00"
+}

@@ -1,0 +1,60 @@
+{
+  "trades": [
+    {
+      "asset": "BTC",
+      "outcome": "UP",
+      "fill_side": "DOWN",
+      "fill_price": 0.36,
+      "momentum_dir": "DOWN",
+      "momentum_10m": -0.004237194732873035,
+      "momentum_5m": -0.0015712817506224588,
+      "rsi": 28.275402497731505,
+      "pnl": -1.8,
+      "up_only_shadow_pnl": 3.2,
+      "correct_direction": false,
+      "ts": "2026-02-17T03:20:43.543080+00:00"
+    },
+    {
+      "asset": "BTC",
+      "outcome": "DOWN",
+      "fill_side": "DOWN",
+      "fill_price": 0.37,
+      "momentum_dir": "DOWN",
+      "momentum_10m": -0.004237194732873035,
+      "momentum_5m": -0.0015712817506224588,
+      "rsi": 28.275402497731505,
+      "pnl": 3.15,
+      "up_only_shadow_pnl": -1.85,
+      "correct_direction": true,
+      "ts": "2026-02-17T03:36:50.381631+00:00"
+    },
+    {
+      "asset": "BTC",
+      "outcome": "UP",
+      "fill_side": "UP",
+      "fill_price": 0.33,
+      "momentum_dir": "UP",
+      "momentum_10m": 0.001220211631094688,
+      "momentum_5m": 0.0012776240113736403,
+      "rsi": 71.22140132355747,
+      "pnl": 6.03,
+      "up_only_shadow_pnl": 6.03,
+      "correct_direction": true,
+      "ts": "2026-02-17T06:54:31.162310+00:00"
+    }
+  ],
+  "summary": {
+    "momentum_guided": {
+      "wins": 2,
+      "losses": 1,
+      "total_pnl": 7.38
+    },
+    "up_only_shadow": {
+      "wins": 2,
+      "losses": 1,
+      "total_pnl": 7.38
+    },
+    "no_signal_skipped": 43
+  },
+  "last_updated": "2026-02-17T06:54:31.162310+00:00"
+}

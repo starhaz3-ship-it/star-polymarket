@@ -1,0 +1,33 @@
+{
+  "total_markets": 50348,
+  "overall_accuracy": 49.5908,
+  "by_asset": {
+    "BTC": 49.6247,
+    "ETH": 49.557
+  },
+  "by_duration": {
+    "5": 49.7397,
+    "15": 49.4671
+  },
+  "by_confidence": {},
+  "feature_correlations": {
+    "adx_trend": -0.007313,
+    "bb_position": -0.005926,
+    "ema_cross": -0.003981,
+    "macd_hist": -0.008343,
+    "momentum_z": -0.004018,
+    "rsi_zone": -0.003253,
+    "taker_flow": -0.001736,
+    "vwap_dev": -0.004247
+  },
+  "feature_accuracy": {
+    "adx_trend": 49.6825,
+    "bb_position": 49.9539,
+    "ema_cross": 51.8215,
+    "macd_hist": 49.8314,
+    "momentum_z": 50.5951,
+    "rsi_zone": 50.709,
+    "taker_flow": 50.6922,
+    "vwap_dev": 51.4007
+  }
+}

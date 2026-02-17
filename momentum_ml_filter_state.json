@@ -300,6 +300,15 @@
       "rsi": 50,
       "side": "UP",
       "shadow": {}
+    },
+    {
+      "preset_used": "moderate",
+      "won": false,
+      "abs_m10": 0,
+      "abs_m5": 0,
+      "rsi": 50,
+      "side": "UP",
+      "shadow": {}
     }
   ]
 }

@@ -233,38 +233,1439 @@
         "skew_65": -0.579834,
         "skew_70": -0.856298
       }
+    },
+    {
+      "market_id": "0x70c60b044c6e7d",
+      "asset": "ETH",
+      "outcome": "DOWN",
+      "actual_pnl": -4.05,
+      "confidence": -0.0318,
+      "predicted_dir": "DOWN",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": 0.0288,
+        "rsi_zone": -0.1236,
+        "bb_position": -0.9631,
+        "momentum_z": -0.406,
+        "vwap_dev": -0.0792,
+        "taker_flow": -0.3038,
+        "macd_hist": 1.0,
+        "adx_trend": 0.0
+      },
+      "contributions": {
+        "ema_cross": 0.0288,
+        "rsi_zone": -0.1236,
+        "bb_position": -0.9631,
+        "momentum_z": -0.406,
+        "vwap_dev": -0.0792,
+        "taker_flow": -0.3038,
+        "macd_hist": 1.0,
+        "adx_trend": 0.0
+      },
+      "up_price": 0.45,
+      "down_price": 0.51,
+      "total_shares": 9.0,
+      "timestamp": "2026-02-16T23:52:08.267328+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.193435,
+        "skew_60": 0.206869,
+        "skew_65": 0.220304,
+        "skew_70": 0.233739
+      }
+    },
+    {
+      "market_id": "0x1675c3c54637d2",
+      "asset": "ETH",
+      "outcome": "UP",
+      "actual_pnl": 0.5,
+      "confidence": 0.0652,
+      "predicted_dir": "UP",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": 0.0161,
+        "rsi_zone": 0.0455,
+        "bb_position": -0.056,
+        "momentum_z": 0.3442,
+        "vwap_dev": 0.227,
+        "taker_flow": -0.0856,
+        "macd_hist": 0.4219,
+        "adx_trend": 0.1778
+      },
+      "contributions": {
+        "ema_cross": 0.0161,
+        "rsi_zone": 0.0455,
+        "bb_position": -0.056,
+        "momentum_z": 0.3442,
+        "vwap_dev": 0.227,
+        "taker_flow": -0.0856,
+        "macd_hist": 0.4219,
+        "adx_trend": 0.1778
+      },
+      "up_price": 0.47,
+      "down_price": 0.48,
+      "total_shares": 20.0,
+      "timestamp": "2026-02-17T00:00:03.490529+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.565804,
+        "skew_60": 0.631609,
+        "skew_65": 0.697413,
+        "skew_70": 0.763218
+      }
+    },
+    {
+      "market_id": "0x4e9e2d91fe6a38",
+      "asset": "BTC",
+      "outcome": "UP",
+      "actual_pnl": -4.6,
+      "confidence": 0.7943,
+      "predicted_dir": "UP",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": 0.4432,
+        "rsi_zone": 0.6831,
+        "bb_position": 1.0,
+        "momentum_z": 1.0,
+        "vwap_dev": 0.7507,
+        "taker_flow": 0.4772,
+        "macd_hist": 1.0,
+        "adx_trend": 1.0
+      },
+      "contributions": {
+        "ema_cross": 0.4432,
+        "rsi_zone": 0.6831,
+        "bb_position": 1.0,
+        "momentum_z": 1.0,
+        "vwap_dev": 0.7507,
+        "taker_flow": 0.4772,
+        "macd_hist": 1.0,
+        "adx_trend": 1.0
+      },
+      "up_price": 0.47,
+      "down_price": 0.46,
+      "total_shares": 10.0,
+      "timestamp": "2026-02-17T00:01:36.118238+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.743167,
+        "skew_60": 1.136335,
+        "skew_65": 1.529502,
+        "skew_70": 1.922669
+      }
+    },
+    {
+      "market_id": "0xbefae472a622ef",
+      "asset": "BTC",
+      "outcome": "DOWN",
+      "actual_pnl": -4.7,
+      "confidence": 0.2106,
+      "predicted_dir": "UP",
+      "prediction_correct": false,
+      "features": {
+        "ema_cross": 0.3041,
+        "rsi_zone": 0.2978,
+        "bb_position": 0.3236,
+        "momentum_z": -0.6629,
+        "vwap_dev": 0.5579,
+        "taker_flow": -0.0396,
+        "macd_hist": 1.0,
+        "adx_trend": 0.4538
+      },
+      "contributions": {
+        "ema_cross": 0.3041,
+        "rsi_zone": 0.2978,
+        "bb_position": 0.3236,
+        "momentum_z": -0.6629,
+        "vwap_dev": 0.5579,
+        "taker_flow": -0.0396,
+        "macd_hist": 1.0,
+        "adx_trend": 0.4538
+      },
+      "up_price": 0.47,
+      "down_price": 0.46,
+      "total_shares": 10.0,
+      "timestamp": "2026-02-17T00:09:16.714819+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.243669,
+        "skew_60": 0.137338,
+        "skew_65": 0.031007,
+        "skew_70": -0.075324
+      }
+    },
+    {
+      "market_id": "0xeb9cf51f67ead5",
+      "asset": "ETH",
+      "outcome": "UP",
+      "actual_pnl": 4.95,
+      "confidence": 0.0399,
+      "predicted_dir": "UP",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": 0.128,
+        "rsi_zone": 0.0398,
+        "bb_position": -0.0773,
+        "momentum_z": -0.4162,
+        "vwap_dev": 0.3987,
+        "taker_flow": -0.0091,
+        "macd_hist": 1.0,
+        "adx_trend": 0.0
+      },
+      "contributions": {
+        "ema_cross": 0.128,
+        "rsi_zone": 0.0398,
+        "bb_position": -0.0773,
+        "momentum_z": -0.4162,
+        "vwap_dev": 0.3987,
+        "taker_flow": -0.0091,
+        "macd_hist": 1.0,
+        "adx_trend": 0.0
+      },
+      "up_price": 0.45,
+      "down_price": 0.51,
+      "total_shares": 9.0,
+      "timestamp": "2026-02-17T00:20:49.897754+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.199031,
+        "skew_60": 0.218061,
+        "skew_65": 0.237092,
+        "skew_70": 0.256122
+      }
+    },
+    {
+      "market_id": "0x88db4f42f1103c",
+      "asset": "ETH",
+      "outcome": "DOWN",
+      "actual_pnl": -4.6,
+      "confidence": 0.0477,
+      "predicted_dir": "UP",
+      "prediction_correct": false,
+      "features": {
+        "ema_cross": -0.0236,
+        "rsi_zone": -0.0448,
+        "bb_position": 0.0661,
+        "momentum_z": 0.6918,
+        "vwap_dev": 0.3524,
+        "taker_flow": 0.3455,
+        "macd_hist": -0.1155,
+        "adx_trend": 0.0
+      },
+      "contributions": {
+        "ema_cross": -0.0236,
+        "rsi_zone": -0.0448,
+        "bb_position": 0.0661,
+        "momentum_z": 0.6918,
+        "vwap_dev": 0.3524,
+        "taker_flow": 0.3455,
+        "macd_hist": -0.1155,
+        "adx_trend": 0.0
+      },
+      "up_price": 0.46,
+      "down_price": 0.49,
+      "total_shares": 10.0,
+      "timestamp": "2026-02-17T00:31:04.974142+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.22687,
+        "skew_60": 0.20374,
+        "skew_65": 0.180611,
+        "skew_70": 0.157481
+      }
+    },
+    {
+      "market_id": "0x643d1e27345f08",
+      "asset": "BTC",
+      "outcome": "UP",
+      "actual_pnl": 0.491198,
+      "confidence": 0.2703,
+      "predicted_dir": "UP",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": 0.2257,
+        "rsi_zone": 0.0003,
+        "bb_position": 0.3983,
+        "momentum_z": 0.0698,
+        "vwap_dev": 0.2973,
+        "taker_flow": 0.2343,
+        "macd_hist": 1.0,
+        "adx_trend": 0.4949
+      },
+      "contributions": {
+        "ema_cross": 0.2257,
+        "rsi_zone": 0.0003,
+        "bb_position": 0.3983,
+        "momentum_z": 0.0698,
+        "vwap_dev": 0.2973,
+        "taker_flow": 0.2343,
+        "macd_hist": 1.0,
+        "adx_trend": 0.4949
+      },
+      "up_price": 0.48,
+      "down_price": 0.47,
+      "total_shares": 19.983072999999997,
+      "timestamp": "2026-02-17T00:51:26.937554+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.766993,
+        "skew_60": 1.03441,
+        "skew_65": 1.301826,
+        "skew_70": 1.569242
+      }
+    },
+    {
+      "market_id": "0xfab39b9038f2b1",
+      "asset": "ETH",
+      "outcome": "DOWN",
+      "actual_pnl": -4.4,
+      "confidence": 0.0938,
+      "predicted_dir": "UP",
+      "prediction_correct": false,
+      "features": {
+        "ema_cross": 0.1347,
+        "rsi_zone": 0.0051,
+        "bb_position": 0.3421,
+        "momentum_z": 0.4373,
+        "vwap_dev": 0.3,
+        "taker_flow": 0.3087,
+        "macd_hist": 0.974,
+        "adx_trend": 0.0
+      },
+      "contributions": {
+        "ema_cross": 0.1347,
+        "rsi_zone": 0.0051,
+        "bb_position": 0.3421,
+        "momentum_z": 0.4373,
+        "vwap_dev": 0.3,
+        "taker_flow": 0.3087,
+        "macd_hist": 0.974,
+        "adx_trend": 0.0
+      },
+      "up_price": 0.44,
+      "down_price": 0.49,
+      "total_shares": 10.0,
+      "timestamp": "2026-02-17T00:53:32.868966+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.305432,
+        "skew_60": 0.260863,
+        "skew_65": 0.216295,
+        "skew_70": 0.171726
+      }
+    },
+    {
+      "market_id": "0x58918c7102c7d4",
+      "asset": "ETH",
+      "outcome": "UP",
+      "actual_pnl": -4.9,
+      "confidence": 0.0121,
+      "predicted_dir": "UP",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": 0.2165,
+        "rsi_zone": 0.009,
+        "bb_position": -0.2417,
+        "momentum_z": -0.9008,
+        "vwap_dev": 0.1874,
+        "taker_flow": 0.0509,
+        "macd_hist": 1.0,
+        "adx_trend": 0.0
+      },
+      "contributions": {
+        "ema_cross": 0.2165,
+        "rsi_zone": 0.009,
+        "bb_position": -0.2417,
+        "momentum_z": -0.9008,
+        "vwap_dev": 0.1874,
+        "taker_flow": 0.0509,
+        "macd_hist": 1.0,
+        "adx_trend": 0.0
+      },
+      "up_price": 0.46,
+      "down_price": 0.49,
+      "total_shares": 10.0,
+      "timestamp": "2026-02-17T01:12:58.584952+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.256208,
+        "skew_60": 0.262416,
+        "skew_65": 0.268624,
+        "skew_70": 0.274831
+      }
+    },
+    {
+      "market_id": "0x64040c49087aef",
+      "asset": "ETH",
+      "outcome": "DOWN",
+      "actual_pnl": -4.9,
+      "confidence": 0.0712,
+      "predicted_dir": "UP",
+      "prediction_correct": false,
+      "features": {
+        "ema_cross": 0.0037,
+        "rsi_zone": 0.0955,
+        "bb_position": 0.3677,
+        "momentum_z": 0.9415,
+        "vwap_dev": 0.1718,
+        "taker_flow": 0.1973,
+        "macd_hist": -0.3645,
+        "adx_trend": 0.0813
+      },
+      "contributions": {
+        "ema_cross": 0.0037,
+        "rsi_zone": 0.0955,
+        "bb_position": 0.3677,
+        "momentum_z": 0.9415,
+        "vwap_dev": 0.1718,
+        "taker_flow": 0.1973,
+        "macd_hist": -0.3645,
+        "adx_trend": 0.0813
+      },
+      "up_price": 0.49,
+      "down_price": 0.46,
+      "total_shares": 10.0,
+      "timestamp": "2026-02-17T01:36:07.382513+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.21332,
+        "skew_60": 0.176641,
+        "skew_65": 0.139961,
+        "skew_70": 0.103282
+      }
+    },
+    {
+      "market_id": "0x805fa0b79b6152",
+      "asset": "BTC",
+      "outcome": "DOWN",
+      "actual_pnl": 5.3,
+      "confidence": -0.0029,
+      "predicted_dir": "DOWN",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": 0.0586,
+        "rsi_zone": 0.0411,
+        "bb_position": -0.3682,
+        "momentum_z": -0.3946,
+        "vwap_dev": 0.0015,
+        "taker_flow": -0.0974,
+        "macd_hist": 0.6812,
+        "adx_trend": -0.0
+      },
+      "contributions": {
+        "ema_cross": 0.0586,
+        "rsi_zone": 0.0411,
+        "bb_position": -0.3682,
+        "momentum_z": -0.3946,
+        "vwap_dev": 0.0015,
+        "taker_flow": -0.0974,
+        "macd_hist": 0.6812,
+        "adx_trend": -0.0
+      },
+      "up_price": 0.48,
+      "down_price": 0.47,
+      "total_shares": 10.0,
+      "timestamp": "2026-02-17T02:21:57.083498+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.251472,
+        "skew_60": 0.252944,
+        "skew_65": 0.254417,
+        "skew_70": 0.255889
+      }
+    },
+    {
+      "market_id": "0xe468e5e8b677c7",
+      "asset": "ETH",
+      "outcome": "DOWN",
+      "actual_pnl": 0.5,
+      "confidence": 0.0368,
+      "predicted_dir": "UP",
+      "prediction_correct": false,
+      "features": {
+        "ema_cross": 0.1466,
+        "rsi_zone": 0.1307,
+        "bb_position": -0.0842,
+        "momentum_z": -0.1854,
+        "vwap_dev": 0.2249,
+        "taker_flow": -0.2517,
+        "macd_hist": 1.0,
+        "adx_trend": 0.0
+      },
+      "contributions": {
+        "ema_cross": 0.1466,
+        "rsi_zone": 0.1307,
+        "bb_position": -0.0842,
+        "momentum_z": -0.1854,
+        "vwap_dev": 0.2249,
+        "taker_flow": -0.2517,
+        "macd_hist": 1.0,
+        "adx_trend": 0.0
+      },
+      "up_price": 0.46,
+      "down_price": 0.49,
+      "total_shares": 20.0,
+      "timestamp": "2026-02-17T02:21:57.083498+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.464321,
+        "skew_60": 0.428641,
+        "skew_65": 0.392962,
+        "skew_70": 0.357283
+      }
+    },
+    {
+      "market_id": "0xb9d7bbe2435880",
+      "asset": "ETH",
+      "outcome": "UP",
+      "actual_pnl": -4.59,
+      "confidence": 0.2901,
+      "predicted_dir": "UP",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": 0.5793,
+        "rsi_zone": 0.3306,
+        "bb_position": 0.3408,
+        "momentum_z": -0.046,
+        "vwap_dev": 0.5973,
+        "taker_flow": 0.1223,
+        "macd_hist": 1.0,
+        "adx_trend": 0.3985
+      },
+      "contributions": {
+        "ema_cross": 0.5793,
+        "rsi_zone": 0.3306,
+        "bb_position": 0.3408,
+        "momentum_z": -0.046,
+        "vwap_dev": 0.5973,
+        "taker_flow": 0.1223,
+        "macd_hist": 1.0,
+        "adx_trend": 0.3985
+      },
+      "up_price": 0.44,
+      "down_price": 0.51,
+      "total_shares": 9.0,
+      "timestamp": "2026-02-17T02:40:21.601405+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.364701,
+        "skew_60": 0.504401,
+        "skew_65": 0.644102,
+        "skew_70": 0.783803
+      }
+    },
+    {
+      "market_id": "0x9aaadd199bfd1f",
+      "asset": "BTC",
+      "outcome": "DOWN",
+      "actual_pnl": -4.7,
+      "confidence": -0.0119,
+      "predicted_dir": "DOWN",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": 0.0286,
+        "rsi_zone": -0.1959,
+        "bb_position": -1.0,
+        "momentum_z": -0.4245,
+        "vwap_dev": 0.258,
+        "taker_flow": 0.0169,
+        "macd_hist": 1.0,
+        "adx_trend": 0.0
+      },
+      "contributions": {
+        "ema_cross": 0.0286,
+        "rsi_zone": -0.1959,
+        "bb_position": -1.0,
+        "momentum_z": -0.4245,
+        "vwap_dev": 0.258,
+        "taker_flow": 0.0169,
+        "macd_hist": 1.0,
+        "adx_trend": 0.0
+      },
+      "up_price": 0.47,
+      "down_price": 0.46,
+      "total_shares": 10.0,
+      "timestamp": "2026-02-17T02:47:30.224894+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.356001,
+        "skew_60": 0.362001,
+        "skew_65": 0.368002,
+        "skew_70": 0.374002
+      }
+    },
+    {
+      "market_id": "0x4a4c864fd433ae",
+      "asset": "ETH",
+      "outcome": "DOWN",
+      "actual_pnl": -4.7,
+      "confidence": 0.2246,
+      "predicted_dir": "UP",
+      "prediction_correct": false,
+      "features": {
+        "ema_cross": 0.4651,
+        "rsi_zone": -0.0276,
+        "bb_position": 0.144,
+        "momentum_z": 0.0433,
+        "vwap_dev": 0.5564,
+        "taker_flow": -0.0946,
+        "macd_hist": 1.0,
+        "adx_trend": 0.4177
+      },
+      "contributions": {
+        "ema_cross": 0.4651,
+        "rsi_zone": -0.0276,
+        "bb_position": 0.144,
+        "momentum_z": 0.0433,
+        "vwap_dev": 0.5564,
+        "taker_flow": -0.0946,
+        "macd_hist": 1.0,
+        "adx_trend": 0.4177
+      },
+      "up_price": 0.47,
+      "down_price": 0.48,
+      "total_shares": 10.0,
+      "timestamp": "2026-02-17T02:50:29.384966+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.138802,
+        "skew_60": 0.027603,
+        "skew_65": -0.083595,
+        "skew_70": -0.194794
+      }
+    },
+    {
+      "market_id": "0x589ddfd02e32f5",
+      "asset": "BTC",
+      "outcome": "DOWN",
+      "actual_pnl": 5.3,
+      "confidence": 0.1159,
+      "predicted_dir": "UP",
+      "prediction_correct": false,
+      "features": {
+        "ema_cross": -0.1107,
+        "rsi_zone": -0.0235,
+        "bb_position": -0.0773,
+        "momentum_z": 0.3195,
+        "vwap_dev": -0.0382,
+        "taker_flow": 0.353,
+        "adx_trend": 0.6034
+      },
+      "contributions": {
+        "ema_cross": -0.1107,
+        "rsi_zone": -0.0235,
+        "bb_position": -0.0773,
+        "momentum_z": 0.3195,
+        "vwap_dev": -0.0382,
+        "taker_flow": 0.353,
+        "macd_hist": 0.0,
+        "adx_trend": 0.6034
+      },
+      "up_price": 0.48,
+      "down_price": 0.47,
+      "total_shares": 10.0,
+      "timestamp": "2026-02-17T03:09:47.513803+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.191475,
+        "skew_60": 0.132949,
+        "skew_65": 0.074424,
+        "skew_70": 0.015898
+      }
+    },
+    {
+      "market_id": "0xae34691c579d95",
+      "asset": "ETH",
+      "outcome": "DOWN",
+      "actual_pnl": -3.69,
+      "confidence": -0.7748,
+      "predicted_dir": "DOWN",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": -0.6754,
+        "rsi_zone": -0.5816,
+        "bb_position": -0.8906,
+        "momentum_z": -0.971,
+        "vwap_dev": -0.4979,
+        "taker_flow": -0.5981,
+        "macd_hist": -1.0,
+        "adx_trend": -1.0
+      },
+      "contributions": {
+        "ema_cross": -0.6686,
+        "rsi_zone": -0.5799,
+        "bb_position": -0.8995,
+        "momentum_z": -0.9419,
+        "vwap_dev": -0.4864,
+        "taker_flow": -0.5999,
+        "macd_hist": -0.948,
+        "adx_trend": -0.969
+      },
+      "up_price": 0.41,
+      "down_price": 0.52,
+      "total_shares": 9.0,
+      "timestamp": "2026-02-17T03:23:57.252992+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.625319,
+        "skew_60": 0.935638,
+        "skew_65": 1.245957,
+        "skew_70": 1.5165
+      }
+    },
+    {
+      "market_id": "0x030b368d6a1dd5",
+      "asset": "BTC",
+      "outcome": "DOWN",
+      "actual_pnl": 1.62,
+      "confidence": -0.1122,
+      "predicted_dir": "DOWN",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": -0.1817,
+        "rsi_zone": 0.0459,
+        "bb_position": 0.0037,
+        "momentum_z": -0.4513,
+        "vwap_dev": -0.4021,
+        "taker_flow": -0.1855,
+        "macd_hist": -1.0,
+        "adx_trend": -0.1075
+      },
+      "contributions": {
+        "ema_cross": -0.1785,
+        "rsi_zone": 0.0457,
+        "bb_position": 0.0038,
+        "momentum_z": -0.4269,
+        "vwap_dev": -0.3852,
+        "taker_flow": -0.1866,
+        "macd_hist": -0.906,
+        "adx_trend": -0.1015
+      },
+      "up_price": 0.54,
+      "down_price": 0.4,
+      "total_shares": 16.0,
+      "timestamp": "2026-02-17T03:32:46.213090+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.582349,
+        "skew_60": 0.684698,
+        "skew_65": 0.787048,
+        "skew_70": 0.889397
+      }
+    },
+    {
+      "market_id": "0xde6a7af6b17d75",
+      "asset": "ETH",
+      "outcome": "DOWN",
+      "actual_pnl": 0.7,
+      "confidence": -0.6819,
+      "predicted_dir": "DOWN",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": -0.7387,
+        "rsi_zone": -0.677,
+        "bb_position": -0.6419,
+        "momentum_z": -0.5737,
+        "vwap_dev": -0.691,
+        "taker_flow": -0.1799,
+        "macd_hist": -1.0,
+        "adx_trend": -1.0
+      },
+      "contributions": {
+        "ema_cross": -0.7254,
+        "rsi_zone": -0.673,
+        "bb_position": -0.6534,
+        "momentum_z": -0.5427,
+        "vwap_dev": -0.662,
+        "taker_flow": -0.181,
+        "macd_hist": -0.906,
+        "adx_trend": -0.944
+      },
+      "up_price": 0.48,
+      "down_price": 0.45,
+      "total_shares": 20.0,
+      "timestamp": "2026-02-17T03:35:33.563334+00:00",
+      "shadow_pnl": {
+        "skew_55": 1.402363,
+        "skew_60": 2.104727,
+        "skew_65": 2.80709,
+        "skew_70": 3.509454
+      }
+    },
+    {
+      "market_id": "0xc20c9ffe1f8084",
+      "asset": "BTC",
+      "outcome": "UP",
+      "actual_pnl": 5.219999,
+      "confidence": -0.639,
+      "predicted_dir": "DOWN",
+      "prediction_correct": false,
+      "features": {
+        "ema_cross": -0.2862,
+        "rsi_zone": -0.3852,
+        "bb_position": -0.9963,
+        "momentum_z": -0.6153,
+        "vwap_dev": -0.7153,
+        "taker_flow": -0.1581,
+        "macd_hist": -1.0,
+        "adx_trend": -1.0
+      },
+      "contributions": {
+        "ema_cross": -0.2811,
+        "rsi_zone": -0.3829,
+        "bb_position": -1.0142,
+        "momentum_z": -0.5821,
+        "vwap_dev": -0.6853,
+        "taker_flow": -0.159,
+        "macd_hist": -0.906,
+        "adx_trend": -0.944
+      },
+      "up_price": 0.42,
+      "down_price": 0.53,
+      "total_shares": 8.999999,
+      "timestamp": "2026-02-17T03:42:12.354376+00:00",
+      "shadow_pnl": {
+        "skew_55": -0.094172,
+        "skew_60": -0.413343,
+        "skew_65": -0.732515,
+        "skew_70": -1.051686
+      }
+    },
+    {
+      "market_id": "0x49ae215c89f773",
+      "asset": "BTC",
+      "outcome": "DOWN",
+      "actual_pnl": -4.7,
+      "confidence": -0.3747,
+      "predicted_dir": "DOWN",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": -0.2601,
+        "rsi_zone": -0.1029,
+        "bb_position": -0.3727,
+        "momentum_z": -0.0181,
+        "vwap_dev": -0.581,
+        "taker_flow": -0.0061,
+        "macd_hist": -1.0,
+        "adx_trend": -0.7232
+      },
+      "contributions": {
+        "ema_cross": -0.2554,
+        "rsi_zone": -0.1023,
+        "bb_position": -0.3794,
+        "momentum_z": -0.0171,
+        "vwap_dev": -0.5566,
+        "taker_flow": -0.0062,
+        "macd_hist": -0.906,
+        "adx_trend": -0.6827
+      },
+      "up_price": 0.47,
+      "down_price": 0.46,
+      "total_shares": 10.0,
+      "timestamp": "2026-02-17T03:44:30.362975+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.539248,
+        "skew_60": 0.728497,
+        "skew_65": 0.917745,
+        "skew_70": 1.106994
+      }
+    },
+    {
+      "market_id": "0x49ae215c89f773",
+      "asset": "BTC",
+      "outcome": "DOWN",
+      "actual_pnl": -4.7,
+      "confidence": -0.3747,
+      "predicted_dir": "DOWN",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": -0.2601,
+        "rsi_zone": -0.1029,
+        "bb_position": -0.3727,
+        "momentum_z": -0.0181,
+        "vwap_dev": -0.581,
+        "taker_flow": -0.0061,
+        "macd_hist": -1.0,
+        "adx_trend": -0.7232
+      },
+      "contributions": {
+        "ema_cross": -0.2554,
+        "rsi_zone": -0.1023,
+        "bb_position": -0.3794,
+        "momentum_z": -0.0171,
+        "vwap_dev": -0.5566,
+        "taker_flow": -0.0062,
+        "macd_hist": -0.906,
+        "adx_trend": -0.6827
+      },
+      "up_price": 0.47,
+      "down_price": 0.46,
+      "total_shares": 10.0,
+      "timestamp": "2026-02-17T03:45:22.372065+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.539248,
+        "skew_60": 0.728497,
+        "skew_65": 0.917745,
+        "skew_70": 1.106994
+      }
+    },
+    {
+      "market_id": "0x7dee7e4ec6c880",
+      "asset": "ETH",
+      "outcome": "DOWN",
+      "actual_pnl": -4.3,
+      "confidence": -0.5059,
+      "predicted_dir": "DOWN",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": -0.2883,
+        "rsi_zone": -0.2551,
+        "bb_position": -0.2577,
+        "momentum_z": -0.1607,
+        "vwap_dev": -0.6499,
+        "taker_flow": -0.6015,
+        "macd_hist": -1.0,
+        "adx_trend": -0.8876
+      },
+      "contributions": {
+        "ema_cross": -0.2831,
+        "rsi_zone": -0.2535,
+        "bb_position": -0.2624,
+        "momentum_z": -0.152,
+        "vwap_dev": -0.6226,
+        "taker_flow": -0.6052,
+        "macd_hist": -0.906,
+        "adx_trend": -0.8379
+      },
+      "up_price": 0.43,
+      "down_price": 0.49,
+      "total_shares": 10.0,
+      "timestamp": "2026-02-17T03:52:07.631075+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.637767,
+        "skew_60": 0.875534,
+        "skew_65": 1.113301,
+        "skew_70": 1.351068
+      }
+    },
+    {
+      "market_id": "0x08687ab31f3c6a",
+      "asset": "BTC",
+      "outcome": "UP",
+      "actual_pnl": -4.6,
+      "confidence": -0.104,
+      "predicted_dir": "DOWN",
+      "prediction_correct": false,
+      "features": {
+        "ema_cross": -0.162,
+        "rsi_zone": 0.1495,
+        "bb_position": 0.0578,
+        "momentum_z": 0.4203,
+        "vwap_dev": -0.8249,
+        "taker_flow": 0.4925,
+        "macd_hist": -1.0,
+        "adx_trend": -0.4033
+      },
+      "contributions": {
+        "ema_cross": -0.1627,
+        "rsi_zone": 0.1513,
+        "bb_position": 0.0606,
+        "momentum_z": 0.4026,
+        "vwap_dev": -0.8026,
+        "taker_flow": 0.5008,
+        "macd_hist": -0.929,
+        "adx_trend": -0.39
+      },
+      "up_price": 0.47,
+      "down_price": 0.46,
+      "total_shares": 10.0,
+      "timestamp": "2026-02-17T03:58:12.547764+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.298536,
+        "skew_60": 0.247072,
+        "skew_65": 0.195608,
+        "skew_70": 0.144144
+      }
+    },
+    {
+      "market_id": "0xfc26405210cad2",
+      "asset": "ETH",
+      "outcome": "DOWN",
+      "actual_pnl": 5.13,
+      "confidence": -0.126,
+      "predicted_dir": "DOWN",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": -0.1775,
+        "rsi_zone": -0.0275,
+        "bb_position": -0.1039,
+        "momentum_z": 0.2372,
+        "vwap_dev": -0.9217,
+        "taker_flow": 0.2576,
+        "macd_hist": -1.0,
+        "adx_trend": -0.2313
+      },
+      "contributions": {
+        "ema_cross": -0.1782,
+        "rsi_zone": -0.0279,
+        "bb_position": -0.1089,
+        "momentum_z": 0.2272,
+        "vwap_dev": -0.8968,
+        "taker_flow": 0.262,
+        "macd_hist": -0.929,
+        "adx_trend": -0.2236
+      },
+      "up_price": 0.52,
+      "down_price": 0.43,
+      "total_shares": 9.0,
+      "timestamp": "2026-02-17T04:07:49.633431+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.286793,
+        "skew_60": 0.348586,
+        "skew_65": 0.410378,
+        "skew_70": 0.472171
+      }
+    },
+    {
+      "market_id": "0xe17b54f7f560ee",
+      "asset": "ETH",
+      "outcome": "UP",
+      "actual_pnl": 4.41,
+      "confidence": 0.035,
+      "predicted_dir": "UP",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": 0.0057,
+        "rsi_zone": 0.2163,
+        "bb_position": 0.7411,
+        "momentum_z": 1.0,
+        "vwap_dev": -0.4392,
+        "taker_flow": -0.2468,
+        "macd_hist": -0.7784,
+        "adx_trend": 0.0,
+        "ha_streak": 0.8,
+        "obi": -0.1769
+      },
+      "contributions": {
+        "ema_cross": 0.0058,
+        "rsi_zone": 0.2222,
+        "bb_position": 0.7915,
+        "momentum_z": 0.968,
+        "vwap_dev": -0.4335,
+        "taker_flow": -0.2559,
+        "macd_hist": -0.7473,
+        "adx_trend": 0.0,
+        "obi": -0.1769,
+        "ha_streak": 0.8
+      },
+      "up_price": 0.51,
+      "down_price": 0.45,
+      "total_shares": 9.0,
+      "timestamp": "2026-02-17T04:29:42.612792+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.194792,
+        "skew_60": 0.209585,
+        "skew_65": 0.224377,
+        "skew_70": 0.239169
+      }
+    },
+    {
+      "market_id": "0xac9610c558aa1b",
+      "asset": "BTC",
+      "outcome": "DOWN",
+      "actual_pnl": -4.7,
+      "confidence": -0.0317,
+      "predicted_dir": "DOWN",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": 0.17,
+        "rsi_zone": 0.0158,
+        "bb_position": 0.0612,
+        "momentum_z": -0.5822,
+        "vwap_dev": 0.1011,
+        "taker_flow": 0.0228,
+        "adx_trend": 0.4734,
+        "ha_streak": -0.8,
+        "obi": 0.0745
+      },
+      "contributions": {
+        "ema_cross": 0.177,
+        "rsi_zone": 0.0164,
+        "bb_position": 0.0664,
+        "momentum_z": -0.5665,
+        "vwap_dev": 0.1021,
+        "taker_flow": 0.024,
+        "macd_hist": 0.0,
+        "adx_trend": 0.4871,
+        "obi": 0.0745,
+        "ha_streak": -0.8
+      },
+      "up_price": 0.47,
+      "down_price": 0.46,
+      "total_shares": 10.0,
+      "timestamp": "2026-02-17T05:11:57.963886+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.366009,
+        "skew_60": 0.382018,
+        "skew_65": 0.398027,
+        "skew_70": 0.414036
+      }
+    },
+    {
+      "market_id": "0xd6c374b93eb572",
+      "asset": "BTC",
+      "outcome": "UP",
+      "actual_pnl": -4.5,
+      "confidence": -0.6568,
+      "predicted_dir": "DOWN",
+      "prediction_correct": false,
+      "features": {
+        "ema_cross": -0.2863,
+        "rsi_zone": -0.3998,
+        "bb_position": -1.0,
+        "momentum_z": -1.0,
+        "vwap_dev": -0.9358,
+        "taker_flow": -0.2052,
+        "macd_hist": -1.0,
+        "adx_trend": -1.0,
+        "ha_streak": -1.0,
+        "obi": 0.2438
+      },
+      "contributions": {
+        "ema_cross": -0.298,
+        "rsi_zone": -0.4154,
+        "bb_position": -1.084,
+        "momentum_z": -0.973,
+        "vwap_dev": -0.9452,
+        "taker_flow": -0.2153,
+        "macd_hist": -0.998,
+        "adx_trend": -1.029,
+        "obi": 0.2438,
+        "ha_streak": -1.0
+      },
+      "up_price": 0.46,
+      "down_price": 0.45,
+      "total_shares": 10.0,
+      "timestamp": "2026-02-17T05:11:57.963886+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.124904,
+        "skew_60": -0.200192,
+        "skew_65": -0.525288,
+        "skew_70": -0.850385
+      }
+    },
+    {
+      "market_id": "0x0dee6301b33568",
+      "asset": "BTC",
+      "outcome": "UP",
+      "actual_pnl": -4.5,
+      "confidence": -0.0802,
+      "predicted_dir": "DOWN",
+      "prediction_correct": false,
+      "features": {
+        "ema_cross": -0.4247,
+        "rsi_zone": -0.4752,
+        "bb_position": -0.5402,
+        "momentum_z": 0.6189,
+        "vwap_dev": -0.5603,
+        "taker_flow": 0.1238,
+        "macd_hist": -1.0,
+        "adx_trend": -0.1744,
+        "ha_streak": 0.6,
+        "obi": 0.2246
+      },
+      "contributions": {
+        "ema_cross": -0.4477,
+        "rsi_zone": -0.499,
+        "bb_position": -0.5969,
+        "momentum_z": 0.6121,
+        "vwap_dev": -0.5732,
+        "taker_flow": 0.1306,
+        "macd_hist": -1.017,
+        "adx_trend": -0.1834,
+        "obi": 0.2246,
+        "ha_streak": 0.6
+      },
+      "up_price": 0.46,
+      "down_price": 0.45,
+      "total_shares": 10.0,
+      "timestamp": "2026-02-17T05:11:57.963886+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.410279,
+        "skew_60": 0.370558,
+        "skew_65": 0.330837,
+        "skew_70": 0.291116
+      }
+    },
+    {
+      "market_id": "0x3f3eab02c4dc40",
+      "asset": "BTC",
+      "outcome": "DOWN",
+      "actual_pnl": 3.12,
+      "confidence": -0.2731,
+      "predicted_dir": "DOWN",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": -0.0822,
+        "rsi_zone": -0.2202,
+        "bb_position": -0.7687,
+        "momentum_z": -0.8738,
+        "vwap_dev": -0.288,
+        "taker_flow": -0.4258,
+        "macd_hist": -0.6669,
+        "adx_trend": -0.383,
+        "ha_streak": -0.2,
+        "obi": -0.0801
+      },
+      "contributions": {
+        "ema_cross": -0.0866,
+        "rsi_zone": -0.2312,
+        "bb_position": -0.8494,
+        "momentum_z": -0.8642,
+        "vwap_dev": -0.2946,
+        "taker_flow": -0.4492,
+        "macd_hist": -0.6782,
+        "adx_trend": -0.403,
+        "obi": -0.0801,
+        "ha_streak": -0.2
+      },
+      "up_price": 0.47,
+      "down_price": 0.48,
+      "total_shares": 6.0,
+      "timestamp": "2026-02-17T05:29:05.820452+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.231117,
+        "skew_60": 0.312234,
+        "skew_65": 0.393352,
+        "skew_70": 0.474469
+      }
+    },
+    {
+      "market_id": "0x2e8664654b437d",
+      "asset": "ETH",
+      "outcome": "DOWN",
+      "actual_pnl": 3.24,
+      "confidence": -0.1239,
+      "predicted_dir": "DOWN",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": -0.1616,
+        "rsi_zone": -0.2689,
+        "bb_position": -0.8639,
+        "momentum_z": -0.6979,
+        "vwap_dev": -0.2612,
+        "taker_flow": -0.3193,
+        "macd_hist": -1.0,
+        "adx_trend": -0.0336,
+        "ha_streak": -0.2,
+        "obi": 0.1109
+      },
+      "contributions": {
+        "ema_cross": -0.1703,
+        "rsi_zone": -0.2824,
+        "bb_position": -0.9547,
+        "momentum_z": -0.6902,
+        "vwap_dev": -0.2672,
+        "taker_flow": -0.3369,
+        "macd_hist": -1.017,
+        "adx_trend": -0.0354,
+        "obi": 0.1109,
+        "ha_streak": -0.2
+      },
+      "up_price": 0.45,
+      "down_price": 0.46,
+      "total_shares": 6.0,
+      "timestamp": "2026-02-17T05:29:05.820452+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.306812,
+        "skew_60": 0.343624,
+        "skew_65": 0.380436,
+        "skew_70": 0.417249
+      }
+    },
+    {
+      "market_id": "0x42f5f570f8006d",
+      "asset": "BTC",
+      "outcome": "UP",
+      "actual_pnl": -2.15,
+      "confidence": -0.2049,
+      "predicted_dir": "DOWN",
+      "prediction_correct": false,
+      "features": {
+        "ema_cross": -0.7798,
+        "rsi_zone": -0.4427,
+        "bb_position": -0.542,
+        "momentum_z": 0.4062,
+        "vwap_dev": -0.3605,
+        "taker_flow": -0.1084,
+        "adx_trend": -0.6819,
+        "ha_streak": 0.4,
+        "obi": 0.1095
+      },
+      "contributions": {
+        "ema_cross": -0.8212,
+        "rsi_zone": -0.4635,
+        "bb_position": -0.5962,
+        "momentum_z": 0.4074,
+        "vwap_dev": -0.3651,
+        "taker_flow": -0.1145,
+        "macd_hist": 0.0,
+        "adx_trend": -0.7105,
+        "obi": 0.1095,
+        "ha_streak": 0.4
+      },
+      "up_price": 0.52,
+      "down_price": 0.43,
+      "total_shares": 5.0,
+      "timestamp": "2026-02-17T05:48:30.998014+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.078382,
+        "skew_60": 0.031764,
+        "skew_65": -0.014855,
+        "skew_70": -0.061473
+      }
+    },
+    {
+      "market_id": "0xf4918088609ebd",
+      "asset": "ETH",
+      "outcome": "DOWN",
+      "actual_pnl": 0.42,
+      "confidence": -0.4947,
+      "predicted_dir": "DOWN",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": -0.9022,
+        "rsi_zone": -0.4104,
+        "bb_position": -0.4943,
+        "momentum_z": -0.3443,
+        "vwap_dev": -0.9997,
+        "taker_flow": -0.337,
+        "macd_hist": -1.0,
+        "adx_trend": -1.0,
+        "ha_streak": 0.4,
+        "obi": 0.1807
+      },
+      "contributions": {
+        "ema_cross": -0.95,
+        "rsi_zone": -0.4297,
+        "bb_position": -0.5437,
+        "momentum_z": -0.3454,
+        "vwap_dev": -1.0127,
+        "taker_flow": -0.3562,
+        "macd_hist": -1.007,
+        "adx_trend": -1.042,
+        "obi": 0.1807,
+        "ha_streak": 0.4
+      },
+      "up_price": 0.49,
+      "down_price": 0.44,
+      "total_shares": 12.0,
+      "timestamp": "2026-02-17T05:53:30.959902+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.73164,
+        "skew_60": 1.043281,
+        "skew_65": 1.354921,
+        "skew_70": 1.666562
+      }
+    },
+    {
+      "market_id": "0xcbc7e26b90fa8b",
+      "asset": "BTC",
+      "outcome": "UP",
+      "actual_pnl": 0.42,
+      "confidence": 0.4575,
+      "predicted_dir": "UP",
+      "prediction_correct": true,
+      "features": {
+        "ema_cross": 0.0636,
+        "rsi_zone": 0.1905,
+        "bb_position": 1.0,
+        "momentum_z": 0.7916,
+        "vwap_dev": 0.3069,
+        "taker_flow": 0.144,
+        "adx_trend": 1.0,
+        "ha_streak": 1.0,
+        "obi": 0.051
+      },
+      "contributions": {
+        "ema_cross": 0.067,
+        "rsi_zone": 0.2,
+        "bb_position": 1.113,
+        "momentum_z": 0.8161,
+        "vwap_dev": 0.3106,
+        "taker_flow": 0.1535,
+        "macd_hist": 0.0,
+        "adx_trend": 1.04,
+        "obi": 0.051,
+        "ha_streak": 1.0
+      },
+      "up_price": 0.49,
+      "down_price": 0.44,
+      "total_shares": 12.0,
+      "timestamp": "2026-02-17T06:02:26.448744+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.680783,
+        "skew_60": 0.941567,
+        "skew_65": 1.20235,
+        "skew_70": 1.463133
+      }
+    },
+    {
+      "market_id": "0x5f289a21f9265a",
+      "asset": "ETH",
+      "outcome": "UP",
+      "actual_pnl": -2.88,
+      "confidence": -0.0377,
+      "predicted_dir": "DOWN",
+      "prediction_correct": false,
+      "features": {
+        "ema_cross": -0.087,
+        "rsi_zone": 0.2086,
+        "bb_position": 0.4097,
+        "momentum_z": -0.1709,
+        "vwap_dev": -0.7218,
+        "taker_flow": 0.1834,
+        "macd_hist": -1.0,
+        "adx_trend": -0.0,
+        "ha_streak": -0.4,
+        "obi": 0.2406
+      },
+      "contributions": {
+        "ema_cross": -0.0918,
+        "rsi_zone": 0.2195,
+        "bb_position": 0.4605,
+        "momentum_z": -0.18,
+        "vwap_dev": -0.7297,
+        "taker_flow": 0.1968,
+        "macd_hist": -1.028,
+        "adx_trend": -0.0,
+        "obi": 0.2406,
+        "ha_streak": -0.4
+      },
+      "up_price": 0.47,
+      "down_price": 0.48,
+      "total_shares": 6.0,
+      "timestamp": "2026-02-17T06:04:35.306110+00:00",
+      "shadow_pnl": {
+        "skew_55": 0.138569,
+        "skew_60": 0.127138,
+        "skew_65": 0.115708,
+        "skew_70": 0.104277
+      }
     }
   ],
   "summary": {
     "prediction_accuracy": {
-      "correct": 2,
-      "total": 6,
-      "neutral": 0
+      "correct": 23,
+      "total": 40,
+      "neutral": 1
     },
     "skew_55": {
-      "total_pnl": 0.738898,
-      "trades": 6,
-      "wins": 3
+      "total_pnl": 14.300337,
+      "trades": 41,
+      "wins": 37
     },
     "skew_60": {
-      "total_pnl": 0.253237,
-      "trades": 6,
-      "wins": 2
+      "total_pnl": 16.031541,
+      "trades": 41,
+      "wins": 35
     },
     "skew_65": {
-      "total_pnl": -0.232423,
-      "trades": 6,
-      "wins": 2
+      "total_pnl": 17.762746,
+      "trades": 41,
+      "wins": 33
     },
     "skew_70": {
-      "total_pnl": -0.718083,
-      "trades": 6,
-      "wins": 2
+      "total_pnl": 19.454173,
+      "trades": 41,
+      "wins": 32
     },
     "actual": {
-      "total_pnl": -8.901505,
-      "trades": 6,
-      "wins": 3
+      "total_pnl": -54.440308,
+      "trades": 41,
+      "wins": 18
     }
   }
 }

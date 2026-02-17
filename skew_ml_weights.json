@@ -1,0 +1,14 @@
+{
+  "weights": {
+    "ema_cross": 1.056,
+    "rsi_zone": 1.053,
+    "bb_position": 1.13,
+    "momentum_z": 1.077,
+    "vwap_dev": 1.017,
+    "taker_flow": 1.08,
+    "macd_hist": 1.046,
+    "adx_trend": 1.04,
+    "obi": 1.0,
+    "ha_streak": 1.0
+  }
+}

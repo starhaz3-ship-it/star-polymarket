@@ -2,35 +2,67 @@
   "low": {
     "0.02": {
       "alpha": 4,
-      "beta": 5,
-      "trades": 5,
-      "total_pnl": -8.4
+      "beta": 6,
+      "trades": 6,
+      "total_pnl": -3.99
     },
     "0.025": {
       "alpha": 4,
-      "beta": 2,
-      "trades": 2,
-      "total_pnl": -4.1
+      "beta": 7,
+      "trades": 7,
+      "total_pnl": -5.78
     },
     "0.03": {
-      "alpha": 2,
-      "beta": 3,
+      "alpha": 4,
+      "beta": 7,
+      "trades": 7,
+      "total_pnl": -20.78
+    },
+    "0.04": {
+      "alpha": 1,
+      "beta": 5,
+      "trades": 2,
+      "total_pnl": -7.99
+    },
+    "0.05": {
+      "alpha": 1,
+      "beta": 5,
       "trades": 1,
-      "total_pnl": -4.4
+      "total_pnl": 3.24
     }
   },
   "medium": {
     "0.03": {
-      "alpha": 3,
-      "beta": 3,
-      "trades": 2,
-      "total_pnl": -9.3
+      "alpha": 4,
+      "beta": 4,
+      "trades": 4,
+      "total_pnl": -13.58
     },
     "0.025": {
       "alpha": 4,
-      "beta": 2,
+      "beta": 5,
+      "trades": 5,
+      "total_pnl": 11.2512
+    }
+  },
+  "high": {
+    "0.05": {
+      "alpha": 3,
+      "beta": 3,
       "trades": 2,
-      "total_pnl": 5.7912
+      "total_pnl": -9.0
+    },
+    "0.025": {
+      "alpha": 2,
+      "beta": 3,
+      "trades": 1,
+      "total_pnl": -2.15
+    },
+    "0.03": {
+      "alpha": 4,
+      "beta": 1,
+      "trades": 1,
+      "total_pnl": 0.42
     }
   }
 }
