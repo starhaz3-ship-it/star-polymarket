@@ -107,6 +107,10 @@ class CopyTrader:
         "gabagool22": "0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d",  # $849K PnL, $139M vol, 27K mkts, joined Oct 2025
         "late-to-tomorrow": "0x5924ca480d8b08cd5f3e5811fa378c4082475af6",  # $25.7K PnL, $1.07M vol, 674 trades, joined Feb 2026
         "Supphieros": "0xde79cc7660d5c05b4cd2f4e72cae30cde2583d9a",  # User-added whale
+        # --- User-added whales (2026-02-17) ---
+        "Revolving-Solvency": "0xe34503821da4e193a79659a69a20ee3fc391a364",  # $13.4K PnL, 122 trades, 15% ROI, concentrated bets
+        "100USDollars": "0x781a48229e2c08e20d1eaad90ef73710988c96e6",  # $33.4K PnL, 672 trades, $533K vol, joined Feb 2026, @Boku8figs
+        "lesstidy": "0xd4583c4704a8c2e416f0e7fa5b763f92f0291733",  # $12.9K PnL, 382 trades, $1.3M vol, high-volume grinder
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]
