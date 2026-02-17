@@ -446,6 +446,13 @@ class MakerConfig:
     PAIRED_EARLY_ENTRY: bool = True      # V4.7.3: Enter paired BEFORE candle opens (price near 50/50)
     PAIRED_EARLY_BUFFER_MIN: float = 2.0 # V4.7.3: Place orders up to 2 min before candle opens
 
+    # V5.0: Taker-taker paired mode — market-buy both sides simultaneously
+    TAKER_TAKER_ENABLED: bool = True     # Scan order books, buy both sides when combined < threshold
+    TAKER_TAKER_MAX_COMBINED: float = 0.96  # Max combined ask to trigger (4% guaranteed profit)
+    TAKER_TAKER_SIZE: float = 5.0        # $ per side
+    TAKER_TAKER_MAX_CONCURRENT: int = 2  # Max simultaneous taker-taker positions
+    TAKER_TAKER_MIN_DEPTH: float = 5.0   # Min $ depth on each side's ask (avoid thin books)
+
     # V4.8: ML Direction Skew for Paired Trades
     PAIRED_SKEW_SHADOW: bool = True       # Shadow-track skewed PnL (Phase 1, zero risk)
     PAIRED_SKEW_ENABLED: bool = False     # Phase 2/3: actually skew shares (off for now)
@@ -3093,6 +3100,151 @@ class CryptoMarketMaker:
         else:
             print(f"  [FAST-SELL-FAIL] {pos.asset} {filled_side} — sell failed, will ride to resolution")
 
+    async def taker_taker_scan(self, markets: List['MarketPair']):
+        """V5.0: Scan order books and instantly buy BOTH sides when combined ask < threshold.
+        Guarantees 100% pair rate — no adverse selection because both sides fill atomically."""
+        if self.paper or not self.client:
+            return
+
+        from py_clob_client.clob_types import OrderArgs, OrderType
+        from py_clob_client.order_builder.constants import BUY
+
+        # Count active taker-taker positions
+        tt_active = sum(1 for p in self.positions.values()
+                        if p.status not in ("resolved", "cancelled")
+                        and p.entry_type == "taker_taker")
+        if tt_active >= self.config.TAKER_TAKER_MAX_CONCURRENT:
+            return
+
+        for pair in markets:
+            if tt_active >= self.config.TAKER_TAKER_MAX_CONCURRENT:
+                break
+            if pair.market_id in self._entered_markets or pair.market_id in self.positions:
+                continue
+
+            # Check time remaining
+            mins_left = float(pair.duration_min)
+            if pair.end_time:
+                delta = (pair.end_time - datetime.now(timezone.utc)).total_seconds()
+                mins_left = max(0, delta) / 60.0
+            min_time = 2.0 if pair.duration_min <= 5 else self.config.MIN_TIME_LEFT_MIN
+            if mins_left < min_time or mins_left > pair.duration_min * 1.5:
+                continue
+
+            # Fetch BOTH order books
+            up_book = await self.get_order_book(pair.up_token_id)
+            down_book = await self.get_order_book(pair.down_token_id)
+            if not up_book or not down_book:
+                continue
+
+            up_ask = up_book.get("best_ask", 1.0)
+            down_ask = down_book.get("best_ask", 1.0)
+            up_depth = up_book.get("ask_depth", 0)
+            down_depth = down_book.get("ask_depth", 0)
+            combined = up_ask + down_ask
+
+            # Check if profitable
+            if combined >= self.config.TAKER_TAKER_MAX_COMBINED:
+                continue
+            if up_depth < self.config.TAKER_TAKER_MIN_DEPTH or down_depth < self.config.TAKER_TAKER_MIN_DEPTH:
+                continue
+
+            edge = 1.0 - combined
+            edge_pct = edge / combined * 100
+            shares = max(self.config.MIN_SHARES, math.floor(self.config.TAKER_TAKER_SIZE / max(up_ask, down_ask)))
+
+            print(f"\n[TAKER-TAKER {pair.asset} {pair.duration_min}m] {pair.question[:50]}")
+            print(f"  Asks: UP ${up_ask:.2f} / DN ${down_ask:.2f} | Combined ${combined:.3f} | Edge {edge_pct:.1f}% | {shares} shares")
+
+            # Place UP FOK
+            try:
+                up_args = OrderArgs(price=round(up_ask, 2), size=float(shares), side=BUY, token_id=pair.up_token_id)
+                up_signed = self.client.create_order(up_args)
+                up_resp = self.client.post_order(up_signed, OrderType.FOK)
+
+                if not up_resp.get("success"):
+                    print(f"  [TT] UP FOK failed: {up_resp.get('errorMsg', '?')}")
+                    continue
+
+                up_order_id = up_resp.get("orderID", "")
+
+                # Place DOWN FOK immediately after
+                dn_args = OrderArgs(price=round(down_ask, 2), size=float(shares), side=BUY, token_id=pair.down_token_id)
+                dn_signed = self.client.create_order(dn_args)
+                dn_resp = self.client.post_order(dn_signed, OrderType.FOK)
+
+                if not dn_resp.get("success"):
+                    print(f"  [TT] DOWN FOK failed after UP filled — will sell UP back")
+                    # UP filled but DOWN didn't — sell UP back immediately
+                    now_iso = datetime.now(timezone.utc).isoformat()
+                    temp_pos = PairPosition(
+                        market_id=pair.market_id, market_num_id=pair.market_num_id,
+                        question=pair.question, asset=pair.asset,
+                        created_at=now_iso, status="partial",
+                        entry_type="taker_taker", entry_tier="taker_taker",
+                    )
+                    temp_order = MakerOrder(
+                        order_id=up_order_id, market_id=pair.market_id,
+                        token_id=pair.up_token_id, side_label="UP",
+                        price=round(up_ask, 2), size_shares=float(shares),
+                        size_usd=up_ask * shares, placed_at=now_iso,
+                        status="filled", fill_price=round(up_ask, 2), fill_shares=float(shares),
+                    )
+                    temp_pos.up_order = temp_order
+                    temp_pos.up_filled = True
+                    sell_pnl = await self._sell_partial_at_market(temp_pos, temp_order)
+                    if sell_pnl is not None:
+                        print(f"  [TT-RESCUE] Sold UP back: ${sell_pnl:+.2f}")
+                        self.stats["total_pnl"] += sell_pnl
+                        self.daily_pnl += sell_pnl
+                    continue
+
+                dn_order_id = dn_resp.get("orderID", "")
+                now_iso = datetime.now(timezone.utc).isoformat()
+                now_ts = time.time()
+
+                # Both filled! Create paired position
+                pos = PairPosition(
+                    market_id=pair.market_id, market_num_id=pair.market_num_id,
+                    question=pair.question, asset=pair.asset,
+                    created_at=now_iso, status="paired",
+                    entry_type="taker_taker", entry_tier="taker_taker",
+                    bid_offset_used=0.0, hour_utc=datetime.now(timezone.utc).hour,
+                    duration_min=pair.duration_min,
+                )
+                pos.up_order = MakerOrder(
+                    order_id=up_order_id, market_id=pair.market_id,
+                    token_id=pair.up_token_id, side_label="UP",
+                    price=round(up_ask, 2), size_shares=float(shares),
+                    size_usd=up_ask * shares, placed_at=now_iso, placed_at_ts=now_ts,
+                    status="filled", fill_price=round(up_ask, 2), fill_shares=float(shares),
+                )
+                pos.down_order = MakerOrder(
+                    order_id=dn_order_id, market_id=pair.market_id,
+                    token_id=pair.down_token_id, side_label="DOWN",
+                    price=round(down_ask, 2), size_shares=float(shares),
+                    size_usd=down_ask * shares, placed_at=now_iso, placed_at_ts=now_ts,
+                    status="filled", fill_price=round(down_ask, 2), fill_shares=float(shares),
+                )
+                pos.up_filled = True
+                pos.down_filled = True
+                pos.combined_cost = (up_ask + down_ask) * shares
+
+                self.positions[pair.market_id] = pos
+                self._persist_entered_market(pair.market_id)
+                self.stats["pairs_attempted"] += 1
+                tt_active += 1
+
+                guaranteed_profit = edge * shares
+                print(f"  [TT-PAIRED] BOTH sides filled! ${up_ask:.2f} + ${down_ask:.2f} = ${combined:.3f}")
+                print(f"  Guaranteed profit: ${guaranteed_profit:.2f} ({edge_pct:.1f}%) on {shares} shares")
+
+                await self._ws_resubscribe()
+
+            except Exception as e:
+                print(f"  [TT-ERR] {e}")
+                continue
+
     async def _ws_resubscribe(self):
         """Re-send subscription with updated market list. Called after new positions added."""
         if not self._ws_connected or not self._ws:
@@ -5596,6 +5748,10 @@ class CryptoMarketMaker:
         offsets_str = "/".join(f"{o:.3f}" for o in VolAdaptiveOffset.OFFSET_CANDIDATES)
         print(f"VOL-ADAPTIVE OFFSET: Thompson sampling | offsets: [{offsets_str}] | "
               f"regimes: low/med/high (ATR percentile)")
+        if self.config.TAKER_TAKER_ENABLED:
+            print(f"TAKER-TAKER: ON | max combined ${self.config.TAKER_TAKER_MAX_COMBINED} | "
+                  f"${self.config.TAKER_TAKER_SIZE}/side | max {self.config.TAKER_TAKER_MAX_CONCURRENT} concurrent | "
+                  f"min depth ${self.config.TAKER_TAKER_MIN_DEPTH}")
         print("=" * 70)
 
         if self.stats["total_pnl"] != 0:
@@ -5725,6 +5881,10 @@ class CryptoMarketMaker:
                                 pos.entry_tier = "paired"
                                 paired_active += 1
 
+                # Phase 6c: V5.0 Taker-taker paired mode — instant both-side fills
+                if self.config.TAKER_TAKER_ENABLED and not fill_cooldown and self.check_risk():
+                    await self.taker_taker_scan(markets)
+
                 # Phase 7: Status & save (ALWAYS, not just when placing)
                 if cycle % 5 == 0:
                     self._print_status(cycle)
@@ -5839,13 +5999,19 @@ class CryptoMarketMaker:
         # V4.7: Paired tier stats
         paired_tier = [p for p in self.positions.values() if p.entry_tier == "paired" and p.status not in ("resolved", "cancelled")]
         deep_tier = [p for p in self.positions.values() if p.entry_tier == "deep" and p.status not in ("resolved", "cancelled")]
+        tt_tier = [p for p in self.positions.values() if p.entry_tier == "taker_taker" and p.status not in ("resolved", "cancelled")]
         paired_resolved = [r for r in self.resolved if r.get("entry_tier") == "paired"]
-        if paired_tier or paired_resolved:
+        tt_resolved = [r for r in self.resolved if r.get("entry_tier") == "taker_taker"]
+        if paired_tier or paired_resolved or tt_tier or tt_resolved:
             p_wins = sum(1 for r in paired_resolved if r.get("pnl", 0) > 0)
             p_pnl = sum(r.get("pnl", 0) for r in paired_resolved)
             mom_tag = f" | Mom: {self._momentum_mult:.2f}x" if self.config.MOMENTUM_ENABLED else ""
             print(f"    Deep: {len(deep_tier)} active | Paired: {len(paired_tier)} active, "
                   f"{len(paired_resolved)} resolved ({p_wins}W), ${p_pnl:+.2f}{mom_tag}")
+            if tt_tier or tt_resolved:
+                tt_wins = sum(1 for r in tt_resolved if r.get("pnl", 0) > 0)
+                tt_pnl = sum(r.get("pnl", 0) for r in tt_resolved)
+                print(f"    Taker-taker: {len(tt_tier)} active, {len(tt_resolved)} resolved ({tt_wins}W), ${tt_pnl:+.2f}")
 
         if self.stats["pairs_completed"] > 0:
             avg = self.stats["paired_pnl"] / self.stats["pairs_completed"]
