@@ -539,7 +539,7 @@ class PairsArbBot:
             print(f"  [ALLOWANCE] {str(e)[:80]}")
 
     def place_market_sell(self, token_id: str, shares: float, side_label: str) -> dict:
-        """Market-sell shares via GTC limit at aggressive price (bail-out)."""
+        """Market-sell shares — posts GTC, verifies fill, retries at lower price if needed."""
         if self.paper:
             bail_price = BID_PRICE - 0.05
             return {
@@ -551,46 +551,82 @@ class PairsArbBot:
             from py_clob_client.clob_types import OrderArgs, OrderType
             from py_clob_client.order_builder.constants import SELL
 
-            # V1.3: Aggressive allowance — set ALL methods before selling
             self._ensure_sell_allowance(token_id)
-            time.sleep(1)  # Give chain time to confirm approval
+            time.sleep(1)
 
-            # Sell at slight discount to guarantee fill
-            sell_price = round(max(0.30, BID_PRICE - 0.05), 2)  # $0.40
-            order_args = OrderArgs(
-                price=sell_price, size=int(shares), side=SELL, token_id=token_id,
-            )
-            signed = self.client.create_order(order_args)
-            resp = self.client.post_order(signed, OrderType.GTC)
+            # V1.4: Descending price ladder — keep lowering until filled
+            # Start at $0.35, drop to $0.20, then $0.10, then $0.02
+            price_ladder = [0.35, 0.20, 0.10, 0.02]
 
-            if resp.get("success"):
+            for attempt, sell_price in enumerate(price_ladder):
+                order_args = OrderArgs(
+                    price=sell_price, size=int(shares), side=SELL, token_id=token_id,
+                )
+                signed = self.client.create_order(order_args)
+                resp = self.client.post_order(signed, OrderType.GTC)
+
+                if not resp.get("success"):
+                    print(f"  [{side_label}] Sell REJECTED @ ${sell_price}: {resp.get('errorMsg', '?')}")
+                    continue
+
                 order_id = resp.get("orderID", "?")
                 status = resp.get("status", "")
+
                 if status == "matched":
+                    # Immediately filled — verify
                     time.sleep(1)
-                    try:
-                        info = self.client.get_order(order_id)
-                        size_matched = float(info.get("size_matched", 0) or 0)
-                        assoc = info.get("associate_trades", [])
-                        fill_price = float(assoc[0]["price"]) if assoc and assoc[0].get("price") else sell_price
-                        return {
-                            "success": size_matched > 0,
-                            "shares": size_matched, "price": fill_price,
-                            "proceeds": round(fill_price * size_matched, 2),
-                        }
-                    except Exception as e:
-                        print(f"  [{side_label}] Sell fill check: {e}")
-                        return {"success": True, "shares": int(shares), "price": sell_price,
-                                "proceeds": round(sell_price * shares, 2)}
-                else:
-                    print(f"  [{side_label}] GTC sell posted (order={order_id[:16]}...)")
-                    return {"success": True, "shares": int(shares), "price": sell_price,
-                            "proceeds": round(sell_price * shares, 2)}
-            else:
-                print(f"  [{side_label}] Sell REJECTED: {resp.get('errorMsg', '?')}")
-                return {"success": False}
+                    fill_info = self._check_sell_fill(order_id, sell_price, side_label)
+                    if fill_info["success"]:
+                        return fill_info
+
+                # Status is "live" — order posted but not filled yet
+                # Poll for up to 8 seconds to see if it fills
+                print(f"  [{side_label}] GTC sell @ ${sell_price} posted, polling for fill...")
+                for wait in range(4):
+                    time.sleep(2)
+                    fill_info = self._check_sell_fill(order_id, sell_price, side_label)
+                    if fill_info["success"]:
+                        return fill_info
+
+                # Still not filled after 8s — cancel and try lower price
+                print(f"  [{side_label}] Sell @ ${sell_price} unfilled after 8s, trying lower...")
+                try:
+                    self.cancel_order(order_id, side_label)
+                except Exception:
+                    pass
+                time.sleep(0.5)
+
+            # All price levels exhausted — sell truly failed
+            print(f"  [{side_label}] Sell FAILED at all price levels — no buyers")
+            return {"success": False}
         except Exception as e:
             print(f"  [{side_label}] Sell error: {e}")
+            return {"success": False}
+
+    def _check_sell_fill(self, order_id: str, sell_price: float, side_label: str) -> dict:
+        """Check if a sell order has been filled. Returns success only if actually matched."""
+        try:
+            info = self.client.get_order(order_id)
+            if isinstance(info, str):
+                try:
+                    info = json.loads(info)
+                except json.JSONDecodeError:
+                    return {"success": False}
+            if not isinstance(info, dict):
+                return {"success": False}
+
+            size_matched = float(info.get("size_matched", 0) or 0)
+            if size_matched > 0:
+                assoc = info.get("associate_trades", [])
+                fill_price = float(assoc[0]["price"]) if assoc and assoc[0].get("price") else sell_price
+                print(f"  [{side_label}] Sell FILLED: {size_matched:.0f}sh @ ${fill_price:.3f}")
+                return {
+                    "success": True, "shares": size_matched, "price": fill_price,
+                    "proceeds": round(fill_price * size_matched, 2),
+                }
+            return {"success": False}
+        except Exception as e:
+            print(f"  [{side_label}] Sell fill check: {e}")
             return {"success": False}
 
     # ========================================================================
@@ -649,18 +685,72 @@ class PairsArbBot:
         return "DOWN"  # conservative fallback
 
     # ========================================================================
+    # BOOK HYGIENE — cancel orphaned orders, flag stuck positions
+    # ========================================================================
+
+    def cleanup_book(self):
+        """Cancel any open orders not tied to active arbs. Run on startup + periodically."""
+        if self.paper:
+            return
+
+        try:
+            open_orders = self.client.get_orders() or []
+            if isinstance(open_orders, str):
+                try:
+                    open_orders = json.loads(open_orders)
+                except json.JSONDecodeError:
+                    return
+            if not isinstance(open_orders, list):
+                return
+
+            # Collect all order IDs that belong to active arbs
+            active_order_ids = set()
+            for arb in self.active_arbs.values():
+                for key in ("up_order", "down_order"):
+                    oid = arb.get(key, {}).get("order_id")
+                    if oid:
+                        active_order_ids.add(oid)
+
+            # Cancel any open order not in our active set
+            orphans = 0
+            for order in open_orders:
+                oid = order.get("id") or order.get("order_id") or order.get("orderID", "")
+                status = order.get("status", "")
+                if status in ("live", "open") and oid not in active_order_ids:
+                    orphans += 1
+                    try:
+                        self.client.cancel(oid)
+                        asset_id = order.get("asset_id", "?")[:16]
+                        side = order.get("side", "?")
+                        price = order.get("price", "?")
+                        size = order.get("original_size", order.get("size", "?"))
+                        print(f"[HYGIENE] Cancelled orphan: {side} {size}sh @ ${price} (order={oid[:16]}...)")
+                    except Exception as e:
+                        print(f"[HYGIENE] Failed to cancel {oid[:16]}: {e}")
+
+            if orphans > 0:
+                print(f"[HYGIENE] Cleaned {orphans} orphaned order(s)")
+            else:
+                print(f"[HYGIENE] Book clean — no orphaned orders")
+        except Exception as e:
+            print(f"[HYGIENE] Error checking open orders: {e}")
+
+    # ========================================================================
     # MAIN LOOP
     # ========================================================================
 
     async def run(self):
         mode = "PAPER" if self.paper else "LIVE"
         print(f"\n{'='*60}")
-        print(f"  PAIRS ARBITRAGE BOT V1.2 -- {self.mode} {mode} MODE")
+        print(f"  PAIRS ARBITRAGE BOT V1.4 -- {self.mode} {mode} MODE")
         print(f"  Bid: ${BID_PRICE:.2f}/side | Bail: {self.bail_timeout}s ({self.bail_timeout/60:.0f}min)")
         print(f"  Size: ${TRADE_SIZE_PER_SIDE:.2f}/side (${TRADE_SIZE_PER_SIDE*2:.2f} total)")
         print(f"  Entry: {self.entry_window[0]}-{self.entry_window[1]}min before close")
         print(f"  Loss limit: ${DAILY_LOSS_LIMIT:.2f} | Max concurrent: {self.max_concurrent}")
         print(f"{'='*60}\n")
+
+        # V1.4: Clean book on startup — cancel any orphaned orders from previous run
+        self.cleanup_book()
 
         cycle = 0
         while self.running:
@@ -676,8 +766,12 @@ class PairsArbBot:
                 if len(self.active_arbs) < self.max_concurrent:
                     await self.scan_and_enter()
 
-                # Status every 2 min
+                # V1.4: Book hygiene every ~5 min (20 cycles * 15s)
                 cycle += 1
+                if cycle % 20 == 0:
+                    self.cleanup_book()
+
+                # Status every 2 min
                 if cycle % 8 == 0:
                     active_str = ""
                     for cid, arb in self.active_arbs.items():

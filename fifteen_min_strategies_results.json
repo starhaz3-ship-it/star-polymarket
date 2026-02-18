@@ -2,8 +2,8 @@
   "stats": {
     "EMA_STOCHRSI": {
       "wins": 2,
-      "losses": 1,
-      "pnl": 6.859999999999999
+      "losses": 2,
+      "pnl": 1.8699999999999992
     },
     "FRAMA_CMO": {
       "wins": 41,
@@ -27,13 +27,13 @@
     },
     "FIB_EMA_CONFIRM": {
       "wins": 5,
-      "losses": 3,
-      "pnl": 31.950000000000003
+      "losses": 4,
+      "pnl": 24.720000000000002
     },
     "_total": {
       "wins": 59,
-      "losses": 31,
-      "pnl": 303.68000000000006
+      "losses": 33,
+      "pnl": 291.46000000000004
     }
   },
   "resolved": [
@@ -2826,10 +2826,8 @@
       "pnl": -8.0,
       "exit_price": 0.0,
       "exit_time": "2026-02-18T14:24:28.754951+00:00"
-    }
-  ],
-  "active": {
-    "FIB_EMA_CONFIRM_0x142f6115f1f1b142742a0171ccf06fd993bf0debd058ca669650c9f0e1bff120_DOWN": {
+    },
+    {
       "side": "DOWN",
       "entry_price": 0.42500000000000004,
       "size_usd": 7.23,
@@ -2855,9 +2853,43 @@
         "strength": 0.363636363636364
       },
       "ml_prob": 0.665,
-      "status": "open",
-      "pnl": 0.0
+      "status": "closed",
+      "pnl": -7.23,
+      "exit_price": 0.0,
+      "exit_time": "2026-02-18T14:54:34.078852+00:00"
+    },
+    {
+      "side": "DOWN",
+      "entry_price": 0.45499999999999996,
+      "size_usd": 4.99,
+      "entry_time": "2026-02-18T16:18:32.070830+00:00",
+      "condition_id": "0x5b289b76eccc8b5410316a64b4e7327c413164939c9c5b983c2e90a4921a9c29",
+      "market_numeric_id": "1389083",
+      "title": "Bitcoin Up or Down - February 18, 11:15AM-11:30AM ET",
+      "strategy": "EMA_STOCHRSI",
+      "edge": 0.2143,
+      "fair_px": 0.6693,
+      "strength": 0.164,
+      "reason": "ema_dn_stochrsi_pullback",
+      "btc_price": 67142.59,
+      "detail": "ef=67388 em=67488 es=67591 rsi=44 stK=0.53 bbw=0.014",
+      "tte_seconds": 688,
+      "ml_features": {
+        "conf": 0.16374121324101018,
+        "ema_gap": 0.0,
+        "rsi": 50.0,
+        "atr_pct": 0.0,
+        "hour_utc": 16.0,
+        "edge": 0.21427621383661832,
+        "strength": 0.16374121324101018
+      },
+      "ml_prob": 0.694,
+      "status": "closed",
+      "pnl": -4.99,
+      "exit_price": 0.0,
+      "exit_time": "2026-02-18T16:35:42.269654+00:00"
     }
-  },
-  "last_updated": "2026-02-18T14:52:18.520788+00:00"
+  ],
+  "active": {},
+  "last_updated": "2026-02-18T17:29:59.574792+00:00"
 }

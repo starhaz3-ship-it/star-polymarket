@@ -409,11 +409,11 @@ class Sniper5MLive:
                 open_price = float(klines[0][1])
                 close_price = float(klines[-1][4])
                 pct = (close_price - open_price) / open_price * 100
-                if pct > 0.03:
+                if pct > 0.07:
                     return "UP"
-                elif pct < -0.03:
+                elif pct < -0.07:
                     return "DOWN"
-                return None
+                return None  # too weak — skip
         except Exception:
             return None
 

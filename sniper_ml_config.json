@@ -1,0 +1,29 @@
+{
+  "SNIPER_WINDOW": 58,
+  "ENTRY_SWEET_SPOT_MIN": 55.0,
+  "ENTRY_SWEET_SPOT_MAX": 57.9,
+  "SKIP_HOURS_UTC": [
+    14
+  ],
+  "DANGER_PRICES": [
+    0.72,
+    0.76,
+    0.77,
+    0.79,
+    0.81
+  ],
+  "MIN_ASK_GAP": 0.7,
+  "_meta": {
+    "generated": "2026-02-18T15:30:13.299557Z",
+    "n_trades": 105,
+    "overall_wr_pct": 88.6,
+    "train_accuracy": 1.0,
+    "feature_importances": {
+      "time_remaining_sec": 0.1533,
+      "entry_price": 0.2537,
+      "ask_gap": 0.4336,
+      "hour_utc": 0.1405,
+      "side": 0.0189
+    }
+  }
+}
