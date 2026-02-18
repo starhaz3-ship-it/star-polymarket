@@ -2270,6 +2270,36 @@
       "exit_time": "2026-02-18T02:36:18.780275+00:00"
     }
   ],
-  "active": {},
-  "last_updated": "2026-02-18T03:44:12.838387+00:00"
+  "active": {
+    "FRAMA_CMO_0x4550ed3d7a957942c30d9a3803ddd0d9b02b0252a6d8383e18a6fc8d1f270cc4_UP": {
+      "side": "UP",
+      "entry_price": 0.33499999999999996,
+      "size_usd": 8.0,
+      "entry_time": "2026-02-18T05:26:19.446896+00:00",
+      "condition_id": "0x4550ed3d7a957942c30d9a3803ddd0d9b02b0252a6d8383e18a6fc8d1f270cc4",
+      "market_numeric_id": "1387845",
+      "title": "Bitcoin Up or Down - February 18, 12:15AM-12:30AM ET",
+      "strategy": "FRAMA_CMO",
+      "edge": 0.3159,
+      "fair_px": 0.6509,
+      "strength": 0.905,
+      "reason": "frama_up_pullback",
+      "btc_price": 67882.7,
+      "detail": "frama=67801 cmo=69.3 dcmid=67415",
+      "tte_seconds": 221,
+      "ml_features": {
+        "conf": 0.9045734619380852,
+        "ema_gap": 0.0,
+        "rsi": 50.0,
+        "atr_pct": 0.0,
+        "hour_utc": 5.0,
+        "edge": 0.31593660663078316,
+        "strength": 0.9045734619380852
+      },
+      "ml_prob": 0.702,
+      "status": "open",
+      "pnl": 0.0
+    }
+  },
+  "last_updated": "2026-02-18T05:26:19.463697+00:00"
 }

@@ -1,5 +1,37 @@
 {
-  "active": {},
+  "active": {
+    "0x56bdaec79599db1975583dba11057b36b48866d4fb8118178e623337e052c99a": {
+      "condition_id": "0x56bdaec79599db1975583dba11057b36b48866d4fb8118178e623337e052c99a",
+      "question": "Bitcoin Up or Down - February 18, 12:25AM-12:30AM ET",
+      "entry_time": 1771392360.885398,
+      "end_dt": "2026-02-18T05:30:00+00:00",
+      "up_tid": "93480816693084564147554760189137596425716971413539840884944373330473819340392",
+      "down_tid": "98826851940494325297259834474308583313861741487150185957620335393677440181072",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771392360885_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771392360885_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": true,
+      "down_filled": true,
+      "up_fill_time": 1771392392.9363039,
+      "down_fill_time": 1771392368.8972137,
+      "first_side": "DOWN",
+      "status": "hedged",
+      "bail_deadline": 1771392420.885398
+    }
+  },
   "resolved": [
     {
       "condition_id": "0x2f1ae9c9cefdac87f8e0f2dc9a4e7e83a25212f951ecc96784071366b99c0770",
@@ -636,17 +668,723 @@
         "price": 0.4,
         "proceeds": 4.4
       }
+    },
+    {
+      "condition_id": "0xf4afb3da2cf5bb7d5b1b5e6909e3bb9969e8d7d7566912e91d25c859e95d4e9c",
+      "question": "Bitcoin Up or Down - February 17, 10:45PM-10:50PM ET",
+      "entry_time": 1771386365.414155,
+      "end_dt": "2026-02-18T03:50:00+00:00",
+      "up_tid": "106099053104580375313282140455574860727918029920269428504316843238795046800717",
+      "down_tid": "21125058875919929111128148416050378743073888228727782112755929090322566126047",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771386365414_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771386365414_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": false,
+      "down_filled": true,
+      "up_fill_time": null,
+      "down_fill_time": 1771386373.431154,
+      "first_side": "DOWN",
+      "status": "bailed",
+      "bail_deadline": 1771386425.414155,
+      "pnl": -0.5499999999999998,
+      "bail_result": {
+        "success": true,
+        "shares": 11,
+        "price": 0.4,
+        "proceeds": 4.4
+      }
+    },
+    {
+      "condition_id": "0x3a4147bb582c8cd4498fa3a97476c4fc21db266e1f382b9aabd1116f3049af4d",
+      "question": "Bitcoin Up or Down - February 17, 10:50PM-10:55PM ET",
+      "entry_time": 1771386664.3664112,
+      "end_dt": "2026-02-18T03:55:00+00:00",
+      "up_tid": "89886674210408149372721629331209436924464193379708114517560091901365194195409",
+      "down_tid": "43109128261340377167620278128388273844308156369354406550158606171716010155295",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771386664366_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771386664366_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": false,
+      "down_filled": true,
+      "up_fill_time": null,
+      "down_fill_time": 1771386672.373739,
+      "first_side": "DOWN",
+      "status": "bailed",
+      "bail_deadline": 1771386724.3664112,
+      "pnl": -0.5499999999999998,
+      "bail_result": {
+        "success": true,
+        "shares": 11,
+        "price": 0.4,
+        "proceeds": 4.4
+      }
+    },
+    {
+      "condition_id": "0x4e0b3b0569c4ed3445565bae4c6bcf9c8c5aa2d89295c2610081044a6baedb54",
+      "question": "Bitcoin Up or Down - February 17, 10:55PM-11:00PM ET",
+      "entry_time": 1771386967.5149794,
+      "end_dt": "2026-02-18T04:00:00+00:00",
+      "up_tid": "50392259229897511680912573183293435517474529975529295692034643522007242430180",
+      "down_tid": "75204275421729330124804213897464492819078613491709270766689619490267691135105",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771386967514_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771386967514_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": true,
+      "down_filled": false,
+      "up_fill_time": 1771386975.527826,
+      "down_fill_time": null,
+      "first_side": "UP",
+      "status": "bailed",
+      "bail_deadline": 1771387027.5149794,
+      "pnl": -0.5499999999999998,
+      "bail_result": {
+        "success": true,
+        "shares": 11,
+        "price": 0.4,
+        "proceeds": 4.4
+      }
+    },
+    {
+      "condition_id": "0x6eb92de47213499f22f7cb3c75a881e99d60050515b242819eb69d72da0c399a",
+      "question": "Bitcoin Up or Down - February 17, 11:00PM-11:05PM ET",
+      "entry_time": 1771387262.9355786,
+      "end_dt": "2026-02-18T04:05:00+00:00",
+      "up_tid": "58229030500793163589080403385262349518384832140560831086734567843867954448370",
+      "down_tid": "1576055167055672046954181127615034964052406385917339210090642140641111185742",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771387262935_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771387262935_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": false,
+      "down_filled": true,
+      "up_fill_time": null,
+      "down_fill_time": 1771387270.9519029,
+      "first_side": "DOWN",
+      "status": "bailed",
+      "bail_deadline": 1771387322.9355786,
+      "pnl": -0.5499999999999998,
+      "bail_result": {
+        "success": true,
+        "shares": 11,
+        "price": 0.4,
+        "proceeds": 4.4
+      }
+    },
+    {
+      "condition_id": "0x6b02ae16afb043fdafa0d4505d04cb7f2f741e3f8545b586df568990e13a30cf",
+      "question": "Bitcoin Up or Down - February 17, 11:05PM-11:10PM ET",
+      "entry_time": 1771387567.4923513,
+      "end_dt": "2026-02-18T04:10:00+00:00",
+      "up_tid": "3683441932761789403051676841558497304423844129037004988553785977669535994067",
+      "down_tid": "35802035192620140943886355028881633493272534594880023205019850600396337980294",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771387567492_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771387567492_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": true,
+      "down_filled": true,
+      "up_fill_time": 1771387575.501443,
+      "down_fill_time": 1771387601.7427123,
+      "first_side": "UP",
+      "status": "resolved_hedged",
+      "bail_deadline": 1771387627.4923513,
+      "pnl": 1.0999999999999996
+    },
+    {
+      "condition_id": "0x7871a20df23170227406e1a84bccc6bbafbde7735fa8ebfe1adf852d2a461a96",
+      "question": "Bitcoin Up or Down - February 17, 11:10PM-11:15PM ET",
+      "entry_time": 1771387864.681035,
+      "end_dt": "2026-02-18T04:15:00+00:00",
+      "up_tid": "22040179133150284802379686434338660554490057629691650868053315688260962726521",
+      "down_tid": "19023591590952359540118516164071001417509703923160343840506948649691928632019",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771387864681_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771387864681_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": true,
+      "down_filled": true,
+      "up_fill_time": 1771387896.7134218,
+      "down_fill_time": 1771387872.68832,
+      "first_side": "DOWN",
+      "status": "resolved_hedged",
+      "bail_deadline": 1771387924.681035,
+      "pnl": 1.0999999999999996
+    },
+    {
+      "condition_id": "0x210049fca53f497e0ab1237d954a3e4d09c9d6bc9046c51d3a23b69fc4f8c444",
+      "question": "Bitcoin Up or Down - February 17, 11:15PM-11:20PM ET",
+      "entry_time": 1771388167.233536,
+      "end_dt": "2026-02-18T04:20:00+00:00",
+      "up_tid": "3236991712090772960979330262413568202394861464350671024408662778404512139924",
+      "down_tid": "86917843458716190398292845101029744956440285553672796558374767284916226686299",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771388167233_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771388167233_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": true,
+      "down_filled": true,
+      "up_fill_time": 1771388199.8762696,
+      "down_fill_time": 1771388175.2416852,
+      "first_side": "DOWN",
+      "status": "resolved_hedged",
+      "bail_deadline": 1771388227.233536,
+      "pnl": 1.0999999999999996
+    },
+    {
+      "condition_id": "0x4c8913a6aec72992079ae77758f02337a6af801d0ffcdfe2ba649b995b763d27",
+      "question": "Bitcoin Up or Down - February 17, 11:20PM-11:25PM ET",
+      "entry_time": 1771388462.0492535,
+      "end_dt": "2026-02-18T04:25:00+00:00",
+      "up_tid": "102879695811882332055969922458798534693933120148740507385139557047484009855651",
+      "down_tid": "44804890999617521520491047745861990041980604381144013771746085614455773173053",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771388462049_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771388462049_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": false,
+      "down_filled": true,
+      "up_fill_time": null,
+      "down_fill_time": 1771388470.0731318,
+      "first_side": "DOWN",
+      "status": "bailed",
+      "bail_deadline": 1771388522.0492535,
+      "pnl": -0.5499999999999998,
+      "bail_result": {
+        "success": true,
+        "shares": 11,
+        "price": 0.4,
+        "proceeds": 4.4
+      }
+    },
+    {
+      "condition_id": "0x923f57117bb01112342be59414d967f2d1e2b99c5e62a6c990e1ee2cc1fb7472",
+      "question": "Bitcoin Up or Down - February 17, 11:25PM-11:30PM ET",
+      "entry_time": 1771388764.2372541,
+      "end_dt": "2026-02-18T04:30:00+00:00",
+      "up_tid": "53590055049242328151294793719376146202384008758389700289933365018840113477390",
+      "down_tid": "59277860891991826558449439522319735051525510964414326732258871521744938430352",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771388764237_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771388764237_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": true,
+      "down_filled": false,
+      "up_fill_time": 1771388772.2524447,
+      "down_fill_time": null,
+      "first_side": "UP",
+      "status": "bailed",
+      "bail_deadline": 1771388824.2372541,
+      "pnl": -0.5499999999999998,
+      "bail_result": {
+        "success": true,
+        "shares": 11,
+        "price": 0.4,
+        "proceeds": 4.4
+      }
+    },
+    {
+      "condition_id": "0x660850a0b0fc4db6db076c019420524f24676169ed230b38d0ccd7391c290e02",
+      "question": "Bitcoin Up or Down - February 17, 11:30PM-11:35PM ET",
+      "entry_time": 1771389066.9742236,
+      "end_dt": "2026-02-18T04:35:00+00:00",
+      "up_tid": "105794249786948645687573921230144948651556827243652054911182922772360058611966",
+      "down_tid": "46369245948706289234917779453351172479008500393817889781995394221022101528170",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771389066974_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771389066974_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": false,
+      "down_filled": true,
+      "up_fill_time": null,
+      "down_fill_time": 1771389074.9813707,
+      "first_side": "DOWN",
+      "status": "bailed",
+      "bail_deadline": 1771389126.9742236,
+      "pnl": -0.5499999999999998,
+      "bail_result": {
+        "success": true,
+        "shares": 11,
+        "price": 0.4,
+        "proceeds": 4.4
+      }
+    },
+    {
+      "condition_id": "0x7252641ed220c8fb8c745d06b10f0715dbca5d16d60d62c443cf20f260164d06",
+      "question": "Bitcoin Up or Down - February 17, 11:35PM-11:40PM ET",
+      "entry_time": 1771389363.824038,
+      "end_dt": "2026-02-18T04:40:00+00:00",
+      "up_tid": "80200441101990291640437872765826471872657204654180963695468268673761639509042",
+      "down_tid": "55374514198878809679515684758788626546684721225952201907887884568782705897623",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771389363824_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771389363824_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": false,
+      "down_filled": true,
+      "up_fill_time": null,
+      "down_fill_time": 1771389371.830542,
+      "first_side": "DOWN",
+      "status": "bailed",
+      "bail_deadline": 1771389423.824038,
+      "pnl": -0.5499999999999998,
+      "bail_result": {
+        "success": true,
+        "shares": 11,
+        "price": 0.4,
+        "proceeds": 4.4
+      }
+    },
+    {
+      "condition_id": "0x5a7f9cf6bdd0a16a9c23f457b42dbfd6254af54b42f00e9006667d2c7121f93a",
+      "question": "Bitcoin Up or Down - February 17, 11:40PM-11:45PM ET",
+      "entry_time": 1771389668.0328813,
+      "end_dt": "2026-02-18T04:45:00+00:00",
+      "up_tid": "31959933073326321323182601291282239673258456385544997008220084080166856955787",
+      "down_tid": "26372929370088147428588720356047922524863404001040337564019743456295747880981",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771389668032_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771389668032_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": true,
+      "down_filled": false,
+      "up_fill_time": 1771389676.0514846,
+      "down_fill_time": null,
+      "first_side": "UP",
+      "status": "bailed",
+      "bail_deadline": 1771389728.0328813,
+      "pnl": -0.5499999999999998,
+      "bail_result": {
+        "success": true,
+        "shares": 11,
+        "price": 0.4,
+        "proceeds": 4.4
+      }
+    },
+    {
+      "condition_id": "0xb33611712820774210fc37e2b1a45910e54dd40df006ca0bd613f740d8966dae",
+      "question": "Bitcoin Up or Down - February 17, 11:45PM-11:50PM ET",
+      "entry_time": 1771389963.4996397,
+      "end_dt": "2026-02-18T04:50:00+00:00",
+      "up_tid": "62276813093709628171830379641449739209409046967738145908972742293644829891048",
+      "down_tid": "91599602515487611715737684181726513256424647741644900584830981213976769201665",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771389963499_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771389963499_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": true,
+      "down_filled": true,
+      "up_fill_time": 1771389971.5167878,
+      "down_fill_time": 1771389998.3625152,
+      "first_side": "UP",
+      "status": "resolved_hedged",
+      "bail_deadline": 1771390023.4996397,
+      "pnl": 1.0999999999999996
+    },
+    {
+      "condition_id": "0x70977713d838afc194578e7f5bf7522e796710d39c441d43cf4cecf50d276f29",
+      "question": "Bitcoin Up or Down - February 17, 11:50PM-11:55PM ET",
+      "entry_time": 1771390261.8647833,
+      "end_dt": "2026-02-18T04:55:00+00:00",
+      "up_tid": "6173685083149195854615683464899032553795203083595335156669593041628968102767",
+      "down_tid": "47102084049544164808944637965897075095362939185546056999189452762377528124577",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771390261864_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771390261864_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": true,
+      "down_filled": false,
+      "up_fill_time": 1771390269.8786006,
+      "down_fill_time": null,
+      "first_side": "UP",
+      "status": "bailed",
+      "bail_deadline": 1771390321.8647833,
+      "pnl": -0.5499999999999998,
+      "bail_result": {
+        "success": true,
+        "shares": 11,
+        "price": 0.4,
+        "proceeds": 4.4
+      }
+    },
+    {
+      "condition_id": "0xe2efb255fd3d7928705e1e1c2f0b26d13aee5e672f7880f0c31185451938b6e4",
+      "question": "Bitcoin Up or Down - February 17, 11:55PM-12:00AM ET",
+      "entry_time": 1771390566.3058064,
+      "end_dt": "2026-02-18T05:00:00+00:00",
+      "up_tid": "14918963474820523205860809249475278776791192314327801120419507009390475133674",
+      "down_tid": "9395402980617272190650951786973213706660936289335587940359552830960993333798",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771390566305_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771390566305_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": true,
+      "down_filled": true,
+      "up_fill_time": 1771390600.426751,
+      "down_fill_time": 1771390574.3181179,
+      "first_side": "DOWN",
+      "status": "resolved_hedged",
+      "bail_deadline": 1771390626.3058064,
+      "pnl": 1.0999999999999996
+    },
+    {
+      "condition_id": "0x009c5c58710b2c21cca21cd334c7af679e2d69e1e773d6dd57612f3c76277999",
+      "question": "Bitcoin Up or Down - February 18, 12:00AM-12:05AM ET",
+      "entry_time": 1771390864.8225896,
+      "end_dt": "2026-02-18T05:05:00+00:00",
+      "up_tid": "23861350402823998684240641694658721278954875467465355735756282648267875607016",
+      "down_tid": "80933383314522013206713246682741220538994742452789645395044735253411756725195",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771390864822_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771390864822_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": true,
+      "down_filled": true,
+      "up_fill_time": 1771390872.8340933,
+      "down_fill_time": 1771390931.746283,
+      "first_side": "UP",
+      "status": "resolved_hedged",
+      "bail_deadline": 1771390924.8225896,
+      "pnl": 1.0999999999999996
+    },
+    {
+      "condition_id": "0x2594ef3f99fa98a63fb1a57516fcfc7ae79ad85fddb739376378946e85acec16",
+      "question": "Bitcoin Up or Down - February 18, 12:05AM-12:10AM ET",
+      "entry_time": 1771391160.4129772,
+      "end_dt": "2026-02-18T05:10:00+00:00",
+      "up_tid": "102141540845003692519459149051713449195649765009956045211239018577396999877840",
+      "down_tid": "16992289835354156328554962713619976551928406141481309540978840913687637282586",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771391160412_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771391160412_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": true,
+      "down_filled": true,
+      "up_fill_time": 1771391168.4251437,
+      "down_fill_time": 1771391192.457948,
+      "first_side": "UP",
+      "status": "resolved_hedged",
+      "bail_deadline": 1771391220.4129772,
+      "pnl": 1.0999999999999996
+    },
+    {
+      "condition_id": "0xcd894800f51462074b70dfc117d54b26774d7e6f010e2847e903e8e3cb20c532",
+      "question": "Bitcoin Up or Down - February 18, 12:10AM-12:15AM ET",
+      "entry_time": 1771391464.9969654,
+      "end_dt": "2026-02-18T05:15:00+00:00",
+      "up_tid": "112008441438515444138978672094105643641920771601624309178954856557097717141993",
+      "down_tid": "21459842195794359076768375341008167555811827451521125415619425497685881464920",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771391464996_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771391464996_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": true,
+      "down_filled": false,
+      "up_fill_time": 1771391473.004177,
+      "down_fill_time": null,
+      "first_side": "UP",
+      "status": "bailed",
+      "bail_deadline": 1771391524.9969654,
+      "pnl": -0.5499999999999998,
+      "bail_result": {
+        "success": true,
+        "shares": 11,
+        "price": 0.4,
+        "proceeds": 4.4
+      }
+    },
+    {
+      "condition_id": "0xd1c8917ce9c82f32aa9a4f56c3a28329b2176bec60e37abff0d4dc15b4854f19",
+      "question": "Bitcoin Up or Down - February 18, 12:15AM-12:20AM ET",
+      "entry_time": 1771391766.8910618,
+      "end_dt": "2026-02-18T05:20:00+00:00",
+      "up_tid": "47345972926003300683192168489867719045162029751540362747521304728077445044872",
+      "down_tid": "60686624211508564151389807360037105962201083844121697602793872047273029657088",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771391766891_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771391766891_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": true,
+      "down_filled": true,
+      "up_fill_time": 1771391801.1234798,
+      "down_fill_time": 1771391774.9083707,
+      "first_side": "DOWN",
+      "status": "resolved_hedged",
+      "bail_deadline": 1771391826.8910618,
+      "pnl": 1.0999999999999996
+    },
+    {
+      "condition_id": "0x1f17928824443a822de64004a9509146c558f8c69a80acf31d20f3a6cab72e13",
+      "question": "Bitcoin Up or Down - February 18, 12:20AM-12:25AM ET",
+      "entry_time": 1771392065.42019,
+      "end_dt": "2026-02-18T05:25:00+00:00",
+      "up_tid": "18020491331065866664909979402654116764353001432281096118605230425920739816091",
+      "down_tid": "74544948864926080550520868824496605658591540969003915248212742246300564219460",
+      "up_order": {
+        "success": true,
+        "order_id": "paper_1771392065420_UP",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "paper_1771392065420_DOWN",
+        "shares": 11,
+        "price": 0.45,
+        "cost": 4.95,
+        "status": "LIVE"
+      },
+      "up_filled": true,
+      "down_filled": true,
+      "up_fill_time": 1771392132.4053142,
+      "down_fill_time": 1771392073.4334593,
+      "first_side": "DOWN",
+      "status": "resolved_hedged",
+      "bail_deadline": 1771392125.42019,
+      "pnl": 1.0999999999999996
     }
   ],
   "stats": {
-    "wins": 8,
+    "wins": 17,
     "losses": 0,
-    "bails": 10,
-    "pnl": 3.299999999999999,
-    "hedged": 8,
-    "one_sided": 10,
-    "markets_entered": 20
+    "bails": 21,
+    "pnl": 7.149999999999998,
+    "hedged": 17,
+    "one_sided": 21,
+    "markets_entered": 41
   },
-  "session_pnl": 1.0999999999999996,
-  "last_updated": "2026-02-18T03:42:08.896740+00:00"
+  "session_pnl": 4.949999999999998,
+  "last_updated": "2026-02-18T05:26:32.946914+00:00"
 }

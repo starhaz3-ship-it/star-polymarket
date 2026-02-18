@@ -82,7 +82,7 @@ class CopyTrader:
         "RememberAmalek": "0x6139c42e48cf190e67a0a85d492413b499336b7a",  # @poly_matches smart trader
         "Trim-Trowel": "0xcb3143ee858e14d0b3fe40ffeaea78416e646b02",  # 620 trades, $630K portfolio
         "tbs8t": "0x4bd74aef0ee5f1ec0718890f55c15f047e28373e",  # 82 markets, $1.15M portfolio
-        "Square-Guy": "0x1979ae6b7e6534de9c4539d0c205e582ca637c9d",  # $198K PnL, 3,166 markets, $28.3M volume
+        "Square-Guy": "0x1979ae6b7e6534de9c4539d0c205e582ca637c9d",  # $500K PnL, crypto Up/Down pairs arb + directional, 3,166 markets, $28.3M volume
         "IH2P": "0x4ee29e4e7d4c380babeae5e22e5c02400c2246e1",  # $341K PnL, 12,379 markets, $20.5M volume, $264K portfolio
         # --- Weather Whales (added 2026-02-09) ---
         "automatedAItradingbot": "0xd8f8c13644ea84d62e1ec88c5d1215e436eb0f11",  # $65K profit, NYC/London/Seoul weather markets
@@ -93,7 +93,7 @@ class CopyTrader:
         "RetamzZ": "0x19f19dd8ee1f7e5f6ec666987e2963a65971a9c6",  # $38K PnL, 100% WR, 15m Up/Down oracle sniper, sweeps book at open
         "Unripe-Terrace": "0xea48fde115f3b0eb3cebbbf654b0f9ca2710f2b2",  # $14K PnL, 1,878 markets, $63K vol, high-frequency micro trader
         # --- 5m/15m Crypto Scalpers (added 2026-02-13) ---
-        "Canine-Commandment": "0x1d0034134e339a309700ff2d34e99fa2d48b0313",  # $173K PnL in 18d, 4,595 trades, $19.7M vol, both-sides MM on 5m/15m crypto
+        "Canine-Commandment": "0x1d0034134e339a309700ff2d34e99fa2d48b0313",  # $270K PnL, pure crypto Up/Down pairs arb, 4,595 trades, $19.7M vol
         "Bidou28old": "0x4460bf2c0aa59db412a6493c2c08970797b62970",  # $88.5K PnL in 1 day, $524K vol, aggressive directional 5m/15m scalper
         # --- 5m BTC Scalper (added 2026-02-13) ---
         "MuseumOfBees": "0x61276aba49117fd9299707d5d573652949d5c977",  # $13.6K PnL, $1.28M vol, 344 mkts, 1-day-old acct, 100% BTC 5m only, burst trader (3K fills/hr), hold-to-expiry
@@ -115,6 +115,9 @@ class CopyTrader:
         # --- BTC 15m directional whales (added 2026-02-17) — 86-91% WR, every 15m market, $0.45 entry ---
         "BTC15m-whale1": "0xe1DF720a8b4dfc8C5ad4F185941355244B312524",  # 91% WR, $9/trade, every BTC 15m window, same operator as whale2
         "BTC15m-whale2": "0x81514a782B06Eb83bbBc576925E14da2C0781142",  # 86% WR, $50-100/trade, every BTC 15m window, same operator as whale1
+        # --- Late-entry BTC snipers (added 2026-02-17) ---
+        "bratanbratishka": "0xcbb1a3174d9ac5a0f57f5b86808204b9382e7afb",  # $97K PnL, 87% WR, late-entry 5M BTC sniper
+        "Snoopy-Ba55": "0x28c090de0fa57a9e7cb8fd27e73c1d33413efaa1",  # $58K PnL, aggressive 5M BTC book sweeper
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]

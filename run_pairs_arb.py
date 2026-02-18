@@ -55,7 +55,7 @@ from pid_lock import acquire_pid_lock, release_pid_lock
 BID_PRICE = 0.45            # limit bid price for each side (fallback)
 MAX_BID_PRICE = 0.48        # absolute max we'll bid per side
 MIN_COMBINED = 0.94         # skip if our combined bids > this (need 6c+ margin)
-MAX_ASK_SPREAD = 0.08       # V1.2: symmetry filter — skip if |up_ask - dn_ask| > this
+MAX_ASK_SPREAD = 0.15       # V1.2: symmetry filter — skip if |up_ask - dn_ask| > this
 TRADE_SIZE_PER_SIDE = 5.00  # USD per side ($10 total per market)
 MIN_SHARES = 5              # CLOB minimum
 DAILY_LOSS_LIMIT = 20.0     # stop if session losses exceed this

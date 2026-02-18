@@ -1,35 +1,35 @@
 {
   "active": {
-    "0x9a3a8704592f5a368db1db7253f8ee92f2ce40f760b050e13a707832717683da": {
-      "condition_id": "0x9a3a8704592f5a368db1db7253f8ee92f2ce40f760b050e13a707832717683da",
-      "question": "Bitcoin Up or Down - February 17, 10:45PM-11:00PM ET",
-      "entry_time": 1771386746.0968115,
-      "end_dt": "2026-02-18T04:00:00+00:00",
-      "up_tid": "84490457126411442770335506058267754772867432730374478320045438765131032164976",
-      "down_tid": "10687515197968337508726640376732189772172525117039693015379618354064164407496",
+    "0x4550ed3d7a957942c30d9a3803ddd0d9b02b0252a6d8383e18a6fc8d1f270cc4": {
+      "condition_id": "0x4550ed3d7a957942c30d9a3803ddd0d9b02b0252a6d8383e18a6fc8d1f270cc4",
+      "question": "Bitcoin Up or Down - February 18, 12:15AM-12:30AM ET",
+      "entry_time": 1771391829.768354,
+      "end_dt": "2026-02-18T05:30:00+00:00",
+      "up_tid": "33346279836268464559621502765052237143372799633851127739636946748704704125506",
+      "down_tid": "88398727128664317324858347641384032049817957846173390111529857878222763859993",
       "up_order": {
         "success": true,
-        "order_id": "0xaa3249206f15d5f8c54514db4177c516efa4284a6c74ca2ef377ec2cb04b7a82",
-        "shares": 10,
-        "price": 0.47,
-        "cost": 4.7,
+        "order_id": "0xf9f558e769b6dd445bf3009548aa7890bd04a7daf18bc1945ff45930d2c26ef4",
+        "shares": 11,
+        "price": 0.44,
+        "cost": 4.84,
         "status": "live"
       },
       "down_order": {
         "success": true,
-        "order_id": "0xe96431dcc02dd965107dad5d208b04989ebd6b0ba43ae84427417a7a9606ac32",
-        "shares": 12,
-        "price": 0.4,
+        "order_id": "0x65ef1d5065abb22177b84f99c9289798e80d94282647c690dc1d726f915f76b7",
+        "shares": 10,
+        "price": 0.48,
         "cost": 4.8,
-        "status": "matched"
+        "status": "live"
       },
       "up_filled": true,
       "down_filled": true,
-      "up_fill_time": 1771386936.0670636,
-      "down_fill_time": 1771386746.0968115,
-      "first_side": "UP",
+      "up_fill_time": 1771392136.2619772,
+      "down_fill_time": 1771392136.2619772,
+      "first_side": "DOWN",
       "status": "hedged",
-      "bail_deadline": 1771386926.0968115
+      "bail_deadline": 1771392129.768354
     }
   },
   "resolved": [
@@ -166,17 +166,51 @@
       "status": "resolved_hedged",
       "bail_deadline": 1771385702.474933,
       "pnl": 1.0999999999999996
+    },
+    {
+      "condition_id": "0x9a3a8704592f5a368db1db7253f8ee92f2ce40f760b050e13a707832717683da",
+      "question": "Bitcoin Up or Down - February 17, 10:45PM-11:00PM ET",
+      "entry_time": 1771386746.0968115,
+      "end_dt": "2026-02-18T04:00:00+00:00",
+      "up_tid": "84490457126411442770335506058267754772867432730374478320045438765131032164976",
+      "down_tid": "10687515197968337508726640376732189772172525117039693015379618354064164407496",
+      "up_order": {
+        "success": true,
+        "order_id": "0xaa3249206f15d5f8c54514db4177c516efa4284a6c74ca2ef377ec2cb04b7a82",
+        "shares": 10,
+        "price": 0.47,
+        "cost": 4.7,
+        "status": "matched"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "0xe96431dcc02dd965107dad5d208b04989ebd6b0ba43ae84427417a7a9606ac32",
+        "shares": 12,
+        "price": 0.4,
+        "cost": 4.8,
+        "status": "matched"
+      },
+      "up_filled": true,
+      "down_filled": true,
+      "up_fill_time": 1771386936.0670636,
+      "down_fill_time": 1771386746.0968115,
+      "first_side": "UP",
+      "status": "resolved_hedged",
+      "bail_deadline": 1771386926.0968115,
+      "pnl": 2.5,
+      "winner": "DOWN",
+      "recovered": true
     }
   ],
   "stats": {
-    "wins": 1,
-    "losses": 0,
+    "wins": 2,
+    "losses": 2,
     "bails": 1,
-    "pnl": 0.5499999999999998,
-    "hedged": 1,
-    "one_sided": 1,
-    "markets_entered": 7
+    "pnl": -6.85,
+    "hedged": 2,
+    "one_sided": 3,
+    "markets_entered": 9
   },
   "session_pnl": 0.0,
-  "last_updated": "2026-02-18T03:55:36.668114+00:00"
+  "last_updated": "2026-02-18T05:22:17.434712+00:00"
 }

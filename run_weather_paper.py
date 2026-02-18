@@ -91,6 +91,24 @@ LOCATIONS = {
         "wunderground": "RKSI",
         "aliases": ["seoul"],
     },
+    "miami": {
+        "lat": 25.7959, "lon": -80.2870,  # MIA Airport
+        "noaa_office": "MFL", "grid_x": 109, "grid_y": 50,
+        "wunderground": "KMIA",
+        "aliases": ["miami"],
+    },
+    "ankara": {
+        "lat": 40.1281, "lon": 32.9951,  # Esenboga
+        "noaa_office": None,
+        "wunderground": "LTAC",
+        "aliases": ["ankara"],
+    },
+    "wellington": {
+        "lat": -41.3276, "lon": 174.8050,  # Wellington Airport
+        "noaa_office": None,
+        "wunderground": "NZWN",
+        "aliases": ["wellington"],
+    },
 }
 
 
@@ -108,6 +126,8 @@ class WeatherTrade:
     noaa_probability: float = 0.0     # Our calculated probability
     market_probability: float = 0.0   # Market price at entry
     edge: float = 0.0                 # noaa_prob - market_prob
+    confidence: float = 0.0          # V1.1: ensemble agreement (% within 2F of median)
+    source: str = "triangular"       # V1.1: "ensemble" or "triangular"
     condition_id: str = ""
     status: str = "open"              # open, closed
     exit_price: Optional[float] = None
@@ -131,6 +151,7 @@ class WeatherArbitrageTrader:
     MAX_TRADES_PER_RUN = 5      # Max new trades per scan cycle
     MIN_EDGE = 0.10             # NOAA prob must exceed market price by 10%+ (was 30%, too strict for narrow buckets)
     MIN_NOAA_PROBABILITY = 0.10 # NOAA must give >10% chance for this bucket (was 50%, impossible for 1-degree buckets)
+    MIN_CONFIDENCE = 0.70       # V1.1: Multi-source confidence threshold (% of ensemble within 2F of median)
     SCAN_INTERVAL = 120         # Scan every 2 minutes
     MAX_OPEN_TRADES = 10        # Max concurrent open positions
 
@@ -156,10 +177,14 @@ class WeatherArbitrageTrader:
         self._noaa_cache_time: float = 0
         self.NOAA_CACHE_TTL = 1800  # 30 minutes
 
+        # V1.1: Ensemble forecast cache {location: {date: [member_temps]}}
+        self._ensemble_cache: Dict[str, Dict[str, List[float]]] = {}
+
         # Market cache
         self._market_cache: List[dict] = []
 
         self._load()
+        self._cleanup_stuck_trades()
 
     def _load(self):
         """Load saved state."""
@@ -192,6 +217,31 @@ class WeatherArbitrageTrader:
         }
         with open(self.OUTPUT_FILE, 'w') as f:
             json.dump(data, f, indent=2)
+
+    def _cleanup_stuck_trades(self):
+        """Close trades that are older than 48 hours and still open."""
+        now = datetime.now(timezone.utc)
+        fixed = 0
+        for tid, trade in self.trades.items():
+            if trade.status != "open":
+                continue
+            try:
+                entry_dt = datetime.fromisoformat(trade.entry_time)
+                age_hours = (now - entry_dt).total_seconds() / 3600
+                if age_hours > 48:
+                    trade.status = "closed"
+                    trade.exit_time = now.isoformat()
+                    trade.pnl = -trade.size_usd
+                    trade.exit_reason = "timeout_cleanup"
+                    self.total_pnl += trade.pnl
+                    self.losses += 1
+                    self._update_location_stats(trade.location, False, trade.pnl)
+                    fixed += 1
+            except Exception:
+                pass
+        if fixed:
+            print(f"[CLEANUP] Closed {fixed} stuck trades (>48h old)")
+            self._save()
 
     # === NOAA FORECAST FETCHING ===
 
@@ -293,8 +343,84 @@ class WeatherArbitrageTrader:
             print(f"[METEO] Error fetching {location}: {e}")
             return None
 
+    async def _fetch_ensemble_forecast(self, client: httpx.AsyncClient, location: str) -> Optional[Dict[str, List[float]]]:
+        """V1.1: Fetch ensemble forecast (51 ECMWF members) for real probability distributions.
+
+        Returns {date_str: [temp1, temp2, ..., temp51]} in Fahrenheit.
+        This replaces the crude triangular distribution with actual model spread.
+        """
+        loc_data = LOCATIONS.get(location)
+        if not loc_data:
+            return None
+
+        lat, lon = loc_data["lat"], loc_data["lon"]
+        try:
+            r = await client.get(
+                "https://ensemble-api.open-meteo.com/v1/ensemble",
+                params={
+                    "latitude": lat,
+                    "longitude": lon,
+                    "daily": "temperature_2m_max",
+                    "models": "ecmwf_ifs025",
+                    "temperature_unit": "fahrenheit",
+                    "forecast_days": 7,
+                },
+                timeout=15
+            )
+            if r.status_code != 200:
+                return None
+
+            data = r.json()
+            daily = data.get("daily", {})
+            dates = daily.get("time", [])
+
+            # Collect all ensemble member values per date
+            result = {}
+            for i, date_str in enumerate(dates):
+                members = []
+                for key, vals in daily.items():
+                    if key.startswith("temperature_2m_max_member") and i < len(vals):
+                        if vals[i] is not None:
+                            members.append(vals[i])
+                if members:
+                    result[date_str] = members
+
+            return result if result else None
+
+        except Exception as e:
+            print(f"[ENSEMBLE] Error fetching {location}: {e}")
+            return None
+
+    def _ensemble_bucket_probability(self, members: List[float], bucket_low: float,
+                                       bucket_high: float) -> Tuple[float, float]:
+        """V1.1: Calculate bucket probability + confidence from ensemble members.
+
+        Returns (probability, confidence) where:
+          - probability = fraction of members falling in the bucket
+          - confidence = fraction of members within 2°F of median (source agreement)
+        """
+        if not members:
+            return 0.0, 0.0
+
+        n = len(members)
+        median_temp = statistics.median(members)
+
+        # Probability: count members in bucket
+        in_bucket = sum(1 for t in members
+                        if (bucket_low <= t < bucket_high) or
+                           (bucket_low == -999 and t < bucket_high) or
+                           (bucket_high == 999 and t >= bucket_low))
+        probability = in_bucket / n
+
+        # Confidence: % of members within 2°F of median
+        # High confidence = tight agreement, low spread
+        close_to_median = sum(1 for t in members if abs(t - median_temp) <= 2.0)
+        confidence = close_to_median / n
+
+        return probability, confidence
+
     async def refresh_forecasts(self, client: httpx.AsyncClient):
-        """Refresh all location forecasts."""
+        """Refresh all location forecasts (deterministic + ensemble)."""
         now = time.time()
         if now - self._noaa_cache_time < self.NOAA_CACHE_TTL:
             return  # Cache still fresh
@@ -302,6 +428,8 @@ class WeatherArbitrageTrader:
         print("[WEATHER] Refreshing forecasts...")
         for location in LOCATIONS:
             loc_data = LOCATIONS[location]
+
+            # Deterministic forecast (NOAA for US, Open-Meteo for intl)
             if loc_data.get("noaa_office"):
                 forecast = await self._fetch_noaa_forecast(client, location)
             else:
@@ -309,16 +437,30 @@ class WeatherArbitrageTrader:
 
             if forecast:
                 self._noaa_cache[location] = forecast
-                # Show today's forecast
-                today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-                today_fc = forecast.get(today, {})
-                if today_fc.get("high") is not None:
-                    print(f"  {location}: High {today_fc['high']}F / Low {today_fc.get('low', '?')}F")
 
-            await asyncio.sleep(0.5)  # Rate limit
+            # V1.1: Ensemble forecast (51 ECMWF members for all locations)
+            ensemble = await self._fetch_ensemble_forecast(client, location)
+            if ensemble:
+                self._ensemble_cache[location] = ensemble
+
+            # Show today's forecast with ensemble spread
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            today_fc = (forecast or {}).get(today, {})
+            today_ens = (ensemble or {}).get(today, [])
+            if today_fc.get("high") is not None:
+                ens_info = ""
+                if today_ens:
+                    lo = min(today_ens)
+                    hi = max(today_ens)
+                    med = statistics.median(today_ens)
+                    ens_info = f" | Ensemble: {med:.0f}F [{lo:.0f}-{hi:.0f}] ({len(today_ens)} members)"
+                print(f"  {location}: High {today_fc['high']}F{ens_info}")
+
+            await asyncio.sleep(0.3)  # Rate limit
 
         self._noaa_cache_time = now
-        print(f"[WEATHER] Cached forecasts for {len(self._noaa_cache)} locations")
+        n_ens = sum(1 for v in self._ensemble_cache.values() if v)
+        print(f"[WEATHER] Cached forecasts for {len(self._noaa_cache)} locations ({n_ens} with ensemble)")
 
     # === MARKET SCANNING ===
 
@@ -664,23 +806,37 @@ class WeatherArbitrageTrader:
                     calc_low = bucket_low * 9 / 5 + 32 if bucket_low > -999 else -999
                     calc_high = bucket_high * 9 / 5 + 32 if bucket_high < 999 else 999
 
-                # Calculate probability
-                spread = self.FORECAST_SPREAD_C * 9 / 5 if is_celsius else self.FORECAST_SPREAD_F
-                noaa_prob = self._calculate_bucket_probability(
-                    forecast_high, calc_low, calc_high, spread
-                )
+                # V1.1: Use ensemble probability if available (much more accurate)
+                ensemble_members = self._ensemble_cache.get(location, {}).get(target_date, [])
+                confidence = 0.0
+
+                if ensemble_members:
+                    noaa_prob, confidence = self._ensemble_bucket_probability(
+                        ensemble_members, calc_low, calc_high
+                    )
+                else:
+                    # Fallback: triangular distribution from point forecast
+                    spread = self.FORECAST_SPREAD_C * 9 / 5 if is_celsius else self.FORECAST_SPREAD_F
+                    noaa_prob = self._calculate_bucket_probability(
+                        forecast_high, calc_low, calc_high, spread
+                    )
+                    confidence = 0.5  # No ensemble = low confidence
 
                 # Edge = NOAA probability - market price
                 edge = noaa_prob - market_price
 
-                # Log interesting cheap markets (first scan only for debug)
+                # Log interesting cheap markets (first 3 scans for debug)
+                src = "ENS" if ensemble_members else "TRI"
                 if self.scan_count <= 3 and market_price < 0.10:
-                    print(f"  [EVAL] {location} {parsed['temp_bucket']} | Mkt: ${market_price:.3f} NOAA: {noaa_prob:.1%} Edge: {edge:.1%} | Fcst: {forecast_high}")
+                    print(f"  [EVAL] {location} {parsed['temp_bucket']} | Mkt: ${market_price:.3f} {src}: {noaa_prob:.1%} Edge: {edge:.1%} Conf: {confidence:.0%} | Fcst: {forecast_high}")
 
-                # Trade filter
+                # Trade filters
                 if noaa_prob < self.MIN_NOAA_PROBABILITY:
                     continue
                 if edge < self.MIN_EDGE:
+                    continue
+                # V1.1: Confidence filter — only trade when ensemble agrees
+                if confidence < self.MIN_CONFIDENCE:
                     continue
 
                 # === EXECUTE PAPER TRADE ===
@@ -702,6 +858,8 @@ class WeatherArbitrageTrader:
                     noaa_probability=round(noaa_prob, 4),
                     market_probability=round(market_price, 4),
                     edge=round(edge, 4),
+                    confidence=round(confidence, 4),
+                    source="ensemble" if ensemble_members else "triangular",
                     condition_id=condition_id,
                 )
                 self.trades[trade_id] = trade
@@ -709,9 +867,9 @@ class WeatherArbitrageTrader:
 
                 shares = position_size / entry_price
                 potential_profit = shares * (1.0 - entry_price)
-                print(f"[NEW TRADE] {location.upper()} | {parsed['temp_bucket']}")
-                print(f"  NOAA High: {forecast_high}F -> P(bucket)={noaa_prob:.0%} vs Market: ${market_price:.2f}")
-                print(f"  EDGE: {edge:.0%} | Entry: ${entry_price:.4f} | Size: ${position_size:.2f}")
+                print(f"[NEW TRADE] {location.upper()} | {parsed['temp_bucket']} [{src}]")
+                print(f"  Forecast: {forecast_high}F -> P(bucket)={noaa_prob:.0%} vs Market: ${market_price:.2f}")
+                print(f"  EDGE: {edge:.0%} | Confidence: {confidence:.0%} | Entry: ${entry_price:.4f} | Size: ${position_size:.2f}")
                 print(f"  Potential: ${potential_profit:.2f} if correct | {question[:60]}...")
 
         self._save()
@@ -870,16 +1028,16 @@ class WeatherArbitrageTrader:
     async def run(self):
         """Main loop."""
         print("=" * 70)
-        print("WEATHER ARBITRAGE PAPER TRADER v1.0")
+        print("WEATHER ARBITRAGE PAPER TRADER v1.1 — Multi-Source Ensemble")
         print("=" * 70)
-        print("Strategy: NOAA forecast vs Polymarket temperature markets")
-        print(f"  Entry: Buy when market < ${self.ENTRY_THRESHOLD} and NOAA says >{self.MIN_NOAA_PROBABILITY:.0%}")
+        print("Strategy: NOAA + Open-Meteo + ECMWF Ensemble (51 members)")
+        print(f"  Entry: Buy when market < ${self.ENTRY_THRESHOLD} and forecast says >{self.MIN_NOAA_PROBABILITY:.0%}")
         print(f"  Exit:  Sell when price > ${self.EXIT_THRESHOLD} or market resolves")
-        print(f"  Edge:  Min {self.MIN_EDGE:.0%} (NOAA prob - market price)")
+        print(f"  Edge:  Min {self.MIN_EDGE:.0%} | Confidence: Min {self.MIN_CONFIDENCE:.0%}")
         print(f"  Sizing: ${self.MIN_POSITION}-${self.MAX_POSITION} per trade")
         print(f"  Scan:  Every {self.SCAN_INTERVAL}s ({self.SCAN_INTERVAL/60:.0f} min)")
         print()
-        print(f"  Locations: {', '.join(sorted(LOCATIONS.keys()))}")
+        print(f"  Locations ({len(LOCATIONS)}): {', '.join(sorted(LOCATIONS.keys()))}")
         print(f"  US (NOAA): {', '.join(k for k, v in LOCATIONS.items() if v.get('noaa_office'))}")
         print(f"  Global (Open-Meteo): {', '.join(k for k, v in LOCATIONS.items() if not v.get('noaa_office'))}")
         print()
