@@ -153,10 +153,17 @@ class PairsArbBot:
             try:
                 data = json.loads(self.results_file.read_text())
                 self.resolved = data.get("resolved", [])
+                self.active_arbs = data.get("active", {})
                 self.stats = {**self.stats, **data.get("stats", {})}
-                print(f"[LOAD] {len(self.resolved)} resolved | "
+                self.session_pnl = data.get("session_pnl", 0.0)
+                n_active = len(self.active_arbs)
+                print(f"[LOAD] {len(self.resolved)} resolved"
+                      f"{f', {n_active} active' if n_active else ''} | "
                       f"PnL: ${self.stats['pnl']:+.2f} | "
                       f"Hedged: {self.stats['hedged']} | Bails: {self.stats['bails']}")
+                # Re-add active CIDs to attempted set so we don't re-enter them
+                for cid in self.active_arbs:
+                    self.attempted_cids.add(cid)
             except Exception as e:
                 print(f"[LOAD] Error: {e}")
 
@@ -275,29 +282,29 @@ class PairsArbBot:
                     fixed += 1
                     recalc_needed = True
 
-        # Recalculate stats from scratch if any fixes applied
-        if recalc_needed:
-            self.stats["hedged"] = 0
-            self.stats["bails"] = 0
-            self.stats["wins"] = 0
-            self.stats["losses"] = 0
-            self.stats["one_sided"] = 0
-            self.stats["pnl"] = 0.0
-            for trade in self.resolved:
-                s = trade.get("status", "")
-                pnl = trade.get("pnl", 0)
-                self.stats["pnl"] += pnl
-                if s == "resolved_hedged":
-                    self.stats["hedged"] += 1
-                    self.stats["wins"] += 1
-                elif s == "bailed":
-                    self.stats["bails"] += 1
-                    self.stats["one_sided"] += 1
-                elif s == "exposed":
-                    self.stats["losses"] += 1
-                    self.stats["one_sided"] += 1
+        # Always recalculate stats from scratch on startup to catch any drift
+        self.stats["hedged"] = 0
+        self.stats["bails"] = 0
+        self.stats["wins"] = 0
+        self.stats["losses"] = 0
+        self.stats["one_sided"] = 0
+        self.stats["pnl"] = 0.0
+        for trade in self.resolved:
+            s = trade.get("status", "")
+            pnl = trade.get("pnl", 0)
+            self.stats["pnl"] += pnl
+            if s == "resolved_hedged":
+                self.stats["hedged"] += 1
+                self.stats["wins"] += 1
+            elif s == "bailed":
+                self.stats["bails"] += 1
+                self.stats["one_sided"] += 1
+            elif s == "exposed":
+                self.stats["losses"] += 1
+                self.stats["one_sided"] += 1
+        if fixed or recalc_needed:
             print(f"  [CLEANUP] Stats recalculated: {fixed} fixes | PnL: ${self.stats['pnl']:+.2f}")
-            self._save_inner()
+        self._save_inner()
 
     def _save_inner(self):
         """Save without circular dependency."""
@@ -623,7 +630,7 @@ class PairsArbBot:
     async def run(self):
         mode = "PAPER" if self.paper else "LIVE"
         print(f"\n{'='*60}")
-        print(f"  PAIRS ARBITRAGE BOT V1.0 -- {self.mode} {mode} MODE")
+        print(f"  PAIRS ARBITRAGE BOT V1.2 -- {self.mode} {mode} MODE")
         print(f"  Bid: ${BID_PRICE:.2f}/side | Bail: {self.bail_timeout}s ({self.bail_timeout/60:.0f}min)")
         print(f"  Size: ${TRADE_SIZE_PER_SIDE:.2f}/side (${TRADE_SIZE_PER_SIDE*2:.2f} total)")
         print(f"  Entry: {self.entry_window[0]}-{self.entry_window[1]}min before close")
@@ -948,6 +955,10 @@ class PairsArbBot:
                             else:
                                 arb["pnl"] = -s_order["cost"]
                                 arb["status"] = "exposed"
+                                self.stats["losses"] += 1
+                                self.stats["one_sided"] += 1
+                                self.stats["pnl"] += arb["pnl"]
+                                self.session_pnl += arb["pnl"]
                             self.resolved.append(arb)
                             to_remove.append(cid)
                             self._save()
@@ -1031,6 +1042,10 @@ class PairsArbBot:
                         print(f"  [WARN] Bail sell failed after 3 attempts — exposed")
                         arb["pnl"] = -filled_order["cost"]
                         arb["status"] = "exposed"
+                        self.stats["losses"] += 1
+                        self.stats["one_sided"] += 1
+                        self.stats["pnl"] += arb["pnl"]
+                        self.session_pnl += arb["pnl"]
                         self.resolved.append(arb)
                         to_remove.append(cid)
                         self._save()
