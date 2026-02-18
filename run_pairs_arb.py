@@ -52,9 +52,10 @@ from pid_lock import acquire_pid_lock, release_pid_lock
 # ============================================================================
 # CONFIG — set by market_mode (15M or 5M)
 # ============================================================================
-BID_PRICE = 0.45            # limit bid price for each side
-MAX_BID_PRICE = 0.47        # absolute max we'll bid
-MIN_COMBINED = 0.92         # skip if our combined bids > this (no profit margin)
+BID_PRICE = 0.45            # limit bid price for each side (fallback)
+MAX_BID_PRICE = 0.48        # absolute max we'll bid per side
+MIN_COMBINED = 0.94         # skip if our combined bids > this (need 6c+ margin)
+MAX_ASK_SPREAD = 0.08       # V1.2: symmetry filter — skip if |up_ask - dn_ask| > this
 TRADE_SIZE_PER_SIDE = 5.00  # USD per side ($10 total per market)
 MIN_SHARES = 5              # CLOB minimum
 DAILY_LOSS_LIMIT = 20.0     # stop if session losses exceed this
@@ -64,7 +65,7 @@ MODE_CONFIGS = {
     "15M": {
         "tag_slug": "15M",
         "scan_interval": 15,
-        "bail_timeout": 180,     # 3 min — 60% fill rate from whale data
+        "bail_timeout": 300,     # 5 min — longer wait = more 2nd-side fills
         "max_concurrent": 2,
         "entry_window": (1.0, 13.0),
         "results_file": "pairs_arb_results.json",
@@ -506,17 +507,26 @@ class PairsArbBot:
             return "error"
 
     def _ensure_sell_allowance(self, token_id: str):
-        """Ensure CONDITIONAL token allowance is set for selling."""
+        """Ensure CONDITIONAL token allowance is set for selling.
+        V1.2: More robust — try both asset types, retry on failure."""
         if self.paper:
             return
         try:
             from py_clob_client.clob_types import BalanceAllowanceParams, AssetType
-            # Update allowance so CLOB can transfer our conditional tokens
+            # Set allowance for CONDITIONAL tokens (required for selling)
             self.client.update_balance_allowance(
                 BalanceAllowanceParams(asset_type=AssetType.CONDITIONAL, token_id=token_id)
             )
         except Exception as e:
-            print(f"  [ALLOWANCE] Warning: {e}")
+            print(f"  [ALLOWANCE] Conditional failed: {str(e)[:60]}")
+            # Retry with no token_id (global allowance)
+            try:
+                from py_clob_client.clob_types import BalanceAllowanceParams, AssetType
+                self.client.update_balance_allowance(
+                    BalanceAllowanceParams(asset_type=AssetType.CONDITIONAL)
+                )
+            except Exception:
+                pass
 
     def place_market_sell(self, token_id: str, shares: float, side_label: str) -> dict:
         """Market-sell shares via GTC limit at aggressive price (bail-out)."""
@@ -676,37 +686,82 @@ class PairsArbBot:
               f"Bails: {self.stats['bails']} | PnL: ${self.stats['pnl']:+.2f}")
 
     async def scan_and_enter(self):
-        """Find new 15m markets and place GTC limits on both sides."""
+        """Find new 15m markets and place GTC limits on both sides.
+        V1.2: Sort by freshest (most time left), symmetry filter, dynamic pricing."""
         markets = await self.discover_15m_markets()
 
+        # V1.2: Sort by time_left DESC — enter freshest markets first (most symmetric)
+        eligible = []
         for market in markets:
+            cid = market.get("conditionId", "")
+            if not cid or cid in self.attempted_cids or cid in self.active_arbs:
+                continue
+            time_left = market.get("_time_left", 0)
+            if time_left < self.entry_window[0] or time_left > self.entry_window[1]:
+                continue
+            eligible.append(market)
+        eligible.sort(key=lambda m: m.get("_time_left", 0), reverse=True)
+
+        for market in eligible:
             if len(self.active_arbs) >= self.max_concurrent:
                 break
 
             cid = market.get("conditionId", "")
-            if not cid or cid in self.attempted_cids or cid in self.active_arbs:
-                continue
-
             time_left = market.get("_time_left", 0)
-            if time_left < self.entry_window[0] or time_left > self.entry_window[1]:
-                continue
-
             up_tid, down_tid = self.get_token_ids(market)
             if not up_tid or not down_tid:
                 continue
 
             question = market.get("question", "?")[:60]
+
+            # V1.2: Read orderbook prices, check symmetry, dynamic bid
+            up_bid = BID_PRICE
+            dn_bid = BID_PRICE
+            up_ask = 0.0
+            dn_ask = 0.0
+            if self.client and not self.paper:
+                try:
+                    up_resp = self.client.get_price(up_tid, "sell")
+                    dn_resp = self.client.get_price(down_tid, "sell")
+                    up_ask = float(up_resp.get("price", 0) if isinstance(up_resp, dict) else up_resp or 0)
+                    dn_ask = float(dn_resp.get("price", 0) if isinstance(dn_resp, dict) else dn_resp or 0)
+
+                    if up_ask > 0 and dn_ask > 0:
+                        # Symmetry filter — skip lopsided markets
+                        ask_spread = abs(up_ask - dn_ask)
+                        if ask_spread > MAX_ASK_SPREAD:
+                            print(f"  [SKIP] {question[:40]} | asks UP=${up_ask:.2f} DN=${dn_ask:.2f} "
+                                  f"spread=${ask_spread:.2f} > ${MAX_ASK_SPREAD} — too lopsided")
+                            self.attempted_cids.add(cid)
+                            continue
+
+                        # Dynamic bid: 1c below ask, capped at MAX_BID_PRICE, floored at $0.40
+                        up_bid = round(max(0.40, min(up_ask - 0.01, MAX_BID_PRICE)), 2)
+                        dn_bid = round(max(0.40, min(dn_ask - 0.01, MAX_BID_PRICE)), 2)
+
+                        # Profit margin check
+                        if up_bid + dn_bid > MIN_COMBINED:
+                            print(f"  [SKIP] Combined ${up_bid + dn_bid:.2f} > ${MIN_COMBINED} — no margin")
+                            self.attempted_cids.add(cid)
+                            continue
+                    else:
+                        # Can't read prices — use fallback
+                        print(f"  [PRICE] No asks available, using ${BID_PRICE}")
+                except Exception as e:
+                    print(f"  [PRICE] Fallback to ${BID_PRICE}: {str(e)[:60]}")
+
             self.attempted_cids.add(cid)
             self.stats["markets_entered"] += 1
 
             now_mst = datetime.now(timezone.utc).strftime("%H:%M UTC")
             print(f"\n{'='*55}")
             print(f"[ENTER] {question}")
-            print(f"  {now_mst} | {time_left:.1f}min left | Posting ${BID_PRICE:.2f} on BOTH sides")
+            print(f"  {now_mst} | {time_left:.1f}min left | UP@${up_bid:.2f} DOWN@${dn_bid:.2f}"
+                  f" (asks: {up_ask:.2f}/{dn_ask:.2f})")
 
-            # Place GTC limits on both UP and DOWN simultaneously
-            up_order = self.place_gtc_limit(up_tid, BID_PRICE, TRADE_SIZE_PER_SIDE, "UP")
-            dn_order = self.place_gtc_limit(down_tid, BID_PRICE, TRADE_SIZE_PER_SIDE, "DOWN")
+            # Place GTC limits on both UP and DOWN with dynamic pricing
+            up_order = self.place_gtc_limit(up_tid, up_bid, TRADE_SIZE_PER_SIDE, "UP")
+            dn_order = self.place_gtc_limit(down_tid, dn_bid, TRADE_SIZE_PER_SIDE, "DOWN")
 
             if not up_order["success"] and not dn_order["success"]:
                 print(f"  [SKIP] Neither side posted")
@@ -738,10 +793,12 @@ class PairsArbBot:
                 if up_order["success"] and up_order.get("status") == "matched":
                     arb["up_filled"] = True
                     arb["up_fill_time"] = time.time()
+                    self._ensure_sell_allowance(up_tid)  # V1.2: pre-approve sell
                     print(f"  [INSTANT] UP filled immediately!")
                 if dn_order["success"] and dn_order.get("status") == "matched":
                     arb["down_filled"] = True
                     arb["down_fill_time"] = time.time()
+                    self._ensure_sell_allowance(down_tid)  # V1.2: pre-approve sell
                     print(f"  [INSTANT] DOWN filled immediately!")
 
                 if arb["up_filled"] and arb["down_filled"]:
@@ -785,6 +842,7 @@ class PairsArbBot:
                             arb["up_order"]["price"] = actual_price
                             arb["up_order"]["cost"] = round(actual_price * info["size_matched"], 2)
                             arb["up_order"]["shares"] = info["size_matched"]
+                            self._ensure_sell_allowance(arb["up_tid"])  # V1.2: pre-approve
                             print(f"  [FILL] UP +{elapsed:.0f}s {info['size_matched']:.0f}sh "
                                   f"@ ${actual_price:.3f} | {arb['question'][:40]}")
 
@@ -797,6 +855,7 @@ class PairsArbBot:
                             arb["down_order"]["price"] = actual_price
                             arb["down_order"]["cost"] = round(actual_price * info["size_matched"], 2)
                             arb["down_order"]["shares"] = info["size_matched"]
+                            self._ensure_sell_allowance(arb["down_tid"])  # V1.2: pre-approve
                             print(f"  [FILL] DOWN +{elapsed:.0f}s {info['size_matched']:.0f}sh "
                                   f"@ ${actual_price:.3f} | {arb['question'][:40]}")
 
