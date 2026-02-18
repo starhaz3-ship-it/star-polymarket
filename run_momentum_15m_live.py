@@ -81,6 +81,7 @@ DAILY_LOSS_LIMIT = 15.0     # stop trading if session losses exceed $15
 AUTO_KILL_TRADES = 20       # V1.2: auto-shutdown after this many trades if WR < 50%
 AUTO_KILL_MIN_WR = 0.50     # V1.2: minimum win rate to stay alive
 MIN_SHARES = 5              # CLOB minimum order size
+FOK_SLIPPAGE = 0.03         # cents above best ask to sweep multiple price levels
 
 # V1.6: Streak reversal — bet AGAINST long streaks (backtested on 50K markets: 55% WR)
 STREAK_REVERSAL_MIN_STREAK = 3   # Minimum streak length to trigger reversal entry
@@ -1225,12 +1226,36 @@ class Momentum15MTrader:
                         print(f"[SKIP] No token ID for {asset}:{side}")
                         continue
 
+                    # Add slippage to sweep multiple price levels
+                    fok_price = min(round(entry_price + FOK_SLIPPAGE, 2), 0.99)
+
+                    # Check orderbook depth before ordering
+                    try:
+                        async with httpx.AsyncClient(timeout=8) as hc:
+                            r = await hc.get("https://clob.polymarket.com/book",
+                                             params={"token_id": token_id})
+                            if r.status_code == 200:
+                                asks = r.json().get("asks", [])
+                                avail = sum(float(a["size"]) for a in asks
+                                            if float(a["price"]) <= fok_price)
+                                if avail < MIN_SHARES:
+                                    print(f"[SKIP] Too thin: {int(avail)}sh available (need {MIN_SHARES})")
+                                    continue
+                                if avail < shares:
+                                    print(f"[DEPTH] Capping {shares} -> {int(avail)}sh")
+                                    shares = int(avail)
+                                    trade_size = round(shares * entry_price, 2)
+                    except Exception:
+                        pass  # proceed with original size
+
                     order_args = OrderArgs(
-                        price=round(entry_price, 2),
+                        price=fok_price,
                         size=shares,
                         side=BUY,
                         token_id=token_id,
                     )
+                    print(f"[LIVE] FOK {asset} {side} {shares}sh @ limit ${fok_price:.2f} "
+                          f"(ask=${entry_price:.2f})")
                     signed = self.client.create_order(order_args)
                     resp = self.client.post_order(signed, OrderType.FOK)
                     if resp.get("success"):
@@ -1247,7 +1272,17 @@ class Momentum15MTrader:
                         _t.sleep(1)
                         try:
                             order_info = self.client.get_order(order_id)
-                            fill_status = order_info.get("status", "UNKNOWN")
+                            # CRITICAL: get_order() may return string, not dict
+                            if isinstance(order_info, str):
+                                try:
+                                    order_info = json.loads(order_info)
+                                except json.JSONDecodeError:
+                                    print(f"[LIVE] Fill check parse error — assuming filled (FOK success)")
+                                    fill_confirmed = True
+                                    order_info = {}
+                            if not isinstance(order_info, dict):
+                                order_info = {}
+                            fill_status = (order_info.get("status", "") or "UNKNOWN").upper()
                             size_matched = float(order_info.get("size_matched", 0) or 0)
                             if size_matched >= MIN_SHARES:
                                 fill_confirmed = True

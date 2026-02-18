@@ -40,8 +40,8 @@ from pid_lock import acquire_pid_lock, release_pid_lock
 # ============================================================================
 SNIPER_WINDOW = 63          # seconds before close to start looking (front-run whales)
 MIN_CONFIDENCE = 0.55       # minimum ask price to trigger entry
-MAX_ENTRY_PRICE = 0.93      # max entry price (need ~93% WR to break even here)
-BASE_TRADE_SIZE = 20.00     # USD per trade (starting size)
+MAX_ENTRY_PRICE = 0.85      # max entry price (need ~85% WR to break even here)
+BASE_TRADE_SIZE = 10.00     # USD per trade (starting size)
 SCAN_INTERVAL = 5           # seconds between scans
 MAX_CONCURRENT = 1          # only 1 active trade at a time
 DAILY_LOSS_LIMIT = 30.0     # stop trading if daily losses exceed this
@@ -322,6 +322,73 @@ class Sniper5MLive:
         except Exception as e:
             print(f"[BINANCE] Resolution error: {e}")
             return None
+
+    async def _audit_signal_timing(self, end_dt: datetime) -> dict:
+        """Post-trade audit: what would Binance signal have been at 55/57/60/63/65s?"""
+        audit = {}
+        try:
+            start_dt = end_dt - timedelta(minutes=5)
+            start_ms = int(start_dt.timestamp() * 1000)
+            end_ms = int(end_dt.timestamp() * 1000)
+
+            async with httpx.AsyncClient(timeout=10) as client:
+                r = await client.get(BINANCE_REST_URL, params={
+                    "symbol": "BTCUSDT", "interval": "1m",
+                    "startTime": start_ms, "endTime": end_ms, "limit": 10,
+                })
+                if r.status_code != 200:
+                    return audit
+                klines = r.json()
+                if not klines:
+                    return audit
+
+                open_price = float(klines[0][1])
+
+                # Build second-by-second price from 1-min candle closes
+                # Each candle close represents the price at that minute boundary
+                candle_closes = []
+                for k in klines:
+                    t_ms = int(k[0])
+                    c = float(k[4])
+                    # Candle at t_ms covers [t_ms, t_ms+60000)
+                    # Close price is at t_ms + 60000
+                    close_time = t_ms + 60000
+                    secs_before_end = (end_ms - close_time) / 1000
+                    candle_closes.append((secs_before_end, c))
+
+                # Check signal at key time points
+                for window in [55, 57, 60, 63, 65]:
+                    # Find the candle close nearest to (but not after) this time point
+                    best_price = None
+                    for secs_left, price in candle_closes:
+                        if secs_left >= window - 30:  # within 30s of target
+                            best_price = price
+                    if best_price is None and candle_closes:
+                        best_price = candle_closes[-1][1]  # use latest
+
+                    if best_price is not None:
+                        pct = (best_price - open_price) / open_price * 100
+                        if pct > 0.03:
+                            sig = "UP"
+                        elif pct < -0.03:
+                            sig = "DOWN"
+                        else:
+                            sig = "FLAT"
+                        audit[f"signal_{window}s"] = sig
+                        audit[f"pct_{window}s"] = round(pct, 4)
+
+                # Also record the actual close
+                final_close = float(klines[-1][4])
+                final_pct = (final_close - open_price) / open_price * 100
+                audit["actual_direction"] = "UP" if final_close >= open_price else "DOWN"
+                audit["actual_pct"] = round(final_pct, 4)
+                audit["open_price"] = open_price
+                audit["close_price"] = final_close
+                audit["candle_closes"] = [(round(s, 1), round(p, 2)) for s, p in candle_closes]
+
+        except Exception as e:
+            audit["error"] = str(e)
+        return audit
 
     async def _check_binance_direction(self, end_dt: datetime) -> Optional[str]:
         try:
@@ -645,6 +712,26 @@ class Sniper5MLive:
             trade["pnl"] = pnl
             trade["market_outcome"] = outcome
             trade["resolve_time"] = now.isoformat()
+
+            # Signal timing audit — what would signal have been at different entry times?
+            try:
+                audit = await self._audit_signal_timing(end_dt)
+                trade["signal_audit"] = audit
+                # Print audit summary
+                audit_parts = []
+                for w_sec in [55, 57, 60, 63, 65]:
+                    sig = audit.get(f"signal_{w_sec}s", "?")
+                    pct = audit.get(f"pct_{w_sec}s", 0)
+                    marker = "*" if sig == outcome else "X"
+                    audit_parts.append(f"{w_sec}s={sig}({pct:+.3f}%){marker}")
+                actual = audit.get("actual_direction", "?")
+                actual_pct = audit.get("actual_pct", 0)
+                print(f"[AUDIT] {' | '.join(audit_parts)}")
+                print(f"[AUDIT] Actual={actual}({actual_pct:+.3f}%) | "
+                      f"Entry was at {trade.get('time_remaining_sec',0):.0f}s | "
+                      f"{'CORRECT' if trade['side'] == actual else 'WRONG'} signal")
+            except Exception as e:
+                print(f"[AUDIT] Error: {e}")
 
             self.stats["wins" if won else "losses"] += 1
             self.stats["pnl"] += pnl
