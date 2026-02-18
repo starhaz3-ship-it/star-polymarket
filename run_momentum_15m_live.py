@@ -42,6 +42,8 @@ from functools import partial as fn_partial
 from typing import Dict, Optional
 
 import httpx
+import websockets
+from collections import deque
 from dotenv import load_dotenv
 
 print = fn_partial(print, flush=True)
@@ -413,6 +415,162 @@ def auto_redeem_winnings():
 
 
 # ============================================================================
+# V2.0: BINANCE LIVE FEED — WebSocket tick stream → candles + spike detection
+# ============================================================================
+BINANCE_WS_URL = "wss://stream.binance.com:9443/ws/btcusdt@trade"
+BINANCE_REST_URL = "https://api.binance.com/api/v3/klines"
+
+
+class BinanceLiveFeed:
+    """Real-time Binance price feed with 1-min candle aggregation and spike detection."""
+
+    def __init__(self):
+        self.current_price: Optional[float] = None
+        self.last_update: float = 0
+        self._running = False
+        self._ws = None
+        # Rolling 1-min candle buffer (same format as fetch_binance_candles)
+        self._candles: deque = deque(maxlen=35)  # extra headroom over 30
+        self._current_minute: int = 0  # minute boundary for candle bucketing
+        self._minute_ticks: list = []  # ticks in current minute
+        # Tick buffer for spike detection (last 60s of ticks)
+        self._tick_buffer: deque = deque(maxlen=3000)  # ~50 ticks/sec worst case
+        self._connected = False
+        self._ws_started = False
+
+    async def start(self):
+        """Start WebSocket feed as background task. Seeds candles from REST first."""
+        self._running = True
+        # Seed candle buffer from REST so indicators work immediately
+        await self._seed_from_rest()
+        # Launch WS in background
+        asyncio.create_task(self._ws_loop())
+        self._ws_started = True
+        print(f"[WS] Binance live feed started | {len(self._candles)} candles seeded")
+
+    async def _seed_from_rest(self):
+        """Fetch initial 30 candles from REST to bootstrap RSI/EMA."""
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                r = await client.get(BINANCE_REST_URL, params={
+                    "symbol": "BTCUSDT", "interval": "1m", "limit": 30
+                })
+                r.raise_for_status()
+                for k in r.json():
+                    self._candles.append({"time": int(k[0]), "close": float(k[4])})
+                if self._candles:
+                    self.current_price = self._candles[-1]["close"]
+                    self.last_update = time.time()
+                    self._current_minute = int(time.time()) // 60
+        except Exception as e:
+            print(f"[WS] REST seed error: {e}")
+
+    async def _ws_loop(self):
+        """Persistent WebSocket connection with auto-reconnect."""
+        consecutive_failures = 0
+        while self._running:
+            try:
+                async with websockets.connect(
+                    BINANCE_WS_URL,
+                    ping_interval=20, ping_timeout=10,
+                    close_timeout=5, open_timeout=10,
+                ) as ws:
+                    self._ws = ws
+                    self._connected = True
+                    consecutive_failures = 0
+                    print(f"[WS] Connected to Binance BTC/USDT trade stream")
+
+                    async for message in ws:
+                        if not self._running:
+                            break
+                        try:
+                            data = json.loads(message)
+                            price = float(data["p"])
+                            now = time.time()
+                            self.current_price = price
+                            self.last_update = now
+
+                            # Store tick for spike detection
+                            self._tick_buffer.append((now, price))
+
+                            # Aggregate into 1-min candles
+                            minute = int(now) // 60
+                            if minute != self._current_minute:
+                                # Close previous minute candle
+                                if self._minute_ticks:
+                                    self._candles.append({
+                                        "time": self._current_minute * 60 * 1000,
+                                        "close": self._minute_ticks[-1]
+                                    })
+                                self._current_minute = minute
+                                self._minute_ticks = [price]
+                            else:
+                                self._minute_ticks.append(price)
+
+                        except (KeyError, ValueError):
+                            pass
+
+            except websockets.exceptions.ConnectionClosed:
+                consecutive_failures += 1
+                self._connected = False
+                print(f"[WS] Connection closed, reconnecting... ({consecutive_failures})")
+                await asyncio.sleep(1)
+            except Exception as e:
+                consecutive_failures += 1
+                self._connected = False
+                if consecutive_failures >= 3:
+                    print(f"[WS] Unstable ({e}), REST fallback active")
+                    consecutive_failures = 0
+                await asyncio.sleep(2)
+
+    def get_candles(self) -> list:
+        """Return candle buffer in same format as fetch_binance_candles().
+        If WS has a partial current candle, append it as the latest."""
+        candles = list(self._candles)
+        # Append in-progress candle if we have ticks
+        if self._minute_ticks and self.current_price:
+            candles.append({
+                "time": self._current_minute * 60 * 1000,
+                "close": self._minute_ticks[-1]
+            })
+        return candles[-30:]  # return last 30
+
+    def get_spike(self) -> dict:
+        """Detect rapid price moves over last 5/15/30 seconds.
+        Returns percentage changes (e.g., 0.002 = 0.2%)."""
+        now = time.time()
+        result = {"delta_5s": 0.0, "delta_15s": 0.0, "delta_30s": 0.0}
+        if not self._tick_buffer or self.current_price is None:
+            return result
+        current = self.current_price
+        for label, lookback in [("delta_5s", 5), ("delta_15s", 15), ("delta_30s", 30)]:
+            cutoff = now - lookback
+            # Find oldest tick within lookback window
+            old_price = None
+            for ts, p in self._tick_buffer:
+                if ts >= cutoff:
+                    old_price = p
+                    break
+            if old_price and old_price > 0:
+                result[label] = (current - old_price) / old_price
+        return result
+
+    def is_stale(self, max_age_sec: float = 10.0) -> bool:
+        """Check if data is stale (WS disconnected)."""
+        if self.current_price is None:
+            return True
+        return (time.time() - self.last_update) > max_age_sec
+
+    def stop(self):
+        self._running = False
+        if self._ws:
+            try:
+                asyncio.create_task(self._ws.close())
+            except Exception:
+                pass
+
+
+# ============================================================================
 # MOMENTUM 15M TRADER
 # ============================================================================
 class Momentum15MTrader:
@@ -427,6 +585,7 @@ class Momentum15MTrader:
         self.tier = "PROBATION"  # current promotion tier
         self.filter_ml = AdaptiveFilterML()  # V1.4: adaptive filter ML
         self.v17_tracker = V17ChangeTracker()  # V1.7: track parameter changes
+        self.feed = BinanceLiveFeed()  # V2.0: WebSocket price feed
         self._load()
         self._init_streak_tracker()  # V1.5: streak detection
 
@@ -992,9 +1151,27 @@ class Momentum15MTrader:
             ml_m10 = ml_filters["m10"]
             ml_m5 = ml_filters["m5"]
 
+            # V2.0: SPIKE DETECTION — Binance moves faster than Polymarket odds
+            spike = self.feed.get_spike()
+            rsi_override = False
+            spike_boosted = False
+            s15 = spike["delta_15s"]
+
+            if abs(s15) > 0.003:
+                # MEGA SPIKE: >0.3% in 15s — override RSI, spike IS the signal
+                rsi_override = True
+                ml_m10 *= 0.3
+                ml_m5 *= 0.3
+                spike_boosted = True
+            elif abs(s15) > 0.0015:
+                # SPIKE BOOST: >0.15% in 15s — halve momentum thresholds
+                ml_m10 *= 0.5
+                ml_m5 *= 0.5
+                spike_boosted = True
+
             if momentum_10m > ml_m10 and momentum_5m > ml_m5:
                 # NORMAL UP: Bullish momentum + RSI confirms → bet UP (on-chain: 88% WR)
-                if rsi_val is not None and rsi_val < RSI_CONFIRM_UP:
+                if not rsi_override and rsi_val is not None and rsi_val < RSI_CONFIRM_UP:
                     continue  # RSI too weak for UP
                 if MIN_ENTRY <= up_price <= MAX_ENTRY:
                     side = "UP"
@@ -1003,14 +1180,13 @@ class Momentum15MTrader:
                 # Bearish momentum — only take moderate DOWN (RSI 35-50)
                 # V1.9: Contrarian (RSI 25-35 → bet UP) DISABLED — backtest 7.95% WR, -$370
                 # V1.9: RSI <35 DOWN DISABLED — on-chain 0W/3L
-                if rsi_val is not None and RSI_MODERATE_DOWN_LO < rsi_val <= RSI_MODERATE_DOWN_HI:
-                    # MODERATE DOWN: RSI 35-50 with bearish momentum → bet DOWN
-                    # Backtest: 91.40% WR, +$385 over 93 trades
-                    if MIN_ENTRY <= down_price <= MAX_ENTRY:
-                        side = "DOWN"
-                        entry_price = round(down_price + (SPREAD_OFFSET if self.paper else 0), 2)
-                else:
+                if not rsi_override and rsi_val is not None and not (RSI_MODERATE_DOWN_LO < rsi_val <= RSI_MODERATE_DOWN_HI):
                     continue
+                # MODERATE DOWN (or mega spike override): bearish momentum → bet DOWN
+                # Backtest: 91.40% WR, +$385 over 93 trades
+                if MIN_ENTRY <= down_price <= MAX_ENTRY:
+                    side = "DOWN"
+                    entry_price = round(down_price + (SPREAD_OFFSET if self.paper else 0), 2)
 
             if not side or not entry_price or entry_price > MAX_ENTRY:
                 continue
@@ -1059,7 +1235,8 @@ class Momentum15MTrader:
                     resp = self.client.post_order(signed, OrderType.FOK)
                     if resp.get("success"):
                         order_id = resp.get("orderID", "?")
-                        print(f"[LIVE] FOK {asset} {side} order {order_id[:20]}... ${trade_size:.2f}")
+                        spike_tag = f" SPIKE({s15:+.3%})" if spike_boosted else ""
+                        print(f"[LIVE] FOK {asset} {side} order {order_id[:20]}... ${trade_size:.2f}{spike_tag}")
                     else:
                         print(f"[LIVE] FOK order failed: {resp.get('errorMsg', '?')}")
                         continue
@@ -1112,6 +1289,8 @@ class Momentum15MTrader:
                 "asset_price": asset_price,
                 "order_id": order_id,
                 "_fill_confirmed": fill_confirmed or self.paper,
+                "spike_15s": round(s15, 6) if spike_boosted else 0,
+                "spike_boosted": spike_boosted,
                 "streak_len": streak_info["streak_len"],
                 "streak_dir": streak_info["streak_dir"],
                 "streak_alignment": streak_info["alignment"],
@@ -1243,7 +1422,7 @@ class Momentum15MTrader:
         mode = "PAPER" if self.paper else "LIVE"
         print("=" * 70)
         tier_size = TIERS[self.tier]["size"]
-        print(f"MOMENTUM 15M DIRECTIONAL TRADER V1.9 - {mode} MODE")
+        print(f"MOMENTUM 15M DIRECTIONAL TRADER V2.0 - {mode} MODE")
         print(f"Strategy: UP-primary + contrarian reversal + moderate DOWN | BTC only")
         print(f"On-chain verified: BTC UP 7W/1L (88%), DOWN 6W/6L (50%)")
         print(f"Assets: {', '.join(ASSETS.keys())}")
@@ -1258,7 +1437,11 @@ class Momentum15MTrader:
         print(f"Skip hours (UTC): {{7,11,12,13,14,15}} (2AM + 6-10AM ET — on-chain losers)")
         print(f"Daily loss limit: ${DAILY_LOSS_LIMIT}")
         print(f"Scan interval: {SCAN_INTERVAL}s")
+        print(f"V2.0: Binance WebSocket live feed + spike detection")
         print("=" * 70)
+
+        # V2.0: Start WebSocket feed
+        await self.feed.start()
 
         if self.resolved:
             w, l = self.stats["wins"], self.stats["losses"]
@@ -1273,13 +1456,18 @@ class Momentum15MTrader:
                 cycle += 1
                 now_ts = time.time()
 
-                # Fetch candles for all assets in parallel
-                candle_tasks = {
-                    asset: self.fetch_binance_candles(cfg["symbol"])
-                    for asset, cfg in ASSETS.items()
-                }
-                results = await asyncio.gather(*candle_tasks.values())
-                all_candles = dict(zip(candle_tasks.keys(), results))
+                # V2.0: Get candles from WebSocket feed (real-time, no REST delay)
+                if self.feed.is_stale():
+                    # WS disconnected — fallback to REST
+                    candle_tasks = {
+                        asset: self.fetch_binance_candles(cfg["symbol"])
+                        for asset, cfg in ASSETS.items()
+                    }
+                    results = await asyncio.gather(*candle_tasks.values())
+                    all_candles = dict(zip(candle_tasks.keys(), results))
+                else:
+                    # WS live — use feed candles (BTC only for now)
+                    all_candles = {"BTC": self.feed.get_candles()}
 
                 # Fetch markets
                 markets = await self.discover_15m_markets()
@@ -1310,12 +1498,23 @@ class Momentum15MTrader:
                             mom = (closes[-1] - closes[0]) / closes[0]
                             mom_str += f" {asset}={mom:+.3%}"
 
+                    # V2.0: Spike info
+                    spike = self.feed.get_spike()
+                    spike_str = ""
+                    if not self.feed.is_stale():
+                        s15 = spike["delta_15s"]
+                        if abs(s15) > 0.0005:
+                            spike_str = f" | spike15s={s15:+.3%}"
+                        ws_tag = "WS" if self.feed._connected else "REST"
+                    else:
+                        ws_tag = "REST"
+
                     tier_size = TIERS[self.tier]["size"]
-                    print(f"\n--- Cycle {cycle} | {mode} | {self.tier} ${tier_size:.2f} | "
+                    print(f"\n--- Cycle {cycle} | {mode}({ws_tag}) | {self.tier} ${tier_size:.2f} | "
                           f"Active: {open_count} | "
                           f"{w}W/{l}L {wr:.0f}%WR | "
                           f"PnL: ${self.stats['pnl']:+.2f} | "
-                          f"Session: ${self.session_pnl:+.2f} |{mom_str} ---")
+                          f"Session: ${self.session_pnl:+.2f} |{mom_str}{spike_str} ---")
 
                     # Market count by asset
                     in_window = {}

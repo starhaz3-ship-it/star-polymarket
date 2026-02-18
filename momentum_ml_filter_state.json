@@ -6,5 +6,5 @@
     "ultra": [1, 2]
   },
   "history": [],
-  "_reset_note": "V1.9 reset — old state contaminated by 21 phantom wins. Clean priors, learn from confirmed fills only."
+  "_reset_note": "Fresh reset 2026-02-17. Clean priors."
 }
