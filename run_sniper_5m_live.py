@@ -48,6 +48,7 @@ DAILY_LOSS_LIMIT = 30.0     # stop trading if daily losses exceed this
 LOG_INTERVAL = 30           # print status every N seconds
 RESOLVE_DELAY = 15          # seconds after market close before resolving
 MIN_SHARES = 3              # minimum shares for fill confirmation
+FOK_SLIPPAGE = 0.03         # cents above best ask to sweep multiple price levels
 
 RESULTS_FILE = Path(__file__).parent / "sniper_5m_live_results.json"
 BINANCE_REST_URL = "https://api.binance.com/api/v3/klines"
@@ -235,6 +236,32 @@ class Sniper5MLive:
         except Exception:
             return None
 
+    async def get_orderbook_depth(self, token_id: str, max_price: float) -> tuple:
+        """Get total available shares up to max_price. Returns (best_ask, total_shares, levels)."""
+        try:
+            async with httpx.AsyncClient(timeout=8) as client:
+                r = await client.get(CLOB_BOOK_URL, params={"token_id": token_id})
+                if r.status_code != 200:
+                    return None, 0, []
+                book = r.json()
+                asks = book.get("asks", [])
+                if not asks:
+                    return None, 0, []
+                # Sort asks ascending by price
+                sorted_asks = sorted(asks, key=lambda a: float(a["price"]))
+                best_ask = float(sorted_asks[0]["price"])
+                total_shares = 0
+                levels = []
+                for a in sorted_asks:
+                    price = float(a["price"])
+                    size = float(a["size"])
+                    if price <= max_price:
+                        total_shares += size
+                        levels.append((price, size))
+                return best_ask, total_shares, levels
+        except Exception:
+            return None, 0, []
+
     async def get_orderbook_prices(self, market: dict) -> tuple:
         up_tid, down_tid = self.get_token_ids(market)
         if not up_tid or not down_tid:
@@ -343,12 +370,15 @@ class Sniper5MLive:
                 print(f"[LIVE] No token ID for BTC:{side}")
                 return None
 
+            # Add slippage to sweep multiple price levels (FOK needs all shares filled)
+            fok_price = min(round(entry_price + FOK_SLIPPAGE, 2), 0.99)
             order_args = OrderArgs(
-                price=round(entry_price, 2),
+                price=fok_price,
                 size=shares,
                 side=BUY,
                 token_id=token_id,
             )
+            print(f"[LIVE] FOK {side} {shares}sh @ limit ${fok_price:.2f} (ask=${entry_price:.2f} +{FOK_SLIPPAGE:.0%} slip)")
             signed = self.client.create_order(order_args)
             resp = self.client.post_order(signed, OrderType.FOK)
 
@@ -450,21 +480,35 @@ class Sniper5MLive:
                 print(f"[SKIP] Binance flat | {time_left_sec:.0f}s left | {question[:50]}")
                 continue
 
-            # Get CLOB price for execution (not for direction)
-            up_ask, down_ask = await self.get_orderbook_prices(market)
+            # Get CLOB depth for execution (not for direction)
+            up_tid, down_tid = self.get_token_ids(market)
+            sweep_limit = min(MAX_ENTRY_PRICE + FOK_SLIPPAGE, 0.99)
 
-            # Determine entry price from CLOB (or estimate if book empty)
             if side == "UP":
-                entry_price = up_ask if up_ask is not None else (0.75 if time_left_sec > 30 else 0.85)
+                if up_tid:
+                    best_ask, avail_shares, levels = await self.get_orderbook_depth(up_tid, sweep_limit)
+                else:
+                    best_ask, avail_shares, levels = None, 0, []
+                other_ask = (await self.get_best_ask(down_tid)) if down_tid else None
+                up_ask = best_ask
+                down_ask = other_ask
             else:
-                entry_price = down_ask if down_ask is not None else (0.75 if time_left_sec > 30 else 0.85)
+                if down_tid:
+                    best_ask, avail_shares, levels = await self.get_orderbook_depth(down_tid, sweep_limit)
+                else:
+                    best_ask, avail_shares, levels = None, 0, []
+                other_ask = (await self.get_best_ask(up_tid)) if up_tid else None
+                up_ask = other_ask
+                down_ask = best_ask
 
+            entry_price = best_ask if best_ask is not None else (0.75 if time_left_sec > 30 else 0.85)
             confidence = entry_price
             up_display = up_ask if up_ask is not None else 0.0
             down_display = down_ask if down_ask is not None else 0.0
 
+            depth_str = " | ".join(f"${p:.2f}x{int(s)}" for p, s in levels[:4])
             print(f"[BINANCE] BTC {side} | CLOB: UP=${up_display:.2f} DN=${down_display:.2f} "
-                  f"| entry=${entry_price:.2f} | {time_left_sec:.0f}s left")
+                  f"| entry=${entry_price:.2f} | depth={int(avail_shares)}sh [{depth_str}] | {time_left_sec:.0f}s left")
 
             # Cap entry price
             if entry_price > MAX_ENTRY_PRICE:
@@ -483,15 +527,30 @@ class Sniper5MLive:
 
             # Auto-scale trade size
             trade_size = get_trade_size(self.stats["wins"], self.stats["losses"])
-            shares = math.floor(trade_size / entry_price)  # CLOB needs integer shares
-            if shares < 1:
-                shares = 1
+            desired_shares = math.floor(trade_size / entry_price)
+            if desired_shares < 1:
+                desired_shares = 1
+
+            # Cap shares at available depth (core fix for thin markets)
+            avail_int = int(avail_shares)
+            if avail_int < MIN_SHARES:
+                self.stats["skipped"] += 1
+                self.attempted_cids.add(cid)
+                print(f"[SKIP] Too thin | only {avail_int}sh available (need {MIN_SHARES}) | {question[:50]}")
+                continue
+
+            shares = min(desired_shares, avail_int)
+            actual_trade_size = round(shares * entry_price, 2)
+
+            if shares < desired_shares:
+                print(f"[DEPTH] Reduced order: {desired_shares} -> {shares}sh "
+                      f"(${actual_trade_size:.2f} of ${trade_size:.2f})")
 
             # Mark as attempted
             self.attempted_cids.add(cid)
 
             # Place order (live or paper)
-            fill = await self.place_live_order(market, side, entry_price, shares, trade_size)
+            fill = await self.place_live_order(market, side, entry_price, shares, actual_trade_size)
             if fill is None:
                 print(f"[SKIP] Order not filled | BTC {side} @ ${entry_price:.2f} | {question[:50]}")
                 continue
@@ -508,8 +567,8 @@ class Sniper5MLive:
                 "side": side,
                 "entry_price": round(entry_price, 4),
                 "confidence": round(confidence, 4),
-                "up_ask": round(up_ask, 4),
-                "down_ask": round(down_ask, 4),
+                "up_ask": round(up_ask, 4) if up_ask else 0.0,
+                "down_ask": round(down_ask, 4) if down_ask else 0.0,
                 "shares": round(shares, 4),
                 "cost": cost,
                 "trade_size_tier": trade_size,
