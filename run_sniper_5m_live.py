@@ -363,11 +363,14 @@ class Sniper5MLive:
                 await asyncio.sleep(1)
                 try:
                     order_info = self.client.get_order(order_id)
+                    # get_order may return string or dict
+                    if isinstance(order_info, str):
+                        order_info = json.loads(order_info)
                     size_matched = float(order_info.get("size_matched", 0) or 0)
                     if size_matched >= MIN_SHARES:
                         actual_price = entry_price
                         assoc = order_info.get("associate_trades", [])
-                        if assoc and assoc[0].get("price"):
+                        if assoc and isinstance(assoc[0], dict) and assoc[0].get("price"):
                             actual_price = float(assoc[0]["price"])
                         actual_cost = round(actual_price * size_matched, 2)
                         print(f"[LIVE] FILLED: {size_matched:.1f}sh @ ${actual_price:.2f} = ${actual_cost:.2f}")
@@ -382,9 +385,25 @@ class Sniper5MLive:
                         status = order_info.get("status", "?")
                         print(f"[LIVE] NOT FILLED: status={status} matched={size_matched}")
                         return None
+                except json.JSONDecodeError:
+                    # Can't parse — assume filled since FOK succeeded
+                    print(f"[LIVE] Fill check parse error — assuming filled (FOK success)")
+                    return {
+                        "filled": True,
+                        "shares": shares,
+                        "price": entry_price,
+                        "cost": trade_size,
+                        "order_id": order_id,
+                    }
                 except Exception as e:
-                    print(f"[LIVE] Fill check error: {e}")
-                    return None
+                    print(f"[LIVE] Fill check error: {e} — assuming filled (FOK success)")
+                    return {
+                        "filled": True,
+                        "shares": shares,
+                        "price": entry_price,
+                        "cost": trade_size,
+                        "order_id": order_id,
+                    }
             return None
         except Exception as e:
             print(f"[LIVE] Order error: {e}")
