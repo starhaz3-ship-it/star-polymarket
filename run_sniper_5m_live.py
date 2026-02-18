@@ -40,6 +40,7 @@ from pid_lock import acquire_pid_lock, release_pid_lock
 # ============================================================================
 SNIPER_WINDOW = 62          # seconds before close to start looking (front-run whales)
 MIN_CONFIDENCE = 0.70       # minimum ask price to trigger entry
+MAX_ENTRY_PRICE = 0.90      # max entry price (0.70-0.90 profitable, 0.96+ loses)
 BASE_TRADE_SIZE = 5.00      # USD per trade (starting size)
 SCAN_INTERVAL = 5           # seconds between scans
 MAX_CONCURRENT = 1          # only 1 active trade at a time
@@ -434,46 +435,49 @@ class Sniper5MLive:
             if time_left_sec > SNIPER_WINDOW or time_left_sec <= 0:
                 continue
 
-            # Read orderbook
-            up_ask, down_ask = await self.get_orderbook_prices(market)
             question = market.get("question", "?")
+            end_dt = market.get("_end_dt_parsed")
 
-            # Binance fallback for empty books
-            if up_ask is None or down_ask is None:
-                end_dt = market.get("_end_dt_parsed")
-                if end_dt:
-                    btc_dir = await self._check_binance_direction(end_dt)
-                    if btc_dir:
-                        est_price = 0.75 if time_left_sec > 30 else 0.85
-                        if btc_dir == "UP":
-                            up_ask, down_ask = est_price, 1.0 - est_price
-                        else:
-                            up_ask, down_ask = 1.0 - est_price, est_price
-                        print(f"[BOOK EMPTY] Binance fallback: BTC {btc_dir} | "
-                              f"est UP=${up_ask:.2f} DN=${down_ask:.2f} | {time_left_sec:.0f}s left")
-                    else:
-                        continue
-                else:
-                    continue
-
-            # Signal logic
+            # PRIMARY SIGNAL: Binance real-time price (the oracle source)
+            # Chainlink lags Binance by ~60s — Binance IS the truth
             side = None
-            confidence = 0.0
-            entry_price = 0.0
+            if end_dt:
+                side = await self._check_binance_direction(end_dt)
 
-            if up_ask >= MIN_CONFIDENCE and down_ask >= MIN_CONFIDENCE:
-                if up_ask > down_ask:
-                    side, confidence, entry_price = "UP", up_ask, up_ask
-                else:
-                    side, confidence, entry_price = "DOWN", down_ask, down_ask
-            elif up_ask >= MIN_CONFIDENCE:
-                side, confidence, entry_price = "UP", up_ask, up_ask
-            elif down_ask >= MIN_CONFIDENCE:
-                side, confidence, entry_price = "DOWN", down_ask, down_ask
-            else:
+            if not side:
                 self.stats["skipped"] += 1
                 self.attempted_cids.add(cid)
-                print(f"[SKIP] Direction unclear | UP=${up_ask:.2f} DOWN=${down_ask:.2f} "
+                print(f"[SKIP] Binance flat | {time_left_sec:.0f}s left | {question[:50]}")
+                continue
+
+            # Get CLOB price for execution (not for direction)
+            up_ask, down_ask = await self.get_orderbook_prices(market)
+
+            # Determine entry price from CLOB (or estimate if book empty)
+            if side == "UP":
+                entry_price = up_ask if up_ask is not None else (0.75 if time_left_sec > 30 else 0.85)
+            else:
+                entry_price = down_ask if down_ask is not None else (0.75 if time_left_sec > 30 else 0.85)
+
+            confidence = entry_price
+            up_display = up_ask if up_ask is not None else 0.0
+            down_display = down_ask if down_ask is not None else 0.0
+
+            print(f"[BINANCE] BTC {side} | CLOB: UP=${up_display:.2f} DN=${down_display:.2f} "
+                  f"| entry=${entry_price:.2f} | {time_left_sec:.0f}s left")
+
+            # Cap entry price
+            if entry_price > MAX_ENTRY_PRICE:
+                self.stats["skipped"] += 1
+                self.attempted_cids.add(cid)
+                print(f"[SKIP] Too expensive | {side} @ ${entry_price:.2f} > ${MAX_ENTRY_PRICE:.2f} "
+                      f"| {time_left_sec:.0f}s left | {question[:50]}")
+                continue
+
+            if entry_price < MIN_CONFIDENCE:
+                self.stats["skipped"] += 1
+                self.attempted_cids.add(cid)
+                print(f"[SKIP] Too cheap (low liquidity) | {side} @ ${entry_price:.2f} "
                       f"| {time_left_sec:.0f}s left | {question[:50]}")
                 continue
 
