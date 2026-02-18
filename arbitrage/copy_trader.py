@@ -112,6 +112,9 @@ class CopyTrader:
         "100USDollars": "0x781a48229e2c08e20d1eaad90ef73710988c96e6",  # $33.4K PnL, 672 trades, $533K vol, joined Feb 2026, @Boku8figs
         "lesstidy": "0xd4583c4704a8c2e416f0e7fa5b763f92f0291733",  # $12.9K PnL, 382 trades, $1.3M vol, high-volume grinder
         "likebot": "0x03c3b0236c5a01051381482e77f2210349073a1d",  # $94K PnL, 15K trades, $17.5M vol, BTC 5m + ETH 15m market maker, both-sides with directional skew
+        # --- BTC 15m directional whales (added 2026-02-17) — 86-91% WR, every 15m market, $0.45 entry ---
+        "BTC15m-whale1": "0xe1DF720a8b4dfc8C5ad4F185941355244B312524",  # 91% WR, $9/trade, every BTC 15m window, same operator as whale2
+        "BTC15m-whale2": "0x81514a782B06Eb83bbBc576925E14da2C0781142",  # 86% WR, $50-100/trade, every BTC 15m window, same operator as whale1
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]
