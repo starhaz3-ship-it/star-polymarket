@@ -43,7 +43,14 @@ MIN_CONFIDENCE = 0.55       # minimum ask price to trigger entry
 MAX_ENTRY_PRICE = 0.85      # max entry price (need ~85% WR to break even here)
 BASE_TRADE_SIZE = 10.00     # USD per trade (starting size)
 SCAN_INTERVAL = 5           # seconds between scans
-MAX_CONCURRENT = 1          # only 1 active trade at a time
+MAX_CONCURRENT = 2          # 1 directional + 1 oracle
+
+# Oracle front-run: enter AFTER close when Binance direction is KNOWN
+ORACLE_MAX_ENTRY = 0.95     # max entry ($0.05+/sh guaranteed profit)
+ORACLE_WINDOW = 60          # seconds after close to look
+ORACLE_MIN_DELAY = 2        # min seconds after close (candle finalizes fast)
+ORACLE_GTC_TIMEOUT = 15     # seconds to wait for GTC fill
+ORACLE_BOOK_LOG = Path(__file__).parent / "oracle_book_data.json"
 DAILY_LOSS_LIMIT = 30.0     # stop trading if daily losses exceed this
 LOG_INTERVAL = 30           # print status every N seconds
 RESOLVE_DELAY = 15          # seconds after market close before resolving
@@ -80,6 +87,7 @@ class Sniper5MLive:
         self.stats = {"wins": 0, "losses": 0, "pnl": 0.0, "skipped": 0}
         self.session_pnl = 0.0
         self.attempted_cids: set = set()
+        self.oracle_attempted_cids: set = set()
         self.running = True
         self._last_log_time = 0.0
         self.client = None
@@ -132,7 +140,10 @@ class Sniper5MLive:
                 for trade in self.resolved:
                     cid = trade.get("condition_id", "")
                     if cid:
-                        self.attempted_cids.add(cid)
+                        if trade.get("strategy") == "oracle":
+                            self.oracle_attempted_cids.add(cid)
+                        else:
+                            self.attempted_cids.add(cid)
                 w, l = self.stats["wins"], self.stats["losses"]
                 total = w + l
                 wr = w / total * 100 if total > 0 else 0
@@ -140,6 +151,32 @@ class Sniper5MLive:
                       f"{w}W/{l}L {wr:.0f}%WR | PnL: ${self.stats['pnl']:+.2f}")
             except Exception as e:
                 print(f"[LOAD] Error: {e}")
+
+    def _log_oracle_book(self, question: str, direction: str, secs_past: float,
+                          best_ask: Optional[float], avail_shares: float, levels: list):
+        """Log oracle orderbook state for ML sweet-spot analysis."""
+        try:
+            entry = {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "question": question[:60],
+                "direction": direction,
+                "secs_past_close": round(secs_past, 1),
+                "best_ask": round(best_ask, 4) if best_ask else None,
+                "total_shares": round(avail_shares, 1),
+                "levels": [(round(p, 4), round(s, 1)) for p, s in levels[:10]],
+                "has_liquidity_095": best_ask is not None and best_ask <= ORACLE_MAX_ENTRY,
+            }
+            existing = []
+            if ORACLE_BOOK_LOG.exists():
+                try:
+                    existing = json.loads(ORACLE_BOOK_LOG.read_text())
+                except Exception:
+                    existing = []
+            existing.append(entry)
+            existing = existing[-500:]  # keep last 500 samples
+            ORACLE_BOOK_LOG.write_text(json.dumps(existing, indent=1))
+        except Exception:
+            pass
 
     def _save(self):
         data = {
@@ -186,7 +223,8 @@ class Sniper5MLive:
                             continue
                         try:
                             end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
-                            if end_dt < now:
+                            # Include markets up to ORACLE_WINDOW+30s past close
+                            if end_dt < now - timedelta(seconds=ORACLE_WINDOW + 30):
                                 continue
                             time_left_sec = (end_dt - now).total_seconds()
                             m["_time_left_sec"] = time_left_sec
@@ -509,6 +547,79 @@ class Sniper5MLive:
             return None
 
     # ========================================================================
+    # ORACLE ORDER EXECUTION
+    # ========================================================================
+
+    async def place_oracle_order(self, market: dict, side: str, entry_price: float,
+                                  shares: float, trade_size: float) -> Optional[dict]:
+        """GTC buy for oracle strategy — direction is KNOWN, need fill at <= $0.95."""
+        if self.paper or not self.client:
+            return {"filled": True, "shares": shares, "price": entry_price, "cost": trade_size}
+
+        try:
+            from py_clob_client.clob_types import OrderArgs, OrderType
+            from py_clob_client.order_builder.constants import BUY
+
+            up_tid, down_tid = self.get_token_ids(market)
+            token_id = up_tid if side == "UP" else down_tid
+            if not token_id:
+                return None
+
+            gtc_price = min(round(entry_price + 0.02, 2), ORACLE_MAX_ENTRY)
+            order_args = OrderArgs(
+                price=gtc_price,
+                size=shares,
+                side=BUY,
+                token_id=token_id,
+            )
+            print(f"[ORACLE] GTC {side} {shares}sh @ ${gtc_price:.2f}")
+            signed = self.client.create_order(order_args)
+            resp = self.client.post_order(signed, OrderType.GTC)
+
+            if not resp.get("success"):
+                print(f"[ORACLE] Order failed: {resp.get('errorMsg', '?')}")
+                return None
+
+            order_id = resp.get("orderID", "?")
+
+            # Poll for fill
+            for _ in range(ORACLE_GTC_TIMEOUT // 3):
+                await asyncio.sleep(3)
+                try:
+                    order_info = self.client.get_order(order_id)
+                    if isinstance(order_info, str):
+                        order_info = json.loads(order_info)
+                    size_matched = float(order_info.get("size_matched", 0) or 0)
+                    if size_matched >= MIN_SHARES:
+                        actual_price = entry_price
+                        assoc = order_info.get("associate_trades", [])
+                        if assoc and isinstance(assoc[0], dict) and assoc[0].get("price"):
+                            actual_price = float(assoc[0]["price"])
+                        actual_cost = round(actual_price * size_matched, 2)
+                        print(f"[ORACLE] FILLED: {size_matched:.1f}sh @ ${actual_price:.2f}")
+                        return {
+                            "filled": True,
+                            "shares": size_matched,
+                            "price": actual_price,
+                            "cost": actual_cost,
+                            "order_id": order_id,
+                        }
+                except Exception as e:
+                    print(f"[ORACLE] Fill check: {e}")
+
+            # Not filled — cancel
+            try:
+                self.client.cancel(order_id)
+                print(f"[ORACLE] Cancelled unfilled order")
+            except Exception:
+                pass
+            return None
+        except Exception as e:
+            print(f"[ORACLE] Order error: {e}")
+            traceback.print_exc()
+            return None
+
+    # ========================================================================
     # SIGNAL + ENTRY
     # ========================================================================
 
@@ -647,6 +758,7 @@ class Sniper5MLive:
                 "result": None,
                 "order_id": fill.get("order_id", ""),
                 "live": not self.paper,
+                "strategy": "directional",
             }
 
             self.active[cid] = trade
@@ -657,6 +769,128 @@ class Sniper5MLive:
                   f"${cost:.2f} ({shares:.1f}sh) | "
                   f"{time_left_sec:.0f}s left | tier=${trade_size:.0f} | "
                   f"UP=${up_ask:.2f} DN=${down_ask:.2f} | "
+                  f"{question[:50]}")
+
+    async def check_oracle_entry(self, markets: list):
+        """Oracle front-run: enter AFTER market closes when Binance direction is KNOWN."""
+        oracle_active = sum(1 for t in self.active.values() if t.get("strategy") == "oracle")
+        if oracle_active >= 1:
+            return
+        if self.session_pnl <= -DAILY_LOSS_LIMIT:
+            return
+
+        for market in markets:
+            oracle_active = sum(1 for t in self.active.values() if t.get("strategy") == "oracle")
+            if oracle_active >= 1:
+                break
+
+            cid = market.get("conditionId", "")
+            if not cid or cid in self.oracle_attempted_cids:
+                continue
+
+            time_left_sec = market.get("_time_left_sec", 9999)
+
+            # Oracle window: ORACLE_MIN_DELAY to ORACLE_WINDOW seconds AFTER close
+            if time_left_sec > -ORACLE_MIN_DELAY or time_left_sec < -ORACLE_WINDOW:
+                continue
+
+            question = market.get("question", "?")
+            end_dt = market.get("_end_dt_parsed")
+            if not end_dt:
+                continue
+
+            # Get COMPLETED Binance 5-min candle — direction is KNOWN
+            direction = await self.resolve_via_binance(end_dt)
+            if not direction:
+                # Don't mark attempted — Binance may finalize on next poll
+                secs_past = abs(time_left_sec)
+                print(f"[ORACLE] No Binance data | {secs_past:.0f}s past close | {question[:50]}")
+                continue
+
+            # Get CLOB depth for the winning side
+            up_tid, down_tid = self.get_token_ids(market)
+            token_id = up_tid if direction == "UP" else down_tid
+            if not token_id:
+                continue
+
+            # Also check the FULL book (not just ≤0.95) for ML data collection
+            best_ask, avail_shares, levels = await self.get_orderbook_depth(token_id, 0.99)
+            secs_past = abs(time_left_sec)
+
+            # Log oracle book state for ML analysis (every check, hit or miss)
+            self._log_oracle_book(question, direction, secs_past, best_ask, avail_shares, levels)
+
+            # Filter to asks within our price limit
+            levels_ok = [(p, s) for p, s in levels if p <= ORACLE_MAX_ENTRY]
+            avail_ok = sum(s for _, s in levels_ok)
+            best_ok = min((p for p, _ in levels_ok), default=None)
+
+            if best_ok is None or avail_ok < MIN_SHARES:
+                # DON'T mark as attempted — keep re-checking every poll cycle
+                # Liquidity may appear at 10-20s when sellers dump winning tokens
+                ask_str = f"${best_ask:.2f}" if best_ask else "none"
+                full_depth = f" (full book: {ask_str}, {int(avail_shares)}sh)" if best_ask else ""
+                print(f"[ORACLE] {direction} no liquidity <= ${ORACLE_MAX_ENTRY}{full_depth} | "
+                      f"{secs_past:.0f}s past | {question[:50]}")
+                continue
+
+            # Use the filtered asks
+            best_ask = best_ok
+            avail_shares = avail_ok
+            levels = levels_ok
+
+            trade_size = get_trade_size(self.stats["wins"], self.stats["losses"])
+            desired_shares = math.floor(trade_size / best_ask)
+            shares = min(max(desired_shares, 1), int(avail_shares))
+            actual_cost = round(shares * best_ask, 2)
+            profit_per_share = round(1.00 - best_ask, 2)
+            expected_profit = round(profit_per_share * shares, 2)
+
+            self.oracle_attempted_cids.add(cid)
+
+            depth_str = " | ".join(f"${p:.2f}x{int(s)}" for p, s in levels[:4])
+            secs_past = abs(time_left_sec)
+            print(f"[ORACLE] BTC {direction} KNOWN | ask=${best_ask:.2f} | "
+                  f"depth={int(avail_shares)}sh [{depth_str}] | "
+                  f"profit=${profit_per_share:.2f}/sh (${expected_profit:.2f} total) | "
+                  f"{secs_past:.0f}s past close")
+
+            fill = await self.place_oracle_order(market, direction, best_ask, shares, actual_cost)
+            if fill is None:
+                print(f"[ORACLE] No fill | BTC {direction} @ ${best_ask:.2f} | {question[:50]}")
+                continue
+
+            shares = fill["shares"]
+            entry_price = fill["price"]
+            cost = fill["cost"]
+
+            now = datetime.now(timezone.utc)
+            trade = {
+                "condition_id": cid,
+                "question": question,
+                "side": direction,
+                "entry_price": round(entry_price, 4),
+                "shares": round(shares, 4),
+                "cost": cost,
+                "trade_size_tier": trade_size,
+                "time_remaining_sec": round(time_left_sec, 1),
+                "entry_time": now.isoformat(),
+                "end_dt": market.get("_end_dt", ""),
+                "status": "open",
+                "pnl": 0.0,
+                "result": None,
+                "order_id": fill.get("order_id", ""),
+                "live": not self.paper,
+                "strategy": "oracle",
+            }
+
+            self.active[f"oracle_{cid}"] = trade
+            self._save()
+
+            mode = "LIVE" if not self.paper else "PAPER"
+            print(f"\n[{mode}|ORACLE] BTC {direction} @ ${entry_price:.2f} | "
+                  f"${cost:.2f} ({shares:.1f}sh) | "
+                  f"DIRECTION KNOWN | min profit=${profit_per_share:.2f}/sh | "
                   f"{question[:50]}")
 
     # ========================================================================
@@ -745,8 +979,9 @@ class Sniper5MLive:
             wr = w / total * 100 if total > 0 else 0
             tag = "WIN" if won else "LOSS"
             tier = trade.get("trade_size_tier", BASE_TRADE_SIZE)
+            strat_label = trade.get("strategy", "directional").upper()
 
-            print(f"[{tag}] BTC:{trade['side']} ${pnl:+.2f} | "
+            print(f"[{tag}|{strat_label}] BTC:{trade['side']} ${pnl:+.2f} | "
                   f"entry=${trade['entry_price']:.2f} tier=${tier:.0f} | "
                   f"market={outcome} | "
                   f"{w}W/{l}L {wr:.0f}%WR ${self.stats['pnl']:+.2f} | "
@@ -814,15 +1049,15 @@ class Sniper5MLive:
         mode = "LIVE" if not self.paper else "PAPER"
         tier = get_trade_size(self.stats["wins"], self.stats["losses"])
         print("=" * 70)
-        print(f"  SNIPER 5M {mode} TRADER V1.0")
+        print(f"  SNIPER 5M {mode} TRADER V2.0 — DUAL STRATEGY")
         print("=" * 70)
-        print(f"  Strategy: Chainlink oracle front-run (62s window)")
-        print(f"    - Enter at {SNIPER_WINDOW}s before 5M BTC market close")
-        print(f"    - If dominant side ask > ${MIN_CONFIDENCE:.2f}, buy via FOK")
-        print(f"    - Binance fallback when CLOB book is empty")
-        print(f"    - Resolve via Binance 5M candle")
+        print(f"  Strategy 1 — DIRECTIONAL (prediction)")
+        print(f"    - Enter at {SNIPER_WINDOW}s before close | Binance signal > 0.07%")
+        print(f"    - Entry: ${MIN_CONFIDENCE:.2f}-${MAX_ENTRY_PRICE:.2f} | FOK orders")
+        print(f"  Strategy 2 — ORACLE (certainty)")
+        print(f"    - Enter {ORACLE_MIN_DELAY}-{ORACLE_WINDOW}s AFTER close | direction KNOWN")
+        print(f"    - Entry: up to ${ORACLE_MAX_ENTRY:.2f} | GTC orders | ~$0.05+/sh profit")
         print(f"  Size: ${tier:.2f}/trade (auto-scale: $5->$10->$20)")
-        print(f"    - $5 base | $10 after 20 trades >80%WR | $20 after 100 trades >80%WR")
         print(f"  Scan: every {SCAN_INTERVAL}s | Daily loss limit: ${DAILY_LOSS_LIMIT:.2f}")
         print(f"  Results: {RESULTS_FILE.name}")
         print("=" * 70)
@@ -847,12 +1082,18 @@ class Sniper5MLive:
                 markets = await self.discover_5m_markets()
                 await self.resolve_trades()
                 await self.check_sniper_entry(markets)
+                await self.check_oracle_entry(markets)
                 self.print_status(markets)
 
                 if cycle % 12 == 0:
                     self._save()
 
-                await asyncio.sleep(SCAN_INTERVAL)
+                # Fast-poll when markets are near close or just closed (oracle window)
+                fast = any(
+                    -ORACLE_WINDOW <= m.get("_time_left_sec", 9999) <= 20
+                    for m in markets
+                )
+                await asyncio.sleep(2 if fast else SCAN_INTERVAL)
 
             except KeyboardInterrupt:
                 print("\n[SHUTDOWN] Saving state...")

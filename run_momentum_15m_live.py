@@ -850,6 +850,35 @@ class Momentum15MTrader:
                     down_tid = token_ids[i]
         return up_tid, down_tid
 
+    def _verify_fill(self, order_id: str, entry_price: float, shares: float,
+                     trade_size: float) -> tuple:
+        """Check if a GTC order has been filled. Returns (filled, price, shares, cost)."""
+        try:
+            order_info = self.client.get_order(order_id)
+            # Handle string response from get_order()
+            if isinstance(order_info, str):
+                try:
+                    order_info = json.loads(order_info)
+                except json.JSONDecodeError:
+                    return (False, entry_price, shares, trade_size)
+            if not isinstance(order_info, dict):
+                return (False, entry_price, shares, trade_size)
+
+            size_matched = float(order_info.get("size_matched", 0) or 0)
+            if size_matched >= MIN_SHARES:
+                # Use actual fill price if available
+                assoc = order_info.get("associate_trades", [])
+                if assoc and assoc[0].get("price"):
+                    entry_price = float(assoc[0]["price"])
+                    trade_size = round(entry_price * size_matched, 2)
+                    shares = size_matched
+                print(f"[LIVE] FILLED: {size_matched:.0f}sh @ ${entry_price:.2f} = ${trade_size:.2f}")
+                return (True, entry_price, shares, trade_size)
+            return (False, entry_price, shares, trade_size)
+        except Exception as e:
+            print(f"[LIVE] Fill check: {e}")
+            return (False, entry_price, shares, trade_size)
+
     # ========================================================================
     # PROMOTION PIPELINE
     # ========================================================================
@@ -1215,10 +1244,11 @@ class Momentum15MTrader:
 
             fill_confirmed = False
             if not self.paper and self.client:
-                # LIVE: Place FOK limit order (Fill Or Kill at max entry_price — fills instantly or fails)
+                # V2.2: GTC limit order + fill polling (FOK was failing on thin books)
                 try:
                     from py_clob_client.clob_types import OrderArgs, OrderType
                     from py_clob_client.order_builder.constants import BUY
+                    import time as _t
 
                     up_tid, down_tid = self.get_token_ids(market)
                     token_id = up_tid if side == "UP" else down_tid
@@ -1226,82 +1256,57 @@ class Momentum15MTrader:
                         print(f"[SKIP] No token ID for {asset}:{side}")
                         continue
 
-                    # Add slippage to sweep multiple price levels
-                    fok_price = min(round(entry_price + FOK_SLIPPAGE, 2), 0.99)
-
-                    # Check orderbook depth before ordering
-                    try:
-                        async with httpx.AsyncClient(timeout=8) as hc:
-                            r = await hc.get("https://clob.polymarket.com/book",
-                                             params={"token_id": token_id})
-                            if r.status_code == 200:
-                                asks = r.json().get("asks", [])
-                                avail = sum(float(a["size"]) for a in asks
-                                            if float(a["price"]) <= fok_price)
-                                if avail < MIN_SHARES:
-                                    print(f"[SKIP] Too thin: {int(avail)}sh available (need {MIN_SHARES})")
-                                    continue
-                                if avail < shares:
-                                    print(f"[DEPTH] Capping {shares} -> {int(avail)}sh")
-                                    shares = int(avail)
-                                    trade_size = round(shares * entry_price, 2)
-                    except Exception:
-                        pass  # proceed with original size
+                    # GTC limit at ask + slippage to be top of book
+                    gtc_price = min(round(entry_price + FOK_SLIPPAGE, 2), 0.99)
 
                     order_args = OrderArgs(
-                        price=fok_price,
+                        price=gtc_price,
                         size=shares,
                         side=BUY,
                         token_id=token_id,
                     )
-                    print(f"[LIVE] FOK {asset} {side} {shares}sh @ limit ${fok_price:.2f} "
-                          f"(ask=${entry_price:.2f})")
+                    spike_tag = f" SPIKE({s15:+.3%})" if spike_boosted else ""
+                    print(f"[LIVE] GTC {asset} {side} {shares}sh @ ${gtc_price:.2f} "
+                          f"(ask=${entry_price:.2f}){spike_tag}")
                     signed = self.client.create_order(order_args)
-                    resp = self.client.post_order(signed, OrderType.FOK)
-                    if resp.get("success"):
-                        order_id = resp.get("orderID", "?")
-                        spike_tag = f" SPIKE({s15:+.3%})" if spike_boosted else ""
-                        print(f"[LIVE] FOK {asset} {side} order {order_id[:20]}... ${trade_size:.2f}{spike_tag}")
-                    else:
-                        print(f"[LIVE] FOK order failed: {resp.get('errorMsg', '?')}")
+                    resp = self.client.post_order(signed, OrderType.GTC)
+
+                    if not resp.get("success"):
+                        print(f"[LIVE] GTC order failed: {resp.get('errorMsg', '?')}")
                         continue
 
-                    # Confirm fill via get_order()
-                    if order_id and order_id != "?":
-                        import time as _t
+                    order_id = resp.get("orderID", "?")
+                    status = resp.get("status", "")
+                    print(f"[LIVE] GTC posted: {order_id[:20]}... status={status}")
+
+                    # If immediately matched, confirm fill
+                    if status == "matched":
                         _t.sleep(1)
-                        try:
-                            order_info = self.client.get_order(order_id)
-                            # CRITICAL: get_order() may return string, not dict
-                            if isinstance(order_info, str):
-                                try:
-                                    order_info = json.loads(order_info)
-                                except json.JSONDecodeError:
-                                    print(f"[LIVE] Fill check parse error — assuming filled (FOK success)")
-                                    fill_confirmed = True
-                                    order_info = {}
-                            if not isinstance(order_info, dict):
-                                order_info = {}
-                            fill_status = (order_info.get("status", "") or "UNKNOWN").upper()
-                            size_matched = float(order_info.get("size_matched", 0) or 0)
-                            if size_matched >= MIN_SHARES:
-                                fill_confirmed = True
-                                # Use actual fill price if available
-                                assoc = order_info.get("associate_trades", [])
-                                if assoc and assoc[0].get("price"):
-                                    entry_price = float(assoc[0]["price"])
-                                    trade_size = round(entry_price * size_matched, 2)
-                                    shares = size_matched
-                                print(f"[LIVE] FILLED: {size_matched:.0f}sh @ ${entry_price:.2f} = ${trade_size:.2f} (status={fill_status})")
-                            else:
-                                print(f"[LIVE] NOT FILLED: status={fill_status} matched={size_matched} — skipping")
-                                continue
-                        except Exception as e:
-                            print(f"[LIVE] Fill check error: {e} — skipping trade")
-                            continue
+                        fill_confirmed, entry_price, shares, trade_size = self._verify_fill(
+                            order_id, entry_price, shares, trade_size)
+                        if not fill_confirmed:
+                            # Matched but can't verify — trust it (GTC matched = filled)
+                            fill_confirmed = True
+                            print(f"[LIVE] Matched — trusting fill {shares}sh @ ${entry_price:.2f}")
                     else:
-                        print(f"[LIVE] No order ID returned — skipping")
-                        continue
+                        # Status is "live" — poll for fill up to 30 seconds
+                        print(f"[LIVE] Polling for fill (30s max)...")
+                        for wait_round in range(6):
+                            _t.sleep(5)
+                            fill_confirmed, entry_price, shares, trade_size = self._verify_fill(
+                                order_id, entry_price, shares, trade_size)
+                            if fill_confirmed:
+                                break
+
+                        if not fill_confirmed:
+                            # Cancel unfilled GTC order
+                            try:
+                                self.client.cancel(order_id)
+                                print(f"[LIVE] Unfilled after 30s — cancelled")
+                            except Exception:
+                                pass
+                            continue
+
                 except Exception as e:
                     print(f"[LIVE] Order error: {e}")
                     continue
