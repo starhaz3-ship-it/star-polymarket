@@ -56,7 +56,7 @@ BID_PRICE = 0.45            # limit bid price for each side (fallback)
 MAX_BID_PRICE = 0.48        # absolute max we'll bid per side
 MIN_COMBINED = 0.94         # skip if our combined bids > this (need 6c+ margin)
 MAX_ASK_SPREAD = 0.15       # V1.2: symmetry filter — skip if |up_ask - dn_ask| > this
-TRADE_SIZE_PER_SIDE = 5.00  # USD per side ($10 total per market)
+TRADE_SIZE_PER_SIDE = 3.00  # USD per side ($6 total per market)
 MIN_SHARES = 5              # CLOB minimum
 DAILY_LOSS_LIMIT = 20.0     # stop if session losses exceed this
 
@@ -136,10 +136,12 @@ class PairsArbBot:
             )
             creds = self.client.derive_api_key()
             self.client.set_api_creds(creds)
-            # Set allowances so we can sell tokens (needed for bail-outs)
+            # COLLATERAL (USDC) allowance at startup — CONDITIONAL needs token_id (set at entry)
             try:
-                self.client.set_allowances()
-                print(f"[CLOB] Allowances set for selling")
+                from py_clob_client.clob_types import BalanceAllowanceParams, AssetType
+                self.client.update_balance_allowance(
+                    BalanceAllowanceParams(asset_type=AssetType.COLLATERAL))
+                print(f"[CLOB] USDC allowance set")
             except Exception as e:
                 print(f"[CLOB] Allowance warning: {e}")
             print(f"[CLOB] Client initialized - LIVE MODE")
@@ -465,14 +467,23 @@ class PairsArbBot:
 
         try:
             info = self.client.get_order(order_id)
-            status = info.get("status", "UNKNOWN").upper()
+            # CRITICAL: get_order() may return a string, not a dict
+            if isinstance(info, str):
+                try:
+                    info = json.loads(info)
+                except json.JSONDecodeError:
+                    return {"filled": False, "size_matched": 0, "error": "parse_error"}
+            if not isinstance(info, dict):
+                return {"filled": False, "size_matched": 0, "error": "bad_type"}
+
+            status = (info.get("status", "") or "UNKNOWN").upper()
             size_matched = float(info.get("size_matched", 0) or 0)
             # "MATCHED" = fully filled, "ACTIVE" = on the book, "CANCELLED" = cancelled
             is_filled = status == "MATCHED" or size_matched >= MIN_SHARES
             fill_price = 0
             try:
                 assoc = info.get("associate_trades", [])
-                if assoc and assoc[0].get("price"):
+                if assoc and isinstance(assoc[0], dict) and assoc[0].get("price"):
                     fill_price = float(assoc[0]["price"])
             except (IndexError, TypeError, ValueError):
                 fill_price = BID_PRICE if is_filled else 0
@@ -483,6 +494,7 @@ class PairsArbBot:
                 "price": fill_price,
             }
         except Exception as e:
+            print(f"  [FILL_CHECK] Error for {order_id[:16]}: {e}")
             return {"filled": False, "size_matched": 0, "error": str(e)}
 
     def cancel_order(self, order_id: str, side_label: str) -> str:
@@ -515,25 +527,16 @@ class PairsArbBot:
 
     def _ensure_sell_allowance(self, token_id: str):
         """Ensure CONDITIONAL token allowance is set for selling.
-        V1.2: More robust — try both asset types, retry on failure."""
-        if self.paper:
+        V1.3: Per-token approval (ERC-1155 requires specific token_id)."""
+        if self.paper or not token_id:
             return
         try:
             from py_clob_client.clob_types import BalanceAllowanceParams, AssetType
-            # Set allowance for CONDITIONAL tokens (required for selling)
             self.client.update_balance_allowance(
                 BalanceAllowanceParams(asset_type=AssetType.CONDITIONAL, token_id=token_id)
             )
         except Exception as e:
-            print(f"  [ALLOWANCE] Conditional failed: {str(e)[:60]}")
-            # Retry with no token_id (global allowance)
-            try:
-                from py_clob_client.clob_types import BalanceAllowanceParams, AssetType
-                self.client.update_balance_allowance(
-                    BalanceAllowanceParams(asset_type=AssetType.CONDITIONAL)
-                )
-            except Exception:
-                pass
+            print(f"  [ALLOWANCE] {str(e)[:80]}")
 
     def place_market_sell(self, token_id: str, shares: float, side_label: str) -> dict:
         """Market-sell shares via GTC limit at aggressive price (bail-out)."""
@@ -548,8 +551,9 @@ class PairsArbBot:
             from py_clob_client.clob_types import OrderArgs, OrderType
             from py_clob_client.order_builder.constants import SELL
 
-            # Set conditional token allowance before selling
+            # V1.3: Aggressive allowance — set ALL methods before selling
             self._ensure_sell_allowance(token_id)
+            time.sleep(1)  # Give chain time to confirm approval
 
             # Sell at slight discount to guarantee fill
             sell_price = round(max(0.30, BID_PRICE - 0.05), 2)  # $0.40
@@ -622,6 +626,27 @@ class PairsArbBot:
             return first_filled, second_filled
         else:
             return second_filled, first_filled
+
+    async def _resolve_binance(self, end_dt) -> str:
+        """Check Binance to determine if BTC went UP or DOWN in this window."""
+        try:
+            start_dt = end_dt - __import__('datetime').timedelta(minutes=15)
+            start_ms = int(start_dt.timestamp() * 1000)
+            end_ms = int(end_dt.timestamp() * 1000)
+            async with httpx.AsyncClient(timeout=15) as client:
+                r = await client.get("https://api.binance.com/api/v3/klines", params={
+                    "symbol": "BTCUSDT", "interval": "15m",
+                    "startTime": start_ms, "endTime": end_ms, "limit": 2,
+                })
+                r.raise_for_status()
+                klines = r.json()
+                if klines:
+                    o = float(klines[0][1])
+                    c = float(klines[0][4])
+                    return "UP" if c >= o else "DOWN"
+        except Exception:
+            pass
+        return "DOWN"  # conservative fallback
 
     # ========================================================================
     # MAIN LOOP
@@ -765,6 +790,11 @@ class PairsArbBot:
             print(f"[ENTER] {question}")
             print(f"  {now_mst} | {time_left:.1f}min left | UP@${up_bid:.2f} DOWN@${dn_bid:.2f}"
                   f" (asks: {up_ask:.2f}/{dn_ask:.2f})")
+
+            # V1.3: Pre-approve sell allowance BEFORE placing orders (ensures bail works)
+            if not self.paper:
+                self._ensure_sell_allowance(up_tid)
+                self._ensure_sell_allowance(down_tid)
 
             # Place GTC limits on both UP and DOWN with dynamic pricing
             up_order = self.place_gtc_limit(up_tid, up_bid, TRADE_SIZE_PER_SIDE, "UP")
@@ -953,16 +983,13 @@ class PairsArbBot:
                                 self.stats["pnl"] += arb["pnl"]
                                 self.session_pnl += arb["pnl"]
                             else:
-                                arb["pnl"] = -s_order["cost"]
-                                arb["status"] = "exposed"
-                                self.stats["losses"] += 1
-                                self.stats["one_sided"] += 1
-                                self.stats["pnl"] += arb["pnl"]
-                                self.session_pnl += arb["pnl"]
-                            self.resolved.append(arb)
-                            to_remove.append(cid)
-                            self._save()
-                            continue
+                                # V1.3: Don't record as full loss — shares still in wallet
+                                # Let it ride to resolution instead of marking dead
+                                print(f"  [HOLD] Bail sell failed — holding to expiry")
+                                arb["status"] = "hedged"  # treat as one-sided hedge
+                                arb["bail_failed"] = True
+                                self._save()
+                                continue  # stay active, resolve at market end
                         else:
                             # Truly neither side filled — clean cancel
                             arb["status"] = "cancelled"
@@ -1038,18 +1065,14 @@ class PairsArbBot:
                               f"= ${sell_result['proceeds']:.2f} (loss: ${bail_loss:.2f})")
                         arb["pnl"] = -bail_loss
                     else:
-                        # All retries failed — mark as exposed with full loss
-                        print(f"  [WARN] Bail sell failed after 3 attempts — exposed")
-                        arb["pnl"] = -filled_order["cost"]
-                        arb["status"] = "exposed"
-                        self.stats["losses"] += 1
-                        self.stats["one_sided"] += 1
-                        self.stats["pnl"] += arb["pnl"]
-                        self.session_pnl += arb["pnl"]
-                        self.resolved.append(arb)
-                        to_remove.append(cid)
+                        # V1.3: All retries failed — hold to expiry instead of marking full loss
+                        # The shares are still in wallet and might win at resolution
+                        print(f"  [HOLD] Bail sell failed after 3 attempts — holding to expiry")
+                        arb["status"] = "hedged"  # treat as one-sided, resolve at market end
+                        arb["bail_failed"] = True
+                        arb["exposed_side"] = filled_side
                         self._save()
-                        continue
+                        continue  # stay active
 
                     arb["status"] = "bailed"
                     arb["bail_result"] = sell_result
@@ -1069,23 +1092,75 @@ class PairsArbBot:
                 try:
                     end_dt = datetime.fromisoformat(end_dt_str)
                     if now > end_dt.timestamp() + 90:  # 90s after close
-                        up_cost = arb["up_order"]["cost"]
-                        dn_cost = arb["down_order"]["cost"]
-                        total_cost = up_cost + dn_cost
-                        hedged_shares = min(arb["up_order"]["shares"], arb["down_order"]["shares"])
-                        payout = hedged_shares  # $1.00/share guaranteed
-                        profit = payout - total_cost
-                        arb["pnl"] = profit
-                        arb["status"] = "resolved_hedged"
-                        self.stats["hedged"] += 1
-                        self.stats["wins"] += 1
-                        self.stats["pnl"] += profit
-                        self.session_pnl += profit
-                        print(f"\n  [PROFIT] {arb['question'][:45]}")
-                        print(f"  Cost=${total_cost:.2f} -> Payout=${payout:.2f} = +${profit:.2f}")
-                        self.resolved.append(arb)
-                        to_remove.append(cid)
-                        self._save()
+
+                        if arb.get("bail_failed"):
+                            # V1.3: One-sided position — resolve based on market outcome
+                            exposed_side = arb.get("exposed_side")
+                            if not exposed_side:
+                                # Figure out which side we hold
+                                if arb.get("up_filled") and not arb.get("down_filled"):
+                                    exposed_side = "UP"
+                                elif arb.get("down_filled") and not arb.get("up_filled"):
+                                    exposed_side = "DOWN"
+                                else:
+                                    exposed_side = "UP"  # fallback
+
+                            filled_key = "up_order" if exposed_side == "UP" else "down_order"
+                            filled_order = arb.get(filled_key, {})
+                            cost = filled_order.get("cost", 3.0)
+                            shares = filled_order.get("shares", 6)
+
+                            # Check market outcome via Binance
+                            try:
+                                outcome = await self._resolve_binance(end_dt)
+                            except Exception:
+                                outcome = None
+
+                            if outcome == exposed_side:
+                                # We won! Shares pay $1.00 each
+                                payout = shares * 1.0
+                                profit = payout - cost
+                                arb["pnl"] = profit
+                                arb["status"] = "resolved_exposed_win"
+                                self.stats["wins"] += 1
+                                print(f"\n  [EXPOSED WIN] {arb['question'][:45]}")
+                                print(f"  Held {exposed_side} {shares}sh, cost=${cost:.2f} "
+                                      f"-> Payout=${payout:.2f} = +${profit:.2f}")
+                            else:
+                                # We lost — shares worth $0
+                                arb["pnl"] = -cost
+                                arb["status"] = "resolved_exposed_loss"
+                                self.stats["losses"] += 1
+                                print(f"\n  [EXPOSED LOSS] {arb['question'][:45]}")
+                                print(f"  Held {exposed_side} {shares}sh, cost=${cost:.2f} -> $0")
+
+                            self.stats["one_sided"] += 1
+                            self.stats["pnl"] += arb["pnl"]
+                            self.session_pnl += arb["pnl"]
+                            self.resolved.append(arb)
+                            to_remove.append(cid)
+                            self._save()
+                        else:
+                            # Normal hedge — guaranteed profit
+                            up_cost = arb["up_order"]["cost"]
+                            dn_cost = arb["down_order"]["cost"]
+                            total_cost = up_cost + dn_cost
+                            hedged_shares = min(arb["up_order"]["shares"],
+                                                arb["down_order"]["shares"])
+                            payout = hedged_shares  # $1.00/share guaranteed
+                            profit = payout - total_cost
+                            arb["pnl"] = profit
+                            arb["status"] = "resolved_hedged"
+                            self.stats["hedged"] += 1
+                            self.stats["wins"] += 1
+                            self.stats["pnl"] += profit
+                            self.session_pnl += profit
+                            print(f"\n  [PROFIT] {arb['question'][:45]}")
+                            print(f"  Cost=${total_cost:.2f} -> Payout=${payout:.2f} "
+                                  f"= +${profit:.2f}")
+                            self.resolved.append(arb)
+                            to_remove.append(cid)
+                            self._save()
                 except Exception:
                     pass
 
