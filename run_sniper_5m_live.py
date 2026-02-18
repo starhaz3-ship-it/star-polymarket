@@ -40,8 +40,8 @@ from pid_lock import acquire_pid_lock, release_pid_lock
 # ============================================================================
 SNIPER_WINDOW = 62          # seconds before close to start looking (front-run whales)
 MIN_CONFIDENCE = 0.70       # minimum ask price to trigger entry
-MAX_ENTRY_PRICE = 0.90      # max entry price (0.70-0.90 profitable, 0.96+ loses)
-BASE_TRADE_SIZE = 5.00      # USD per trade (starting size)
+MAX_ENTRY_PRICE = 0.93      # max entry price (need ~93% WR to break even here)
+BASE_TRADE_SIZE = 20.00     # USD per trade (starting size)
 SCAN_INTERVAL = 5           # seconds between scans
 MAX_CONCURRENT = 1          # only 1 active trade at a time
 DAILY_LOSS_LIMIT = 30.0     # stop trading if daily losses exceed this

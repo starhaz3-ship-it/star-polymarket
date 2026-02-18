@@ -1,0 +1,2498 @@
+{
+  "5M \u2014 All Hours (entry min 3)": {
+    "relaxed": {
+      "trade_count": 586,
+      "win_rate": 62.3,
+      "pnl_at_065": -129.18,
+      "trades": [
+        {
+          "time": "2026-02-18 04:55 UTC",
+          "hour_utc": 4,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0316,
+          "rsi_at_entry": 66.7,
+          "hist_at_entry": 9.035
+        },
+        {
+          "time": "2026-02-18 05:00 UTC",
+          "hour_utc": 5,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0756,
+          "rsi_at_entry": 57.9,
+          "hist_at_entry": -1.8053
+        },
+        {
+          "time": "2026-02-18 05:15 UTC",
+          "hour_utc": 5,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0587,
+          "rsi_at_entry": 66.5,
+          "hist_at_entry": 7.8761
+        },
+        {
+          "time": "2026-02-18 05:45 UTC",
+          "hour_utc": 5,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.1033,
+          "rsi_at_entry": 46.9,
+          "hist_at_entry": 1.5172
+        },
+        {
+          "time": "2026-02-18 06:15 UTC",
+          "hour_utc": 6,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0682,
+          "rsi_at_entry": 62.6,
+          "hist_at_entry": 9.2141
+        },
+        {
+          "time": "2026-02-18 06:25 UTC",
+          "hour_utc": 6,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0084,
+          "rsi_at_entry": 78.4,
+          "hist_at_entry": 11.0395
+        },
+        {
+          "time": "2026-02-18 06:30 UTC",
+          "hour_utc": 6,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0386,
+          "rsi_at_entry": 62.1,
+          "hist_at_entry": -0.582
+        },
+        {
+          "time": "2026-02-18 06:45 UTC",
+          "hour_utc": 6,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0164,
+          "rsi_at_entry": 65.1,
+          "hist_at_entry": 0.0374
+        },
+        {
+          "time": "2026-02-18 07:05 UTC",
+          "hour_utc": 7,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0619,
+          "rsi_at_entry": 41.2,
+          "hist_at_entry": -5.6949
+        },
+        {
+          "time": "2026-02-18 07:50 UTC",
+          "hour_utc": 7,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0214,
+          "rsi_at_entry": 76.6,
+          "hist_at_entry": 9.3816
+        },
+        {
+          "time": "2026-02-18 08:20 UTC",
+          "hour_utc": 8,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0668,
+          "rsi_at_entry": 64.5,
+          "hist_at_entry": 1.3193
+        },
+        {
+          "time": "2026-02-18 08:55 UTC",
+          "hour_utc": 8,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0375,
+          "rsi_at_entry": 41.3,
+          "hist_at_entry": -1.8275
+        },
+        {
+          "time": "2026-02-18 09:15 UTC",
+          "hour_utc": 9,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0348,
+          "rsi_at_entry": 64.9,
+          "hist_at_entry": 21.5547
+        },
+        {
+          "time": "2026-02-18 09:45 UTC",
+          "hour_utc": 9,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.1198,
+          "rsi_at_entry": 59.7,
+          "hist_at_entry": -0.0473
+        },
+        {
+          "time": "2026-02-18 10:05 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0793,
+          "rsi_at_entry": 43.6,
+          "hist_at_entry": -3.6943
+        },
+        {
+          "time": "2026-02-18 10:20 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.011,
+          "rsi_at_entry": 22.5,
+          "hist_at_entry": -11.5613
+        },
+        {
+          "time": "2026-02-18 10:45 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0516,
+          "rsi_at_entry": 26.3,
+          "hist_at_entry": -6.6928
+        },
+        {
+          "time": "2026-02-18 11:10 UTC",
+          "hour_utc": 11,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.3128,
+          "rsi_at_entry": 26.3,
+          "hist_at_entry": -47.9279
+        },
+        {
+          "time": "2026-02-18 13:05 UTC",
+          "hour_utc": 13,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.2228,
+          "rsi_at_entry": 56.6,
+          "hist_at_entry": -1.6904
+        },
+        {
+          "time": "2026-02-18 13:35 UTC",
+          "hour_utc": 13,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0089,
+          "rsi_at_entry": 35.7,
+          "hist_at_entry": -6.657
+        }
+      ]
+    },
+    "strict": {
+      "trade_count": 361,
+      "win_rate": 59.6,
+      "pnl_at_065": -148.08,
+      "trades": [
+        {
+          "time": "2026-02-18 00:25 UTC",
+          "hour_utc": 0,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0743,
+          "rsi_at_entry": 36.2,
+          "hist_at_entry": -15.8911
+        },
+        {
+          "time": "2026-02-18 01:10 UTC",
+          "hour_utc": 1,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0324,
+          "rsi_at_entry": 34.1,
+          "hist_at_entry": -5.7517
+        },
+        {
+          "time": "2026-02-18 01:35 UTC",
+          "hour_utc": 1,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0658,
+          "rsi_at_entry": 40.9,
+          "hist_at_entry": -3.748
+        },
+        {
+          "time": "2026-02-18 02:10 UTC",
+          "hour_utc": 2,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.142,
+          "rsi_at_entry": 65.2,
+          "hist_at_entry": 10.279
+        },
+        {
+          "time": "2026-02-18 02:35 UTC",
+          "hour_utc": 2,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0502,
+          "rsi_at_entry": 63.7,
+          "hist_at_entry": 11.4511
+        },
+        {
+          "time": "2026-02-18 03:35 UTC",
+          "hour_utc": 3,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0023,
+          "rsi_at_entry": 80.0,
+          "hist_at_entry": 7.0579
+        },
+        {
+          "time": "2026-02-18 04:55 UTC",
+          "hour_utc": 4,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0316,
+          "rsi_at_entry": 66.7,
+          "hist_at_entry": 9.035
+        },
+        {
+          "time": "2026-02-18 05:15 UTC",
+          "hour_utc": 5,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0587,
+          "rsi_at_entry": 66.5,
+          "hist_at_entry": 7.8761
+        },
+        {
+          "time": "2026-02-18 05:45 UTC",
+          "hour_utc": 5,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.1033,
+          "rsi_at_entry": 46.9,
+          "hist_at_entry": 1.5172
+        },
+        {
+          "time": "2026-02-18 06:15 UTC",
+          "hour_utc": 6,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0682,
+          "rsi_at_entry": 62.6,
+          "hist_at_entry": 9.2141
+        },
+        {
+          "time": "2026-02-18 06:25 UTC",
+          "hour_utc": 6,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0084,
+          "rsi_at_entry": 78.4,
+          "hist_at_entry": 11.0395
+        },
+        {
+          "time": "2026-02-18 06:30 UTC",
+          "hour_utc": 6,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0386,
+          "rsi_at_entry": 62.1,
+          "hist_at_entry": -0.582
+        },
+        {
+          "time": "2026-02-18 06:45 UTC",
+          "hour_utc": 6,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0164,
+          "rsi_at_entry": 65.1,
+          "hist_at_entry": 0.0374
+        },
+        {
+          "time": "2026-02-18 07:50 UTC",
+          "hour_utc": 7,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0214,
+          "rsi_at_entry": 76.6,
+          "hist_at_entry": 9.3816
+        },
+        {
+          "time": "2026-02-18 08:55 UTC",
+          "hour_utc": 8,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0375,
+          "rsi_at_entry": 41.3,
+          "hist_at_entry": -1.8275
+        },
+        {
+          "time": "2026-02-18 09:15 UTC",
+          "hour_utc": 9,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0348,
+          "rsi_at_entry": 64.9,
+          "hist_at_entry": 21.5547
+        },
+        {
+          "time": "2026-02-18 10:05 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0793,
+          "rsi_at_entry": 43.6,
+          "hist_at_entry": -3.6943
+        },
+        {
+          "time": "2026-02-18 10:20 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.011,
+          "rsi_at_entry": 22.5,
+          "hist_at_entry": -11.5613
+        },
+        {
+          "time": "2026-02-18 10:45 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0516,
+          "rsi_at_entry": 26.3,
+          "hist_at_entry": -6.6928
+        },
+        {
+          "time": "2026-02-18 11:10 UTC",
+          "hour_utc": 11,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.3128,
+          "rsi_at_entry": 26.3,
+          "hist_at_entry": -47.9279
+        }
+      ]
+    }
+  },
+  "5M \u2014 EST 4-10AM / UTC 9-15 (entry min 3)": {
+    "relaxed": {
+      "trade_count": 129,
+      "win_rate": 68.2,
+      "pnl_at_065": 24.74,
+      "trades": [
+        {
+          "time": "2026-02-17 10:35 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0048,
+          "rsi_at_entry": 40.6,
+          "hist_at_entry": 1.113
+        },
+        {
+          "time": "2026-02-17 10:50 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0574,
+          "rsi_at_entry": 36.5,
+          "hist_at_entry": -0.151
+        },
+        {
+          "time": "2026-02-17 11:25 UTC",
+          "hour_utc": 11,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0964,
+          "rsi_at_entry": 43.7,
+          "hist_at_entry": -11.3945
+        },
+        {
+          "time": "2026-02-17 11:45 UTC",
+          "hour_utc": 11,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0924,
+          "rsi_at_entry": 36.3,
+          "hist_at_entry": -7.4387
+        },
+        {
+          "time": "2026-02-17 11:55 UTC",
+          "hour_utc": 11,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0025,
+          "rsi_at_entry": 64.8,
+          "hist_at_entry": 14.6704
+        },
+        {
+          "time": "2026-02-17 12:10 UTC",
+          "hour_utc": 12,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0662,
+          "rsi_at_entry": 75.4,
+          "hist_at_entry": 17.7307
+        },
+        {
+          "time": "2026-02-17 12:50 UTC",
+          "hour_utc": 12,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0488,
+          "rsi_at_entry": 35.3,
+          "hist_at_entry": -24.4148
+        },
+        {
+          "time": "2026-02-17 13:05 UTC",
+          "hour_utc": 13,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.2721,
+          "rsi_at_entry": 41.1,
+          "hist_at_entry": -5.8052
+        },
+        {
+          "time": "2026-02-17 13:25 UTC",
+          "hour_utc": 13,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.3213,
+          "rsi_at_entry": 57.5,
+          "hist_at_entry": 15.3317
+        },
+        {
+          "time": "2026-02-17 13:50 UTC",
+          "hour_utc": 13,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.2693,
+          "rsi_at_entry": 64.8,
+          "hist_at_entry": 26.9665
+        },
+        {
+          "time": "2026-02-17 14:05 UTC",
+          "hour_utc": 14,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0099,
+          "rsi_at_entry": 57.8,
+          "hist_at_entry": 8.4841
+        },
+        {
+          "time": "2026-02-17 14:45 UTC",
+          "hour_utc": 14,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0202,
+          "rsi_at_entry": 17.0,
+          "hist_at_entry": -76.2943
+        },
+        {
+          "time": "2026-02-18 09:15 UTC",
+          "hour_utc": 9,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0348,
+          "rsi_at_entry": 64.9,
+          "hist_at_entry": 21.5547
+        },
+        {
+          "time": "2026-02-18 09:45 UTC",
+          "hour_utc": 9,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.1198,
+          "rsi_at_entry": 59.7,
+          "hist_at_entry": -0.0473
+        },
+        {
+          "time": "2026-02-18 10:05 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0793,
+          "rsi_at_entry": 43.6,
+          "hist_at_entry": -3.6943
+        },
+        {
+          "time": "2026-02-18 10:20 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.011,
+          "rsi_at_entry": 22.5,
+          "hist_at_entry": -11.5613
+        },
+        {
+          "time": "2026-02-18 10:45 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0516,
+          "rsi_at_entry": 26.3,
+          "hist_at_entry": -6.6928
+        },
+        {
+          "time": "2026-02-18 11:10 UTC",
+          "hour_utc": 11,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.3128,
+          "rsi_at_entry": 26.3,
+          "hist_at_entry": -47.9279
+        },
+        {
+          "time": "2026-02-18 13:05 UTC",
+          "hour_utc": 13,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.2228,
+          "rsi_at_entry": 56.6,
+          "hist_at_entry": -1.6904
+        },
+        {
+          "time": "2026-02-18 13:35 UTC",
+          "hour_utc": 13,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0089,
+          "rsi_at_entry": 35.7,
+          "hist_at_entry": -6.657
+        }
+      ]
+    },
+    "strict": {
+      "trade_count": 73,
+      "win_rate": 63.0,
+      "pnl_at_065": -12.4,
+      "trades": [
+        {
+          "time": "2026-02-15 12:50 UTC",
+          "hour_utc": 12,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.5431,
+          "rsi_at_entry": 21.4,
+          "hist_at_entry": -52.079
+        },
+        {
+          "time": "2026-02-16 09:05 UTC",
+          "hour_utc": 9,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.1421,
+          "rsi_at_entry": 59.1,
+          "hist_at_entry": 9.1371
+        },
+        {
+          "time": "2026-02-16 09:40 UTC",
+          "hour_utc": 9,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0354,
+          "rsi_at_entry": 64.7,
+          "hist_at_entry": 2.3757
+        },
+        {
+          "time": "2026-02-16 10:25 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.028,
+          "rsi_at_entry": 28.3,
+          "hist_at_entry": -15.1874
+        },
+        {
+          "time": "2026-02-16 11:15 UTC",
+          "hour_utc": 11,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.1194,
+          "rsi_at_entry": 29.7,
+          "hist_at_entry": -16.4634
+        },
+        {
+          "time": "2026-02-16 12:10 UTC",
+          "hour_utc": 12,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.1064,
+          "rsi_at_entry": 62.4,
+          "hist_at_entry": -3.7405
+        },
+        {
+          "time": "2026-02-16 12:55 UTC",
+          "hour_utc": 12,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0388,
+          "rsi_at_entry": 76.9,
+          "hist_at_entry": 12.1897
+        },
+        {
+          "time": "2026-02-16 13:05 UTC",
+          "hour_utc": 13,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.2819,
+          "rsi_at_entry": 55.3,
+          "hist_at_entry": -10.8603
+        },
+        {
+          "time": "2026-02-17 10:35 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0048,
+          "rsi_at_entry": 40.6,
+          "hist_at_entry": 1.113
+        },
+        {
+          "time": "2026-02-17 10:50 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0574,
+          "rsi_at_entry": 36.5,
+          "hist_at_entry": -0.151
+        },
+        {
+          "time": "2026-02-17 12:10 UTC",
+          "hour_utc": 12,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0662,
+          "rsi_at_entry": 75.4,
+          "hist_at_entry": 17.7307
+        },
+        {
+          "time": "2026-02-17 13:05 UTC",
+          "hour_utc": 13,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.2721,
+          "rsi_at_entry": 41.1,
+          "hist_at_entry": -5.8052
+        },
+        {
+          "time": "2026-02-17 13:25 UTC",
+          "hour_utc": 13,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.3213,
+          "rsi_at_entry": 57.5,
+          "hist_at_entry": 15.3317
+        },
+        {
+          "time": "2026-02-17 13:50 UTC",
+          "hour_utc": 13,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.2693,
+          "rsi_at_entry": 64.8,
+          "hist_at_entry": 26.9665
+        },
+        {
+          "time": "2026-02-17 14:45 UTC",
+          "hour_utc": 14,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0202,
+          "rsi_at_entry": 17.0,
+          "hist_at_entry": -76.2943
+        },
+        {
+          "time": "2026-02-18 09:15 UTC",
+          "hour_utc": 9,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0348,
+          "rsi_at_entry": 64.9,
+          "hist_at_entry": 21.5547
+        },
+        {
+          "time": "2026-02-18 10:05 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0793,
+          "rsi_at_entry": 43.6,
+          "hist_at_entry": -3.6943
+        },
+        {
+          "time": "2026-02-18 10:20 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.011,
+          "rsi_at_entry": 22.5,
+          "hist_at_entry": -11.5613
+        },
+        {
+          "time": "2026-02-18 10:45 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0516,
+          "rsi_at_entry": 26.3,
+          "hist_at_entry": -6.6928
+        },
+        {
+          "time": "2026-02-18 11:10 UTC",
+          "hour_utc": 11,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.3128,
+          "rsi_at_entry": 26.3,
+          "hist_at_entry": -47.9279
+        }
+      ]
+    }
+  },
+  "5M \u2014 All Hours (entry min 4, last 1 min)": {
+    "relaxed": {
+      "trade_count": 629,
+      "win_rate": 49.9,
+      "pnl_at_065": -679.34,
+      "trades": [
+        {
+          "time": "2026-02-18 04:05 UTC",
+          "hour_utc": 4,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.1301,
+          "rsi_at_entry": 46.6,
+          "hist_at_entry": -12.7343
+        },
+        {
+          "time": "2026-02-18 04:10 UTC",
+          "hour_utc": 4,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0497,
+          "rsi_at_entry": 44.6,
+          "hist_at_entry": 0.3217
+        },
+        {
+          "time": "2026-02-18 05:40 UTC",
+          "hour_utc": 5,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.1054,
+          "rsi_at_entry": 30.3,
+          "hist_at_entry": -11.1176
+        },
+        {
+          "time": "2026-02-18 06:15 UTC",
+          "hour_utc": 6,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0682,
+          "rsi_at_entry": 58.0,
+          "hist_at_entry": 5.8508
+        },
+        {
+          "time": "2026-02-18 06:25 UTC",
+          "hour_utc": 6,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0084,
+          "rsi_at_entry": 72.2,
+          "hist_at_entry": 8.9957
+        },
+        {
+          "time": "2026-02-18 06:45 UTC",
+          "hour_utc": 6,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0164,
+          "rsi_at_entry": 64.9,
+          "hist_at_entry": -1.2907
+        },
+        {
+          "time": "2026-02-18 08:15 UTC",
+          "hour_utc": 8,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.1624,
+          "rsi_at_entry": 73.1,
+          "hist_at_entry": 12.9078
+        },
+        {
+          "time": "2026-02-18 08:55 UTC",
+          "hour_utc": 8,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0375,
+          "rsi_at_entry": 43.2,
+          "hist_at_entry": 0.605
+        },
+        {
+          "time": "2026-02-18 09:05 UTC",
+          "hour_utc": 9,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.014,
+          "rsi_at_entry": 29.0,
+          "hist_at_entry": -2.7976
+        },
+        {
+          "time": "2026-02-18 09:35 UTC",
+          "hour_utc": 9,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0126,
+          "rsi_at_entry": 63.5,
+          "hist_at_entry": 3.7548
+        },
+        {
+          "time": "2026-02-18 10:00 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0701,
+          "rsi_at_entry": 27.3,
+          "hist_at_entry": -13.296
+        },
+        {
+          "time": "2026-02-18 10:05 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0793,
+          "rsi_at_entry": 46.7,
+          "hist_at_entry": -0.4379
+        },
+        {
+          "time": "2026-02-18 10:20 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.011,
+          "rsi_at_entry": 27.9,
+          "hist_at_entry": -9.8581
+        },
+        {
+          "time": "2026-02-18 10:25 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.002,
+          "rsi_at_entry": 34.5,
+          "hist_at_entry": -2.5097
+        },
+        {
+          "time": "2026-02-18 10:45 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0516,
+          "rsi_at_entry": 28.5,
+          "hist_at_entry": -3.712
+        },
+        {
+          "time": "2026-02-18 11:10 UTC",
+          "hour_utc": 11,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.3128,
+          "rsi_at_entry": 32.3,
+          "hist_at_entry": -33.0847
+        },
+        {
+          "time": "2026-02-18 12:05 UTC",
+          "hour_utc": 12,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.1337,
+          "rsi_at_entry": 57.2,
+          "hist_at_entry": 15.7102
+        },
+        {
+          "time": "2026-02-18 13:05 UTC",
+          "hour_utc": 13,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.2228,
+          "rsi_at_entry": 57.5,
+          "hist_at_entry": 3.8402
+        },
+        {
+          "time": "2026-02-18 13:35 UTC",
+          "hour_utc": 13,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0089,
+          "rsi_at_entry": 36.9,
+          "hist_at_entry": -4.4954
+        },
+        {
+          "time": "2026-02-18 13:45 UTC",
+          "hour_utc": 13,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.1906,
+          "rsi_at_entry": 17.3,
+          "hist_at_entry": -17.183
+        }
+      ]
+    },
+    "strict": {
+      "trade_count": 390,
+      "win_rate": 43.1,
+      "pnl_at_065": -606.73,
+      "trades": [
+        {
+          "time": "2026-02-17 22:50 UTC",
+          "hour_utc": 22,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0198,
+          "rsi_at_entry": 34.2,
+          "hist_at_entry": -12.156
+        },
+        {
+          "time": "2026-02-17 23:00 UTC",
+          "hour_utc": 23,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0351,
+          "rsi_at_entry": 34.8,
+          "hist_at_entry": -5.3045
+        },
+        {
+          "time": "2026-02-17 23:10 UTC",
+          "hour_utc": 23,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0314,
+          "rsi_at_entry": 36.7,
+          "hist_at_entry": -2.3563
+        },
+        {
+          "time": "2026-02-18 00:25 UTC",
+          "hour_utc": 0,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0743,
+          "rsi_at_entry": 40.6,
+          "hist_at_entry": -13.536
+        },
+        {
+          "time": "2026-02-18 00:45 UTC",
+          "hour_utc": 0,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.1412,
+          "rsi_at_entry": 25.5,
+          "hist_at_entry": -21.6516
+        },
+        {
+          "time": "2026-02-18 02:10 UTC",
+          "hour_utc": 2,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.142,
+          "rsi_at_entry": 57.8,
+          "hist_at_entry": 3.882
+        },
+        {
+          "time": "2026-02-18 03:15 UTC",
+          "hour_utc": 3,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0593,
+          "rsi_at_entry": 63.1,
+          "hist_at_entry": 3.3785
+        },
+        {
+          "time": "2026-02-18 03:35 UTC",
+          "hour_utc": 3,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0023,
+          "rsi_at_entry": 69.5,
+          "hist_at_entry": 3.9509
+        },
+        {
+          "time": "2026-02-18 05:40 UTC",
+          "hour_utc": 5,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.1054,
+          "rsi_at_entry": 30.3,
+          "hist_at_entry": -11.1176
+        },
+        {
+          "time": "2026-02-18 06:15 UTC",
+          "hour_utc": 6,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0682,
+          "rsi_at_entry": 58.0,
+          "hist_at_entry": 5.8508
+        },
+        {
+          "time": "2026-02-18 06:25 UTC",
+          "hour_utc": 6,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0084,
+          "rsi_at_entry": 72.2,
+          "hist_at_entry": 8.9957
+        },
+        {
+          "time": "2026-02-18 06:45 UTC",
+          "hour_utc": 6,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0164,
+          "rsi_at_entry": 64.9,
+          "hist_at_entry": -1.2907
+        },
+        {
+          "time": "2026-02-18 08:15 UTC",
+          "hour_utc": 8,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.1624,
+          "rsi_at_entry": 73.1,
+          "hist_at_entry": 12.9078
+        },
+        {
+          "time": "2026-02-18 09:05 UTC",
+          "hour_utc": 9,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.014,
+          "rsi_at_entry": 29.0,
+          "hist_at_entry": -2.7976
+        },
+        {
+          "time": "2026-02-18 10:00 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0701,
+          "rsi_at_entry": 27.3,
+          "hist_at_entry": -13.296
+        },
+        {
+          "time": "2026-02-18 10:20 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.011,
+          "rsi_at_entry": 27.9,
+          "hist_at_entry": -9.8581
+        },
+        {
+          "time": "2026-02-18 10:25 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.002,
+          "rsi_at_entry": 34.5,
+          "hist_at_entry": -2.5097
+        },
+        {
+          "time": "2026-02-18 10:45 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0516,
+          "rsi_at_entry": 28.5,
+          "hist_at_entry": -3.712
+        },
+        {
+          "time": "2026-02-18 11:10 UTC",
+          "hour_utc": 11,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.3128,
+          "rsi_at_entry": 32.3,
+          "hist_at_entry": -33.0847
+        },
+        {
+          "time": "2026-02-18 13:45 UTC",
+          "hour_utc": 13,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.1906,
+          "rsi_at_entry": 17.3,
+          "hist_at_entry": -17.183
+        }
+      ]
+    }
+  },
+  "15M \u2014 All Hours (entry min 8)": {
+    "relaxed": {
+      "trade_count": 196,
+      "win_rate": 26.5,
+      "pnl_at_065": -530.35,
+      "trades": [
+        {
+          "time": "2026-02-17 13:00 UTC",
+          "hour_utc": 13,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.2674,
+          "rsi_at_entry": 41.1,
+          "hist_at_entry": -5.8052
+        },
+        {
+          "time": "2026-02-17 13:45 UTC",
+          "hour_utc": 13,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.1711,
+          "rsi_at_entry": 64.8,
+          "hist_at_entry": 26.9665
+        },
+        {
+          "time": "2026-02-17 14:00 UTC",
+          "hour_utc": 14,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0568,
+          "rsi_at_entry": 57.8,
+          "hist_at_entry": 8.4841
+        },
+        {
+          "time": "2026-02-17 15:45 UTC",
+          "hour_utc": 15,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.5776,
+          "rsi_at_entry": 74.5,
+          "hist_at_entry": 43.839
+        },
+        {
+          "time": "2026-02-17 16:00 UTC",
+          "hour_utc": 16,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.522,
+          "rsi_at_entry": 79.3,
+          "hist_at_entry": 35.6491
+        },
+        {
+          "time": "2026-02-17 17:30 UTC",
+          "hour_utc": 17,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.684,
+          "rsi_at_entry": 38.9,
+          "hist_at_entry": -9.4535
+        },
+        {
+          "time": "2026-02-17 22:30 UTC",
+          "hour_utc": 22,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.1039,
+          "rsi_at_entry": 70.8,
+          "hist_at_entry": 9.0452
+        },
+        {
+          "time": "2026-02-18 01:30 UTC",
+          "hour_utc": 1,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.1833,
+          "rsi_at_entry": 40.9,
+          "hist_at_entry": -3.748
+        },
+        {
+          "time": "2026-02-18 02:30 UTC",
+          "hour_utc": 2,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.2175,
+          "rsi_at_entry": 63.7,
+          "hist_at_entry": 11.4511
+        },
+        {
+          "time": "2026-02-18 03:30 UTC",
+          "hour_utc": 3,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.1381,
+          "rsi_at_entry": 80.0,
+          "hist_at_entry": 7.0579
+        },
+        {
+          "time": "2026-02-18 04:00 UTC",
+          "hour_utc": 4,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0989,
+          "rsi_at_entry": 36.1,
+          "hist_at_entry": -17.5581
+        },
+        {
+          "time": "2026-02-18 04:45 UTC",
+          "hour_utc": 4,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.1906,
+          "rsi_at_entry": 62.7,
+          "hist_at_entry": 1.5424
+        },
+        {
+          "time": "2026-02-18 07:00 UTC",
+          "hour_utc": 7,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.1354,
+          "rsi_at_entry": 41.2,
+          "hist_at_entry": -5.6949
+        },
+        {
+          "time": "2026-02-18 07:45 UTC",
+          "hour_utc": 7,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0477,
+          "rsi_at_entry": 76.6,
+          "hist_at_entry": 9.3816
+        },
+        {
+          "time": "2026-02-18 08:15 UTC",
+          "hour_utc": 8,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.097,
+          "rsi_at_entry": 64.5,
+          "hist_at_entry": 1.3193
+        },
+        {
+          "time": "2026-02-18 10:00 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0094,
+          "rsi_at_entry": 43.6,
+          "hist_at_entry": -3.6943
+        },
+        {
+          "time": "2026-02-18 10:15 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.1794,
+          "rsi_at_entry": 22.5,
+          "hist_at_entry": -11.5613
+        },
+        {
+          "time": "2026-02-18 13:00 UTC",
+          "hour_utc": 13,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.117,
+          "rsi_at_entry": 56.6,
+          "hist_at_entry": -1.6904
+        },
+        {
+          "time": "2026-02-18 13:30 UTC",
+          "hour_utc": 13,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.285,
+          "rsi_at_entry": 35.7,
+          "hist_at_entry": -6.657
+        },
+        {
+          "time": "2026-02-18 14:15 UTC",
+          "hour_utc": 14,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.2887,
+          "rsi_at_entry": 34.4,
+          "hist_at_entry": -15.8568
+        }
+      ]
+    },
+    "strict": {
+      "trade_count": 130,
+      "win_rate": 20.0,
+      "pnl_at_065": -410.77,
+      "trades": [
+        {
+          "time": "2026-02-16 13:00 UTC",
+          "hour_utc": 13,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.1451,
+          "rsi_at_entry": 55.3,
+          "hist_at_entry": -10.8603
+        },
+        {
+          "time": "2026-02-16 18:15 UTC",
+          "hour_utc": 18,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0058,
+          "rsi_at_entry": 69.7,
+          "hist_at_entry": 3.9201
+        },
+        {
+          "time": "2026-02-16 19:15 UTC",
+          "hour_utc": 19,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.019,
+          "rsi_at_entry": 46.0,
+          "hist_at_entry": -4.4265
+        },
+        {
+          "time": "2026-02-16 20:00 UTC",
+          "hour_utc": 20,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0599,
+          "rsi_at_entry": 41.8,
+          "hist_at_entry": -5.5048
+        },
+        {
+          "time": "2026-02-16 20:30 UTC",
+          "hour_utc": 20,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.015,
+          "rsi_at_entry": 57.8,
+          "hist_at_entry": -4.257
+        },
+        {
+          "time": "2026-02-17 00:45 UTC",
+          "hour_utc": 0,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0178,
+          "rsi_at_entry": 67.5,
+          "hist_at_entry": 9.2016
+        },
+        {
+          "time": "2026-02-17 10:30 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.1906,
+          "rsi_at_entry": 40.6,
+          "hist_at_entry": 1.113
+        },
+        {
+          "time": "2026-02-17 10:45 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0862,
+          "rsi_at_entry": 36.5,
+          "hist_at_entry": -0.151
+        },
+        {
+          "time": "2026-02-17 13:00 UTC",
+          "hour_utc": 13,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.2674,
+          "rsi_at_entry": 41.1,
+          "hist_at_entry": -5.8052
+        },
+        {
+          "time": "2026-02-17 13:45 UTC",
+          "hour_utc": 13,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.1711,
+          "rsi_at_entry": 64.8,
+          "hist_at_entry": 26.9665
+        },
+        {
+          "time": "2026-02-17 15:45 UTC",
+          "hour_utc": 15,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.5776,
+          "rsi_at_entry": 74.5,
+          "hist_at_entry": 43.839
+        },
+        {
+          "time": "2026-02-17 16:00 UTC",
+          "hour_utc": 16,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.522,
+          "rsi_at_entry": 79.3,
+          "hist_at_entry": 35.6491
+        },
+        {
+          "time": "2026-02-17 22:30 UTC",
+          "hour_utc": 22,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.1039,
+          "rsi_at_entry": 70.8,
+          "hist_at_entry": 9.0452
+        },
+        {
+          "time": "2026-02-18 01:30 UTC",
+          "hour_utc": 1,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.1833,
+          "rsi_at_entry": 40.9,
+          "hist_at_entry": -3.748
+        },
+        {
+          "time": "2026-02-18 02:30 UTC",
+          "hour_utc": 2,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.2175,
+          "rsi_at_entry": 63.7,
+          "hist_at_entry": 11.4511
+        },
+        {
+          "time": "2026-02-18 03:30 UTC",
+          "hour_utc": 3,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.1381,
+          "rsi_at_entry": 80.0,
+          "hist_at_entry": 7.0579
+        },
+        {
+          "time": "2026-02-18 07:45 UTC",
+          "hour_utc": 7,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0477,
+          "rsi_at_entry": 76.6,
+          "hist_at_entry": 9.3816
+        },
+        {
+          "time": "2026-02-18 10:00 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0094,
+          "rsi_at_entry": 43.6,
+          "hist_at_entry": -3.6943
+        },
+        {
+          "time": "2026-02-18 10:15 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.1794,
+          "rsi_at_entry": 22.5,
+          "hist_at_entry": -11.5613
+        },
+        {
+          "time": "2026-02-18 14:15 UTC",
+          "hour_utc": 14,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.2887,
+          "rsi_at_entry": 34.4,
+          "hist_at_entry": -15.8568
+        }
+      ]
+    }
+  },
+  "15M \u2014 EST 4-10AM / UTC 9-15 (entry min 8)": {
+    "relaxed": {
+      "trade_count": 47,
+      "win_rate": 25.5,
+      "pnl_at_065": -130.44,
+      "trades": [
+        {
+          "time": "2026-02-14 10:00 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0916,
+          "rsi_at_entry": 38.5,
+          "hist_at_entry": -6.4242
+        },
+        {
+          "time": "2026-02-14 14:15 UTC",
+          "hour_utc": 14,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0065,
+          "rsi_at_entry": 53.2,
+          "hist_at_entry": 10.9209
+        },
+        {
+          "time": "2026-02-15 11:30 UTC",
+          "hour_utc": 11,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0302,
+          "rsi_at_entry": 28.7,
+          "hist_at_entry": -5.0443
+        },
+        {
+          "time": "2026-02-15 12:45 UTC",
+          "hour_utc": 12,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -1.3474,
+          "rsi_at_entry": 21.4,
+          "hist_at_entry": -52.079
+        },
+        {
+          "time": "2026-02-16 09:00 UTC",
+          "hour_utc": 9,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.1791,
+          "rsi_at_entry": 59.1,
+          "hist_at_entry": 9.1371
+        },
+        {
+          "time": "2026-02-16 10:00 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0678,
+          "rsi_at_entry": 33.1,
+          "hist_at_entry": -11.6878
+        },
+        {
+          "time": "2026-02-16 13:00 UTC",
+          "hour_utc": 13,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.1451,
+          "rsi_at_entry": 55.3,
+          "hist_at_entry": -10.8603
+        },
+        {
+          "time": "2026-02-16 13:15 UTC",
+          "hour_utc": 13,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -1.5087,
+          "rsi_at_entry": 32.7,
+          "hist_at_entry": -49.9363
+        },
+        {
+          "time": "2026-02-17 09:00 UTC",
+          "hour_utc": 9,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.1005,
+          "rsi_at_entry": 57.5,
+          "hist_at_entry": 15.0969
+        },
+        {
+          "time": "2026-02-17 10:30 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.1906,
+          "rsi_at_entry": 40.6,
+          "hist_at_entry": 1.113
+        },
+        {
+          "time": "2026-02-17 10:45 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0862,
+          "rsi_at_entry": 36.5,
+          "hist_at_entry": -0.151
+        },
+        {
+          "time": "2026-02-17 12:45 UTC",
+          "hour_utc": 12,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.3823,
+          "rsi_at_entry": 35.3,
+          "hist_at_entry": -24.4148
+        },
+        {
+          "time": "2026-02-17 13:00 UTC",
+          "hour_utc": 13,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.2674,
+          "rsi_at_entry": 41.1,
+          "hist_at_entry": -5.8052
+        },
+        {
+          "time": "2026-02-17 13:45 UTC",
+          "hour_utc": 13,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.1711,
+          "rsi_at_entry": 64.8,
+          "hist_at_entry": 26.9665
+        },
+        {
+          "time": "2026-02-17 14:00 UTC",
+          "hour_utc": 14,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0568,
+          "rsi_at_entry": 57.8,
+          "hist_at_entry": 8.4841
+        },
+        {
+          "time": "2026-02-18 10:00 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0094,
+          "rsi_at_entry": 43.6,
+          "hist_at_entry": -3.6943
+        },
+        {
+          "time": "2026-02-18 10:15 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.1794,
+          "rsi_at_entry": 22.5,
+          "hist_at_entry": -11.5613
+        },
+        {
+          "time": "2026-02-18 13:00 UTC",
+          "hour_utc": 13,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.117,
+          "rsi_at_entry": 56.6,
+          "hist_at_entry": -1.6904
+        },
+        {
+          "time": "2026-02-18 13:30 UTC",
+          "hour_utc": 13,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.285,
+          "rsi_at_entry": 35.7,
+          "hist_at_entry": -6.657
+        },
+        {
+          "time": "2026-02-18 14:15 UTC",
+          "hour_utc": 14,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.2887,
+          "rsi_at_entry": 34.4,
+          "hist_at_entry": -15.8568
+        }
+      ]
+    },
+    "strict": {
+      "trade_count": 31,
+      "win_rate": 19.4,
+      "pnl_at_065": -99.34,
+      "trades": [
+        {
+          "time": "2026-02-10 14:15 UTC",
+          "hour_utc": 14,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.1321,
+          "rsi_at_entry": 68.0,
+          "hist_at_entry": 19.6706
+        },
+        {
+          "time": "2026-02-11 10:30 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.1987,
+          "rsi_at_entry": 35.2,
+          "hist_at_entry": -24.2183
+        },
+        {
+          "time": "2026-02-11 14:45 UTC",
+          "hour_utc": 14,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.9694,
+          "rsi_at_entry": 33.8,
+          "hist_at_entry": -5.6582
+        },
+        {
+          "time": "2026-02-12 09:30 UTC",
+          "hour_utc": 9,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.1861,
+          "rsi_at_entry": 68.9,
+          "hist_at_entry": 7.668
+        },
+        {
+          "time": "2026-02-12 10:30 UTC",
+          "hour_utc": 10,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0831,
+          "rsi_at_entry": 70.0,
+          "hist_at_entry": 18.0666
+        },
+        {
+          "time": "2026-02-12 12:00 UTC",
+          "hour_utc": 12,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.079,
+          "rsi_at_entry": 32.6,
+          "hist_at_entry": -19.9086
+        },
+        {
+          "time": "2026-02-13 09:30 UTC",
+          "hour_utc": 9,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0575,
+          "rsi_at_entry": 60.4,
+          "hist_at_entry": 3.8293
+        },
+        {
+          "time": "2026-02-13 09:45 UTC",
+          "hour_utc": 9,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.151,
+          "rsi_at_entry": 66.0,
+          "hist_at_entry": 2.2164
+        },
+        {
+          "time": "2026-02-13 13:30 UTC",
+          "hour_utc": 13,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0532,
+          "rsi_at_entry": 55.4,
+          "hist_at_entry": -3.8442
+        },
+        {
+          "time": "2026-02-15 11:30 UTC",
+          "hour_utc": 11,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0302,
+          "rsi_at_entry": 28.7,
+          "hist_at_entry": -5.0443
+        },
+        {
+          "time": "2026-02-15 12:45 UTC",
+          "hour_utc": 12,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -1.3474,
+          "rsi_at_entry": 21.4,
+          "hist_at_entry": -52.079
+        },
+        {
+          "time": "2026-02-16 09:00 UTC",
+          "hour_utc": 9,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.1791,
+          "rsi_at_entry": 59.1,
+          "hist_at_entry": 9.1371
+        },
+        {
+          "time": "2026-02-16 13:00 UTC",
+          "hour_utc": 13,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.1451,
+          "rsi_at_entry": 55.3,
+          "hist_at_entry": -10.8603
+        },
+        {
+          "time": "2026-02-17 10:30 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.1906,
+          "rsi_at_entry": 40.6,
+          "hist_at_entry": 1.113
+        },
+        {
+          "time": "2026-02-17 10:45 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0862,
+          "rsi_at_entry": 36.5,
+          "hist_at_entry": -0.151
+        },
+        {
+          "time": "2026-02-17 13:00 UTC",
+          "hour_utc": 13,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.2674,
+          "rsi_at_entry": 41.1,
+          "hist_at_entry": -5.8052
+        },
+        {
+          "time": "2026-02-17 13:45 UTC",
+          "hour_utc": 13,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.1711,
+          "rsi_at_entry": 64.8,
+          "hist_at_entry": 26.9665
+        },
+        {
+          "time": "2026-02-18 10:00 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0094,
+          "rsi_at_entry": 43.6,
+          "hist_at_entry": -3.6943
+        },
+        {
+          "time": "2026-02-18 10:15 UTC",
+          "hour_utc": 10,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.1794,
+          "rsi_at_entry": 22.5,
+          "hist_at_entry": -11.5613
+        },
+        {
+          "time": "2026-02-18 14:15 UTC",
+          "hour_utc": 14,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.2887,
+          "rsi_at_entry": 34.4,
+          "hist_at_entry": -15.8568
+        }
+      ]
+    }
+  },
+  "15M \u2014 All Hours (entry min 10)": {
+    "relaxed": {
+      "trade_count": 260,
+      "win_rate": 15.4,
+      "pnl_at_065": -904.96,
+      "trades": [
+        {
+          "time": "2026-02-17 12:00 UTC",
+          "hour_utc": 12,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.3146,
+          "rsi_at_entry": 78.1,
+          "hist_at_entry": 26.8288
+        },
+        {
+          "time": "2026-02-17 12:30 UTC",
+          "hour_utc": 12,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.1062,
+          "rsi_at_entry": 60.0,
+          "hist_at_entry": 2.7681
+        },
+        {
+          "time": "2026-02-17 14:00 UTC",
+          "hour_utc": 14,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.0568,
+          "rsi_at_entry": 53.2,
+          "hist_at_entry": 1.2597
+        },
+        {
+          "time": "2026-02-17 14:45 UTC",
+          "hour_utc": 14,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.341,
+          "rsi_at_entry": 26.1,
+          "hist_at_entry": -2.6034
+        },
+        {
+          "time": "2026-02-17 16:00 UTC",
+          "hour_utc": 16,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.522,
+          "rsi_at_entry": 66.9,
+          "hist_at_entry": 7.5177
+        },
+        {
+          "time": "2026-02-17 16:30 UTC",
+          "hour_utc": 16,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.2507,
+          "rsi_at_entry": 57.0,
+          "hist_at_entry": 27.1669
+        },
+        {
+          "time": "2026-02-17 19:30 UTC",
+          "hour_utc": 19,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.1629,
+          "rsi_at_entry": 46.4,
+          "hist_at_entry": -4.259
+        },
+        {
+          "time": "2026-02-17 19:45 UTC",
+          "hour_utc": 19,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.2904,
+          "rsi_at_entry": 43.8,
+          "hist_at_entry": -7.1413
+        },
+        {
+          "time": "2026-02-17 22:30 UTC",
+          "hour_utc": 22,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.1039,
+          "rsi_at_entry": 60.1,
+          "hist_at_entry": 3.115
+        },
+        {
+          "time": "2026-02-17 22:45 UTC",
+          "hour_utc": 22,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.1507,
+          "rsi_at_entry": 37.5,
+          "hist_at_entry": -10.0626
+        },
+        {
+          "time": "2026-02-18 00:45 UTC",
+          "hour_utc": 0,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.2333,
+          "rsi_at_entry": 23.5,
+          "hist_at_entry": -12.5121
+        },
+        {
+          "time": "2026-02-18 02:30 UTC",
+          "hour_utc": 2,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.2175,
+          "rsi_at_entry": 64.4,
+          "hist_at_entry": 9.109
+        },
+        {
+          "time": "2026-02-18 03:30 UTC",
+          "hour_utc": 3,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.1381,
+          "rsi_at_entry": 64.7,
+          "hist_at_entry": 0.4472
+        },
+        {
+          "time": "2026-02-18 04:00 UTC",
+          "hour_utc": 4,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0989,
+          "rsi_at_entry": 60.5,
+          "hist_at_entry": -4.2449
+        },
+        {
+          "time": "2026-02-18 07:15 UTC",
+          "hour_utc": 7,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0111,
+          "rsi_at_entry": 29.6,
+          "hist_at_entry": -5.2932
+        },
+        {
+          "time": "2026-02-18 07:45 UTC",
+          "hour_utc": 7,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0477,
+          "rsi_at_entry": 75.3,
+          "hist_at_entry": 1.0416
+        },
+        {
+          "time": "2026-02-18 08:30 UTC",
+          "hour_utc": 8,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.172,
+          "rsi_at_entry": 37.8,
+          "hist_at_entry": -22.221
+        },
+        {
+          "time": "2026-02-18 09:00 UTC",
+          "hour_utc": 9,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0881,
+          "rsi_at_entry": 33.4,
+          "hist_at_entry": -1.2311
+        },
+        {
+          "time": "2026-02-18 09:30 UTC",
+          "hour_utc": 9,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.1851,
+          "rsi_at_entry": 62.3,
+          "hist_at_entry": 2.9948
+        },
+        {
+          "time": "2026-02-18 12:00 UTC",
+          "hour_utc": 12,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.331,
+          "rsi_at_entry": 56.0,
+          "hist_at_entry": 12.8881
+        }
+      ]
+    },
+    "strict": {
+      "trade_count": 173,
+      "win_rate": 9.8,
+      "pnl_at_065": -668.98,
+      "trades": [
+        {
+          "time": "2026-02-16 18:30 UTC",
+          "hour_utc": 18,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.1958,
+          "rsi_at_entry": 38.5,
+          "hist_at_entry": -19.9665
+        },
+        {
+          "time": "2026-02-16 19:30 UTC",
+          "hour_utc": 19,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.1854,
+          "rsi_at_entry": 67.1,
+          "hist_at_entry": 8.0198
+        },
+        {
+          "time": "2026-02-16 20:45 UTC",
+          "hour_utc": 20,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.4279,
+          "rsi_at_entry": 74.9,
+          "hist_at_entry": 18.012
+        },
+        {
+          "time": "2026-02-16 23:45 UTC",
+          "hour_utc": 23,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.3022,
+          "rsi_at_entry": 76.1,
+          "hist_at_entry": 18.4929
+        },
+        {
+          "time": "2026-02-17 00:45 UTC",
+          "hour_utc": 0,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0178,
+          "rsi_at_entry": 48.9,
+          "hist_at_entry": -1.1886
+        },
+        {
+          "time": "2026-02-17 03:00 UTC",
+          "hour_utc": 3,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.1634,
+          "rsi_at_entry": 25.7,
+          "hist_at_entry": -16.4158
+        },
+        {
+          "time": "2026-02-17 04:00 UTC",
+          "hour_utc": 4,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.1652,
+          "rsi_at_entry": 51.8,
+          "hist_at_entry": 3.3153
+        },
+        {
+          "time": "2026-02-17 09:15 UTC",
+          "hour_utc": 9,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.1141,
+          "rsi_at_entry": 38.6,
+          "hist_at_entry": -6.2345
+        },
+        {
+          "time": "2026-02-17 12:00 UTC",
+          "hour_utc": 12,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.3146,
+          "rsi_at_entry": 78.1,
+          "hist_at_entry": 26.8288
+        },
+        {
+          "time": "2026-02-17 12:30 UTC",
+          "hour_utc": 12,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.1062,
+          "rsi_at_entry": 60.0,
+          "hist_at_entry": 2.7681
+        },
+        {
+          "time": "2026-02-17 14:45 UTC",
+          "hour_utc": 14,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.341,
+          "rsi_at_entry": 26.1,
+          "hist_at_entry": -2.6034
+        },
+        {
+          "time": "2026-02-17 16:00 UTC",
+          "hour_utc": 16,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.522,
+          "rsi_at_entry": 66.9,
+          "hist_at_entry": 7.5177
+        },
+        {
+          "time": "2026-02-17 16:30 UTC",
+          "hour_utc": 16,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.2507,
+          "rsi_at_entry": 57.0,
+          "hist_at_entry": 27.1669
+        },
+        {
+          "time": "2026-02-17 22:30 UTC",
+          "hour_utc": 22,
+          "signal": "DOWN",
+          "actual": "DOWN",
+          "win": true,
+          "pct_move": -0.1039,
+          "rsi_at_entry": 60.1,
+          "hist_at_entry": 3.115
+        },
+        {
+          "time": "2026-02-17 22:45 UTC",
+          "hour_utc": 22,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.1507,
+          "rsi_at_entry": 37.5,
+          "hist_at_entry": -10.0626
+        },
+        {
+          "time": "2026-02-18 00:45 UTC",
+          "hour_utc": 0,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.2333,
+          "rsi_at_entry": 23.5,
+          "hist_at_entry": -12.5121
+        },
+        {
+          "time": "2026-02-18 03:30 UTC",
+          "hour_utc": 3,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.1381,
+          "rsi_at_entry": 64.7,
+          "hist_at_entry": 0.4472
+        },
+        {
+          "time": "2026-02-18 07:15 UTC",
+          "hour_utc": 7,
+          "signal": "UP",
+          "actual": "DOWN",
+          "win": false,
+          "pct_move": -0.0111,
+          "rsi_at_entry": 29.6,
+          "hist_at_entry": -5.2932
+        },
+        {
+          "time": "2026-02-18 07:45 UTC",
+          "hour_utc": 7,
+          "signal": "DOWN",
+          "actual": "UP",
+          "win": false,
+          "pct_move": 0.0477,
+          "rsi_at_entry": 75.3,
+          "hist_at_entry": 1.0416
+        },
+        {
+          "time": "2026-02-18 09:00 UTC",
+          "hour_utc": 9,
+          "signal": "UP",
+          "actual": "UP",
+          "win": true,
+          "pct_move": 0.0881,
+          "rsi_at_entry": 33.4,
+          "hist_at_entry": -1.2311
+        }
+      ]
+    }
+  }
+}

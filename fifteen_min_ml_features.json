@@ -899,6 +899,222 @@
     "strength": 0.3729923691783244
    },
    "won": true
+  },
+  {
+   "features": {
+    "conf": 0.9045734619380852,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 5.0,
+    "edge": 0.31593660663078316,
+    "strength": 0.9045734619380852
+   },
+   "won": false
+  },
+  {
+   "features": {
+    "conf": 0.52220442808947,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 5.0,
+    "edge": 0.21407328649537138,
+    "strength": 0.52220442808947
+   },
+   "won": false
+  },
+  {
+   "features": {
+    "conf": 0.5163045425909221,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 5.0,
+    "edge": 0.07554023050283742,
+    "strength": 0.5163045425909221
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.45393070992920787,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 6.0,
+    "edge": 0.06976809897985647,
+    "strength": 0.45393070992920787
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.635091886066909,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 6.0,
+    "edge": 0.3452328325728793,
+    "strength": 0.635091886066909
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.7204608128216717,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 6.0,
+    "edge": 0.2780652004112353,
+    "strength": 0.7204608128216717
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.676057574135178,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 6.0,
+    "edge": 0.24721877292722638,
+    "strength": 0.676057574135178
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.6533598576705912,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 6.0,
+    "edge": 0.15484743654542488,
+    "strength": 0.6533598576705912
+   },
+   "won": false
+  },
+  {
+   "features": {
+    "conf": 0.42587428247625114,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 7.0,
+    "edge": 0.08090615772971688,
+    "strength": 0.42587428247625114
+   },
+   "won": false
+  },
+  {
+   "features": {
+    "conf": 0.12008715346285292,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 8.0,
+    "edge": 0.20098833954732698,
+    "strength": 0.12008715346285292
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.6500836748944921,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 8.0,
+    "edge": 0.04051304701850045,
+    "strength": 0.6500836748944921
+   },
+   "won": false
+  },
+  {
+   "features": {
+    "conf": 0.6091922948931836,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 9.0,
+    "edge": 0.4509661690169734,
+    "strength": 0.6091922948931836
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.6437960959475715,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 9.0,
+    "edge": 0.03387561817938489,
+    "strength": 0.6437960959475715
+   },
+   "won": false
+  },
+  {
+   "features": {
+    "conf": 0.5604892489784461,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 9.0,
+    "edge": 0.11402173018244266,
+    "strength": 0.5604892489784461
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.4626505891547139,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 12.0,
+    "edge": 0.13318553468124916,
+    "strength": 0.4626505891547139
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.5249612262733021,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 12.0,
+    "edge": 0.10914008003568554,
+    "strength": 0.5249612262733021
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.607726117612416,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 13.0,
+    "edge": 0.1295143204711121,
+    "strength": 0.607726117612416
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.7356292861104723,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 14.0,
+    "edge": 0.21858146603870288,
+    "strength": 0.7356292861104723
+   },
+   "won": false
   }
  ]
 }
