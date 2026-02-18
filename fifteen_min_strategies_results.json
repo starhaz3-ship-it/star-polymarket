@@ -26,14 +26,14 @@
       "pnl": 32.14
     },
     "FIB_EMA_CONFIRM": {
-      "wins": 5,
-      "losses": 4,
-      "pnl": 24.720000000000002
+      "wins": 6,
+      "losses": 5,
+      "pnl": 26.220000000000006
     },
     "_total": {
-      "wins": 59,
-      "losses": 33,
-      "pnl": 291.46000000000004
+      "wins": 60,
+      "losses": 34,
+      "pnl": 292.96000000000004
     }
   },
   "resolved": [
@@ -2888,8 +2888,70 @@
       "pnl": -4.99,
       "exit_price": 0.0,
       "exit_time": "2026-02-18T16:35:42.269654+00:00"
+    },
+    {
+      "side": "DOWN",
+      "entry_price": 0.45499999999999996,
+      "size_usd": 7.57,
+      "entry_time": "2026-02-18T18:43:11.845876+00:00",
+      "condition_id": "0x693e9fd2d8ac2c0f2a42bbaa7c74c6920dc830426fe804fd22adccce2b6f2067",
+      "market_numeric_id": "1389633",
+      "title": "Bitcoin Up or Down - February 18, 1:30PM-1:45PM ET",
+      "strategy": "FIB_EMA_CONFIRM",
+      "edge": 0.1665,
+      "fair_px": 0.6215,
+      "strength": 0.409,
+      "reason": "fib_ema_short",
+      "btc_price": 66401.66,
+      "detail": "conf=0.79 ema=bear rsi=30",
+      "tte_seconds": 108,
+      "ml_features": {
+        "conf": 0.79,
+        "ema_gap": -0.002359970978245037,
+        "rsi": 29.707141229010148,
+        "atr_pct": 0.0015653115556792288,
+        "hour_utc": 18.0,
+        "edge": 0.16653127627482578,
+        "strength": 0.40909090909090945
+      },
+      "ml_prob": 0.76,
+      "status": "closed",
+      "pnl": 9.07,
+      "exit_price": 1.0,
+      "exit_time": "2026-02-18T18:59:15.925008+00:00"
+    },
+    {
+      "side": "DOWN",
+      "entry_price": 0.235,
+      "size_usd": 7.57,
+      "entry_time": "2026-02-18T18:53:11.041017+00:00",
+      "condition_id": "0xca5fcabf2376fc3af17a3808ae6f5c827495ad180cc4db7a4da415337987aef7",
+      "market_numeric_id": "1389642",
+      "title": "Bitcoin Up or Down - February 18, 1:45PM-2:00PM ET",
+      "strategy": "FIB_EMA_CONFIRM",
+      "edge": 0.4233,
+      "fair_px": 0.6583,
+      "strength": 0.409,
+      "reason": "fib_ema_short",
+      "btc_price": 66291.35,
+      "detail": "conf=0.79 ema=bear rsi=23",
+      "tte_seconds": 408,
+      "ml_features": {
+        "conf": 0.79,
+        "ema_gap": -0.00327673934488384,
+        "rsi": 23.312590618048887,
+        "atr_pct": 0.0017671665631014536,
+        "hour_utc": 18.0,
+        "edge": 0.42330218034651523,
+        "strength": 0.40909090909090945
+      },
+      "ml_prob": 0.784,
+      "status": "closed",
+      "pnl": -7.57,
+      "exit_price": 0.0,
+      "exit_time": "2026-02-18T19:09:13.524607+00:00"
     }
   ],
   "active": {},
-  "last_updated": "2026-02-18T17:29:59.574792+00:00"
+  "last_updated": "2026-02-18T19:09:14.314892+00:00"
 }

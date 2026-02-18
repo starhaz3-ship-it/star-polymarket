@@ -1,0 +1,439 @@
+{
+  "mom_baseline": {
+    "signals": 3082,
+    "correct": 2574,
+    "win_rate": 83.51719662556782,
+    "pnl": 20660.0,
+    "avg_pnl_per_trade": 6.703439325113562,
+    "params": {
+      "mom_10m": 0.08,
+      "mom_5m": 0.03,
+      "rsi_up": 55,
+      "rsi_dn": 45,
+      "ema_gap": 2,
+      "entry_min": 2,
+      "skip_hours": [
+        13,
+        7
+      ]
+    }
+  },
+  "mom_aggressive": {
+    "signals": 3611,
+    "correct": 2982,
+    "win_rate": 82.58100249238439,
+    "pnl": 23530.0,
+    "avg_pnl_per_trade": 6.516200498476876,
+    "params": {
+      "mom_10m": 0.05,
+      "mom_5m": 0.02,
+      "rsi_up": 55,
+      "rsi_dn": 45,
+      "ema_gap": 2,
+      "entry_min": 2,
+      "skip_hours": [
+        13,
+        7
+      ]
+    }
+  },
+  "mom_conservative": {
+    "signals": 2309,
+    "correct": 1944,
+    "win_rate": 84.19229103508013,
+    "pnl": 15790.0,
+    "avg_pnl_per_trade": 6.838458207016024,
+    "params": {
+      "mom_10m": 0.12,
+      "mom_5m": 0.05,
+      "rsi_up": 55,
+      "rsi_dn": 45,
+      "ema_gap": 2,
+      "entry_min": 2,
+      "skip_hours": [
+        13,
+        7
+      ]
+    }
+  },
+  "mom_strong": {
+    "signals": 1333,
+    "correct": 1168,
+    "win_rate": 87.6219054763691,
+    "pnl": 10030.0,
+    "avg_pnl_per_trade": 7.524381095273818,
+    "params": {
+      "mom_10m": 0.2,
+      "mom_5m": 0.08,
+      "rsi_up": 55,
+      "rsi_dn": 45,
+      "ema_gap": 2,
+      "entry_min": 2,
+      "skip_hours": [
+        13,
+        7
+      ]
+    }
+  },
+  "rsi_none": {
+    "signals": 3269,
+    "correct": 2690,
+    "win_rate": 82.28816151728357,
+    "pnl": 21110.0,
+    "avg_pnl_per_trade": 6.457632303456714,
+    "params": {
+      "mom_10m": 0.08,
+      "mom_5m": 0.03,
+      "rsi_up": null,
+      "rsi_dn": null,
+      "ema_gap": 2,
+      "entry_min": 2,
+      "skip_hours": [
+        13,
+        7
+      ]
+    }
+  },
+  "rsi_current": {
+    "signals": 3082,
+    "correct": 2574,
+    "win_rate": 83.51719662556782,
+    "pnl": 20660.0,
+    "avg_pnl_per_trade": 6.703439325113562,
+    "params": {
+      "mom_10m": 0.08,
+      "mom_5m": 0.03,
+      "rsi_up": 55,
+      "rsi_dn": 45,
+      "ema_gap": 2,
+      "entry_min": 2,
+      "skip_hours": [
+        13,
+        7
+      ]
+    }
+  },
+  "rsi_extreme": {
+    "signals": 2372,
+    "correct": 1998,
+    "win_rate": 84.2327150084317,
+    "pnl": 16240.0,
+    "avg_pnl_per_trade": 6.8465430016863404,
+    "params": {
+      "mom_10m": 0.08,
+      "mom_5m": 0.03,
+      "rsi_up": 65,
+      "rsi_dn": 35,
+      "ema_gap": 2,
+      "entry_min": 2,
+      "skip_hours": [
+        13,
+        7
+      ]
+    }
+  },
+  "rsi_very_extreme": {
+    "signals": 1774,
+    "correct": 1488,
+    "win_rate": 83.8782412626832,
+    "pnl": 12020.0,
+    "avg_pnl_per_trade": 6.77564825253664,
+    "params": {
+      "mom_10m": 0.08,
+      "mom_5m": 0.03,
+      "rsi_up": 70,
+      "rsi_dn": 30,
+      "ema_gap": 2,
+      "entry_min": 2,
+      "skip_hours": [
+        13,
+        7
+      ]
+    }
+  },
+  "ema_none": {
+    "signals": 3802,
+    "correct": 3157,
+    "win_rate": 83.035244608101,
+    "pnl": 25120.0,
+    "avg_pnl_per_trade": 6.6070489216201995,
+    "params": {
+      "mom_10m": 0.08,
+      "mom_5m": 0.03,
+      "rsi_up": 55,
+      "rsi_dn": 45,
+      "ema_gap": null,
+      "entry_min": 2,
+      "skip_hours": [
+        13,
+        7
+      ]
+    }
+  },
+  "ema_current": {
+    "signals": 3082,
+    "correct": 2574,
+    "win_rate": 83.51719662556782,
+    "pnl": 20660.0,
+    "avg_pnl_per_trade": 6.703439325113562,
+    "params": {
+      "mom_10m": 0.08,
+      "mom_5m": 0.03,
+      "rsi_up": 55,
+      "rsi_dn": 45,
+      "ema_gap": 2,
+      "entry_min": 2,
+      "skip_hours": [
+        13,
+        7
+      ]
+    }
+  },
+  "ema_tight": {
+    "signals": 1907,
+    "correct": 1642,
+    "win_rate": 86.10382800209754,
+    "pnl": 13770.0,
+    "avg_pnl_per_trade": 7.220765600419507,
+    "params": {
+      "mom_10m": 0.08,
+      "mom_5m": 0.03,
+      "rsi_up": 55,
+      "rsi_dn": 45,
+      "ema_gap": 5,
+      "entry_min": 2,
+      "skip_hours": [
+        13,
+        7
+      ]
+    }
+  },
+  "ema_wide": {
+    "signals": 745,
+    "correct": 660,
+    "win_rate": 88.59060402684564,
+    "pnl": 5750.0,
+    "avg_pnl_per_trade": 7.718120805369128,
+    "params": {
+      "mom_10m": 0.08,
+      "mom_5m": 0.03,
+      "rsi_up": 55,
+      "rsi_dn": 45,
+      "ema_gap": 10,
+      "entry_min": 2,
+      "skip_hours": [
+        13,
+        7
+      ]
+    }
+  },
+  "entry_2min": {
+    "signals": 3082,
+    "correct": 2574,
+    "win_rate": 83.51719662556782,
+    "pnl": 20660.0,
+    "avg_pnl_per_trade": 6.703439325113562,
+    "params": {
+      "mom_10m": 0.08,
+      "mom_5m": 0.03,
+      "rsi_up": 55,
+      "rsi_dn": 45,
+      "ema_gap": 2,
+      "entry_min": 2,
+      "skip_hours": [
+        13,
+        7
+      ]
+    }
+  },
+  "entry_5min": {
+    "signals": 3311,
+    "correct": 2690,
+    "win_rate": 81.24433705829055,
+    "pnl": 20690.0,
+    "avg_pnl_per_trade": 6.248867411658109,
+    "params": {
+      "mom_10m": 0.08,
+      "mom_5m": 0.03,
+      "rsi_up": 55,
+      "rsi_dn": 45,
+      "ema_gap": 2,
+      "entry_min": 5,
+      "skip_hours": [
+        13,
+        7
+      ]
+    }
+  },
+  "entry_7min": {
+    "signals": 3297,
+    "correct": 2531,
+    "win_rate": 76.7667576584774,
+    "pnl": 17650.0,
+    "avg_pnl_per_trade": 5.3533515316954805,
+    "params": {
+      "mom_10m": 0.08,
+      "mom_5m": 0.03,
+      "rsi_up": 55,
+      "rsi_dn": 45,
+      "ema_gap": 2,
+      "entry_min": 7,
+      "skip_hours": [
+        13,
+        7
+      ]
+    }
+  },
+  "entry_10min": {
+    "signals": 3273,
+    "correct": 2270,
+    "win_rate": 69.35533150015276,
+    "pnl": 12670.0,
+    "avg_pnl_per_trade": 3.871066300030553,
+    "params": {
+      "mom_10m": 0.08,
+      "mom_5m": 0.03,
+      "rsi_up": 55,
+      "rsi_dn": 45,
+      "ema_gap": 2,
+      "entry_min": 10,
+      "skip_hours": [
+        13,
+        7
+      ]
+    }
+  },
+  "hours_all": {
+    "signals": 3358,
+    "correct": 2793,
+    "win_rate": 83.17450863609291,
+    "pnl": 22280.0,
+    "avg_pnl_per_trade": 6.634901727218582,
+    "params": {
+      "mom_10m": 0.08,
+      "mom_5m": 0.03,
+      "rsi_up": 55,
+      "rsi_dn": 45,
+      "ema_gap": 2,
+      "entry_min": 2,
+      "skip_hours": []
+    }
+  },
+  "hours_skip_7_13": {
+    "signals": 3082,
+    "correct": 2574,
+    "win_rate": 83.51719662556782,
+    "pnl": 20660.0,
+    "avg_pnl_per_trade": 6.703439325113562,
+    "params": {
+      "mom_10m": 0.08,
+      "mom_5m": 0.03,
+      "rsi_up": 55,
+      "rsi_dn": 45,
+      "ema_gap": 2,
+      "entry_min": 2,
+      "skip_hours": [
+        13,
+        7
+      ]
+    }
+  },
+  "hours_skip_7_8_13": {
+    "signals": 2941,
+    "correct": 2461,
+    "win_rate": 83.67902074124447,
+    "pnl": 19810.0,
+    "avg_pnl_per_trade": 6.735804148248895,
+    "params": {
+      "mom_10m": 0.08,
+      "mom_5m": 0.03,
+      "rsi_up": 55,
+      "rsi_dn": 45,
+      "ema_gap": 2,
+      "entry_min": 2,
+      "skip_hours": [
+        8,
+        13,
+        7
+      ]
+    }
+  },
+  "hours_skip_7_to_13": {
+    "signals": 2484,
+    "correct": 2070,
+    "win_rate": 83.33333333333334,
+    "pnl": 16560.0,
+    "avg_pnl_per_trade": 6.666666666666667,
+    "params": {
+      "mom_10m": 0.08,
+      "mom_5m": 0.03,
+      "rsi_up": 55,
+      "rsi_dn": 45,
+      "ema_gap": 2,
+      "entry_min": 2,
+      "skip_hours": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    }
+  },
+  "hours_overnight_only": {
+    "signals": 941,
+    "correct": 784,
+    "win_rate": 83.31562167906482,
+    "pnl": 6270.0,
+    "avg_pnl_per_trade": 6.663124335812965,
+    "params": {
+      "mom_10m": 0.08,
+      "mom_5m": 0.03,
+      "rsi_up": 55,
+      "rsi_dn": 45,
+      "ema_gap": 2,
+      "entry_min": 2,
+      "skip_hours": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ]
+    }
+  },
+  "combined_best": {
+    "signals": 536,
+    "correct": 475,
+    "win_rate": 88.61940298507463,
+    "pnl": 4140.0,
+    "avg_pnl_per_trade": 7.723880597014926,
+    "params": {
+      "mom_10m": 0.2,
+      "mom_5m": 0.08,
+      "rsi_up": 65,
+      "rsi_dn": 35,
+      "ema_gap": 10,
+      "entry_min": 2,
+      "skip_hours": [
+        8,
+        13,
+        7
+      ]
+    }
+  }
+}

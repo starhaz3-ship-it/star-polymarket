@@ -1,3 +1,20 @@
 {
-  "trades": []
+  "trades": [
+    {
+      "won": true,
+      "time_left": 6.3,
+      "rsi": 43.9,
+      "ema_gap_bp": 1.6,
+      "side": "DOWN",
+      "old_would_enter": false
+    },
+    {
+      "won": true,
+      "time_left": 6.4,
+      "rsi": 45.6,
+      "ema_gap_bp": 5.6,
+      "side": "DOWN",
+      "old_would_enter": false
+    }
+  ]
 }

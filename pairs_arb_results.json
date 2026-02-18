@@ -38,17 +38,49 @@
         "price": 0.4,
         "proceeds": 2.4
       }
+    },
+    {
+      "condition_id": "0xca5fcabf2376fc3af17a3808ae6f5c827495ad180cc4db7a4da415337987aef7",
+      "question": "Bitcoin Up or Down - February 18, 1:45PM-2:00PM ET",
+      "entry_time": 1771440423.6882367,
+      "end_dt": "2026-02-18T19:00:00+00:00",
+      "up_tid": "63745286502972166641570886623088647619884550107042384900327761335312907987793",
+      "down_tid": "69981087643135972576673803428168483233737976369585028468086045940733048159813",
+      "up_order": {
+        "success": true,
+        "order_id": "0x91e446b0727f71376a265e8ef1041f4366d430e7ce7e29fb19a9169e03c341a6",
+        "shares": 6.0,
+        "price": 0.45,
+        "cost": 2.7,
+        "status": "live"
+      },
+      "down_order": {
+        "success": true,
+        "order_id": "0xeefdaf9f00f931f6017a7b53548127895d32fa236d4729e4003ca538114eabdf",
+        "shares": 6,
+        "price": 0.45,
+        "cost": 2.7,
+        "status": "matched"
+      },
+      "up_filled": true,
+      "down_filled": true,
+      "up_fill_time": 1771440725.8196971,
+      "down_fill_time": 1771440423.6882367,
+      "first_side": "UP",
+      "status": "resolved_hedged",
+      "bail_deadline": 1771440723.6882367,
+      "pnl": 0.5999999999999996
     }
   ],
   "stats": {
-    "wins": 0,
+    "wins": 1,
     "losses": 0,
     "bails": 1,
-    "pnl": -0.30000000000000027,
-    "hedged": 0,
+    "pnl": 0.2999999999999994,
+    "hedged": 1,
     "one_sided": 1,
-    "markets_entered": 0
+    "markets_entered": 1
   },
-  "session_pnl": -0.30000000000000027,
-  "last_updated": "2026-02-18T17:26:10.608086+00:00"
+  "session_pnl": 0.2999999999999994,
+  "last_updated": "2026-02-18T19:01:30.056052+00:00"
 }

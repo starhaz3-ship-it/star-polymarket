@@ -1,10 +1,40 @@
 {
   "betas": {
-    "relaxed": [2, 2],
-    "moderate": [3, 1],
-    "strict": [2, 2],
-    "ultra": [1, 2]
+    "relaxed": [
+      2,
+      2
+    ],
+    "moderate": [
+      3,
+      1
+    ],
+    "strict": [
+      2,
+      2
+    ],
+    "ultra": [
+      1,
+      2
+    ]
   },
-  "history": [],
-  "_reset_note": "Fresh reset 2026-02-18. Clean priors."
+  "history": [
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.000539,
+      "abs_m5": 0.000439,
+      "rsi": 43.9,
+      "side": "DOWN",
+      "shadow": {}
+    },
+    {
+      "preset_used": "relaxed",
+      "won": true,
+      "abs_m10": 0.00098,
+      "abs_m5": 0.00041,
+      "rsi": 45.6,
+      "side": "DOWN",
+      "shadow": {}
+    }
+  ]
 }

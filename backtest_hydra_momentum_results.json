@@ -1,0 +1,42 @@
+{
+  "variant1_momentum_only": {
+    "trades": 337,
+    "wins": 311,
+    "losses": 26,
+    "win_rate": 92.28486646884274,
+    "pnl": 1425.0,
+    "pnl_per_trade": 4.228486646884273
+  },
+  "variant2_momentum_hydra_confirm": {
+    "trades": 263,
+    "wins": 240,
+    "losses": 23,
+    "win_rate": 91.25475285171103,
+    "pnl": 1085.0,
+    "pnl_per_trade": 4.1254752851711025
+  },
+  "variant3_momentum_hydra_consensus": {
+    "trades": 128,
+    "wins": 119,
+    "losses": 9,
+    "win_rate": 92.96875,
+    "pnl": 550.0,
+    "pnl_per_trade": 4.296875
+  },
+  "variant4_hydra_only": {
+    "trades": 112,
+    "wins": 85,
+    "losses": 27,
+    "win_rate": 75.89285714285714,
+    "pnl": 290.0,
+    "pnl_per_trade": 2.5892857142857144
+  },
+  "variant5_momentum_or_hydra": {
+    "trades": 414,
+    "wins": 361,
+    "losses": 53,
+    "win_rate": 87.19806763285024,
+    "pnl": 1540.0,
+    "pnl_per_trade": 3.7198067632850242
+  }
+}

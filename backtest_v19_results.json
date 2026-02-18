@@ -1,0 +1,102 @@
+{
+  "v1.7": {
+    "signals": 798,
+    "correct": 695,
+    "win_rate": 87.09273182957394,
+    "pnl": 2960.0,
+    "pnl_per_trade": 3.7092731829573933,
+    "breakdown": {
+      "down_rsi35": {
+        "total": 422,
+        "wins": 368,
+        "losses": 54,
+        "win_rate": 87.20379146919431,
+        "pnl": 1570.0,
+        "pnl_per_trade": 3.720379146919431
+      },
+      "up_rsi65": {
+        "total": 376,
+        "wins": 327,
+        "losses": 49,
+        "win_rate": 86.96808510638297,
+        "pnl": 1390.0,
+        "pnl_per_trade": 3.6968085106382977
+      }
+    }
+  },
+  "up_only": {
+    "signals": 165,
+    "correct": 155,
+    "win_rate": 93.93939393939394,
+    "pnl": 725.0,
+    "pnl_per_trade": 4.393939393939394,
+    "breakdown": {
+      "up_primary": {
+        "total": 165,
+        "wins": 155,
+        "losses": 10,
+        "win_rate": 93.93939393939394,
+        "pnl": 725.0,
+        "pnl_per_trade": 4.393939393939394
+      }
+    }
+  },
+  "v1.9_full": {
+    "signals": 346,
+    "correct": 247,
+    "win_rate": 71.38728323699422,
+    "pnl": 740.0,
+    "pnl_per_trade": 2.138728323699422,
+    "breakdown": {
+      "contrarian": {
+        "total": 88,
+        "wins": 7,
+        "losses": 81,
+        "win_rate": 7.954545454545454,
+        "pnl": -370.0,
+        "pnl_per_trade": -4.204545454545454
+      },
+      "up_primary": {
+        "total": 165,
+        "wins": 155,
+        "losses": 10,
+        "win_rate": 93.93939393939394,
+        "pnl": 725.0,
+        "pnl_per_trade": 4.393939393939394
+      },
+      "moderate_down": {
+        "total": 93,
+        "wins": 85,
+        "losses": 8,
+        "win_rate": 91.39784946236558,
+        "pnl": 385.0,
+        "pnl_per_trade": 4.139784946236559
+      }
+    }
+  },
+  "v1.9_no_contrarian": {
+    "signals": 258,
+    "correct": 240,
+    "win_rate": 93.02325581395348,
+    "pnl": 1110.0,
+    "pnl_per_trade": 4.3023255813953485,
+    "breakdown": {
+      "up_primary": {
+        "total": 165,
+        "wins": 155,
+        "losses": 10,
+        "win_rate": 93.93939393939394,
+        "pnl": 725.0,
+        "pnl_per_trade": 4.393939393939394
+      },
+      "moderate_down": {
+        "total": 93,
+        "wins": 85,
+        "losses": 8,
+        "win_rate": 91.39784946236558,
+        "pnl": 385.0,
+        "pnl_per_trade": 4.139784946236559
+      }
+    }
+  }
+}
