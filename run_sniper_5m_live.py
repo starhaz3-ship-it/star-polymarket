@@ -41,7 +41,7 @@ from pid_lock import acquire_pid_lock, release_pid_lock
 SNIPER_WINDOW = 63          # seconds before close to start looking (front-run whales)
 MIN_CONFIDENCE = 0.55       # minimum ask price to trigger entry
 MAX_ENTRY_PRICE = 0.85      # max entry price (need ~85% WR to break even here)
-BASE_TRADE_SIZE = 10.00     # USD per trade (starting size)
+BASE_TRADE_SIZE = 5.00      # USD per trade (testing live)
 SCAN_INTERVAL = 5           # seconds between scans
 MAX_CONCURRENT = 2          # 1 directional + 1 oracle
 
@@ -646,46 +646,50 @@ class Sniper5MLive:
             question = market.get("question", "?")
             end_dt = market.get("_end_dt_parsed")
 
-            # PRIMARY SIGNAL: Binance real-time price (the oracle source)
-            # Chainlink lags Binance by ~60s — Binance IS the truth
+            # STEP 1: Get CLOB prices for both sides
+            up_tid, down_tid = self.get_token_ids(market)
+            up_ask = (await self.get_best_ask(up_tid)) if up_tid else None
+            down_ask = (await self.get_best_ask(down_tid)) if down_tid else None
+            up_display = up_ask if up_ask is not None else 0.0
+            down_display = down_ask if down_ask is not None else 0.0
+
+            # STEP 2: Determine side — Binance first, CLOB fallback
             side = None
+            signal_source = "binance"
             if end_dt:
                 side = await self._check_binance_direction(end_dt)
 
             if not side:
+                # CLOB CONFIDENCE: If one side is $0.70-$0.80 = sweet spot
+                # Paper data: 95% WR at $0.75, +$24.97 profit
+                if up_ask and 0.70 <= up_ask <= 0.80 and (down_ask is None or up_ask > down_ask):
+                    side = "UP"
+                    signal_source = "clob"
+                elif down_ask and 0.70 <= down_ask <= 0.80 and (up_ask is None or down_ask > up_ask):
+                    side = "DOWN"
+                    signal_source = "clob"
+
+            if not side:
                 self.stats["skipped"] += 1
                 self.attempted_cids.add(cid)
-                print(f"[SKIP] Binance flat | {time_left_sec:.0f}s left | {question[:50]}")
+                print(f"[SKIP] No signal | Binance flat + CLOB unclear "
+                      f"UP=${up_display:.2f} DN=${down_display:.2f} | {time_left_sec:.0f}s | {question[:50]}")
                 continue
 
-            # Get CLOB depth for execution (not for direction)
-            up_tid, down_tid = self.get_token_ids(market)
+            # STEP 3: Get depth for our side
             sweep_limit = min(MAX_ENTRY_PRICE + FOK_SLIPPAGE, 0.99)
-
-            if side == "UP":
-                if up_tid:
-                    best_ask, avail_shares, levels = await self.get_orderbook_depth(up_tid, sweep_limit)
-                else:
-                    best_ask, avail_shares, levels = None, 0, []
-                other_ask = (await self.get_best_ask(down_tid)) if down_tid else None
-                up_ask = best_ask
-                down_ask = other_ask
+            target_tid = up_tid if side == "UP" else down_tid
+            if target_tid:
+                best_ask, avail_shares, levels = await self.get_orderbook_depth(target_tid, sweep_limit)
             else:
-                if down_tid:
-                    best_ask, avail_shares, levels = await self.get_orderbook_depth(down_tid, sweep_limit)
-                else:
-                    best_ask, avail_shares, levels = None, 0, []
-                other_ask = (await self.get_best_ask(up_tid)) if up_tid else None
-                up_ask = other_ask
-                down_ask = best_ask
+                best_ask, avail_shares, levels = None, 0, []
 
             entry_price = best_ask if best_ask is not None else (0.75 if time_left_sec > 30 else 0.85)
             confidence = entry_price
-            up_display = up_ask if up_ask is not None else 0.0
-            down_display = down_ask if down_ask is not None else 0.0
 
             depth_str = " | ".join(f"${p:.2f}x{int(s)}" for p, s in levels[:4])
-            print(f"[BINANCE] BTC {side} | CLOB: UP=${up_display:.2f} DN=${down_display:.2f} "
+            src_tag = "BINANCE" if signal_source == "binance" else "CLOB"
+            print(f"[{src_tag}] BTC {side} | CLOB: UP=${up_display:.2f} DN=${down_display:.2f} "
                   f"| entry=${entry_price:.2f} | depth={int(avail_shares)}sh [{depth_str}] | {time_left_sec:.0f}s left")
 
             # Cap entry price
@@ -758,7 +762,7 @@ class Sniper5MLive:
                 "result": None,
                 "order_id": fill.get("order_id", ""),
                 "live": not self.paper,
-                "strategy": "directional",
+                "strategy": f"directional_{signal_source}",
             }
 
             self.active[cid] = trade
@@ -1051,9 +1055,12 @@ class Sniper5MLive:
         print("=" * 70)
         print(f"  SNIPER 5M {mode} TRADER V2.0 — DUAL STRATEGY")
         print("=" * 70)
-        print(f"  Strategy 1 — DIRECTIONAL (prediction)")
+        print(f"  Strategy 1a — DIRECTIONAL/BINANCE (prediction)")
         print(f"    - Enter at {SNIPER_WINDOW}s before close | Binance signal > 0.07%")
         print(f"    - Entry: ${MIN_CONFIDENCE:.2f}-${MAX_ENTRY_PRICE:.2f} | FOK orders")
+        print(f"  Strategy 1b — DIRECTIONAL/CLOB (confidence)")
+        print(f"    - Binance flat fallback | CLOB dominant side $0.70-$0.80")
+        print(f"    - Paper: 95% WR at $0.75 | FOK orders")
         print(f"  Strategy 2 — ORACLE (certainty)")
         print(f"    - Enter {ORACLE_MIN_DELAY}-{ORACLE_WINDOW}s AFTER close | direction KNOWN")
         print(f"    - Entry: up to ${ORACLE_MAX_ENTRY:.2f} | GTC orders | ~$0.05+/sh profit")
@@ -1088,9 +1095,10 @@ class Sniper5MLive:
                 if cycle % 12 == 0:
                     self._save()
 
-                # Fast-poll when markets are near close or just closed (oracle window)
+                # Fast-poll during sniper window + oracle window
+                # Book reprices $0.60→$0.90 in seconds — need 2s polls to catch $0.75
                 fast = any(
-                    -ORACLE_WINDOW <= m.get("_time_left_sec", 9999) <= 20
+                    -ORACLE_WINDOW <= m.get("_time_left_sec", 9999) <= SNIPER_WINDOW
                     for m in markets
                 )
                 await asyncio.sleep(2 if fast else SCAN_INTERVAL)
