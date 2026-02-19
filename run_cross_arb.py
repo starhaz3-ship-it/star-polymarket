@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Dict, Optional, List, Tuple
 
 import httpx
+import websockets
 from dotenv import load_dotenv
 
 print = functools.partial(print, flush=True)
@@ -42,6 +43,118 @@ sys.path.insert(0, str(Path(__file__).parent))
 load_dotenv()
 
 from pid_lock import acquire_pid_lock, release_pid_lock
+
+# ============================================================================
+# V1.1: POLYMARKET WEBSOCKET FEED — real-time market detection + prices
+# ============================================================================
+POLY_WS_URL = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
+
+
+class PolyWSLite:
+    """Lightweight Polymarket WebSocket for cross-arb.
+    Tracks: best_bid_ask, new_market, market_resolved."""
+
+    def __init__(self):
+        self._ws = None
+        self._connected = False
+        self._running = False
+        self._subscribed: set = set()
+        self.prices: dict = {}  # {token_id: {"best_bid": float, "best_ask": float}}
+        self.resolved_tokens: dict = {}  # {token_id: "UP"/"DOWN"}
+        self.new_markets: list = []
+        self.last_update = 0
+
+    async def start(self):
+        self._running = True
+        asyncio.create_task(self._loop())
+
+    async def _loop(self):
+        while self._running:
+            try:
+                async with websockets.connect(POLY_WS_URL, ping_interval=30, ping_timeout=10) as ws:
+                    self._ws = ws
+                    self._connected = True
+                    print("[POLY-WS] Connected")
+                    if self._subscribed:
+                        await self._send_sub(list(self._subscribed))
+                    async for raw in ws:
+                        if not self._running:
+                            break
+                        try:
+                            msg = json.loads(raw)
+                            self._handle(msg)
+                        except json.JSONDecodeError:
+                            pass
+            except Exception as e:
+                self._connected = False
+                if self._running:
+                    await asyncio.sleep(5)
+        self._connected = False
+
+    async def _send_sub(self, ids):
+        if not self._ws or not self._connected:
+            return
+        try:
+            await self._ws.send(json.dumps({
+                "assets_ids": ids, "type": "market", "custom_feature_enabled": True
+            }))
+            self._subscribed.update(ids)
+        except Exception:
+            pass
+
+    async def subscribe(self, token_ids: list):
+        new = [t for t in token_ids if t and t not in self._subscribed]
+        if new:
+            await self._send_sub(new)
+
+    def _handle(self, msg):
+        if isinstance(msg, list):
+            for m in msg:
+                self._handle_one(m)
+        else:
+            self._handle_one(msg)
+
+    def _handle_one(self, msg):
+        et = msg.get("event_type", "")
+        self.last_update = time.time()
+        if et == "best_bid_ask":
+            aid = msg.get("asset_id", "")
+            if aid:
+                self.prices[aid] = {
+                    "best_bid": float(msg.get("best_bid", 0)),
+                    "best_ask": float(msg.get("best_ask", 0)),
+                }
+        elif et == "price_change":
+            for pc in msg.get("price_changes", []):
+                aid = pc.get("asset_id", "")
+                bb, ba = pc.get("best_bid"), pc.get("best_ask")
+                if aid and bb is not None and ba is not None:
+                    self.prices[aid] = {"best_bid": float(bb), "best_ask": float(ba)}
+        elif et == "market_resolved":
+            winning = msg.get("winning_outcome", "").upper()
+            for aid in (msg.get("assets_ids", []) or []):
+                self.resolved_tokens[aid] = winning
+            if winning:
+                print(f"[POLY-WS] Resolved: {winning} | {msg.get('question', '')[:50]}")
+        elif et == "new_market":
+            self.new_markets.append(msg)
+
+    def get_ask(self, token_id: str) -> float:
+        return self.prices.get(token_id, {}).get("best_ask", 0)
+
+    def get_bid(self, token_id: str) -> float:
+        return self.prices.get(token_id, {}).get("best_bid", 0)
+
+    def pop_new(self) -> list:
+        out = list(self.new_markets)
+        self.new_markets.clear()
+        return out
+
+    def is_connected(self) -> bool:
+        return self._connected
+
+    def stop(self):
+        self._running = False
 
 # ============================================================================
 # CONFIG
@@ -81,6 +194,7 @@ class CrossTimeframeArb:
         self._last_log_time = 0.0
         self._last_price_cache = (0.0, 0.0)  # (timestamp, price)
         self.client = None
+        self.poly_ws = PolyWSLite()  # V1.1: Polymarket WebSocket
         self._load()
 
         if not self.paper:
@@ -200,6 +314,18 @@ class CrossTimeframeArb:
                         if not m.get("question"):
                             m["question"] = event.get("title", "")
                         markets.append(m)
+
+            # V1.1: Subscribe all discovered markets to WS for real-time prices
+            if self.poly_ws.is_connected():
+                all_tids = []
+                for m in markets:
+                    tids = m.get("clobTokenIds", [])
+                    if isinstance(tids, str):
+                        tids = json.loads(tids)
+                    all_tids.extend([t for t in tids if t])
+                if all_tids:
+                    await self.poly_ws.subscribe(all_tids)
+
         except Exception as e:
             print(f"[API] {tag_slug} discovery error: {e}")
         return markets
@@ -259,20 +385,26 @@ class CrossTimeframeArb:
         return up_tid, down_tid
 
     def get_prices(self, market: dict) -> tuple:
-        """Extract UP/DOWN prices from Gamma API outcomePrices."""
+        """Extract UP/DOWN prices. Prefers WS real-time ask, falls back to Gamma."""
         outcomes = market.get("outcomes", [])
         prices = market.get("outcomePrices", [])
+        token_ids = market.get("clobTokenIds", [])
         if isinstance(outcomes, str):
             outcomes = json.loads(outcomes)
         if isinstance(prices, str):
             prices = json.loads(prices)
+        if isinstance(token_ids, str):
+            token_ids = json.loads(token_ids)
+
         up_price, down_price = None, None
         for i, o in enumerate(outcomes):
-            if i < len(prices):
-                try:
-                    p = float(prices[i])
-                except (ValueError, TypeError):
-                    continue
+            # V1.1: Try WS real-time ask first
+            ws_price = 0
+            if i < len(token_ids) and self.poly_ws.is_connected():
+                ws_price = self.poly_ws.get_ask(token_ids[i])
+
+            p = ws_price if ws_price > 0 else (float(prices[i]) if i < len(prices) else 0)
+            if p > 0:
                 if str(o).lower() == "up":
                     up_price = p
                 elif str(o).lower() == "down":
@@ -280,7 +412,14 @@ class CrossTimeframeArb:
         return up_price, down_price
 
     async def get_best_ask(self, token_id: str) -> Optional[float]:
-        """Get best ask price from live CLOB orderbook."""
+        """Get best ask price. V1.1: WS first, then CLOB REST fallback."""
+        # Try WS price first (instant, no network call)
+        if self.poly_ws.is_connected():
+            ws_ask = self.poly_ws.get_ask(token_id)
+            if ws_ask > 0:
+                return ws_ask
+
+        # Fallback to REST
         try:
             async with httpx.AsyncClient(timeout=8) as client:
                 r = await client.get(CLOB_BOOK_URL, params={"token_id": token_id})
@@ -687,12 +826,16 @@ class CrossTimeframeArb:
     async def run(self):
         mode = "PAPER" if self.paper else "LIVE"
         print(f"\n{'='*60}")
-        print(f"  CROSS-TIMEFRAME ARB V1.0 -- {mode} MODE")
+        print(f"  CROSS-TIMEFRAME ARB V1.1 -- {mode} MODE")
         print(f"  15M + 5M BTC Up/Down Structural Arbitrage")
         print(f"  Buy opposing sides when BTC near 15M open")
         print(f"  Max combined: ${MAX_COMBINED_COST} | Proximity: ${PROXIMITY_MIN}-${PROXIMITY_MAX}")
         print(f"  Trade size: ${TRADE_SIZE}/leg | Max concurrent: {MAX_CONCURRENT}")
+        print(f"  V1.1: +Polymarket WS (real-time prices, instant market detection)")
         print(f"{'='*60}\n")
+
+        # V1.1: Start Polymarket WebSocket
+        await self.poly_ws.start()
 
         cycle = 0
         while self.running:

@@ -34,6 +34,7 @@ import sys
 import json
 import time
 import os
+import math
 import asyncio
 import argparse
 from datetime import datetime, timezone
@@ -41,6 +42,7 @@ from pathlib import Path
 from functools import partial as fn_partial
 from typing import Dict, Optional
 
+import numpy as np
 import httpx
 import websockets
 from collections import deque
@@ -74,7 +76,7 @@ RSI_MODERATE_DOWN_LO = 30   # V1.9b: Widened from 35 to 30
 RSI_MODERATE_DOWN_HI = 50
 MIN_ENTRY = 0.35            # V1.1: Raised from $0.10 — entries <$0.35 were 0W/3L (0% WR, -$7.50)
 MAX_ENTRY = 0.60            # maximum entry price (avoid paying premium)
-TIME_WINDOW = (2.0, 8.0)    # V1.9b: Widened from (2,5) to (2,8) — more entry opportunities
+TIME_WINDOW = (2.0, 4.0)    # V2.1: Tightened from (2,8) — lab showed 2min=86% WR, 4min cutoff optimal
 SPREAD_OFFSET = 0.02        # paper fill spread simulation (ignored in live)
 RESOLVE_AGE_MIN = 18.0      # minutes before forcing resolution via API
 EMA_GAP_MIN_BP = None        # V1.7: REMOVED — was 2bp, cost 24% signals for 0.9% WR gain
@@ -87,6 +89,71 @@ FOK_SLIPPAGE = 0.03         # cents above best ask to sweep multiple price level
 # V1.6: Streak reversal — bet AGAINST long streaks (backtested on 50K markets: 55% WR)
 STREAK_REVERSAL_MIN_STREAK = 3   # Minimum streak length to trigger reversal entry
 STREAK_REVERSAL_SIZE = 2.50      # Always minimal size (user directive)
+
+# V2.1: Consensus size multiplier — boost when momentum_strong + FRAMA_CMO agree
+CONSENSUS_SIZE_MULT = 1.5        # 1.5x size on consensus (conservative for small account)
+
+# ============================================================================
+# FRAMA_CMO INDICATORS (ported from run_15m_strategies.py)
+# ============================================================================
+
+def calc_frama(close, n=16, fast=4.0, slow=300.0):
+    """Fractal Adaptive Moving Average. Adapts speed to market structure."""
+    out = np.full_like(close, np.nan, dtype=float)
+    if len(close) < n + 2 or n < 4:
+        return out
+    n2 = n // 2
+    w = float(n)
+    af = 2.0 / (fast + 1.0)
+    asl = 2.0 / (slow + 1.0)
+    out[n - 1] = float(np.mean(close[:n]))
+    for i in range(n, len(close)):
+        w0 = close[i - n + 1:i + 1]
+        w1 = close[i - n + 1:i - n2 + 1]
+        w2 = close[i - n2 + 1:i + 1]
+        hi0, lo0 = float(np.max(w0)), float(np.min(w0))
+        hi1, lo1 = float(np.max(w1)), float(np.min(w1))
+        hi2, lo2 = float(np.max(w2)), float(np.min(w2))
+        n0 = (hi0 - lo0) / w
+        n1 = (hi1 - lo1) / (w / 2.0)
+        n2v = (hi2 - lo2) / (w / 2.0)
+        if n0 > 0 and n1 > 0 and n2v > 0:
+            dim = (math.log(n1 + n2v) - math.log(n0)) / math.log(2.0)
+            dim = float(np.clip(dim, 1.0, 2.0))
+            alpha = math.exp(-4.6 * (dim - 1.0))
+            alpha = float(np.clip(alpha, asl, af))
+        else:
+            alpha = asl
+        prev = out[i - 1] if np.isfinite(out[i - 1]) else close[i - 1]
+        out[i] = alpha * close[i] + (1.0 - alpha) * prev
+    return out
+
+
+def calc_cmo(close, n=14):
+    """Chande Momentum Oscillator. Range: -100 to +100."""
+    out = np.full_like(close, np.nan, dtype=float)
+    if len(close) < n + 1:
+        return out
+    d = np.diff(close, prepend=close[0])
+    up = np.clip(d, 0, None)
+    dn = np.clip(-d, 0, None)
+    for i in range(n - 1, len(close)):
+        su = float(np.sum(up[i - n + 1:i + 1]))
+        sd = float(np.sum(dn[i - n + 1:i + 1]))
+        denom = su + sd
+        if denom > 0:
+            out[i] = 100.0 * (su - sd) / denom
+    return out
+
+
+def calc_donchian(high, low, n=20):
+    """Donchian Channel. Returns (upper, lower, midline)."""
+    u, d, mid = np.full_like(high, np.nan, dtype=float), np.full_like(low, np.nan, dtype=float), np.full_like(high, np.nan, dtype=float)
+    for i in range(n - 1, len(high)):
+        hh = float(np.max(high[i - n + 1:i + 1]))
+        ll = float(np.min(low[i - n + 1:i + 1]))
+        u[i], d[i], mid[i] = hh, ll, (hh + ll) / 2.0
+    return u, d, mid
 
 # ============================================================================
 # PROMOTION PIPELINE: PROBATION -> PROMOTED -> CHAMPION
@@ -573,6 +640,210 @@ class BinanceLiveFeed:
 
 
 # ============================================================================
+# V2.2: POLYMARKET WEBSOCKET FEED — real-time prices, market discovery, resolution
+# ============================================================================
+POLY_WS_URL = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
+
+
+def calc_taker_fee(shares: float, price: float) -> float:
+    """Polymarket taker fee for 15M/5M crypto markets.
+    Formula: C * p * feeRate * (p * (1-p))^exponent
+    where feeRate=0.25, exponent=2 for crypto."""
+    if price <= 0 or price >= 1:
+        return 0.0
+    return shares * price * 0.25 * (price * (1.0 - price)) ** 2
+
+
+class PolymarketWSFeed:
+    """Real-time Polymarket market data via WebSocket.
+
+    Provides:
+    - best_bid_ask: real-time UP/DOWN prices per token
+    - new_market: instant detection of new markets
+    - market_resolved: instant resolution with winning_outcome
+    """
+
+    def __init__(self):
+        self._ws = None
+        self._connected = False
+        self._running = False
+        self._subscribed_tokens: set = set()
+
+        # Real-time best prices: {token_id: {"best_bid": float, "best_ask": float, "ts": float}}
+        self.prices: dict = {}
+
+        # Resolved markets: {asset_id: {"winning": "UP"/"DOWN", "ts": float}}
+        self.resolved_markets: dict = {}
+
+        # New market notifications: list of market dicts from new_market events
+        self.new_market_queue: list = []
+
+        # Stats
+        self.last_update = 0
+        self._msg_count = 0
+
+    async def start(self):
+        """Start WebSocket connection in background."""
+        self._running = True
+        asyncio.create_task(self._ws_loop())
+
+    async def _ws_loop(self):
+        """Main WebSocket loop with auto-reconnect."""
+        while self._running:
+            try:
+                async with websockets.connect(POLY_WS_URL, ping_interval=30, ping_timeout=10) as ws:
+                    self._ws = ws
+                    self._connected = True
+                    print("[POLY-WS] Connected to Polymarket market channel")
+
+                    # Re-subscribe any tracked tokens
+                    if self._subscribed_tokens:
+                        await self._send_subscribe(list(self._subscribed_tokens))
+
+                    async for raw in ws:
+                        if not self._running:
+                            break
+                        try:
+                            msg = json.loads(raw)
+                            self._handle_message(msg)
+                        except json.JSONDecodeError:
+                            pass
+
+            except Exception as e:
+                self._connected = False
+                if self._running:
+                    print(f"[POLY-WS] Disconnected: {e}. Reconnecting in 5s...")
+                    await asyncio.sleep(5)
+
+        self._connected = False
+
+    async def _send_subscribe(self, token_ids: list):
+        """Subscribe to token IDs for price/resolution updates."""
+        if not self._ws or not self._connected:
+            return
+        try:
+            msg = {
+                "assets_ids": token_ids,
+                "type": "market",
+                "custom_feature_enabled": True,
+            }
+            await self._ws.send(json.dumps(msg))
+            self._subscribed_tokens.update(token_ids)
+        except Exception as e:
+            print(f"[POLY-WS] Subscribe error: {e}")
+
+    async def subscribe_market(self, market: dict):
+        """Subscribe to a market's token IDs for real-time updates."""
+        outcomes = market.get("outcomes", [])
+        token_ids = market.get("clobTokenIds", [])
+        if isinstance(outcomes, str):
+            outcomes = json.loads(outcomes)
+        if isinstance(token_ids, str):
+            token_ids = json.loads(token_ids)
+
+        new_ids = [tid for tid in token_ids if tid and tid not in self._subscribed_tokens]
+        if new_ids:
+            await self._send_subscribe(new_ids)
+
+    def _handle_message(self, msg):
+        """Route incoming WebSocket messages to handlers."""
+        if isinstance(msg, list):
+            for m in msg:
+                self._handle_single(m)
+        else:
+            self._handle_single(msg)
+
+    def _handle_single(self, msg):
+        """Handle a single WebSocket message."""
+        event_type = msg.get("event_type", "")
+        self._msg_count += 1
+        self.last_update = time.time()
+
+        if event_type == "best_bid_ask":
+            asset_id = msg.get("asset_id", "")
+            if asset_id:
+                self.prices[asset_id] = {
+                    "best_bid": float(msg.get("best_bid", 0)),
+                    "best_ask": float(msg.get("best_ask", 0)),
+                    "spread": float(msg.get("spread", 0)),
+                    "ts": self.last_update,
+                }
+
+        elif event_type == "price_change":
+            # Update prices from price_change events
+            for pc in msg.get("price_changes", []):
+                asset_id = pc.get("asset_id", "")
+                if asset_id and "best_bid" in pc and "best_ask" in pc:
+                    bb = pc.get("best_bid")
+                    ba = pc.get("best_ask")
+                    if bb is not None and ba is not None:
+                        self.prices[asset_id] = {
+                            "best_bid": float(bb),
+                            "best_ask": float(ba),
+                            "spread": round(float(ba) - float(bb), 4),
+                            "ts": self.last_update,
+                        }
+
+        elif event_type == "last_trade_price":
+            # Track last trade for reference
+            asset_id = msg.get("asset_id", "")
+            if asset_id and asset_id in self.prices:
+                self.prices[asset_id]["last_trade"] = float(msg.get("price", 0))
+
+        elif event_type == "market_resolved":
+            # Instant resolution signal
+            asset_ids = msg.get("assets_ids", [])
+            winning = msg.get("winning_outcome", "")
+            winning_asset = msg.get("winning_asset_id", "")
+            for aid in (asset_ids if isinstance(asset_ids, list) else []):
+                self.resolved_markets[aid] = {
+                    "winning": winning,
+                    "winning_asset_id": winning_asset,
+                    "ts": self.last_update,
+                }
+            if winning:
+                print(f"[POLY-WS] Market resolved: {winning} | {msg.get('question', '')[:50]}")
+
+        elif event_type == "new_market":
+            self.new_market_queue.append(msg)
+
+    def get_ws_price(self, token_id: str) -> float:
+        """Get latest ask price for a token from WebSocket. Returns 0 if not available."""
+        p = self.prices.get(token_id, {})
+        return p.get("best_ask", 0)
+
+    def get_ws_bid(self, token_id: str) -> float:
+        """Get latest bid price for a token from WebSocket."""
+        p = self.prices.get(token_id, {})
+        return p.get("best_bid", 0)
+
+    def is_market_resolved(self, token_id: str) -> dict:
+        """Check if a token's market has been resolved via WebSocket.
+        Returns {"resolved": True/False, "winning": "UP"/"DOWN"/None}."""
+        r = self.resolved_markets.get(token_id)
+        if r:
+            return {"resolved": True, "winning": r.get("winning"), "winning_asset_id": r.get("winning_asset_id")}
+        return {"resolved": False, "winning": None}
+
+    def pop_new_markets(self) -> list:
+        """Get and clear any new market notifications."""
+        markets = list(self.new_market_queue)
+        self.new_market_queue.clear()
+        return markets
+
+    def is_connected(self) -> bool:
+        return self._connected
+
+    def stop(self):
+        self._running = False
+        if self._ws:
+            try:
+                asyncio.create_task(self._ws.close())
+            except Exception:
+                pass
+
+
+# ============================================================================
 # MOMENTUM 15M TRADER
 # ============================================================================
 class Momentum15MTrader:
@@ -589,6 +860,9 @@ class Momentum15MTrader:
         self.v17_tracker = V17ChangeTracker()  # V1.7: track parameter changes
         self.feed = BinanceLiveFeed()  # V2.0: WebSocket price feed
         self.hmm = HMMRegimeFilter()   # V2.1: HMM regime filter
+        self.poly_ws = PolymarketWSFeed()  # V2.2: Polymarket WebSocket feed
+        self._candles_15m_cache = None  # V2.1: FRAMA_CMO 15M candle cache
+        self._candles_15m_ts = 0        # V2.1: cache timestamp
         self._load()
         self._init_streak_tracker()  # V1.5: streak detection
 
@@ -809,6 +1083,12 @@ class Momentum15MTrader:
                             m["question"] = event.get("title", "")
                         m["_asset"] = asset
                         markets.append(m)
+
+            # V2.2: Subscribe discovered markets to Polymarket WebSocket
+            if self.poly_ws.is_connected():
+                for m in markets:
+                    await self.poly_ws.subscribe_market(m)
+
         except Exception as e:
             print(f"[API] Error: {e}")
         return markets
@@ -818,17 +1098,26 @@ class Momentum15MTrader:
     # ========================================================================
 
     def get_prices(self, market: dict) -> tuple:
-        """Extract UP/DOWN prices."""
+        """Extract UP/DOWN prices. Prefers real-time WS ask prices over Gamma API."""
         outcomes = market.get("outcomes", [])
         prices = market.get("outcomePrices", [])
+        token_ids = market.get("clobTokenIds", [])
         if isinstance(outcomes, str):
             outcomes = json.loads(outcomes)
         if isinstance(prices, str):
             prices = json.loads(prices)
+        if isinstance(token_ids, str):
+            token_ids = json.loads(token_ids)
+
         up_price, down_price = None, None
         for i, o in enumerate(outcomes):
-            if i < len(prices):
-                p = float(prices[i])
+            # V2.2: Try WebSocket real-time ask price first
+            ws_price = 0
+            if i < len(token_ids) and self.poly_ws.is_connected():
+                ws_price = self.poly_ws.get_ws_price(token_ids[i])
+
+            p = ws_price if ws_price > 0 else (float(prices[i]) if i < len(prices) else 0)
+            if p > 0:
                 if str(o).lower() == "up":
                     up_price = p
                 elif str(o).lower() == "down":
@@ -985,7 +1274,66 @@ class Momentum15MTrader:
                 except Exception as e:
                     print(f"[VERIFY] Position check error: {e}")
 
-            # Resolve via Gamma API
+            # V2.2: Try WebSocket instant resolution first
+            up_tid, down_tid = None, None
+            if self.poly_ws.is_connected():
+                try:
+                    # Check both token IDs for resolution signal
+                    token_ids_raw = trade.get("_token_ids")
+                    if not token_ids_raw:
+                        # Reconstruct from saved trade data (only needed once)
+                        up_tid_v, down_tid_v = trade.get("_up_tid"), trade.get("_down_tid")
+                        if up_tid_v and down_tid_v:
+                            token_ids_raw = [up_tid_v, down_tid_v]
+
+                    if token_ids_raw:
+                        for tid_check in token_ids_raw:
+                            ws_res = self.poly_ws.is_market_resolved(tid_check)
+                            if ws_res["resolved"]:
+                                winning = ws_res.get("winning", "").upper()
+                                shares = trade.get("_shares", trade["size_usd"] / trade["entry_price"])
+                                won = (trade["side"] == winning)
+                                if won:
+                                    trade["pnl"] = round(shares - trade["size_usd"], 2)
+                                    trade["exit_price"] = 1.0
+                                else:
+                                    trade["pnl"] = round(-trade["size_usd"], 2)
+                                    trade["exit_price"] = 0.0
+
+                                trade["exit_time"] = now.isoformat()
+                                trade["status"] = "closed"
+                                trade["_resolved_via"] = "ws"
+
+                                self.stats["wins" if won else "losses"] += 1
+                                self.stats["pnl"] += trade["pnl"]
+                                self.session_pnl += trade["pnl"]
+                                trade["tier"] = self.tier
+                                self.resolved.append(trade)
+                                del self.trades[tid]
+
+                                w, l = self.stats["wins"], self.stats["losses"]
+                                wr = w / (w + l) * 100 if (w + l) > 0 else 0
+                                tag = "WIN" if won else "LOSS"
+                                print(f"[{tag}] {trade['_asset']}:{trade['side']} ${trade['pnl']:+.2f} | "
+                                      f"entry=${trade['entry_price']:.2f} | strat={trade.get('strategy', '?')} | "
+                                      f"[WS-RESOLVE] | {w}W/{l}L {wr:.0f}%WR | Total: ${self.stats['pnl']:+.2f}")
+
+                                self.record_market_outcome(trade.get("_asset", "BTC"), winning)
+                                self.filter_ml.record_outcome(trade, won)
+                                self.v17_tracker.record_trade(trade, won)
+                                self.check_promotion()
+                                self._save()
+                                if self.check_auto_kill():
+                                    return
+                                break  # resolved, move to next trade
+                except Exception as e:
+                    pass  # Fall through to Gamma API
+
+                # If WS resolved this trade, skip Gamma polling
+                if tid not in self.trades:
+                    continue
+
+            # Resolve via Gamma API (fallback)
             nid = trade.get("market_numeric_id")
             if nid:
                 try:
@@ -1012,6 +1360,7 @@ class Momentum15MTrader:
 
                                 trade["exit_time"] = now.isoformat()
                                 trade["status"] = "closed"
+                                trade["_resolved_via"] = "gamma"
 
                                 won = trade["pnl"] > 0
                                 self.stats["wins" if won else "losses"] += 1
@@ -1083,6 +1432,74 @@ class Momentum15MTrader:
                     return
 
     # ========================================================================
+    # V2.1: FRAMA_CMO SIGNAL (15M candle-based trend pullback strategy)
+    # ========================================================================
+
+    async def _fetch_15m_candles(self):
+        """Fetch 200 15M BTCUSDT candles from Binance. Cached 60s."""
+        now = time.time()
+        if self._candles_15m_cache and now - self._candles_15m_ts < 60:
+            return self._candles_15m_cache
+        try:
+            url = "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=15m&limit=200"
+            async with httpx.AsyncClient() as client:
+                r = await client.get(url, timeout=10)
+                klines = r.json()
+            close = np.array([float(k[4]) for k in klines])
+            high = np.array([float(k[2]) for k in klines])
+            low = np.array([float(k[3]) for k in klines])
+            self._candles_15m_cache = (close, high, low)
+            self._candles_15m_ts = now
+            return self._candles_15m_cache
+        except Exception as e:
+            print(f"[FRAMA] 15M candle fetch error: {e}")
+            return self._candles_15m_cache  # return stale cache if available
+
+    async def _check_frama_cmo(self):
+        """FRAMA_CMO signal from 15M candles. Trend pullback strategy.
+        Paper: 69.5% WR, BCa CI>50%, ROBUST walk-forward (59 trades).
+        Returns {"side": "UP"/"DOWN"/None, "reason": str, "detail": str}."""
+        data = await self._fetch_15m_candles()
+        if data is None:
+            return {"side": None, "reason": "no_data", "detail": ""}
+        close, high, low = data
+        if len(close) < 30:
+            return {"side": None, "reason": "insufficient_bars", "detail": ""}
+
+        f = calc_frama(close)
+        m = calc_cmo(close)
+        _, _, dc_mid = calc_donchian(high, low)
+
+        i = len(close) - 1
+        c, fv, mv, mid = close[i], f[i], m[i], dc_mid[i]
+        if any(not np.isfinite(x) for x in [c, fv, mv, mid]):
+            return {"side": None, "reason": "nan_values", "detail": ""}
+
+        # Trend detection: price vs FRAMA + CMO momentum
+        trend_up = (c > fv) and (mv >= 10.0)
+        trend_dn = (c < fv) and (mv <= -10.0)
+
+        # Pullback detection: price near FRAMA or Donchian midline (within 0.12%)
+        near_frama = abs(c - fv) / c <= 0.0012
+        near_mid = abs(c - mid) / c <= 0.0012
+
+        # Resumption: 1-bar price recovery in trend direction
+        prev_c = close[i - 1]
+        resume_long = (c > prev_c) and (c > mid)
+        resume_short = (c < prev_c) and (c < mid)
+
+        side = None
+        reason = "no_entry"
+        if trend_up and (near_frama or near_mid) and resume_long:
+            side = "UP"
+            reason = "frama_up_pullback"
+        elif trend_dn and (near_frama or near_mid) and resume_short:
+            side = "DOWN"
+            reason = "frama_dn_pullback"
+
+        return {"side": side, "reason": reason, "detail": f"frama={fv:.0f} cmo={mv:.1f} dcmid={mid:.0f}"}
+
+    # ========================================================================
     # ENTRY
     # ========================================================================
 
@@ -1090,9 +1507,9 @@ class Momentum15MTrader:
         """Find momentum-based entries on 15M markets across all assets."""
         now = datetime.now(timezone.utc)
 
-        # V1.9b: Only skip proven dead hours (2AM ET + 8AM ET)
-        # Reduced from 6 skipped hours — was too aggressive on 20 data points
-        SKIP_HOURS = {7, 13}
+        # V2.1: Re-opened hour 13 UTC — lab showed it's profitable (+$172 left on table)
+        # Only skip hour 7 (2AM ET) — confirmed dead
+        SKIP_HOURS = {7}
         if now.hour in SKIP_HOURS:
             return
 
@@ -1112,6 +1529,10 @@ class Momentum15MTrader:
         if self.session_pnl <= -DAILY_LOSS_LIMIT:
             print(f"[STOP] Daily loss limit hit: ${self.session_pnl:+.2f} (limit: -${DAILY_LOSS_LIMIT})")
             return
+
+        # V2.1: FRAMA_CMO signal (checked once per cycle, same for all BTC markets)
+        frama_sig = await self._check_frama_cmo()
+        frama_side = frama_sig.get("side")
 
         for market in markets:
             if open_count >= MAX_CONCURRENT:
@@ -1228,6 +1649,23 @@ class Momentum15MTrader:
                     side = "DOWN"
                     entry_price = round(down_price + (SPREAD_OFFSET if self.paper else 0), 2)
 
+            # V2.1: FRAMA_CMO consensus / fallback logic
+            consensus = False
+            if side and frama_side == side:
+                # Both momentum_strong and FRAMA_CMO agree — consensus boost
+                consensus = True
+                strategy = "consensus"
+                print(f"    [CONSENSUS] momentum_strong + FRAMA_CMO both say {side} | {frama_sig.get('detail', '')}")
+            elif not side and frama_side:
+                # Only FRAMA_CMO fires — use it as standalone entry
+                side = frama_side
+                strategy = "frama_cmo"
+                entry_price = round((up_price if side == "UP" else down_price) + (SPREAD_OFFSET if self.paper else 0), 2)
+                if entry_price > MAX_ENTRY or entry_price < MIN_ENTRY:
+                    continue
+                print(f"    [FRAMA_CMO] {side} @ ${entry_price:.2f} | {frama_sig.get('detail', '')}")
+            # else: strategy stays "momentum_strong" (set at line 1329)
+
             if not side or not entry_price or entry_price > MAX_ENTRY:
                 continue
 
@@ -1241,12 +1679,26 @@ class Momentum15MTrader:
 
             # Size based on current promotion tier
             trade_size = TIERS[self.tier]["size"]
+
+            # V2.1: Consensus size multiplier — boost when both signals agree
+            if consensus:
+                trade_size = round(trade_size * CONSENSUS_SIZE_MULT, 2)
+                print(f"    [SIZE BOOST] Consensus: ${trade_size:.2f} ({CONSENSUS_SIZE_MULT}x)")
+
             shares = int(trade_size / entry_price)  # V1.9b: integer shares — CLOB rejects excess decimals
 
             # Enforce CLOB minimum shares
             if shares < MIN_SHARES:
                 shares = MIN_SHARES
             trade_size = round(shares * entry_price, 2)
+
+            # V2.2: Taker fee calculation — skip if fee eats the edge
+            expected_fee = calc_taker_fee(shares, entry_price)
+            expected_win = shares * (1.0 - entry_price)  # win pays $1/share - cost
+            fee_pct = expected_fee / trade_size * 100 if trade_size > 0 else 0
+            # Don't skip on fees alone (they're small), but log for awareness
+            if fee_pct > 0.5:
+                print(f"    [FEE] ${expected_fee:.3f} ({fee_pct:.1f}% of ${trade_size:.2f}) | net_if_win: ${expected_win - expected_fee:.2f}")
 
             # === PLACE TRADE ===
             trade_key = f"15m_{cid}_{side}"
@@ -1336,6 +1788,7 @@ class Momentum15MTrader:
                 "entry_time": now.isoformat(),
                 "condition_id": cid,
                 "market_numeric_id": nid,
+                "_token_ids": list(self.get_token_ids(market)),
                 "title": question,
                 "strategy": strategy,
                 "asset": asset,
@@ -1355,6 +1808,9 @@ class Momentum15MTrader:
                 "streak_boost": streak_boost,
                 "_time_left": round(time_left, 1),  # V1.7: for change tracker
                 "_ema_gap_bp": round(ema_gap_bp, 1) if ema_gap_bp is not None else None,
+                "_expected_fee": round(expected_fee, 4),
+                "_consensus": consensus,
+                "_price_source": "ws" if self.poly_ws.is_connected() else "gamma",
                 "status": "open",
                 "pnl": 0.0,
             }
@@ -1365,9 +1821,10 @@ class Momentum15MTrader:
             streak_str = ""
             if streak_info["streak_len"] >= 2:
                 streak_str = f" | streak={streak_info['streak_len']}x{streak_info['streak_dir']} {streak_info['alignment']} b={streak_boost:.1f}"
-            print(f"[ENTRY] {asset}:{side} ${entry_price:.2f} ${trade_size:.2f} ({shares:.0f}sh) | momentum_strong | "
+            frama_str = f" | {frama_sig.get('detail', '')}" if strategy in ("frama_cmo", "consensus") else ""
+            print(f"[ENTRY] {asset}:{side} ${entry_price:.2f} ${trade_size:.2f} ({shares:.0f}sh) | {strategy} | "
                   f"mom_10m={momentum_10m:+.4%} mom_5m={momentum_5m:+.4%} {rsi_str} | "
-                  f"[ML:{ml_preset}] | {asset}=${asset_price:,.2f} | time={time_left:.1f}m | [{mode}]{streak_str} | "
+                  f"[ML:{ml_preset}] | {asset}=${asset_price:,.2f} | time={time_left:.1f}m | [{mode}]{streak_str}{frama_str} | "
                   f"{question[:50]}")
 
         # ================================================================
@@ -1480,9 +1937,8 @@ class Momentum15MTrader:
         mode = "PAPER" if self.paper else "LIVE"
         print("=" * 70)
         tier_size = TIERS[self.tier]["size"]
-        print(f"MOMENTUM 15M DIRECTIONAL TRADER V2.0 - {mode} MODE")
-        print(f"Strategy: UP-primary + contrarian reversal + moderate DOWN | BTC only")
-        print(f"On-chain verified: BTC UP 7W/1L (88%), DOWN 6W/6L (50%)")
+        print(f"MOMENTUM 15M DIRECTIONAL TRADER V2.2 - {mode} MODE")
+        print(f"Strategy: momentum_strong + FRAMA_CMO pullback + consensus boost | BTC only")
         print(f"Assets: {', '.join(ASSETS.keys())}")
         print(f"Tier: {self.tier} (${tier_size:.2f}/trade) | Max concurrent: {MAX_CONCURRENT}")
         print(f"Entry price: ${MIN_ENTRY:.2f}-${MAX_ENTRY:.2f}")
@@ -1490,12 +1946,14 @@ class Momentum15MTrader:
         print(f"V1.9 entry rules (backtest: 93% WR, +$1,110 over 258 trades):")
         print(f"  UP signal:     RSI >{RSI_CONFIRM_UP} + bullish momentum -> bet UP (backtest: 94% WR)")
         print(f"  MODERATE DOWN: RSI {RSI_MODERATE_DOWN_LO}-{RSI_MODERATE_DOWN_HI} + bearish momentum -> bet DOWN (backtest: 91% WR)")
-        print(f"  CONTRARIAN:    DISABLED (backtest: 8% WR, -$370 — mean reversion FAILED)")
+        print(f"  FRAMA_CMO:     FRAMA(16) + CMO(14) + Donchian(20) trend pullback (paper: 69.5% WR)")
+        print(f"  CONSENSUS:     momentum + FRAMA_CMO agree -> {CONSENSUS_SIZE_MULT}x size")
         print(f"FOK orders + fill verify (V1.8) | ML filter reset (clean priors)")
-        print(f"Skip hours (UTC): {{7,11,12,13,14,15}} (2AM + 6-10AM ET — on-chain losers)")
+        print(f"Skip hours (UTC): {{7}} (2AM ET only)")
         print(f"Daily loss limit: ${DAILY_LOSS_LIMIT}")
         print(f"Scan interval: {SCAN_INTERVAL}s")
-        print(f"V2.0: Binance WebSocket live feed + spike detection")
+        print(f"V2.1: +FRAMA_CMO signal, tighter window (2-4m), re-opened hour 13, consensus 1.5x")
+        print(f"V2.2: +Polymarket WS (real-time prices, instant resolution), taker fee calc")
         print("=" * 70)
 
         # V2.0: Start WebSocket feed
@@ -1504,6 +1962,9 @@ class Momentum15MTrader:
         # V2.1: Start HMM regime filter (seeds from REST for full 120 bars)
         await self.hmm.start()
         print(self.hmm.get_report())
+
+        # V2.2: Start Polymarket WebSocket feed (real-time prices + resolution)
+        await self.poly_ws.start()
 
         if self.resolved:
             w, l = self.stats["wins"], self.stats["losses"]
@@ -1575,8 +2036,11 @@ class Momentum15MTrader:
                     else:
                         ws_tag = "REST"
 
+                    # V2.2: Poly WS status
+                    poly_tag = "PM-WS" if self.poly_ws.is_connected() else "PM-REST"
+
                     tier_size = TIERS[self.tier]["size"]
-                    print(f"\n--- Cycle {cycle} | {mode}({ws_tag}) | {self.tier} ${tier_size:.2f} | "
+                    print(f"\n--- Cycle {cycle} | {mode}({ws_tag}+{poly_tag}) | {self.tier} ${tier_size:.2f} | "
                           f"Active: {open_count} | "
                           f"{w}W/{l}L {wr:.0f}%WR | "
                           f"PnL: ${self.stats['pnl']:+.2f} | "
