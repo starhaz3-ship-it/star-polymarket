@@ -58,9 +58,183 @@ MIN_SHARES = 3              # minimum shares for fill confirmation
 FOK_SLIPPAGE = 0.03         # cents above best ask to sweep multiple price levels
 
 RESULTS_FILE = Path(__file__).parent / "sniper_5m_live_results.json"
+ML_STATE_FILE = Path(__file__).parent / "sniper_ml_depth_state.json"
 BINANCE_REST_URL = "https://api.binance.com/api/v3/klines"
 CLOB_BOOK_URL = "https://clob.polymarket.com/book"
 GAMMA_API_URL = "https://gamma-api.polymarket.com/events"
+
+# ML minimum trades before filter activates (collect data first)
+ML_MIN_TRADES = 8
+ML_MIN_WR_THRESHOLD = 0.50  # skip if estimated WR below this
+
+
+# ============================================================================
+# ML DEPTH FILTER — learns which orderbook shapes predict wins
+# ============================================================================
+class DepthMLFilter:
+    """Thompson sampling on orderbook depth features to auto-tune entry quality."""
+
+    def __init__(self):
+        self.state = {"features": [], "buckets": {}}
+        self._load()
+
+    def _load(self):
+        if ML_STATE_FILE.exists():
+            try:
+                self.state = json.loads(ML_STATE_FILE.read_text())
+            except Exception:
+                pass
+
+    def _save(self):
+        try:
+            ML_STATE_FILE.write_text(json.dumps(self.state, indent=2))
+        except Exception:
+            pass
+
+    @staticmethod
+    def compute_features(levels: list, entry_price: float, confidence: float,
+                         signal_source: str, up_ask: float, down_ask: float) -> dict:
+        """Extract ML features from orderbook depth levels."""
+        if not levels:
+            return {
+                "best_ask_ratio": 0.0, "best_is_largest": False,
+                "depth_levels": 0, "total_depth": 0,
+                "confidence": confidence, "signal_source": signal_source,
+                "opposing_price": 0.0, "spread_sum": 0.0,
+            }
+
+        top4 = levels[:4]
+        prices = [p for p, s in top4]
+        sizes = [s for p, s in top4]
+        total_top4 = sum(sizes)
+        best_ask_size = sizes[0] if sizes else 0
+
+        # Key features
+        best_ask_ratio = best_ask_size / total_top4 if total_top4 > 0 else 0.0
+        largest_idx = sizes.index(max(sizes)) if sizes else 0
+        best_is_largest = (largest_idx == 0)
+        opposing_price = min(up_ask, down_ask) if up_ask and down_ask else 0.0
+        spread_sum = (up_ask or 0) + (down_ask or 0)
+
+        return {
+            "best_ask_ratio": round(best_ask_ratio, 3),
+            "best_is_largest": best_is_largest,
+            "depth_levels": len(top4),
+            "total_depth": int(total_top4),
+            "confidence": round(confidence, 3),
+            "signal_source": signal_source,
+            "opposing_price": round(opposing_price, 3),
+            "spread_sum": round(spread_sum, 3),
+        }
+
+    def record_outcome(self, features: dict, won: bool):
+        """Record a trade outcome with its features for learning."""
+        entry = {**features, "won": won, "ts": datetime.now(timezone.utc).isoformat()}
+        self.state["features"].append(entry)
+        self.state["features"] = self.state["features"][-200:]  # keep last 200
+
+        # Update Thompson buckets
+        for bucket_name, bucket_val in self._get_buckets(features):
+            if bucket_name not in self.state["buckets"]:
+                self.state["buckets"][bucket_name] = {"alpha": 1, "beta": 1}
+            b = self.state["buckets"][bucket_name]
+            if won:
+                b["alpha"] += 1
+            else:
+                b["beta"] += 1
+
+        self._save()
+
+    def _get_buckets(self, features: dict) -> list:
+        """Map features to Thompson sampling buckets."""
+        buckets = []
+
+        # Bucket 1: best_is_largest (True/False)
+        bil = features.get("best_is_largest", True)
+        buckets.append((f"best_largest_{bil}", bil))
+
+        # Bucket 2: best_ask_ratio ranges
+        bar = features.get("best_ask_ratio", 0.5)
+        if bar >= 0.50:
+            buckets.append(("bar_high", bar))
+        elif bar >= 0.25:
+            buckets.append(("bar_mid", bar))
+        else:
+            buckets.append(("bar_low", bar))
+
+        # Bucket 3: signal source
+        src = features.get("signal_source", "clob")
+        buckets.append((f"signal_{src}", src))
+
+        # Bucket 4: confidence ranges
+        conf = features.get("confidence", 0.70)
+        if conf >= 0.74:
+            buckets.append(("conf_high", conf))
+        else:
+            buckets.append(("conf_low", conf))
+
+        # Bucket 5: opposing side strength
+        opp = features.get("opposing_price", 0.30)
+        if opp >= 0.30:
+            buckets.append(("opp_strong", opp))
+        else:
+            buckets.append(("opp_weak", opp))
+
+        return buckets
+
+    def should_trade(self, features: dict) -> tuple:
+        """Returns (should_trade: bool, reason: str, expected_wr: float).
+
+        Collects data for ML_MIN_TRADES, then starts soft-filtering.
+        """
+        total_data = len(self.state["features"])
+
+        # Always trade while collecting data
+        if total_data < ML_MIN_TRADES:
+            return True, f"collecting_data({total_data}/{ML_MIN_TRADES})", 0.0
+
+        # Calculate expected WR from matching buckets via Thompson sampling
+        import random
+        bucket_samples = []
+        for bucket_name, _ in self._get_buckets(features):
+            b = self.state["buckets"].get(bucket_name)
+            if b and (b["alpha"] + b["beta"]) > 2:
+                # Thompson sample from Beta distribution
+                sample = random.betavariate(b["alpha"], b["beta"])
+                bucket_samples.append(sample)
+
+        if not bucket_samples:
+            return True, "no_bucket_data", 0.0
+
+        # Average across matching buckets (ensemble)
+        expected_wr = sum(bucket_samples) / len(bucket_samples)
+
+        if expected_wr < ML_MIN_WR_THRESHOLD:
+            bad_buckets = []
+            for bucket_name, _ in self._get_buckets(features):
+                b = self.state["buckets"].get(bucket_name, {"alpha": 1, "beta": 1})
+                mean = b["alpha"] / (b["alpha"] + b["beta"])
+                if mean < 0.50:
+                    bad_buckets.append(f"{bucket_name}={mean:.0%}")
+            reason = f"ml_skip(wr={expected_wr:.0%} " + " ".join(bad_buckets) + ")"
+            return False, reason, expected_wr
+
+        return True, f"ml_pass(wr={expected_wr:.0%})", expected_wr
+
+    def get_report(self) -> str:
+        """Return a short status line for logging."""
+        total = len(self.state["features"])
+        if total == 0:
+            return "[ML] No data yet"
+        wins = sum(1 for f in self.state["features"] if f.get("won"))
+        lines = [f"[ML] {wins}W/{total-wins}L ({wins/total*100:.0f}%WR) | {len(self.state['buckets'])} buckets"]
+        for bname, bdata in sorted(self.state["buckets"].items()):
+            a, b = bdata["alpha"], bdata["beta"]
+            n = a + b - 2  # subtract priors
+            if n > 0:
+                mean = a / (a + b)
+                lines.append(f"  {bname}: {mean:.0%} ({n} trades)")
+        return "\n".join(lines)
 
 
 def get_trade_size(wins: int, losses: int) -> float:
@@ -90,6 +264,7 @@ class Sniper5MLive:
         self.running = True
         self._last_log_time = 0.0
         self.client = None
+        self.ml_depth = DepthMLFilter()
         self._load()
 
         if not self.paper:
@@ -727,6 +902,19 @@ class Sniper5MLive:
                 print(f"[DEPTH] Reduced order: {desired_shares} -> {shares}sh "
                       f"(${actual_trade_size:.2f} of ${trade_size:.2f})")
 
+            # ML depth filter — compute features and check
+            ml_features = DepthMLFilter.compute_features(
+                levels, entry_price, confidence, signal_source,
+                up_display, down_display)
+            ml_ok, ml_reason, ml_wr = self.ml_depth.should_trade(ml_features)
+            if not ml_ok:
+                self.stats["skipped"] += 1
+                self.attempted_cids.add(cid)
+                print(f"[SKIP] {ml_reason} | {side} @ ${entry_price:.2f} "
+                      f"| bar={ml_features['best_ask_ratio']:.0%} largest@best={ml_features['best_is_largest']} "
+                      f"| {question[:40]}")
+                continue
+
             # Mark as attempted
             self.attempted_cids.add(cid)
 
@@ -762,6 +950,8 @@ class Sniper5MLive:
                 "order_id": fill.get("order_id", ""),
                 "live": not self.paper,
                 "strategy": f"directional_{signal_source}",
+                "_ml_features": ml_features,
+                "_ml_reason": ml_reason,
             }
 
             self.active[cid] = trade
@@ -974,6 +1164,11 @@ class Sniper5MLive:
             self.stats["pnl"] += pnl
             self.session_pnl += pnl
 
+            # ML depth learning — record outcome for auto-tuning
+            ml_feats = trade.get("_ml_features")
+            if ml_feats:
+                self.ml_depth.record_outcome(ml_feats, won)
+
             self.resolved.append(trade)
             to_remove.append(cid)
 
@@ -984,11 +1179,16 @@ class Sniper5MLive:
             tier = trade.get("trade_size_tier", BASE_TRADE_SIZE)
             strat_label = trade.get("strategy", "directional").upper()
 
+            ml_tag = ""
+            if ml_feats:
+                ml_tag = (f" | bar={ml_feats['best_ask_ratio']:.0%}"
+                          f" top={'Y' if ml_feats['best_is_largest'] else 'N'}")
+
             print(f"[{tag}|{strat_label}] BTC:{trade['side']} ${pnl:+.2f} | "
                   f"entry=${trade['entry_price']:.2f} tier=${tier:.0f} | "
                   f"market={outcome} | "
                   f"{w}W/{l}L {wr:.0f}%WR ${self.stats['pnl']:+.2f} | "
-                  f"session=${self.session_pnl:+.2f} | "
+                  f"session=${self.session_pnl:+.2f}{ml_tag} | "
                   f"{trade['question'][:45]}")
 
         for cid in to_remove:
@@ -1043,6 +1243,14 @@ class Sniper5MLive:
 
         if self.session_pnl <= -DAILY_LOSS_LIMIT:
             print(f"    *** DAILY LOSS LIMIT HIT: ${self.session_pnl:+.2f} ***")
+
+        # Print ML report every 5th status
+        if total > 0 and hasattr(self, '_status_count'):
+            self._status_count += 1
+        else:
+            self._status_count = 1
+        if self._status_count % 5 == 0:
+            print(self.ml_depth.get_report())
 
     # ========================================================================
     # MAIN LOOP

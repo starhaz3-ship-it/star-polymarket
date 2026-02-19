@@ -1,0 +1,78 @@
+{
+  "features": [
+    {
+      "best_ask_ratio": 0.258,
+      "best_is_largest": false,
+      "depth_levels": 4,
+      "total_depth": 372,
+      "confidence": 0.7,
+      "signal_source": "clob",
+      "opposing_price": 0.3,
+      "spread_sum": 1.02,
+      "won": false,
+      "ts": "2026-02-19T09:04:02Z"
+    },
+    {
+      "best_ask_ratio": 0.718,
+      "best_is_largest": true,
+      "depth_levels": 4,
+      "total_depth": 234,
+      "confidence": 0.7,
+      "signal_source": "clob",
+      "opposing_price": 0.32,
+      "spread_sum": 1.02,
+      "won": true,
+      "ts": "2026-02-19T09:14:07Z"
+    },
+    {
+      "best_ask_ratio": 0.55,
+      "best_is_largest": true,
+      "depth_levels": 4,
+      "total_depth": 939,
+      "confidence": 0.75,
+      "signal_source": "clob",
+      "opposing_price": 0.26,
+      "spread_sum": 1.0,
+      "won": true,
+      "ts": "2026-02-19T10:24:02Z"
+    }
+  ],
+  "buckets": {
+    "best_largest_False": {
+      "alpha": 1,
+      "beta": 2
+    },
+    "bar_mid": {
+      "alpha": 1,
+      "beta": 2
+    },
+    "signal_clob": {
+      "alpha": 3,
+      "beta": 2
+    },
+    "conf_low": {
+      "alpha": 2,
+      "beta": 2
+    },
+    "opp_strong": {
+      "alpha": 2,
+      "beta": 2
+    },
+    "best_largest_True": {
+      "alpha": 3,
+      "beta": 1
+    },
+    "bar_high": {
+      "alpha": 3,
+      "beta": 1
+    },
+    "conf_high": {
+      "alpha": 2,
+      "beta": 1
+    },
+    "opp_weak": {
+      "alpha": 2,
+      "beta": 1
+    }
+  }
+}

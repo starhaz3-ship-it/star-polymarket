@@ -1000,7 +1000,7 @@ class Momentum15MTrader:
                                 # BINARY ONLY: wait for full resolution
                                 if price >= 0.95:
                                     # WIN: shares pay $1 each
-                                    shares = trade["size_usd"] / trade["entry_price"]
+                                    shares = trade.get("_shares", trade["size_usd"] / trade["entry_price"])
                                     trade["pnl"] = round(shares - trade["size_usd"], 2)
                                     trade["exit_price"] = 1.0
                                 elif price <= 0.05:
@@ -1291,13 +1291,20 @@ class Momentum15MTrader:
 
                     # If immediately matched, confirm fill
                     if status == "matched":
-                        _t.sleep(1)
+                        _t.sleep(2)
                         fill_confirmed, entry_price, shares, trade_size = self._verify_fill(
                             order_id, entry_price, shares, trade_size)
                         if not fill_confirmed:
-                            # Matched but can't verify — trust it (GTC matched = filled)
+                            # Retry once more after 3s — API may be slow
+                            _t.sleep(3)
+                            fill_confirmed, entry_price, shares, trade_size = self._verify_fill(
+                                order_id, entry_price, shares, trade_size)
+                        if not fill_confirmed:
+                            # Matched but can't verify — trust fill at GTC limit price
                             fill_confirmed = True
-                            print(f"[LIVE] Matched — trusting fill {shares}sh @ ${entry_price:.2f}")
+                            entry_price = gtc_price  # use actual CLOB price, not Gamma API
+                            trade_size = round(shares * entry_price, 2)
+                            print(f"[LIVE] Matched — trusting fill {shares}sh @ ${entry_price:.2f} (gtc limit)")
                     else:
                         # Status is "live" — poll for fill up to 30 seconds
                         print(f"[LIVE] Polling for fill (30s max)...")
@@ -1325,6 +1332,7 @@ class Momentum15MTrader:
                 "side": side,
                 "entry_price": entry_price,
                 "size_usd": trade_size,
+                "_shares": shares,
                 "entry_time": now.isoformat(),
                 "condition_id": cid,
                 "market_numeric_id": nid,

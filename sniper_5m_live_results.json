@@ -1,11 +1,207 @@
 {
   "active": {},
-  "resolved": [],
+  "resolved": [
+    {
+      "condition_id": "0xc07a0dc6afec19a73893ecfbae7292735fce0d4a2302c5475744b780afda9457",
+      "question": "Bitcoin Up or Down - February 19, 4:00AM-4:05AM ET",
+      "side": "UP",
+      "entry_price": 0.7,
+      "confidence": 0.7,
+      "up_ask": 0.72,
+      "down_ask": 0.3,
+      "shares": 4.2319,
+      "cost": 2.96,
+      "trade_size_tier": 3.0,
+      "time_remaining_sec": 62.6,
+      "entry_time": "2026-02-19T09:04:02.174491+00:00",
+      "end_dt": "2026-02-19T09:05:00+00:00",
+      "status": "closed",
+      "pnl": -2.96,
+      "result": "LOSS",
+      "order_id": "0x75f70b78906bd00261d054b29431aaf61ab97394ef0dfe3ec4b175b382106881",
+      "live": true,
+      "strategy": "directional_clob",
+      "market_outcome": "DOWN",
+      "resolve_time": "2026-02-19T09:05:15.291277+00:00",
+      "signal_audit": {
+        "signal_55s": "FLAT",
+        "pct_55s": 0.0249,
+        "signal_57s": "FLAT",
+        "pct_57s": 0.0249,
+        "signal_60s": "FLAT",
+        "pct_60s": 0.0249,
+        "signal_63s": "FLAT",
+        "pct_63s": 0.0249,
+        "signal_65s": "FLAT",
+        "pct_65s": 0.0249,
+        "actual_direction": "DOWN",
+        "actual_pct": -0.122,
+        "open_price": 66966.12,
+        "close_price": 66884.41,
+        "candle_closes": [
+          [
+            240.0,
+            66971.03
+          ],
+          [
+            180.0,
+            66956.04
+          ],
+          [
+            120.0,
+            66944.45
+          ],
+          [
+            60.0,
+            66982.77
+          ],
+          [
+            0.0,
+            66886.63
+          ],
+          [
+            -60.0,
+            66884.41
+          ]
+        ]
+      }
+    },
+    {
+      "condition_id": "0xd70ff212a2895625f1bfbf6c2c79314db40a6cab44a6388c972bf82b334aaf33",
+      "question": "Bitcoin Up or Down - February 19, 4:10AM-4:15AM ET",
+      "side": "UP",
+      "entry_price": 0.7,
+      "confidence": 0.7,
+      "up_ask": 0.7,
+      "down_ask": 0.32,
+      "shares": 4.1714,
+      "cost": 2.92,
+      "trade_size_tier": 3.0,
+      "time_remaining_sec": 57.5,
+      "entry_time": "2026-02-19T09:14:07.381519+00:00",
+      "end_dt": "2026-02-19T09:15:00+00:00",
+      "status": "closed",
+      "pnl": 1.25,
+      "result": "WIN",
+      "order_id": "0x8b3ba67ba38e7d7b5e86080308785d55d13853486d9fb8424666f20db14f7685",
+      "live": true,
+      "strategy": "directional_clob",
+      "market_outcome": "UP",
+      "resolve_time": "2026-02-19T09:15:17.459599+00:00",
+      "signal_audit": {
+        "signal_55s": "FLAT",
+        "pct_55s": 0.0239,
+        "signal_57s": "FLAT",
+        "pct_57s": 0.0239,
+        "signal_60s": "FLAT",
+        "pct_60s": 0.0239,
+        "signal_63s": "FLAT",
+        "pct_63s": 0.0239,
+        "signal_65s": "FLAT",
+        "pct_65s": 0.0239,
+        "actual_direction": "UP",
+        "actual_pct": 0.0228,
+        "open_price": 67006.69,
+        "close_price": 67022.0,
+        "candle_closes": [
+          [
+            240.0,
+            67030.0
+          ],
+          [
+            180.0,
+            67029.91
+          ],
+          [
+            120.0,
+            67027.19
+          ],
+          [
+            60.0,
+            67022.69
+          ],
+          [
+            0.0,
+            67019.53
+          ],
+          [
+            -60.0,
+            67022.0
+          ]
+        ]
+      }
+    },
+    {
+      "condition_id": "0x192e8e6d368876c5b8a8cc27df460772eecf94a8b9604926583a92228bb58899",
+      "question": "Bitcoin Up or Down - February 19, 5:20AM-5:25AM ET",
+      "side": "DOWN",
+      "entry_price": 0.75,
+      "confidence": 0.75,
+      "up_ask": 0.26,
+      "down_ask": 0.74,
+      "shares": 4.2162,
+      "cost": 3.16,
+      "trade_size_tier": 3.0,
+      "time_remaining_sec": 62.2,
+      "entry_time": "2026-02-19T10:24:02.480352+00:00",
+      "end_dt": "2026-02-19T10:25:00+00:00",
+      "status": "closed",
+      "pnl": 1.06,
+      "result": "WIN",
+      "order_id": "0x489d4a60832bc462dd8193f4d2a86d60bde18529805e277f18fa97d881abb3d2",
+      "live": true,
+      "strategy": "directional_clob",
+      "market_outcome": "DOWN",
+      "resolve_time": "2026-02-19T10:25:15.395326+00:00",
+      "signal_audit": {
+        "signal_55s": "FLAT",
+        "pct_55s": -0.0149,
+        "signal_57s": "FLAT",
+        "pct_57s": -0.0149,
+        "signal_60s": "FLAT",
+        "pct_60s": -0.0149,
+        "signal_63s": "FLAT",
+        "pct_63s": -0.0149,
+        "signal_65s": "FLAT",
+        "pct_65s": -0.0149,
+        "actual_direction": "DOWN",
+        "actual_pct": -0.0704,
+        "open_price": 66920.74,
+        "close_price": 66873.66,
+        "candle_closes": [
+          [
+            240.0,
+            66911.43
+          ],
+          [
+            180.0,
+            66885.83
+          ],
+          [
+            120.0,
+            66901.29
+          ],
+          [
+            60.0,
+            66910.76
+          ],
+          [
+            0.0,
+            66864.45
+          ],
+          [
+            -60.0,
+            66873.66
+          ]
+        ]
+      }
+    }
+  ],
   "stats": {
-    "wins": 0,
-    "losses": 0,
-    "pnl": 0.0,
-    "skipped": 3
+    "wins": 2,
+    "losses": 1,
+    "pnl": -0.6499999999999999,
+    "skipped": 84
   },
-  "last_updated": "2026-02-19T05:44:47.770879+00:00"
+  "last_updated": "2026-02-19T12:49:57.089350+00:00"
 }
