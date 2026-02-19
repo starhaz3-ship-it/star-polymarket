@@ -238,13 +238,20 @@ class DepthMLFilter:
 
 
 def get_trade_size(wins: int, losses: int) -> float:
-    """Auto-scale trade size based on performance."""
+    """Auto-scale trade size based on performance.
+    PROBATION ($3) -> PROMOTED ($5) at 20 trades, 55% WR, profitable
+    PROMOTED ($5) -> CHAMPION ($10) at 50 trades, 65% WR, profitable
+    """
     total = wins + losses
     if total == 0:
         return BASE_TRADE_SIZE
     wr = wins / total
-    # V1.1: Conservative scaling — prove it first
-    if total >= 50 and wr > 0.80:
+    pnl_positive = (wins > losses)  # proxy: more wins than losses = profitable
+    # CHAMPION: $10/trade after 50 trades with 65%+ WR
+    if total >= 50 and wr >= 0.65 and pnl_positive:
+        return 10.00
+    # PROMOTED: $5/trade after 20 trades with 55%+ WR
+    if total >= 20 and wr >= 0.55 and pnl_positive:
         return 5.00
     return BASE_TRADE_SIZE
 

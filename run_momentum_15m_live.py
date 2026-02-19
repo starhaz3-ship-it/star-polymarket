@@ -93,8 +93,8 @@ STREAK_REVERSAL_SIZE = 2.50      # Always minimal size (user directive)
 # ============================================================================
 TIERS = {
     "PROBATION":  {"size": 3.00, "min_trades": 0,  "promote_after": 20, "promote_wr": 0.55, "promote_profitable": True},
-    "PROMOTED":   {"size": 5.00, "min_trades": 20, "promote_after": 50, "promote_wr": 0.55, "promote_profitable": True},
-    "CHAMPION":   {"size": 5.00, "min_trades": 50, "promote_after": None, "promote_wr": None, "promote_profitable": None},
+    "PROMOTED":   {"size": 5.00, "min_trades": 20, "promote_after": 50, "promote_wr": 0.65, "promote_profitable": True},
+    "CHAMPION":   {"size": 10.00, "min_trades": 50, "promote_after": None, "promote_wr": None, "promote_profitable": None},
 }
 TIER_ORDER = ["PROBATION", "PROMOTED", "CHAMPION"]
 
