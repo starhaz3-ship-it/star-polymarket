@@ -40,7 +40,7 @@ from pid_lock import acquire_pid_lock, release_pid_lock
 # ============================================================================
 SNIPER_WINDOW = 63          # seconds before close to start looking (front-run whales)
 MIN_CONFIDENCE = 0.55       # minimum ask price to trigger entry
-MAX_ENTRY_PRICE = 0.85      # max entry price (need ~85% WR to break even here)
+MAX_ENTRY_PRICE = 0.78      # max entry price (paper: 64% WR at $0.80 = negative EV)
 BASE_TRADE_SIZE = 5.00      # USD per trade (testing live)
 SCAN_INTERVAL = 5           # seconds between scans
 MAX_CONCURRENT = 2          # 1 directional + 1 oracle
@@ -660,12 +660,12 @@ class Sniper5MLive:
                 side = await self._check_binance_direction(end_dt)
 
             if not side:
-                # CLOB CONFIDENCE: If one side is $0.70-$0.80 = sweet spot
-                # Paper data: 95% WR at $0.75, +$24.97 profit
-                if up_ask and 0.70 <= up_ask <= 0.80 and (down_ask is None or up_ask > down_ask):
+                # CLOB CONFIDENCE: $0.70-$0.76 only (paper: 95% WR at $0.75)
+                # Above $0.76 drops to 64% WR — not enough edge
+                if up_ask and 0.70 <= up_ask <= 0.76 and (down_ask is None or up_ask > down_ask):
                     side = "UP"
                     signal_source = "clob"
-                elif down_ask and 0.70 <= down_ask <= 0.80 and (up_ask is None or down_ask > up_ask):
+                elif down_ask and 0.70 <= down_ask <= 0.76 and (up_ask is None or down_ask > up_ask):
                     side = "DOWN"
                     signal_source = "clob"
 
@@ -1059,8 +1059,8 @@ class Sniper5MLive:
         print(f"    - Enter at {SNIPER_WINDOW}s before close | Binance signal > 0.07%")
         print(f"    - Entry: ${MIN_CONFIDENCE:.2f}-${MAX_ENTRY_PRICE:.2f} | FOK orders")
         print(f"  Strategy 1b — DIRECTIONAL/CLOB (confidence)")
-        print(f"    - Binance flat fallback | CLOB dominant side $0.70-$0.80")
-        print(f"    - Paper: 95% WR at $0.75 | FOK orders")
+        print(f"    - Binance flat fallback | CLOB dominant side $0.70-$0.76")
+        print(f"    - Paper: 95% WR at $0.75 | above $0.76 = danger zone")
         print(f"  Strategy 2 — ORACLE (certainty)")
         print(f"    - Enter {ORACLE_MIN_DELAY}-{ORACLE_WINDOW}s AFTER close | direction KNOWN")
         print(f"    - Entry: up to ${ORACLE_MAX_ENTRY:.2f} | GTC orders | ~$0.05+/sh profit")

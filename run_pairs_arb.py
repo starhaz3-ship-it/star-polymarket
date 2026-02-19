@@ -56,7 +56,7 @@ BID_PRICE = 0.45            # limit bid price for each side (fallback)
 MAX_BID_PRICE = 0.48        # absolute max we'll bid per side
 MIN_COMBINED = 0.94         # skip if our combined bids > this (need 6c+ margin)
 MAX_ASK_SPREAD = 0.15       # V1.2: symmetry filter — skip if |up_ask - dn_ask| > this
-TRADE_SIZE_PER_SIDE = 3.00  # USD per side ($6 total per market)
+TRADE_SIZE_PER_SIDE = 5.00  # USD per side ($10 total per market)
 MIN_SHARES = 5              # CLOB minimum
 DAILY_LOSS_LIMIT = 20.0     # stop if session losses exceed this
 
@@ -74,7 +74,7 @@ MODE_CONFIGS = {
     "5M": {
         "tag_slug": "5M",
         "scan_interval": 8,      # faster scan for shorter markets
-        "bail_timeout": 60,      # 1 min — proportional (3min/15min * 5min)
+        "bail_timeout": 120,     # 2 min — paper showed all hedges complete <62s, 120s for margin
         "max_concurrent": 2,
         "entry_window": (0.5, 4.0),  # enter 0.5-4 min before close
         "results_file": "pairs_arb_5m_results.json",
