@@ -40,8 +40,8 @@ from pid_lock import acquire_pid_lock, release_pid_lock
 # ============================================================================
 SNIPER_WINDOW = 63          # seconds before close to start looking (front-run whales)
 MIN_CONFIDENCE = 0.55       # minimum ask price to trigger entry
-MAX_ENTRY_PRICE = 0.78      # max entry price (paper: 64% WR at $0.80 = negative EV)
-BASE_TRADE_SIZE = 5.00      # USD per trade (testing live)
+MAX_ENTRY_PRICE = 0.76      # V1.1: cap at $0.76 — sweet spot $0.71-$0.75 is 95.6% WR
+BASE_TRADE_SIZE = 3.00      # $3/trade per Star directive
 SCAN_INTERVAL = 5           # seconds between scans
 MAX_CONCURRENT = 2          # 1 directional + 1 oracle
 
@@ -69,10 +69,9 @@ def get_trade_size(wins: int, losses: int) -> float:
     if total == 0:
         return BASE_TRADE_SIZE
     wr = wins / total
-    if total >= 100 and wr > 0.80:
-        return 20.00
-    if total >= 20 and wr > 0.80:
-        return 10.00
+    # V1.1: Conservative scaling — prove it first
+    if total >= 50 and wr > 0.80:
+        return 5.00
     return BASE_TRADE_SIZE
 
 
@@ -1089,7 +1088,8 @@ class Sniper5MLive:
                 markets = await self.discover_5m_markets()
                 await self.resolve_trades()
                 await self.check_sniper_entry(markets)
-                await self.check_oracle_entry(markets)
+                # V1.1: Oracle DISABLED — phantom fills caused -$1.36 live loss
+                # await self.check_oracle_entry(markets)
                 self.print_status(markets)
 
                 if cycle % 12 == 0:

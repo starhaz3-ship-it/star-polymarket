@@ -16,7 +16,7 @@
 - **DEMOTED (2026-02-18)**: `run_sniper_5m_live.py --live` — demoted to paper. Live PnL: -$1.36. Oracle trades are phantom (don't fill). W:L ratio 0.34x.
 - **NEVER** run `run_maker.py` — KILLED permanently. Lost ~$300 on 1c spreads with no edge. Do NOT restart, do NOT suggest restarting.
 - **ON SESSION START**: Verify NO unauthorized live traders are running. Check with `_find_procs.py`.
-- Allowed live: `run_momentum_15m_live.py --live` ONLY
+- Allowed live: `run_momentum_15m_live.py --live` AND `run_sniper_5m_live.py --live`
 - Paper-only processes (safe): `run_ta_paper.py`, `run_15m_strategies.py`, `run_5m_experiments.py`, `run_sniper_5m_paper.py`, `run_pairs_arb.py` (without --live)
 
 ## CORE STACK (launch by default on "Access Star-Polymarket")

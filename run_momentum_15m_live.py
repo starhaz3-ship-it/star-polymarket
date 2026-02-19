@@ -92,7 +92,7 @@ STREAK_REVERSAL_SIZE = 2.50      # Always minimal size (user directive)
 # PROMOTION PIPELINE: PROBATION -> PROMOTED -> CHAMPION
 # ============================================================================
 TIERS = {
-    "PROBATION":  {"size": 2.50, "min_trades": 0,  "promote_after": 20, "promote_wr": 0.55, "promote_profitable": True},
+    "PROBATION":  {"size": 3.00, "min_trades": 0,  "promote_after": 20, "promote_wr": 0.55, "promote_profitable": True},
     "PROMOTED":   {"size": 5.00, "min_trades": 20, "promote_after": 50, "promote_wr": 0.55, "promote_profitable": True},
     "CHAMPION":   {"size": 5.00, "min_trades": 50, "promote_after": None, "promote_wr": None, "promote_profitable": None},
 }
