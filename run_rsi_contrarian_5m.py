@@ -1,19 +1,23 @@
 """
-Sniper 5M Paper Trader V1.0
+RSI Contrarian 5M Paper Trader V1.0
 
-Reverse-engineered from bratanbratishka's strategy:
-  - Wait until < 60 seconds before a 5-minute BTC Up/Down market closes
-  - Check if odds are already > $0.70 on one side (direction is clear)
-  - Paper-bet on the dominant side
-  - The edge: when the market is already strongly directional near close,
-    it's priced in. bratanbratishka's losses came from unclear markets.
+Contrarian/mean-reversion strategy on Polymarket BTC 5-minute Up/Down markets.
+Uses RSI-14 computed from Binance 5-minute candles to detect oversold/overbought
+conditions, then bets on a reversal at cheap entry prices.
 
-Resolution:
-  - Uses Binance REST API to determine if BTC price went up or down
-    during the 5-minute window (close > open = UP wins, else DOWN wins)
+Strategy:
+  - RSI < 30 (oversold) + high volume  -> bet UP (expect bounce)
+  - RSI > 70 (overbought) + high volume -> bet DOWN (expect pullback)
+  - Volume filter: previous completed 5m candle > 1.5x avg of prior 10
+  - Entry price: $0.25-$0.55 (cheap side only, for 2x+ payout on win)
+  - Entry window: 1-4 minutes before 5M market close (late entry)
+  - Resolution: Binance 5M candle (close > open = UP wins, else DOWN)
+
+NOTE: Contrarian was ~8% WR in 15M backtests. Testing on 5M with strict
+      volume filter + cheap entry prices to see if edge exists.
 
 Usage:
-  python -u run_sniper_5m_paper.py
+  python -u run_rsi_contrarian_5m.py
 """
 
 import sys
@@ -40,34 +44,76 @@ from pid_lock import acquire_pid_lock, release_pid_lock
 # ============================================================================
 # CONFIG
 # ============================================================================
-SNIPER_WINDOW = 60          # seconds before close to start looking
-MIN_CONFIDENCE = 0.70       # minimum ask price to trigger entry
-MAX_ENTRY_PRICE = 0.76      # max entry price — above this, WR stays high but EV goes negative
 TRADE_SIZE = 2.50           # USD per trade (paper)
+MAX_CONCURRENT = 1          # one trade at a time (sequential 5M markets)
+MIN_ENTRY = 0.25            # minimum entry price (cheap = high payout)
+MAX_ENTRY = 0.55            # maximum entry price (above this, payout too low)
 SCAN_INTERVAL = 5           # seconds between scans
-MAX_CONCURRENT = 1          # only 1 active trade at a time (5M markets are sequential)
-DAILY_LOSS_LIMIT = 15.0     # stop trading if daily losses exceed this
 LOG_INTERVAL = 30           # print status every N seconds
-RESOLVE_DELAY = 15          # seconds after market close before resolving (let candle finish)
+DAILY_LOSS_LIMIT = 15.0     # stop trading if session losses exceed this
+RESOLVE_DELAY = 15          # seconds after market close before resolving
+RSI_PERIOD = 14             # RSI lookback
+RSI_OVERSOLD = 30           # RSI below this = oversold -> bet UP
+RSI_OVERBOUGHT = 70         # RSI above this = overbought -> bet DOWN
+VOLUME_MULTIPLIER = 1.5     # last completed candle volume must exceed avg * this
+ENTRY_WINDOW_MIN = 60       # earliest entry: 4 min before close (240s)
+ENTRY_WINDOW_MAX = 240      # latest entry: 1 min before close (60s)
+RSI_BUCKET_SIZE = 5         # RSI bucket width for stats tracking
 
-RESULTS_FILE = Path(__file__).parent / "sniper_5m_results.json"
+RESULTS_FILE = Path(__file__).parent / "rsi_contrarian_5m_results.json"
 BINANCE_REST_URL = "https://api.binance.com/api/v3/klines"
-CLOB_BOOK_URL = "https://clob.polymarket.com/book"
 GAMMA_API_URL = "https://gamma-api.polymarket.com/events"
 
 
 # ============================================================================
-# SNIPER 5M PAPER TRADER
+# RSI CALCULATION
 # ============================================================================
-class Sniper5MTrader:
+def compute_rsi(closes: list, period: int = 14) -> float:
+    """Compute RSI-14 from a list of close prices.
+
+    Uses the standard SMA-based RSI calculation (not exponential smoothing).
+    Returns 50.0 if insufficient data.
+    """
+    if len(closes) < period + 1:
+        return 50.0
+
+    gains = []
+    losses = []
+    for i in range(1, len(closes)):
+        delta = closes[i] - closes[i - 1]
+        gains.append(max(0, delta))
+        losses.append(max(0, -delta))
+
+    avg_gain = sum(gains[-period:]) / period
+    avg_loss = sum(losses[-period:]) / period
+
+    if avg_loss == 0:
+        return 100.0
+    rs = avg_gain / avg_loss
+    return 100.0 - (100.0 / (1.0 + rs))
+
+
+# ============================================================================
+# RSI CONTRARIAN 5M PAPER TRADER
+# ============================================================================
+class RSIContrarian5MTrader:
     def __init__(self):
         self.active: Dict[str, dict] = {}       # {condition_id: trade_dict}
         self.resolved: list = []
-        self.stats = {"wins": 0, "losses": 0, "pnl": 0.0, "skipped": 0}
+        self.stats = {
+            "wins": 0,
+            "losses": 0,
+            "pnl": 0.0,
+            "skipped": 0,
+            "by_rsi_bucket": {},
+            "start_time": datetime.now(timezone.utc).isoformat(),
+        }
         self.session_pnl = 0.0
-        self.attempted_cids: set = set()         # prevent re-entering same market
+        self.attempted_cids: set = set()
         self.running = True
         self._last_log_time = 0.0
+        self._last_rsi = 50.0
+        self._last_vol_ok = False
         self._load()
 
     # ========================================================================
@@ -80,8 +126,11 @@ class Sniper5MTrader:
                 data = json.loads(RESULTS_FILE.read_text())
                 self.active = data.get("active", {})
                 self.resolved = data.get("resolved", [])
-                self.stats = {**self.stats, **data.get("stats", {})}
-                # Rebuild attempted CIDs from active + resolved
+                saved_stats = data.get("stats", {})
+                # Merge saved stats into defaults
+                for k, v in saved_stats.items():
+                    self.stats[k] = v
+                # Rebuild attempted CIDs
                 for cid in self.active:
                     self.attempted_cids.add(cid)
                 for trade in self.resolved:
@@ -92,8 +141,7 @@ class Sniper5MTrader:
                 total = w + l
                 wr = w / total * 100 if total > 0 else 0
                 print(f"[LOAD] {len(self.resolved)} resolved, {len(self.active)} active | "
-                      f"{w}W/{l}L {wr:.0f}%WR | PnL: ${self.stats['pnl']:+.2f} | "
-                      f"Skipped: {self.stats['skipped']}")
+                      f"{w}W/{l}L {wr:.0f}%WR | PnL: ${self.stats['pnl']:+.2f}")
             except Exception as e:
                 print(f"[LOAD] Error: {e}")
 
@@ -122,8 +170,12 @@ class Sniper5MTrader:
             async with httpx.AsyncClient(timeout=15) as client:
                 r = await client.get(
                     GAMMA_API_URL,
-                    params={"tag_slug": "5M", "active": "true",
-                            "closed": "false", "limit": 200},
+                    params={
+                        "tag_slug": "5M",
+                        "active": "true",
+                        "closed": "false",
+                        "limit": 200,
+                    },
                     headers={"User-Agent": "Mozilla/5.0"},
                 )
                 if r.status_code != 200:
@@ -162,57 +214,105 @@ class Sniper5MTrader:
         return markets
 
     # ========================================================================
-    # ORDERBOOK READING
+    # BINANCE DATA
     # ========================================================================
 
-    def get_token_ids(self, market: dict) -> tuple:
-        """Extract UP/DOWN token IDs from market data."""
+    async def fetch_5m_candles(self, limit: int = 20) -> list:
+        """Fetch 5-minute BTC/USDT candles from Binance."""
+        for attempt in range(3):
+            try:
+                async with httpx.AsyncClient(timeout=15) as client:
+                    r = await client.get(
+                        BINANCE_REST_URL,
+                        params={
+                            "symbol": "BTCUSDT",
+                            "interval": "5m",
+                            "limit": limit,
+                        },
+                    )
+                    r.raise_for_status()
+                    candles = []
+                    for k in r.json():
+                        candles.append({
+                            "open": float(k[1]),
+                            "high": float(k[2]),
+                            "low": float(k[3]),
+                            "close": float(k[4]),
+                            "volume": float(k[5]),
+                            "time": int(k[0]),
+                        })
+                    return candles
+            except Exception as e:
+                if attempt < 2:
+                    await asyncio.sleep(3 * (attempt + 1))
+                    continue
+                print(f"[BINANCE] Candle fetch error: {e}")
+                return []
+
+    # ========================================================================
+    # SIGNAL GENERATION
+    # ========================================================================
+
+    async def get_signal(self):
+        """Compute RSI signal from Binance 5m candles.
+
+        Returns:
+            (signal, rsi, volume_ok)
+            signal: "UP", "DOWN", or None
+            rsi: current RSI value
+            volume_ok: whether volume filter passed
+        """
+        candles = await self.fetch_5m_candles(20)
+        if len(candles) < 15:
+            return None, 50.0, False
+
+        closes = [c["close"] for c in candles]
+        rsi = compute_rsi(closes, RSI_PERIOD)
+
+        # Volume filter: last completed candle volume > 1.5x avg of previous 10
+        # candles[-1] is still forming, candles[-2] is last completed
+        volumes = [c["volume"] for c in candles]
+        high_volume = False
+        if len(volumes) >= 12:
+            last_vol = volumes[-2]      # last completed candle
+            avg_vol = sum(volumes[-12:-2]) / 10
+            high_volume = avg_vol > 0 and last_vol > avg_vol * VOLUME_MULTIPLIER
+
+        # Cache for status display
+        self._last_rsi = rsi
+        self._last_vol_ok = high_volume
+
+        if rsi < RSI_OVERSOLD and high_volume:
+            return "UP", rsi, True      # Oversold + volume -> expect bounce
+        elif rsi > RSI_OVERBOUGHT and high_volume:
+            return "DOWN", rsi, True    # Overbought + volume -> expect pullback
+        else:
+            return None, rsi, high_volume
+
+    # ========================================================================
+    # PRICE EXTRACTION
+    # ========================================================================
+
+    def get_prices(self, market: dict) -> tuple:
+        """Extract UP/DOWN outcome prices from market data.
+
+        Returns (up_price, down_price) or (None, None).
+        """
         outcomes = market.get("outcomes", [])
-        token_ids = market.get("clobTokenIds", [])
+        prices = market.get("outcomePrices", [])
         if isinstance(outcomes, str):
             outcomes = json.loads(outcomes)
-        if isinstance(token_ids, str):
-            token_ids = json.loads(token_ids)
-        up_tid, down_tid = None, None
+        if isinstance(prices, str):
+            prices = json.loads(prices)
+        up_price, down_price = None, None
         for i, o in enumerate(outcomes):
-            if i < len(token_ids):
+            if i < len(prices):
+                p = float(prices[i])
                 if str(o).lower() == "up":
-                    up_tid = token_ids[i]
+                    up_price = p
                 elif str(o).lower() == "down":
-                    down_tid = token_ids[i]
-        return up_tid, down_tid
-
-    async def get_best_ask(self, token_id: str) -> Optional[float]:
-        """Get the best (lowest) ask price from the CLOB orderbook for a token."""
-        try:
-            async with httpx.AsyncClient(timeout=8) as client:
-                r = await client.get(
-                    CLOB_BOOK_URL,
-                    params={"token_id": token_id},
-                )
-                if r.status_code != 200:
-                    return None
-                book = r.json()
-                asks = book.get("asks", [])
-                if not asks:
-                    return None
-                # CLOB asks are sorted descending (highest first) — find the true best ask
-                return min(float(a["price"]) for a in asks)
-        except Exception as e:
-            return None
-
-    async def get_orderbook_prices(self, market: dict) -> tuple:
-        """Get best ask prices for UP and DOWN sides.
-        Returns (up_ask, down_ask) or (None, None) on error."""
-        up_tid, down_tid = self.get_token_ids(market)
-        if not up_tid or not down_tid:
-            return None, None
-
-        # Fetch both orderbooks in parallel
-        up_ask_task = self.get_best_ask(up_tid)
-        down_ask_task = self.get_best_ask(down_tid)
-        up_ask, down_ask = await asyncio.gather(up_ask_task, down_ask_task)
-        return up_ask, down_ask
+                    down_price = p
+        return up_price, down_price
 
     # ========================================================================
     # BINANCE RESOLUTION
@@ -221,20 +321,17 @@ class Sniper5MTrader:
     async def resolve_via_binance(self, end_dt: datetime) -> Optional[str]:
         """Determine if BTC went UP or DOWN during the 5-minute window.
 
-        The market covers a 5-minute window ending at end_dt.
-        We fetch the Binance 5m candle that covers this window and check
-        if close > open (UP) or close < open (DOWN).
+        Fetches the Binance 5m candle covering the market window.
+        close > open = UP, close < open = DOWN, tie = DOWN.
 
         Returns 'UP', 'DOWN', or None if data unavailable.
         """
         try:
-            # The 5-minute window starts 5 minutes before end_dt
             start_dt = end_dt - timedelta(minutes=5)
             start_ms = int(start_dt.timestamp() * 1000)
             end_ms = int(end_dt.timestamp() * 1000)
 
             async with httpx.AsyncClient(timeout=15) as client:
-                # Fetch the 5-minute candle from Binance
                 r = await client.get(
                     BINANCE_REST_URL,
                     params={
@@ -264,23 +361,11 @@ class Sniper5MTrader:
                     klines_1m = r2.json()
                     if not klines_1m:
                         return None
-                    open_price = float(klines_1m[0][1])   # first candle open
-                    close_price = float(klines_1m[-1][4])  # last candle close
+                    open_price = float(klines_1m[0][1])
+                    close_price = float(klines_1m[-1][4])
                 else:
                     # Find the candle whose open time is closest to start_dt
-                    # Binance 5m candles align to :00, :05, :10, etc.
-                    # The market window might not align exactly, so we pick
-                    # the best matching candle
-                    best_candle = None
-                    best_diff = float("inf")
-                    for k in klines:
-                        candle_open_ms = int(k[0])
-                        diff = abs(candle_open_ms - start_ms)
-                        if diff < best_diff:
-                            best_diff = diff
-                            best_candle = k
-                    if best_candle is None:
-                        return None
+                    best_candle = min(klines, key=lambda k: abs(int(k[0]) - start_ms))
                     open_price = float(best_candle[1])
                     close_price = float(best_candle[4])
 
@@ -289,54 +374,27 @@ class Sniper5MTrader:
                 elif close_price < open_price:
                     return "DOWN"
                 else:
-                    # Exact tie — extremely rare, count as DOWN (bratanbratishka convention)
-                    return "DOWN"
+                    return "DOWN"  # Tie counts as DOWN
 
         except Exception as e:
             print(f"[BINANCE] Resolution error: {e}")
             return None
 
-    async def _check_binance_direction(self, end_dt: datetime) -> Optional[str]:
-        """Check real-time BTC price movement during this 5M window.
-        Returns 'UP' if price has risen, 'DOWN' if fallen, None if flat/error."""
-        try:
-            start_dt = end_dt - timedelta(minutes=5)
-            start_ms = int(start_dt.timestamp() * 1000)
-            now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-
-            async with httpx.AsyncClient(timeout=8) as client:
-                r = await client.get(BINANCE_REST_URL, params={
-                    "symbol": "BTCUSDT", "interval": "1m",
-                    "startTime": start_ms, "endTime": now_ms, "limit": 10,
-                })
-                if r.status_code != 200:
-                    return None
-                klines = r.json()
-                if not klines:
-                    return None
-                open_price = float(klines[0][1])       # open of first 1m candle
-                close_price = float(klines[-1][4])      # close of latest 1m candle
-                pct = (close_price - open_price) / open_price * 100
-
-                if pct > 0.03:  # BTC up by > 0.03%
-                    return "UP"
-                elif pct < -0.03:
-                    return "DOWN"
-                return None  # Too flat to call
-        except Exception:
-            return None
-
     # ========================================================================
-    # SIGNAL + ENTRY
+    # ENTRY LOGIC
     # ========================================================================
 
-    async def check_sniper_entry(self, markets: list):
-        """Check if any 5M market is in the sniper window and has a clear signal."""
+    async def check_entry(self, markets: list):
+        """Check for RSI contrarian entries on 5M BTC markets."""
         if len(self.active) >= MAX_CONCURRENT:
             return
 
         # Daily loss check
         if self.session_pnl <= -DAILY_LOSS_LIMIT:
+            return
+
+        signal, rsi, vol_ok = await self.get_signal()
+        if signal is None:
             return
 
         for market in markets:
@@ -347,97 +405,51 @@ class Sniper5MTrader:
             if not cid or cid in self.attempted_cids:
                 continue
 
-            time_left_sec = market.get("_time_left_sec", 9999)
-
-            # Only act in sniper window: < SNIPER_WINDOW seconds before close
-            if time_left_sec > SNIPER_WINDOW or time_left_sec <= 0:
+            time_left = market.get("_time_left_sec", 9999)
+            # Entry window: 1-4 minutes before close (60-240 seconds)
+            if time_left > ENTRY_WINDOW_MAX or time_left <= ENTRY_WINDOW_MIN:
                 continue
 
-            # Read orderbook
-            up_ask, down_ask = await self.get_orderbook_prices(market)
-            question = market.get("question", "?")
+            up_price, down_price = self.get_prices(market)
+            if up_price is None or down_price is None:
+                continue
 
-            # If book is empty near close, use Binance price as signal
-            if up_ask is None or down_ask is None:
-                # Fallback: check BTC price movement via Binance
-                end_dt = market.get("_end_dt_parsed")
-                if end_dt:
-                    btc_dir = await self._check_binance_direction(end_dt)
-                    if btc_dir:
-                        # Estimate entry price based on time remaining
-                        # Closer to close = higher confidence = higher price
-                        est_price = 0.75 if time_left_sec > 30 else 0.85
-                        if btc_dir == "UP":
-                            up_ask, down_ask = est_price, 1.0 - est_price
-                        else:
-                            up_ask, down_ask = 1.0 - est_price, est_price
-                        print(f"[BOOK EMPTY] Using Binance fallback: BTC {btc_dir} | "
-                              f"est UP=${up_ask:.2f} DN=${down_ask:.2f} | {time_left_sec:.0f}s left")
-                    else:
-                        print(f"[BOOK EMPTY] No Binance signal | {time_left_sec:.0f}s left | {question[:40]}")
-                        continue
-                else:
-                    continue
-
-            # Signal logic: dominant side must have ask > MIN_CONFIDENCE
-            side = None
-            confidence = 0.0
-            entry_price = 0.0
-
-            if up_ask >= MIN_CONFIDENCE and down_ask >= MIN_CONFIDENCE:
-                # Both sides high — unusual, pick the higher one
-                if up_ask > down_ask:
-                    side = "UP"
-                    confidence = up_ask
-                    entry_price = up_ask
-                else:
-                    side = "DOWN"
-                    confidence = down_ask
-                    entry_price = down_ask
-            elif up_ask >= MIN_CONFIDENCE:
-                side = "UP"
-                confidence = up_ask
-                entry_price = up_ask
-            elif down_ask >= MIN_CONFIDENCE:
-                side = "DOWN"
-                confidence = down_ask
-                entry_price = down_ask
+            # Contrarian logic:
+            #   RSI < 30 -> oversold, price falling, UP side should be cheap
+            #   RSI > 70 -> overbought, price rising, DOWN side should be cheap
+            entry_price = None
+            if signal == "UP" and MIN_ENTRY <= up_price <= MAX_ENTRY:
+                entry_price = up_price
+            elif signal == "DOWN" and MIN_ENTRY <= down_price <= MAX_ENTRY:
+                entry_price = down_price
             else:
-                # Direction unclear — SKIP
-                self.stats["skipped"] += 1
-                self.attempted_cids.add(cid)
-                print(f"[SKIP] Direction unclear | UP ask=${up_ask:.2f} DOWN ask=${down_ask:.2f} "
-                      f"| {time_left_sec:.0f}s left | {question[:50]}")
-                continue
+                continue  # Price not in the cheap sweet spot
 
-            # V1.1: Cap entry price — above $0.76, WR is high but EV negative
-            if entry_price > MAX_ENTRY_PRICE:
-                self.stats["skipped"] += 1
-                self.attempted_cids.add(cid)
-                print(f"[SKIP] Too expensive | {side} @ ${entry_price:.2f} > ${MAX_ENTRY_PRICE:.2f} "
-                      f"| {time_left_sec:.0f}s left | {question[:50]}")
-                continue
-
-            # Calculate shares and cost
+            # Calculate position
             shares = TRADE_SIZE / entry_price
             cost = round(shares * entry_price, 2)
 
             # Mark as attempted
             self.attempted_cids.add(cid)
 
+            # RSI bucket for tracking (e.g., "20-25", "25-30", "70-75", "75-80")
+            bucket_start = int(rsi // RSI_BUCKET_SIZE) * RSI_BUCKET_SIZE
+            rsi_bucket = f"{bucket_start}-{bucket_start + RSI_BUCKET_SIZE}"
+
             # Build trade record
             now = datetime.now(timezone.utc)
+            question = market.get("question", "?")
             trade = {
                 "condition_id": cid,
                 "question": question,
-                "side": side,
+                "side": signal,
                 "entry_price": round(entry_price, 4),
-                "confidence": round(confidence, 4),
-                "up_ask": round(up_ask, 4),
-                "down_ask": round(down_ask, 4),
+                "rsi": round(rsi, 1),
+                "rsi_bucket": rsi_bucket,
+                "volume_ok": vol_ok,
                 "shares": round(shares, 4),
                 "cost": cost,
-                "time_remaining_sec": round(time_left_sec, 1),
+                "time_remaining_sec": round(time_left, 1),
                 "entry_time": now.isoformat(),
                 "end_dt": market.get("_end_dt", ""),
                 "status": "open",
@@ -448,11 +460,12 @@ class Sniper5MTrader:
             self.active[cid] = trade
             self._save()
 
-            print(f"\n[ENTRY] BTC {side} @ ${entry_price:.2f} (confidence={confidence:.2f}) | "
-                  f"${cost:.2f} ({shares:.2f}sh) | "
-                  f"{time_left_sec:.0f}s left | "
-                  f"UP=${up_ask:.2f} DOWN=${down_ask:.2f} | "
-                  f"{question[:55]}")
+            payout = round(shares * 1.0 - cost, 2)
+            print(f"\n[ENTRY] RSI={rsi:.1f} -> BTC {signal} @ ${entry_price:.2f} | "
+                  f"${cost:.2f} ({shares:.1f}sh) | potential +${payout:.2f} | "
+                  f"{time_left:.0f}s left | bucket={rsi_bucket} | "
+                  f"{question[:50]}")
+            break  # Only one entry per scan cycle
 
     # ========================================================================
     # RESOLUTION
@@ -476,7 +489,7 @@ class Sniper5MTrader:
             except Exception:
                 continue
 
-            # Wait RESOLVE_DELAY seconds after market close before resolving
+            # Wait RESOLVE_DELAY seconds after market close
             seconds_past_close = (now - end_dt).total_seconds()
             if seconds_past_close < RESOLVE_DELAY:
                 continue
@@ -484,20 +497,17 @@ class Sniper5MTrader:
             # Resolve via Binance
             outcome = await self.resolve_via_binance(end_dt)
             if outcome is None:
-                # Retry on next cycle if data not available yet
+                # Retry on next cycle; mark as loss after 2 minutes
                 if seconds_past_close > 120:
-                    # Stale — mark as loss (data never available)
                     trade["status"] = "closed"
                     trade["result"] = "unknown"
                     trade["pnl"] = round(-trade["cost"], 2)
                     trade["resolve_time"] = now.isoformat()
-                    self.stats["losses"] += 1
-                    self.stats["pnl"] += trade["pnl"]
-                    self.session_pnl += trade["pnl"]
+                    self._update_stats(trade, won=False)
                     self.resolved.append(trade)
                     to_remove.append(cid)
                     print(f"[LOSS] BTC:{trade['side']} ${trade['pnl']:+.2f} | "
-                          f"Could not resolve (no Binance data) | {trade['question'][:45]}")
+                          f"No Binance data (aged out) | {trade['question'][:45]}")
                 continue
 
             # Determine win/loss
@@ -516,10 +526,7 @@ class Sniper5MTrader:
             trade["market_outcome"] = outcome
             trade["resolve_time"] = now.isoformat()
 
-            self.stats["wins" if won else "losses"] += 1
-            self.stats["pnl"] += pnl
-            self.session_pnl += pnl
-
+            self._update_stats(trade, won)
             self.resolved.append(trade)
             to_remove.append(cid)
 
@@ -529,8 +536,8 @@ class Sniper5MTrader:
             tag = "WIN" if won else "LOSS"
 
             print(f"[{tag}] BTC:{trade['side']} ${pnl:+.2f} | "
-                  f"entry=${trade['entry_price']:.2f} conf={trade['confidence']:.2f} | "
-                  f"market={outcome} | "
+                  f"RSI={trade['rsi']:.1f} bucket={trade['rsi_bucket']} | "
+                  f"entry=${trade['entry_price']:.2f} | market={outcome} | "
                   f"{w}W/{l}L {wr:.0f}%WR ${self.stats['pnl']:+.2f} | "
                   f"session=${self.session_pnl:+.2f} | "
                   f"{trade['question'][:45]}")
@@ -541,8 +548,25 @@ class Sniper5MTrader:
         if to_remove:
             self._save()
 
+    def _update_stats(self, trade: dict, won: bool):
+        """Update global and per-bucket stats after trade resolution."""
+        pnl = trade["pnl"]
+
+        # Global stats
+        self.stats["wins" if won else "losses"] += 1
+        self.stats["pnl"] += pnl
+        self.session_pnl += pnl
+
+        # Per-RSI-bucket stats
+        bucket = trade.get("rsi_bucket", "unknown")
+        by_bucket = self.stats.setdefault("by_rsi_bucket", {})
+        if bucket not in by_bucket:
+            by_bucket[bucket] = {"wins": 0, "losses": 0, "pnl": 0.0}
+        by_bucket[bucket]["wins" if won else "losses"] += 1
+        by_bucket[bucket]["pnl"] = round(by_bucket[bucket]["pnl"] + pnl, 2)
+
     # ========================================================================
-    # LOGGING
+    # STATUS DISPLAY
     # ========================================================================
 
     def print_status(self, markets: list):
@@ -570,26 +594,35 @@ class Sniper5MTrader:
                 closest = m
 
         market_str = "No active 5M BTC markets"
-        sniper_str = "NO"
+        window_str = ""
         if closest:
-            q = closest.get("question", "?")[:50]
+            q = closest.get("question", "?")[:55]
             tl = closest.get("_time_left_sec", 0)
-            in_window = tl <= SNIPER_WINDOW
-            sniper_str = "YES" if in_window else "NO"
-            market_str = f"{q} | {tl:.0f}s left"
+            in_window = ENTRY_WINDOW_MIN < tl <= ENTRY_WINDOW_MAX
+            window_str = " [IN WINDOW]" if in_window else ""
+            market_str = f"{q} | {tl:.0f}s left{window_str}"
 
         active_count = len(self.active)
-        resolved_count = len(self.resolved)
+        rsi = self._last_rsi
+        vol_str = "VOL OK" if self._last_vol_ok else "vol low"
 
-        print(f"\n--- {now_mst.strftime('%H:%M:%S MST')} | "
-              f"SNIPER 5M | "
-              f"Active: {active_count} | Resolved: {resolved_count} | "
+        print(f"\n--- {now_mst.strftime('%H:%M:%S')} MST | RSI CONTRARIAN | "
+              f"Active: {active_count} | "
               f"{w}W/{l}L {wr:.0f}%WR | "
               f"PnL: ${self.stats['pnl']:+.2f} | "
-              f"Session: ${self.session_pnl:+.2f} | "
-              f"Skipped: {self.stats['skipped']} ---")
-        print(f"    Market: {market_str}")
-        print(f"    Sniper window: {sniper_str} (< {SNIPER_WINDOW}s)")
+              f"RSI={rsi:.1f} ({vol_str}) ---")
+        print(f"    Next 5M: {market_str}")
+
+        # RSI bucket stats
+        by_bucket = self.stats.get("by_rsi_bucket", {})
+        if by_bucket:
+            bucket_parts = []
+            for bucket in sorted(by_bucket.keys()):
+                bdata = by_bucket[bucket]
+                bw, bl = bdata["wins"], bdata["losses"]
+                bpnl = bdata["pnl"]
+                bucket_parts.append(f"{bucket}: {bw}W/{bl}L ${bpnl:+.2f}")
+            print(f"    RSI buckets: {' | '.join(bucket_parts)}")
 
         if self.session_pnl <= -DAILY_LOSS_LIMIT:
             print(f"    *** DAILY LOSS LIMIT HIT: ${self.session_pnl:+.2f} ***")
@@ -600,18 +633,17 @@ class Sniper5MTrader:
 
     async def run(self):
         print("=" * 70)
-        print("  SNIPER 5M PAPER TRADER V1.1")
+        print("  RSI CONTRARIAN 5M PAPER TRADER V1.0")
         print("=" * 70)
-        print(f"  Strategy: bratanbratishka reverse-engineer")
-        print(f"    - Wait until < {SNIPER_WINDOW}s before 5M BTC market closes")
-        print(f"    - If one side ask > ${MIN_CONFIDENCE:.2f}, bet on dominant side")
-        print(f"    - If entry > ${MAX_ENTRY_PRICE:.2f}, skip (negative EV at high prices)")
-        print(f"    - If neither side > ${MIN_CONFIDENCE:.2f}, skip (unclear direction)")
-        print(f"    - Resolve via Binance 5M candle (close > open = UP)")
+        print("  Strategy: Mean reversion on BTC 5-minute Up/Down markets")
+        print(f"  Signal: RSI < {RSI_OVERSOLD} -> bet UP (oversold) | "
+              f"RSI > {RSI_OVERBOUGHT} -> bet DOWN (overbought)")
+        print(f"  Volume: Previous candle must show {VOLUME_MULTIPLIER}x average volume")
+        print(f"  Entry: ${MIN_ENTRY:.2f}-${MAX_ENTRY:.2f} (cheap side for 2x+ payout)")
+        print(f"  Entry window: {ENTRY_WINDOW_MIN//60}-{ENTRY_WINDOW_MAX//60} min before close")
         print(f"  Size: ${TRADE_SIZE:.2f}/trade | Max concurrent: {MAX_CONCURRENT}")
-        print(f"  Scan: every {SCAN_INTERVAL}s | Log: every {LOG_INTERVAL}s")
-        print(f"  Daily loss limit: ${DAILY_LOSS_LIMIT:.2f}")
-        print(f"  Results: {RESULTS_FILE.name}")
+        print("  Resolution: Binance 5M candle (close vs open)")
+        print("  Note: Contrarian was 8% WR in 15M backtest -- testing on 5M at cheap entries")
         print("=" * 70)
 
         if self.resolved:
@@ -638,13 +670,13 @@ class Sniper5MTrader:
                 # Resolve expired trades
                 await self.resolve_trades()
 
-                # Check for sniper entries
-                await self.check_sniper_entry(markets)
+                # Check for entries
+                await self.check_entry(markets)
 
                 # Periodic status log
                 self.print_status(markets)
 
-                # Save periodically (every 12 cycles = ~60s)
+                # Save periodically (every 12 cycles ~= 60s)
                 if cycle % 12 == 0:
                     self._save()
 
@@ -665,16 +697,28 @@ class Sniper5MTrader:
         total = w + l
         wr = w / total * 100 if total > 0 else 0
         print(f"\n[FINAL] {w}W/{l}L {wr:.0f}%WR | PnL: ${self.stats['pnl']:+.2f} | "
-              f"Skipped: {self.stats['skipped']} | Session: ${self.session_pnl:+.2f}")
+              f"Session: ${self.session_pnl:+.2f}")
+
+        # Print final RSI bucket breakdown
+        by_bucket = self.stats.get("by_rsi_bucket", {})
+        if by_bucket:
+            print("\n[BUCKET BREAKDOWN]")
+            for bucket in sorted(by_bucket.keys()):
+                bdata = by_bucket[bucket]
+                bw, bl = bdata["wins"], bdata["losses"]
+                bt = bw + bl
+                bwr = bw / bt * 100 if bt > 0 else 0
+                bpnl = bdata["pnl"]
+                print(f"  RSI {bucket}: {bw}W/{bl}L {bwr:.0f}%WR | PnL: ${bpnl:+.2f}")
 
 
 # ============================================================================
 # ENTRY POINT
 # ============================================================================
 if __name__ == "__main__":
-    lock = acquire_pid_lock("sniper_5m")
+    lock = acquire_pid_lock("rsi_contrarian_5m")
     try:
-        trader = Sniper5MTrader()
+        trader = RSIContrarian5MTrader()
         asyncio.run(trader.run())
     finally:
-        release_pid_lock("sniper_5m")
+        release_pid_lock("rsi_contrarian_5m")

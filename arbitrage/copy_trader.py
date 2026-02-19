@@ -118,6 +118,15 @@ class CopyTrader:
         # --- Late-entry BTC snipers (added 2026-02-17) ---
         "bratanbratishka": "0xcbb1a3174d9ac5a0f57f5b86808204b9382e7afb",  # $97K PnL, 87% WR, late-entry 5M BTC sniper
         "Snoopy-Ba55": "0x28c090de0fa57a9e7cb8fd27e73c1d33413efaa1",  # $58K PnL, aggressive 5M BTC book sweeper
+        # --- Star's whale watch (added 2026-02-18) ---
+        "BoneReader": "0xd84c2b6d65dc596f49c7b6aadd6d74ca91e407b9",  # High-freq BTC/ETH/SOL/XRP 5m/15m, $15K+ positions, bot-assisted order splitting, MM style
+        "rename": "0xf6963d4cdbb6f26d753bda303e9513132afb1b7d",  # 5m/15m crypto, both sides, many expired worthless, mixed results
+        "vidarx": "0x2d8b401d2f0e6937afebf18e19e11ca568a5260a",  # $154K PnL, $18.75M vol, 2,696 mkts, -$11K to +$154K recovery, 3x growth in 7 days
+        "dustedfloor": "0x571c285a83eba5322b5f916ba681669dc368a61f",  # BTC 5m only, scalping, both sides hedging, many expired worthless
+        "j2f2n4f2jkjn": "0xd2aceda954b0938903a86ab2e0683aefca5ee5fe",  # 15m crypto, ~15-20% WR, heavy losses, large Claude 5 bet -87%
+        "Giddy-Independent": "0x861f4149171db053c73382c40d2c7e5408fd177d",  # $63K PnL, $490K vol, 16 mkts, 100% BTC dip bets (bearish), long-term
+        "7thStaircase": "0x0ac97e4f5c542cd98c226ae8e1736ae78b489641",  # BTC 5m/15m both sides, net negative, high-freq micro-speculation
+        "0x732F1": "0x732f189193d7a8c8bc8d8eb91f501a22736af081",  # $25-28K portfolio, multi-asset crypto 5m/15m/1hr, both sides, good gains
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]

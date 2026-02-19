@@ -161,10 +161,9 @@ def main():
         address=Web3.to_checksum_address(PROXY_FACTORY_ADDRESS), abi=PROXY_FACTORY_ABI
     )
 
-    # Process each redeemable position
-    redeemed = 0
-    failed = 0
+    # Batch ALL redemptions into a single proxy TX
     condition_ids_done = set()
+    proxy_txns = []
 
     for p in positions:
         cond_id = p.get("conditionId", "")
@@ -173,74 +172,70 @@ def main():
         condition_ids_done.add(cond_id)
 
         title = p.get("title", "")[:50]
-        outcome = p.get("outcome", "")
-        size = float(p.get("size", 0) or 0)
+        print(f"  Queued: {title}")
 
-        print(f"\nRedeeming: {outcome} {size:.1f} shares | {title}...")
+        parent_collection_id = bytes(32)  # HashZero
+        condition_id_bytes = Web3.to_bytes(hexstr=cond_id)
+        index_sets = [1, 2]  # Binary market: YES + NO
 
-        try:
-            # Encode the CTF redeemPositions call
-            parent_collection_id = bytes(32)  # HashZero
-            condition_id_bytes = Web3.to_bytes(hexstr=cond_id)
-            index_sets = [1, 2]  # Binary market: YES + NO
+        redeem_data = ctf.encode_abi(
+            "redeemPositions",
+            args=[
+                Web3.to_checksum_address(USDC_ADDRESS),
+                parent_collection_id,
+                condition_id_bytes,
+                index_sets,
+            ],
+        )
 
-            redeem_data = ctf.encode_abi(
-                "redeemPositions",
-                args=[
-                    Web3.to_checksum_address(USDC_ADDRESS),
-                    parent_collection_id,
-                    condition_id_bytes,
-                    index_sets,
-                ],
-            )
+        proxy_txns.append((
+            Web3.to_checksum_address(CTF_ADDRESS),  # to
+            1,  # typeCode (1 for proxy wallet)
+            Web3.to_bytes(hexstr=redeem_data),  # data
+            0,  # value
+        ))
 
-            # Wrap in proxy transaction
-            proxy_txn = (
-                Web3.to_checksum_address(CTF_ADDRESS),  # to
-                1,  # typeCode (1 for proxy wallet)
-                Web3.to_bytes(hexstr=redeem_data),  # data
-                0,  # value
-            )
+    print(f"\nBatching {len(proxy_txns)} redemptions into 1 transaction...")
 
-            # Build and send the proxy transaction
-            nonce = w3.eth.get_transaction_count(account.address)
-            gas_price = w3.eth.gas_price
+    try:
+        nonce = w3.eth.get_transaction_count(account.address, 'pending')
+        gas_price = w3.eth.gas_price
+        # Use 2x current gas price (Polygon can spike)
+        final_gas = gas_price * 2
+        print(f"Gas price: {w3.from_wei(final_gas, 'gwei'):.1f} gwei | Nonce: {nonce}")
 
-            txn = factory.functions.proxy([proxy_txn]).build_transaction(
-                {
-                    "from": account.address,
-                    "nonce": nonce,
-                    "gasPrice": min(gas_price * 2, w3.to_wei(100, "gwei")),
-                    "gas": 300000,
-                }
-            )
+        # Estimate gas for batched call
+        gas_estimate = 150000 + (80000 * len(proxy_txns))  # ~80k per redemption
+        print(f"Gas limit: {gas_estimate}")
 
-            # Sign and send
-            signed = w3.eth.account.sign_transaction(txn, private_key)
-            tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
-            print(f"  TX sent: {tx_hash.hex()}")
+        txn = factory.functions.proxy(proxy_txns).build_transaction(
+            {
+                "from": account.address,
+                "nonce": nonce,
+                "gasPrice": final_gas,
+                "gas": gas_estimate,
+            }
+        )
 
-            # Wait for confirmation
-            receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=60)
-            if receipt["status"] == 1:
-                print(f"  SUCCESS (gas used: {receipt['gasUsed']})")
-                redeemed += 1
-            else:
-                print(f"  FAILED (reverted)")
-                failed += 1
+        signed = w3.eth.account.sign_transaction(txn, private_key)
+        tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+        print(f"TX sent: {tx_hash.hex()}")
+        print(f"Waiting for confirmation (up to 120s)...")
 
-        except Exception as e:
-            print(f"  ERROR: {e}")
-            failed += 1
+        receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+        if receipt["status"] == 1:
+            print(f"\nSUCCESS! Gas used: {receipt['gasUsed']}")
+            print(f"Redeemed {len(proxy_txns)} positions for ~${total_value:.2f}")
+        else:
+            print(f"\nFAILED (reverted). Gas used: {receipt['gasUsed']}")
 
-        # Rate limit protection: wait between transactions
-        time.sleep(15)
+    except Exception as e:
+        print(f"\nERROR: {e}")
 
     print(f"\n{'='*50}")
     print(f"REDEMPTION COMPLETE")
-    print(f"  Redeemed: {redeemed}")
-    print(f"  Failed: {failed}")
-    print(f"  Total value claimed: ~${total_value:.2f}")
+    print(f"  Positions processed: {len(proxy_txns)}")
+    print(f"  Total value: ~${total_value:.2f}")
     print(f"{'='*50}")
 
 

@@ -10,23 +10,23 @@
 ## CRITICAL RULES
 - **NEVER** launch copy traders (`run_copy_live.py`, `run_copy_k9Q2.py`) without Star's explicit consent
 - **NEVER** run directional traders live (`run_ta_live.py`, `run_ema_rsi_5m.py`, `run_trend_scalp_15m.py`, `run_momentum_5m.py`). Directional trading has 40% WR and -$214 lifetime losses.
-- **KILLED (2026-02-18)**: `run_momentum_15m_live.py` — FOK orders fail, zero fills. DO NOT RESTART until fill issue is fixed.
-- **EXCEPTION (2026-02-17)**: `run_pairs_arb.py --live --mode 15M` is APPROVED by Star. Pairs arbitrage, $5/side.
-- **EXCEPTION (2026-02-18)**: `run_pairs_arb.py --live --mode 5M` is APPROVED by Star. Pairs arb 5M, $5/side, 120s bail timeout. Kill if hedge rate drops below 33% over 50+ trades.
-- **EXCEPTION (2026-02-18)**: `run_sniper_5m_live.py --live` is APPROVED by Star. Chainlink oracle front-run, $5/trade auto-scaling to $10/$20. Kill if WR drops below 60% over 20+ trades.
+- **EXCEPTION (2026-02-18)**: `run_momentum_15m_live.py --live` is APPROVED by Star. ONLY live strategy. V2.0 GTC orders (FOK fix applied). PROBATION $2.50/trade, auto-promotes. Paper: 9W/4L 69% WR +$13.32.
+- **DEMOTED (2026-02-18)**: `run_pairs_arb.py --live --mode 15M` — demoted to paper. Live PnL: -$0.45. One exposed loss wiped all hedged gains.
+- **KILLED (2026-02-18)**: `run_pairs_arb.py --live --mode 5M` — 5M bail liquidity crisis. 4/4 bails = full loss ($4.50-$4.95 each). Live PnL: -$13.30. DO NOT RESTART.
+- **DEMOTED (2026-02-18)**: `run_sniper_5m_live.py --live` — demoted to paper. Live PnL: -$1.36. Oracle trades are phantom (don't fill). W:L ratio 0.34x.
 - **NEVER** run `run_maker.py` — KILLED permanently. Lost ~$300 on 1c spreads with no edge. Do NOT restart, do NOT suggest restarting.
-- **ON SESSION START**: Verify NO unauthorized directional traders are running. Check with `_find_procs.py`.
-- Allowed live: `run_sniper_5m_live.py --live`, `run_pairs_arb.py --live --mode 15M`, `run_pairs_arb.py --live --mode 5M`
-- Paper-only processes (safe): `run_ta_paper.py`, `run_15m_strategies.py`, `run_5m_experiments.py`
+- **ON SESSION START**: Verify NO unauthorized live traders are running. Check with `_find_procs.py`.
+- Allowed live: `run_momentum_15m_live.py --live` ONLY
+- Paper-only processes (safe): `run_ta_paper.py`, `run_15m_strategies.py`, `run_5m_experiments.py`, `run_sniper_5m_paper.py`, `run_pairs_arb.py` (without --live)
 
 ## CORE STACK (launch by default on "Access Star-Polymarket")
 On session start, offer to launch any that aren't already running.
 All commands run from `C:/Users/Star/.local/bin/star-polymarket/` with `nohup python -u <script> > <log> 2>&1 &`
 
-1. **Sniper 5M LIVE** — `python -u run_sniper_5m_live.py --live` → `sniper_5m_live.log`
-2. **Pairs Arb 15M LIVE** — `python -u run_pairs_arb.py --live --mode 15M` → `pairs_arb.log`
-3. ~~Momentum 15M~~ — **KILLED Feb 18. DO NOT START.** FOK fills broken.
-3. **Pairs Arb 5M LIVE** — `python -u run_pairs_arb.py --live --mode 5M` → `pairs_arb_5m_live.log`
+1. **Momentum 15M LIVE** — `python -u run_momentum_15m_live.py --live` → `momentum_15m_live.log` — ONLY live strategy
+2. ~~Sniper 5M~~ — **DEMOTED to paper Feb 18.** Live PnL: -$1.36. Run paper only.
+3. ~~Pairs Arb 15M~~ — **DEMOTED to paper Feb 18.** Live PnL: -$0.45.
+4. ~~Pairs Arb 5M~~ — **KILLED Feb 18.** Bail = full loss, zero liquidity.
 4. **TA Paper** — `python -u run_ta_paper.py` — paper trading
 5. **15M Strategies** — `python -u run_15m_strategies.py` — paper 15m strategy lab
 6. **5M Experiments** — `python -u run_5m_experiments.py` — whale consensus + 5m experiments

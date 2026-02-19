@@ -55,6 +55,7 @@ load_dotenv()
 # PID LOCK (prevent duplicate instances)
 # ============================================================================
 from pid_lock import acquire_pid_lock, release_pid_lock
+from hmm_regime_filter import HMMRegimeFilter
 
 # ============================================================================
 # CONFIG
@@ -587,6 +588,7 @@ class Momentum15MTrader:
         self.filter_ml = AdaptiveFilterML()  # V1.4: adaptive filter ML
         self.v17_tracker = V17ChangeTracker()  # V1.7: track parameter changes
         self.feed = BinanceLiveFeed()  # V2.0: WebSocket price feed
+        self.hmm = HMMRegimeFilter()   # V2.1: HMM regime filter
         self._load()
         self._init_streak_tracker()  # V1.5: streak detection
 
@@ -1094,6 +1096,14 @@ class Momentum15MTrader:
         if now.hour in SKIP_HOURS:
             return
 
+        # V2.1: HMM regime filter — skip entries in CHOPPY regime
+        if not self.hmm.is_favorable("momentum"):
+            regime = self.hmm.current_regime()
+            conf = self.hmm.get_regime_confidence()
+            # Only block if confidence is high enough (>60%)
+            if conf > 0.60:
+                return
+
         open_count = sum(1 for t in self.trades.values() if t.get("status") == "open")
         if open_count >= MAX_CONCURRENT:
             return
@@ -1483,6 +1493,10 @@ class Momentum15MTrader:
         # V2.0: Start WebSocket feed
         await self.feed.start()
 
+        # V2.1: Start HMM regime filter (seeds from REST for full 120 bars)
+        await self.hmm.start()
+        print(self.hmm.get_report())
+
         if self.resolved:
             w, l = self.stats["wins"], self.stats["losses"]
             wr = w / (w + l) * 100 if (w + l) > 0 else 0
@@ -1508,6 +1522,10 @@ class Momentum15MTrader:
                 else:
                     # WS live — use feed candles (BTC only for now)
                     all_candles = {"BTC": self.feed.get_candles()}
+
+                # V2.1: Update HMM with latest price
+                if self.feed.current_price:
+                    self.hmm.update(self.feed.current_price)
 
                 # Fetch markets
                 markets = await self.discover_15m_markets()
@@ -1571,6 +1589,7 @@ class Momentum15MTrader:
                 if cycle % 25 == 0 and cycle > 0:
                     print(self.filter_ml.get_report())
                     print(self.v17_tracker.get_report())
+                    print(self.hmm.get_report())
 
                 # Auto-redeem every 45s (live only)
                 if not self.paper and now_ts - last_redeem >= 45:
