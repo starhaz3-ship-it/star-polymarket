@@ -602,7 +602,8 @@ class Sniper5MLive:
             audit["error"] = str(e)
         return audit
 
-    async def _check_binance_direction(self, end_dt: datetime) -> Optional[str]:
+    async def _check_binance_direction(self, end_dt: datetime) -> tuple:
+        """Returns (direction_or_None, open_5m, current_price)."""
         try:
             start_dt = end_dt - timedelta(minutes=5)
             start_ms = int(start_dt.timestamp() * 1000)
@@ -614,20 +615,20 @@ class Sniper5MLive:
                     "startTime": start_ms, "endTime": now_ms, "limit": 10,
                 })
                 if r.status_code != 200:
-                    return None
+                    return None, None, None
                 klines = r.json()
                 if not klines:
-                    return None
+                    return None, None, None
                 open_price = float(klines[0][1])
                 close_price = float(klines[-1][4])
                 pct = (close_price - open_price) / open_price * 100
                 if pct > 0.07:
-                    return "UP"
+                    return "UP", open_price, close_price
                 elif pct < -0.07:
-                    return "DOWN"
-                return None  # too weak — skip
+                    return "DOWN", open_price, close_price
+                return None, open_price, close_price  # FLAT but still return prices
         except Exception:
-            return None
+            return None, None, None
 
     # ========================================================================
     # LIVE ORDER EXECUTION
@@ -830,8 +831,10 @@ class Sniper5MLive:
             # STEP 2: Determine side — Binance first, CLOB fallback
             side = None
             signal_source = "binance"
+            binance_open = None
+            binance_current = None
             if end_dt:
-                side = await self._check_binance_direction(end_dt)
+                side, binance_open, binance_current = await self._check_binance_direction(end_dt)
 
             if not side:
                 # CLOB CONFIDENCE: $0.70-$0.76 only (paper: 95% WR at $0.75)
@@ -849,6 +852,27 @@ class Sniper5MLive:
                 print(f"[SKIP] No signal | Binance flat + CLOB unclear "
                       f"UP=${up_display:.2f} DN=${down_display:.2f} | {time_left_sec:.0f}s | {question[:50]}")
                 continue
+
+            # STEP 2b: Binance alignment check — BTC must be on our side of 5M open
+            # Analysis of 30 trades: 26W all aligned, 4L all misaligned (100% discriminator)
+            if binance_open and binance_current:
+                align_gap = binance_current - binance_open
+                if side == "UP" and binance_current < binance_open:
+                    align_bp = abs(align_gap) / binance_open * 10000
+                    self.stats["skipped"] += 1
+                    self.attempted_cids.add(cid)
+                    print(f"[SKIP] Binance NOT aligned | Bet UP but BTC ${binance_current:.0f} "
+                          f"< 5M open ${binance_open:.0f} ({align_bp:.1f}bp wrong side) "
+                          f"| {time_left_sec:.0f}s | {question[:40]}")
+                    continue
+                elif side == "DOWN" and binance_current > binance_open:
+                    align_bp = abs(align_gap) / binance_open * 10000
+                    self.stats["skipped"] += 1
+                    self.attempted_cids.add(cid)
+                    print(f"[SKIP] Binance NOT aligned | Bet DOWN but BTC ${binance_current:.0f} "
+                          f"> 5M open ${binance_open:.0f} ({align_bp:.1f}bp wrong side) "
+                          f"| {time_left_sec:.0f}s | {question[:40]}")
+                    continue
 
             # STEP 3: Get depth for our side
             sweep_limit = min(MAX_ENTRY_PRICE + FOK_SLIPPAGE, 0.99)
@@ -952,16 +976,23 @@ class Sniper5MLive:
                 "strategy": f"directional_{signal_source}",
                 "_ml_features": ml_features,
                 "_ml_reason": ml_reason,
+                "_binance_open": round(binance_open, 2) if binance_open else None,
+                "_binance_current": round(binance_current, 2) if binance_current else None,
+                "_align_bp": round(((binance_current - binance_open) / binance_open * 10000) * (1 if side == "UP" else -1), 1) if binance_open and binance_current else None,
             }
 
             self.active[cid] = trade
             self._save()
 
             mode = "LIVE" if not self.paper else "PAPER"
+            align_tag = ""
+            if binance_open and binance_current:
+                a_bp = ((binance_current - binance_open) / binance_open * 10000) * (1 if side == "UP" else -1)
+                align_tag = f" | align={a_bp:+.1f}bp"
             print(f"\n[{mode}] BTC {side} @ ${entry_price:.2f} (conf={confidence:.2f}) | "
                   f"${cost:.2f} ({shares:.1f}sh) | "
                   f"{time_left_sec:.0f}s left | tier=${trade_size:.0f} | "
-                  f"UP=${up_ask:.2f} DN=${down_ask:.2f} | "
+                  f"UP=${up_ask:.2f} DN=${down_ask:.2f}{align_tag} | "
                   f"{question[:50]}")
 
     async def check_oracle_entry(self, markets: list):
