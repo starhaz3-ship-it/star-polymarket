@@ -1,0 +1,93 @@
+{
+  "label_map": {
+    "1": "TRENDING",
+    "2": "CHOPPY",
+    "0": "MEAN_REVERT"
+  },
+  "retrain_count": 9,
+  "regime": "TRENDING",
+  "history": [
+    {
+      "time": "2026-02-19T05:06:06.132479+00:00",
+      "regime": "TRENDING",
+      "proba": {
+        "MEAN_REVERT": 0.216,
+        "TRENDING": 0.575,
+        "CHOPPY": 0.208
+      }
+    },
+    {
+      "time": "2026-02-19T05:08:20.479931+00:00",
+      "regime": "TRENDING",
+      "proba": {
+        "MEAN_REVERT": 0.222,
+        "TRENDING": 0.579,
+        "CHOPPY": 0.199
+      }
+    },
+    {
+      "time": "2026-02-19T05:13:32.368488+00:00",
+      "regime": "MEAN_REVERT",
+      "proba": {
+        "CHOPPY": 0.221,
+        "MEAN_REVERT": 0.57,
+        "TRENDING": 0.208
+      }
+    },
+    {
+      "time": "2026-02-19T05:18:43.728958+00:00",
+      "regime": "TRENDING",
+      "proba": {
+        "MEAN_REVERT": 0.226,
+        "TRENDING": 0.556,
+        "CHOPPY": 0.218
+      }
+    },
+    {
+      "time": "2026-02-19T05:23:57.628103+00:00",
+      "regime": "CHOPPY",
+      "proba": {
+        "TRENDING": 0.21,
+        "CHOPPY": 0.573,
+        "MEAN_REVERT": 0.217
+      }
+    },
+    {
+      "time": "2026-02-19T05:29:08.380565+00:00",
+      "regime": "TRENDING",
+      "proba": {
+        "MEAN_REVERT": 0.228,
+        "TRENDING": 0.55,
+        "CHOPPY": 0.222
+      }
+    },
+    {
+      "time": "2026-02-19T05:30:52.391214+00:00",
+      "regime": "MEAN_REVERT",
+      "proba": {
+        "TRENDING": 0.174,
+        "MEAN_REVERT": 0.631,
+        "CHOPPY": 0.195
+      }
+    },
+    {
+      "time": "2026-02-19T05:36:12.538528+00:00",
+      "regime": "TRENDING",
+      "proba": {
+        "MEAN_REVERT": 0.197,
+        "TRENDING": 0.613,
+        "CHOPPY": 0.19
+      }
+    },
+    {
+      "time": "2026-02-19T05:41:25.203503+00:00",
+      "regime": "TRENDING",
+      "proba": {
+        "MEAN_REVERT": 0.199,
+        "TRENDING": 0.606,
+        "CHOPPY": 0.195
+      }
+    }
+  ],
+  "last_retrain": 1771479685.2035034
+}

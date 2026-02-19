@@ -1,0 +1,136 @@
+{
+  "active": {
+    "wc15m_0xf760c0e24ef4c8112c01c4308d3677eedde689c33b2408b401c6f00d07b8b0ec_UP": {
+      "side": "UP",
+      "entry_price": 0.555,
+      "size_usd": 2.5,
+      "shares": 4.5045,
+      "entry_time": "2026-02-19T05:33:09.235707+00:00",
+      "condition_id": "0xf760c0e24ef4c8112c01c4308d3677eedde689c33b2408b401c6f00d07b8b0ec",
+      "market_numeric_id": "1391365",
+      "question": "Bitcoin Up or Down - February 19, 12:30AM-12:45AM ET",
+      "event_title": "Bitcoin Up or Down - February 19, 12:30AM-12:45AM ET",
+      "end_dt": "2026-02-19T05:45:00+00:00",
+      "strategy": "whale_consensus",
+      "consensus_count": 3,
+      "consensus_whales": [
+        "Square-Guy",
+        "Canine-Commandment",
+        "k9Q2mX4L8A7ZP3R"
+      ],
+      "consensus_whale_costs": {
+        "Square-Guy": 82.07,
+        "Canine-Commandment": 71.27,
+        "k9Q2mX4L8A7ZP3R": 350.03
+      },
+      "total_whale_cost": 503.37,
+      "time_left_min": 11.9,
+      "status": "open",
+      "pnl": 0.0
+    }
+  },
+  "resolved": [
+    {
+      "side": "UP",
+      "entry_price": 0.385,
+      "size_usd": 2.5,
+      "shares": 6.4935,
+      "entry_time": "2026-02-19T04:52:04.358026+00:00",
+      "condition_id": "0xc5942a20f23b2d3b9295e21f548ac636b629638daad84ab7081b3e5a5a4c4897",
+      "market_numeric_id": "1391175",
+      "question": "Bitcoin Up or Down - February 18, 11:45PM-12:00AM ET",
+      "event_title": "Bitcoin Up or Down - February 18, 11:45PM-12:00AM ET",
+      "end_dt": "2026-02-19T05:00:00+00:00",
+      "strategy": "whale_consensus",
+      "consensus_count": 3,
+      "consensus_whales": [
+        "0x732F1",
+        "Square-Guy",
+        "Canine-Commandment"
+      ],
+      "consensus_whale_costs": {
+        "0x732F1": 298.21,
+        "Square-Guy": 3197.44,
+        "Canine-Commandment": 900.47
+      },
+      "total_whale_cost": 4396.12,
+      "time_left_min": 7.9,
+      "status": "resolved",
+      "pnl": -2.5,
+      "outcome": "DOWN",
+      "resolve_time": "2026-02-19T05:00:37.484591+00:00",
+      "exit_price": 0.0
+    },
+    {
+      "side": "DOWN",
+      "entry_price": 0.505,
+      "size_usd": 2.5,
+      "shares": 4.9505,
+      "entry_time": "2026-02-19T05:03:10.148336+00:00",
+      "condition_id": "0x28d4454bdc97db467573f8af92e9df8e33f4043dc15c8709997cb52b4d96cc7a",
+      "market_numeric_id": "1391332",
+      "question": "Bitcoin Up or Down - February 19, 12:00AM-12:15AM ET",
+      "event_title": "Bitcoin Up or Down - February 19, 12:00AM-12:15AM ET",
+      "end_dt": "2026-02-19T05:15:00+00:00",
+      "strategy": "whale_consensus",
+      "consensus_count": 3,
+      "consensus_whales": [
+        "0x8dxd",
+        "k9Q2mX4L8A7ZP3R",
+        "BoneReader"
+      ],
+      "consensus_whale_costs": {
+        "0x8dxd": 459.15,
+        "k9Q2mX4L8A7ZP3R": 124.0,
+        "BoneReader": 245.0
+      },
+      "total_whale_cost": 828.15,
+      "time_left_min": 11.9,
+      "status": "resolved",
+      "pnl": 2.45,
+      "outcome": "DOWN",
+      "resolve_time": "2026-02-19T05:15:36.603290+00:00",
+      "exit_price": 1.0
+    },
+    {
+      "side": "UP",
+      "entry_price": 0.535,
+      "size_usd": 2.5,
+      "shares": 4.6729,
+      "entry_time": "2026-02-19T05:18:09.486916+00:00",
+      "condition_id": "0xe14ad60c4daef4cdaa94beda3b8c5ecb2663696d7d6c6c1822f2b50fc0e90c33",
+      "market_numeric_id": "1391356",
+      "question": "Bitcoin Up or Down - February 19, 12:15AM-12:30AM ET",
+      "event_title": "Bitcoin Up or Down - February 19, 12:15AM-12:30AM ET",
+      "end_dt": "2026-02-19T05:30:00+00:00",
+      "strategy": "whale_consensus",
+      "consensus_count": 4,
+      "consensus_whales": [
+        "Square-Guy",
+        "0x8dxd",
+        "Canine-Commandment",
+        "k9Q2mX4L8A7ZP3R"
+      ],
+      "consensus_whale_costs": {
+        "Square-Guy": 270.69,
+        "0x8dxd": 282.14,
+        "Canine-Commandment": 101.63,
+        "k9Q2mX4L8A7ZP3R": 583.42
+      },
+      "total_whale_cost": 1237.88,
+      "time_left_min": 11.9,
+      "status": "resolved",
+      "pnl": -2.5,
+      "outcome": "DOWN",
+      "resolve_time": "2026-02-19T05:30:36.248977+00:00",
+      "exit_price": 0.0
+    }
+  ],
+  "stats": {
+    "wins": 1,
+    "losses": 2,
+    "pnl": -2.55,
+    "start_time": "2026-02-19T04:44:18.146414+00:00"
+  },
+  "last_updated": "2026-02-19T05:44:55.627787+00:00"
+}

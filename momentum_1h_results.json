@@ -1,0 +1,68 @@
+{
+  "active": {
+    "1h_0x10ce2e1ced14ecb2319085019dbd307c77b300d70e5c5497387e9eb14974a319_DOWN": {
+      "condition_id": "0x10ce2e1ced14ecb2319085019dbd307c77b300d70e5c5497387e9eb14974a319",
+      "market_numeric_id": "1387676",
+      "question": "Solana Up or Down - February 19, 12AM ET",
+      "side": "DOWN",
+      "entry_price": 0.45,
+      "shares": 5.5556,
+      "size_usd": 2.5,
+      "rsi": 44.52,
+      "change_30m": -0.002081,
+      "asset_price": 81.54,
+      "_asset": "SOL",
+      "time_left_min": 26.9,
+      "entry_time": "2026-02-19T05:33:07.572402+00:00",
+      "end_dt": "2026-02-19T06:00:00+00:00",
+      "status": "open",
+      "pnl": 0.0,
+      "result": null
+    },
+    "1h_0xf0d69b731da54245c8f44e7c7bd933c6f3ccf9ea48902151c5866cac8381fcf2_DOWN": {
+      "condition_id": "0xf0d69b731da54245c8f44e7c7bd933c6f3ccf9ea48902151c5866cac8381fcf2",
+      "market_numeric_id": "1387651",
+      "question": "Ethereum Up or Down - February 19, 12AM ET",
+      "side": "DOWN",
+      "entry_price": 0.65,
+      "shares": 3.8462,
+      "size_usd": 2.5,
+      "rsi": 33.01,
+      "change_30m": -0.001112,
+      "asset_price": 1967.89,
+      "_asset": "ETH",
+      "time_left_min": 18.2,
+      "entry_time": "2026-02-19T05:41:49.955123+00:00",
+      "end_dt": "2026-02-19T06:00:00+00:00",
+      "status": "open",
+      "pnl": 0.0,
+      "result": null
+    },
+    "1h_0x3bb69d95d3a26fadb0b4a648d0fcccaf733a02245109d1d0db60179dc8eb8baa_DOWN": {
+      "condition_id": "0x3bb69d95d3a26fadb0b4a648d0fcccaf733a02245109d1d0db60179dc8eb8baa",
+      "market_numeric_id": "1387626",
+      "question": "Bitcoin Up or Down - February 19, 12AM ET",
+      "side": "DOWN",
+      "entry_price": 0.57,
+      "shares": 4.386,
+      "size_usd": 2.5,
+      "rsi": 35.56,
+      "change_30m": -0.001722,
+      "asset_price": 66763.64,
+      "_asset": "BTC",
+      "time_left_min": 15.0,
+      "entry_time": "2026-02-19T05:45:02.702071+00:00",
+      "end_dt": "2026-02-19T06:00:00+00:00",
+      "status": "open",
+      "pnl": 0.0,
+      "result": null
+    }
+  },
+  "resolved": [],
+  "stats": {
+    "wins": 0,
+    "losses": 0,
+    "pnl": 0.0
+  },
+  "last_updated": "2026-02-19T05:45:03.971257+00:00"
+}

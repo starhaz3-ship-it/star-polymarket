@@ -1,0 +1,529 @@
+{
+  "active": {},
+  "resolved": [
+    {
+      "condition_id": "0x714227a79b9c4c9b71693912dd628b3e354650d7d73a2173054b73021099309f",
+      "question": "Bitcoin Up or Down - February 18, 2:25PM-2:30PM ET",
+      "side": "DOWN",
+      "entry_price": 0.79,
+      "confidence": 0.79,
+      "up_ask": 0.23,
+      "down_ask": 0.77,
+      "shares": 6.162,
+      "cost": 4.87,
+      "trade_size_tier": 5.0,
+      "time_remaining_sec": 61.4,
+      "entry_time": "2026-02-18T19:29:03.172166+00:00",
+      "end_dt": "2026-02-18T19:30:00+00:00",
+      "status": "closed",
+      "pnl": -4.87,
+      "result": "LOSS",
+      "order_id": "0x637589cb1a5969291020742d57395a1c9d6cb75dcce7095ec5d02aa5adf8a5bc",
+      "live": true,
+      "strategy": "directional_clob",
+      "market_outcome": "UP",
+      "resolve_time": "2026-02-18T19:30:16.204217+00:00",
+      "signal_audit": {
+        "signal_55s": "DOWN",
+        "pct_55s": -0.0773,
+        "signal_57s": "DOWN",
+        "pct_57s": -0.0773,
+        "signal_60s": "DOWN",
+        "pct_60s": -0.0773,
+        "signal_63s": "DOWN",
+        "pct_63s": -0.0773,
+        "signal_65s": "DOWN",
+        "pct_65s": -0.0773,
+        "actual_direction": "DOWN",
+        "actual_pct": -0.0665,
+        "open_price": 66267.92,
+        "close_price": 66223.87,
+        "candle_closes": [
+          [
+            240.0,
+            66235.99
+          ],
+          [
+            180.0,
+            66223.41
+          ],
+          [
+            120.0,
+            66183.33
+          ],
+          [
+            60.0,
+            66216.7
+          ],
+          [
+            0.0,
+            66274.49
+          ],
+          [
+            -60.0,
+            66223.87
+          ]
+        ]
+      }
+    },
+    {
+      "condition_id": "0xbc250972f2acc33618fc34add714c9df0c7109e2130ff579e60e9fd3bbe7a90e",
+      "question": "Bitcoin Up or Down - February 18, 3:05PM-3:10PM ET",
+      "side": "UP",
+      "entry_price": 0.72,
+      "confidence": 0.72,
+      "up_ask": 0.71,
+      "down_ask": 0.32,
+      "shares": 6.1644,
+      "cost": 4.44,
+      "trade_size_tier": 5.0,
+      "time_remaining_sec": 59.0,
+      "entry_time": "2026-02-18T20:09:05.671265+00:00",
+      "end_dt": "2026-02-18T20:10:00+00:00",
+      "status": "closed",
+      "pnl": 1.72,
+      "result": "WIN",
+      "order_id": "0xb53d93454f2c169f38a110f0f3c2f985e4c7578677ed2354e81563a73c59991b",
+      "live": true,
+      "strategy": "directional_clob",
+      "market_outcome": "UP",
+      "resolve_time": "2026-02-18T20:10:15.611922+00:00",
+      "signal_audit": {
+        "signal_55s": "UP",
+        "pct_55s": 0.0319,
+        "signal_57s": "UP",
+        "pct_57s": 0.0319,
+        "signal_60s": "UP",
+        "pct_60s": 0.0319,
+        "signal_63s": "UP",
+        "pct_63s": 0.0319,
+        "signal_65s": "UP",
+        "pct_65s": 0.0319,
+        "actual_direction": "DOWN",
+        "actual_pct": -0.0007,
+        "open_price": 66264.5,
+        "close_price": 66264.02,
+        "candle_closes": [
+          [
+            240.0,
+            66273.11
+          ],
+          [
+            180.0,
+            66217.2
+          ],
+          [
+            120.0,
+            66265.28
+          ],
+          [
+            60.0,
+            66285.61
+          ],
+          [
+            0.0,
+            66275.22
+          ],
+          [
+            -60.0,
+            66264.02
+          ]
+        ]
+      }
+    },
+    {
+      "condition_id": "0xa73036478480d8b806e9fe70d12b9c0ab0e018b911030ef97a6c3c3f8d1af10f",
+      "question": "Bitcoin Up or Down - February 18, 3:20PM-3:25PM ET",
+      "side": "UP",
+      "entry_price": 0.85,
+      "confidence": 0.85,
+      "up_ask": 0.87,
+      "down_ask": 0.15,
+      "shares": 5.1765,
+      "cost": 4.4,
+      "trade_size_tier": 5.0,
+      "time_remaining_sec": 61.2,
+      "entry_time": "2026-02-18T20:24:03.401909+00:00",
+      "end_dt": "2026-02-18T20:25:00+00:00",
+      "status": "closed",
+      "pnl": 0.78,
+      "result": "WIN",
+      "order_id": "0xf96709c2f006109348abea420c7eacc00387ce0a270ba69cb4ae556376a5a760",
+      "live": true,
+      "strategy": "directional_binance",
+      "market_outcome": "UP",
+      "resolve_time": "2026-02-18T20:25:16.647940+00:00",
+      "signal_audit": {
+        "signal_55s": "UP",
+        "pct_55s": 0.104,
+        "signal_57s": "UP",
+        "pct_57s": 0.104,
+        "signal_60s": "UP",
+        "pct_60s": 0.104,
+        "signal_63s": "UP",
+        "pct_63s": 0.104,
+        "signal_65s": "UP",
+        "pct_65s": 0.104,
+        "actual_direction": "UP",
+        "actual_pct": 0.0932,
+        "open_price": 66239.09,
+        "close_price": 66300.8,
+        "candle_closes": [
+          [
+            240.0,
+            66182.01
+          ],
+          [
+            180.0,
+            66207.46
+          ],
+          [
+            120.0,
+            66236.04
+          ],
+          [
+            60.0,
+            66308.0
+          ],
+          [
+            0.0,
+            66310.57
+          ],
+          [
+            -60.0,
+            66300.8
+          ]
+        ]
+      }
+    },
+    {
+      "condition_id": "0x3d57f904e59ef766111d5a12d8fbb52076c98d413f5fe957faeac3846e081698",
+      "question": "Bitcoin Up or Down - February 18, 4:25PM-4:30PM ET",
+      "side": "UP",
+      "entry_price": 0.72,
+      "confidence": 0.72,
+      "up_ask": 0.74,
+      "down_ask": 0.31,
+      "shares": 6.338,
+      "cost": 4.56,
+      "trade_size_tier": 5.0,
+      "time_remaining_sec": 61.7,
+      "entry_time": "2026-02-18T21:29:03.078633+00:00",
+      "end_dt": "2026-02-18T21:30:00+00:00",
+      "status": "closed",
+      "pnl": 1.78,
+      "result": "WIN",
+      "order_id": "0xbbecab21e194064441588014faef558910b2c66aa8edb5b08bf2f96f7569f92a",
+      "live": true,
+      "strategy": "directional_clob",
+      "market_outcome": "UP",
+      "resolve_time": "2026-02-18T21:30:16.866332+00:00",
+      "signal_audit": {
+        "signal_55s": "UP",
+        "pct_55s": 0.0359,
+        "signal_57s": "UP",
+        "pct_57s": 0.0359,
+        "signal_60s": "UP",
+        "pct_60s": 0.0359,
+        "signal_63s": "UP",
+        "pct_63s": 0.0359,
+        "signal_65s": "UP",
+        "pct_65s": 0.0359,
+        "actual_direction": "UP",
+        "actual_pct": 0.0693,
+        "open_price": 66369.99,
+        "close_price": 66416.01,
+        "candle_closes": [
+          [
+            240.0,
+            66375.85
+          ],
+          [
+            180.0,
+            66354.94
+          ],
+          [
+            120.0,
+            66350.0
+          ],
+          [
+            60.0,
+            66393.84
+          ],
+          [
+            0.0,
+            66411.79
+          ],
+          [
+            -60.0,
+            66416.01
+          ]
+        ]
+      }
+    },
+    {
+      "condition_id": "0x0f09880927663ade14ac7bc842c79403e0f04d19939d76ca1e2abad8b585ce59",
+      "question": "Bitcoin Up or Down - February 18, 4:45PM-4:50PM ET",
+      "side": "UP",
+      "entry_price": 0.69,
+      "confidence": 0.69,
+      "up_ask": 0.7,
+      "down_ask": 0.32,
+      "shares": 7.2,
+      "cost": 4.97,
+      "trade_size_tier": 5.0,
+      "time_remaining_sec": 57.5,
+      "entry_time": "2026-02-18T21:49:07.067399+00:00",
+      "end_dt": "2026-02-18T21:50:00+00:00",
+      "status": "closed",
+      "pnl": 2.23,
+      "result": "WIN",
+      "order_id": "0xfd531d1a68b493d563ed724dfb2f668f14f5959b73d46a4311c6312ad947c4f6",
+      "live": true,
+      "strategy": "directional_clob",
+      "market_outcome": "UP",
+      "resolve_time": "2026-02-18T21:50:15.470594+00:00",
+      "signal_audit": {
+        "signal_55s": "FLAT",
+        "pct_55s": 0.0257,
+        "signal_57s": "FLAT",
+        "pct_57s": 0.0257,
+        "signal_60s": "FLAT",
+        "pct_60s": 0.0257,
+        "signal_63s": "FLAT",
+        "pct_63s": 0.0257,
+        "signal_65s": "FLAT",
+        "pct_65s": 0.0257,
+        "actual_direction": "UP",
+        "actual_pct": 0.02,
+        "open_price": 66438.44,
+        "close_price": 66451.75,
+        "candle_closes": [
+          [
+            240.0,
+            66466.36
+          ],
+          [
+            180.0,
+            66456.52
+          ],
+          [
+            120.0,
+            66448.31
+          ],
+          [
+            60.0,
+            66455.53
+          ],
+          [
+            0.0,
+            66465.22
+          ],
+          [
+            -60.0,
+            66451.75
+          ]
+        ]
+      }
+    },
+    {
+      "condition_id": "0x3fabc9009f13ce501bb82b1b5a2646d9eca5a8a425082887477181385addb534",
+      "question": "Bitcoin Up or Down - February 18, 5:40PM-5:45PM ET",
+      "side": "UP",
+      "entry_price": 0.01,
+      "shares": 500.0,
+      "cost": 5.0,
+      "trade_size_tier": 5.0,
+      "time_remaining_sec": -3.9,
+      "entry_time": "2026-02-18T22:45:09.124713+00:00",
+      "end_dt": "2026-02-18T22:45:00+00:00",
+      "status": "closed",
+      "pnl": 495.0,
+      "result": "WIN",
+      "order_id": "0xf8aee70f47ddb980fd29105659cfa554fcac098c04aa4f92ff5f03714149e02c",
+      "live": true,
+      "strategy": "oracle",
+      "market_outcome": "UP",
+      "resolve_time": "2026-02-18T22:45:17.381171+00:00",
+      "signal_audit": {
+        "signal_55s": "UP",
+        "pct_55s": 0.0933,
+        "signal_57s": "UP",
+        "pct_57s": 0.0933,
+        "signal_60s": "UP",
+        "pct_60s": 0.0933,
+        "signal_63s": "UP",
+        "pct_63s": 0.0933,
+        "signal_65s": "UP",
+        "pct_65s": 0.0933,
+        "actual_direction": "UP",
+        "actual_pct": 0.0019,
+        "open_price": 66399.29,
+        "close_price": 66400.52,
+        "candle_closes": [
+          [
+            240.0,
+            66392.0
+          ],
+          [
+            180.0,
+            66417.5
+          ],
+          [
+            120.0,
+            66414.01
+          ],
+          [
+            60.0,
+            66461.22
+          ],
+          [
+            0.0,
+            66400.01
+          ],
+          [
+            -60.0,
+            66400.52
+          ]
+        ]
+      }
+    },
+    {
+      "condition_id": "0xaa06bec128ae6b2ed37073bdb953e37c74277a014f170fa89cf6dc038040c514",
+      "question": "Bitcoin Up or Down - February 18, 6:10PM-6:15PM ET",
+      "side": "UP",
+      "entry_price": 0.75,
+      "confidence": 0.75,
+      "up_ask": 0.74,
+      "down_ask": 0.26,
+      "shares": 6.24,
+      "cost": 4.68,
+      "trade_size_tier": 5.0,
+      "time_remaining_sec": 62.5,
+      "entry_time": "2026-02-18T23:14:02.279132+00:00",
+      "end_dt": "2026-02-18T23:15:00+00:00",
+      "status": "closed",
+      "pnl": 1.56,
+      "result": "WIN",
+      "order_id": "0xc9bb71861ab1524d7f07934471972cec291f4643720ab9517c59e0b1abf17b15",
+      "live": true,
+      "strategy": "directional_clob",
+      "market_outcome": "UP",
+      "resolve_time": "2026-02-18T23:15:16.273939+00:00",
+      "signal_audit": {
+        "signal_55s": "UP",
+        "pct_55s": 0.0352,
+        "signal_57s": "UP",
+        "pct_57s": 0.0352,
+        "signal_60s": "UP",
+        "pct_60s": 0.0352,
+        "signal_63s": "UP",
+        "pct_63s": 0.0352,
+        "signal_65s": "UP",
+        "pct_65s": 0.0352,
+        "actual_direction": "UP",
+        "actual_pct": 0.0725,
+        "open_price": 66311.75,
+        "close_price": 66359.85,
+        "candle_closes": [
+          [
+            240.0,
+            66290.0
+          ],
+          [
+            180.0,
+            66316.99
+          ],
+          [
+            120.0,
+            66341.7
+          ],
+          [
+            60.0,
+            66335.06
+          ],
+          [
+            0.0,
+            66379.09
+          ],
+          [
+            -60.0,
+            66359.85
+          ]
+        ]
+      }
+    },
+    {
+      "condition_id": "0x88fdf81dfe7a478b3d2a58cbf68a1a524c142f37ba92ee938d798ae3c4101f78",
+      "question": "Bitcoin Up or Down - February 18, 6:50PM-6:55PM ET",
+      "side": "UP",
+      "entry_price": 0.73,
+      "confidence": 0.73,
+      "up_ask": 0.72,
+      "down_ask": 0.29,
+      "shares": 6.2466,
+      "cost": 4.56,
+      "trade_size_tier": 5.0,
+      "time_remaining_sec": 62.3,
+      "entry_time": "2026-02-18T23:54:02.706810+00:00",
+      "end_dt": "2026-02-18T23:55:00+00:00",
+      "status": "closed",
+      "pnl": -4.56,
+      "result": "LOSS",
+      "order_id": "0x1bdc2c902f27ed998cf604b2c5d9f47721a480b71aaccc57f0a135445f519561",
+      "live": true,
+      "strategy": "directional_clob",
+      "market_outcome": "DOWN",
+      "resolve_time": "2026-02-18T23:55:16.684216+00:00",
+      "signal_audit": {
+        "signal_55s": "FLAT",
+        "pct_55s": 0.0271,
+        "signal_57s": "FLAT",
+        "pct_57s": 0.0271,
+        "signal_60s": "FLAT",
+        "pct_60s": 0.0271,
+        "signal_63s": "FLAT",
+        "pct_63s": 0.0271,
+        "signal_65s": "FLAT",
+        "pct_65s": 0.0271,
+        "actual_direction": "UP",
+        "actual_pct": 0.0058,
+        "open_price": 66477.69,
+        "close_price": 66481.54,
+        "candle_closes": [
+          [
+            240.0,
+            66447.34
+          ],
+          [
+            180.0,
+            66434.52
+          ],
+          [
+            120.0,
+            66449.34
+          ],
+          [
+            60.0,
+            66495.71
+          ],
+          [
+            0.0,
+            66469.02
+          ],
+          [
+            -60.0,
+            66481.54
+          ]
+        ]
+      }
+    }
+  ],
+  "stats": {
+    "wins": 6,
+    "losses": 2,
+    "pnl": 493.64,
+    "skipped": 122
+  },
+  "last_updated": "2026-02-19T05:07:06.104733+00:00"
+}

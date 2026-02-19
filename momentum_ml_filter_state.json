@@ -1,8 +1,8 @@
 {
   "betas": {
     "relaxed": [
-      2,
-      2
+      5,
+      5
     ],
     "moderate": [
       3,
@@ -33,6 +33,126 @@
       "abs_m10": 0.00098,
       "abs_m5": 0.00041,
       "rsi": 45.6,
+      "side": "DOWN",
+      "shadow": {}
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.000886,
+      "abs_m5": 0.000957,
+      "rsi": 42.8,
+      "side": "DOWN",
+      "shadow": {}
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.000614,
+      "abs_m5": 0.000249,
+      "rsi": 64.9,
+      "side": "UP",
+      "shadow": {
+        "relaxed": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.000979,
+      "abs_m5": 0.000594,
+      "rsi": 38.2,
+      "side": "DOWN",
+      "shadow": {
+        "relaxed": "W"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.000661,
+      "abs_m5": 0.000668,
+      "rsi": 43.8,
+      "side": "DOWN",
+      "shadow": {}
+    },
+    {
+      "preset_used": "relaxed",
+      "won": false,
+      "abs_m10": 0.000751,
+      "abs_m5": 0.000528,
+      "rsi": 65.3,
+      "side": "UP",
+      "shadow": {
+        "relaxed": "L"
+      }
+    },
+    {
+      "preset_used": "relaxed",
+      "won": false,
+      "abs_m10": 0.001007,
+      "abs_m5": 0.000382,
+      "rsi": 62.6,
+      "side": "UP",
+      "shadow": {
+        "relaxed": "L"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.000678,
+      "abs_m5": 0.000678,
+      "rsi": 74.4,
+      "side": "UP",
+      "shadow": {
+        "relaxed": "W"
+      }
+    },
+    {
+      "preset_used": "strict",
+      "won": false,
+      "abs_m10": 0.000517,
+      "abs_m5": 0.000348,
+      "rsi": 71.4,
+      "side": "UP",
+      "shadow": {
+        "relaxed": "L"
+      }
+    },
+    {
+      "preset_used": "moderate",
+      "won": false,
+      "abs_m10": 0.001273,
+      "abs_m5": 0.000705,
+      "rsi": 44.4,
+      "side": "DOWN",
+      "shadow": {}
+    },
+    {
+      "preset_used": "relaxed",
+      "won": true,
+      "abs_m10": 0.000534,
+      "abs_m5": 0.00043,
+      "rsi": 48.6,
+      "side": "DOWN",
+      "shadow": {}
+    },
+    {
+      "preset_used": "strict",
+      "won": true,
+      "abs_m10": 0.000904,
+      "abs_m5": 0.000333,
+      "rsi": 44.0,
+      "side": "DOWN",
+      "shadow": {}
+    },
+    {
+      "preset_used": "moderate",
+      "won": true,
+      "abs_m10": 0.001421,
+      "abs_m5": 0.000351,
+      "rsi": 43.6,
       "side": "DOWN",
       "shadow": {}
     }
