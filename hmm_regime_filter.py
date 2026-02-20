@@ -56,7 +56,7 @@ REGIME_NAMES = {0: "TRENDING", 1: "MEAN_REVERT", 2: "CHOPPY"}
 
 # Strategy compatibility
 STRATEGY_REGIMES = {
-    "momentum":   ["TRENDING"],
+    "momentum":   ["TRENDING", "MEAN_REVERT"],  # V2.3: 15M bets have directional moves in all regimes
     "contrarian": ["MEAN_REVERT"],
     "rsi":        ["MEAN_REVERT", "TRENDING"],
     "arb":        ["CHOPPY", "MEAN_REVERT", "TRENDING"],  # arb works in any regime

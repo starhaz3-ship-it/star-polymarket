@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POLYMARKET LIVE DASHBOARD - Feb 19, 2026</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@300;400;600&family=Inter:wght@300;400;600;700&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --card: #12121a;
+    --card-border: rgba(0,212,255,0.12);
+    --cyan: #00d4ff;
+    --green: #00ff88;
+    --red: #ff3366;
+    --yellow: #ffcc00;
+    --purple: #a855f7;
+    --dim: #6b7a8d;
+    --text: #e0e0e0;
+    --text-muted: #8892a0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      linear-gradient(135deg, rgba(0,212,255,0.03) 0%, transparent 50%, rgba(168,85,247,0.03) 100%),
+      repeating-linear-gradient(0deg, transparent, transparent 60px, rgba(0,212,255,0.015) 60px, rgba(0,212,255,0.015) 61px),
+      repeating-linear-gradient(90deg, transparent, transparent 60px, rgba(0,212,255,0.015) 60px, rgba(0,212,255,0.015) 61px);
+    z-index: -1;
+    animation: bgPulse 8s ease-in-out infinite;
+  }
+
+  @keyframes bgPulse {
+    0%,100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+
+  @keyframes glowPulse {
+    0%,100% { text-shadow: 0 0 20px rgba(0,212,255,0.5), 0 0 40px rgba(0,212,255,0.2); }
+    50% { text-shadow: 0 0 30px rgba(0,212,255,0.8), 0 0 60px rgba(0,212,255,0.3); }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes liveDot {
+    0%,100% { box-shadow: 0 0 0 0 rgba(0,255,136,0.7); }
+    50% { box-shadow: 0 0 0 8px rgba(0,255,136,0); }
+  }
+
+  @keyframes scanLine {
+    0% { background-position: 0% 0%; }
+    100% { background-position: 200% 0%; }
+  }
+
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px 20px;
+  }
+
+  /* ===== HEADER ===== */
+  .header {
+    text-align: center;
+    margin-bottom: 28px;
+    animation: fadeUp 0.6s ease-out;
+  }
+
+  .header h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: 5px;
+    color: var(--cyan);
+    animation: glowPulse 3s ease-in-out infinite;
+    margin-bottom: 6px;
+  }
+
+  .header .subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--dim);
+    letter-spacing: 2px;
+  }
+
+  .header .live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,255,136,0.08);
+    border: 1px solid rgba(0,255,136,0.25);
+    border-radius: 20px;
+    padding: 4px 16px;
+    margin-top: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--green);
+    letter-spacing: 1px;
+  }
+
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: liveDot 1.5s infinite;
+  }
+
+  /* ===== CARDS GRID ===== */
+  .cards-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+    animation: fadeUp 0.7s ease-out;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    background-size: 200% 100%;
+    animation: scanLine 3s linear infinite;
+  }
+
+  .card.green-accent::before {
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+    background-size: 200% 100%;
+    animation: scanLine 3s linear infinite;
+  }
+
+  .card.purple-accent::before {
+    background: linear-gradient(90deg, transparent, var(--purple), transparent);
+    background-size: 200% 100%;
+    animation: scanLine 3s linear infinite;
+  }
+
+  .card-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    color: var(--dim);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .card-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--cyan);
+    margin-bottom: 14px;
+    letter-spacing: 1px;
+  }
+
+  .card-title.green { color: var(--green); }
+  .card-title.purple { color: var(--purple); }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .stat-row:last-child { border-bottom: none; }
+
+  .stat-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+
+  .stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .stat-value.green { color: var(--green); }
+  .stat-value.red { color: var(--red); }
+  .stat-value.cyan { color: var(--cyan); }
+  .stat-value.yellow { color: var(--yellow); }
+  .stat-value.purple { color: var(--purple); }
+
+  .big-pnl {
+    font-family: 'Orbitron', monospace;
+    font-size: 2rem;
+    font-weight: 900;
+    text-align: center;
+    margin: 10px 0;
+  }
+
+  .big-pnl.green {
+    color: var(--green);
+    text-shadow: 0 0 20px rgba(0,255,136,0.3);
+  }
+
+  .big-wr {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.6rem;
+    font-weight: 700;
+    text-align: center;
+    color: var(--cyan);
+    text-shadow: 0 0 15px rgba(0,212,255,0.3);
+    margin: 6px 0;
+  }
+
+  .tier-badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 1px;
+    padding: 2px 10px;
+    border-radius: 10px;
+    background: rgba(255,204,0,0.1);
+    border: 1px solid rgba(255,204,0,0.3);
+    color: var(--yellow);
+  }
+
+  .hmm-badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 1px;
+    padding: 2px 10px;
+    border-radius: 10px;
+    background: rgba(168,85,247,0.1);
+    border: 1px solid rgba(168,85,247,0.3);
+    color: var(--purple);
+  }
+
+  .note-text {
+    font-size: 0.72rem;
+    color: var(--dim);
+    font-style: italic;
+    margin-top: 8px;
+    line-height: 1.4;
+  }
+
+  /* ===== CHART SECTION ===== */
+  .chart-section {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    animation: fadeUp 0.8s ease-out;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .chart-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--green), var(--cyan), transparent);
+    background-size: 200% 100%;
+    animation: scanLine 4s linear infinite;
+  }
+
+  .section-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--cyan);
+    margin-bottom: 20px;
+    text-transform: uppercase;
+  }
+
+  /* CSS Bar Chart */
+  .chart-container {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+    height: 220px;
+    padding: 0 10px;
+    position: relative;
+  }
+
+  .chart-zero-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 50px;
+    height: 1px;
+    background: rgba(255,255,255,0.1);
+  }
+
+  .chart-zero-label {
+    position: absolute;
+    left: 4px;
+    bottom: 43px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--dim);
+  }
+
+  .chart-bar-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    max-width: 120px;
+  }
+
+  .chart-bar-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    height: 170px;
+    position: relative;
+    width: 100%;
+  }
+
+  .chart-bar {
+    width: 36px;
+    border-radius: 4px 4px 0 0;
+    position: absolute;
+    bottom: 50px;
+    transition: height 0.6s ease;
+  }
+
+  .chart-bar.positive {
+    background: linear-gradient(to top, rgba(0,255,136,0.6), rgba(0,255,136,0.9));
+    box-shadow: 0 0 10px rgba(0,255,136,0.2);
+  }
+
+  .chart-bar.negative {
+    background: linear-gradient(to bottom, rgba(255,51,102,0.6), rgba(255,51,102,0.9));
+    box-shadow: 0 0 10px rgba(255,51,102,0.2);
+    border-radius: 0 0 4px 4px;
+    bottom: auto;
+    top: calc(170px - 50px);
+  }
+
+  .chart-bar-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 600;
+    position: absolute;
+    white-space: nowrap;
+  }
+
+  .chart-bar-value.above {
+    bottom: calc(100% + 4px);
+  }
+
+  .chart-bar-value.below {
+    top: calc(100% + 4px);
+  }
+
+  .chart-bar-value.green { color: var(--green); }
+  .chart-bar-value.red { color: var(--red); }
+
+  .chart-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--dim);
+    margin-top: 6px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .chart-bot-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+    text-align: center;
+  }
+
+  /* SVG Cumulative Line Chart */
+  .cumulative-chart {
+    width: 100%;
+    height: 200px;
+    margin-top: 12px;
+  }
+
+  .cumulative-chart svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* ===== TRADE LOG TABLE ===== */
+  .table-section {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    animation: fadeUp 0.9s ease-out;
+    overflow-x: auto;
+    position: relative;
+  }
+
+  .table-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    background-size: 200% 100%;
+    animation: scanLine 3s linear infinite;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+
+  thead th {
+    text-align: left;
+    padding: 10px 12px;
+    color: var(--dim);
+    font-size: 0.68rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(0,212,255,0.15);
+    font-weight: 600;
+  }
+
+  tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    vertical-align: middle;
+  }
+
+  tbody tr:hover {
+    background: rgba(0,212,255,0.03);
+  }
+
+  .result-win {
+    color: var(--green);
+    font-weight: 700;
+    text-shadow: 0 0 8px rgba(0,255,136,0.3);
+  }
+
+  .result-loss {
+    color: var(--red);
+    font-weight: 700;
+    text-shadow: 0 0 8px rgba(255,51,102,0.3);
+  }
+
+  .side-up {
+    color: var(--green);
+    font-weight: 600;
+  }
+
+  .side-down {
+    color: var(--red);
+    font-weight: 600;
+  }
+
+  .bot-momentum {
+    color: var(--purple);
+  }
+
+  .bot-sniper {
+    color: var(--cyan);
+  }
+
+  /* ===== BOTTOM GRID ===== */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+    animation: fadeUp 1s ease-out;
+  }
+
+  .mini-card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 18px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mini-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    background-size: 200% 100%;
+    animation: scanLine 3s linear infinite;
+  }
+
+  .mini-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 2px;
+    color: var(--dim);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .breakdown-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+  }
+
+  .breakdown-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+
+  .breakdown-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  .bar-visual {
+    height: 6px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 3px;
+    margin-top: 4px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.8s ease;
+  }
+
+  .bar-fill.green { background: linear-gradient(90deg, var(--green), rgba(0,255,136,0.5)); }
+  .bar-fill.red { background: linear-gradient(90deg, var(--red), rgba(255,51,102,0.5)); }
+  .bar-fill.cyan { background: linear-gradient(90deg, var(--cyan), rgba(0,212,255,0.5)); }
+
+  /* Paper comparison */
+  .paper-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    border-radius: 8px;
+    background: rgba(168,85,247,0.1);
+    border: 1px solid rgba(168,85,247,0.3);
+    color: var(--purple);
+    margin-bottom: 10px;
+  }
+
+  /* ===== FOOTER ===== */
+  .footer {
+    text-align: center;
+    padding: 16px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--dim);
+    border-top: 1px solid rgba(0,212,255,0.08);
+    animation: fadeUp 1.1s ease-out;
+    letter-spacing: 1px;
+  }
+
+  .footer .pid {
+    color: var(--cyan);
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 900px) {
+    .cards-row { grid-template-columns: 1fr; }
+    .bottom-grid { grid-template-columns: 1fr; }
+    .header h1 { font-size: 1.4rem; letter-spacing: 3px; }
+    .chart-bar { width: 24px; }
+  }
+
+  @media (max-width: 1100px) and (min-width: 901px) {
+    .cards-row { grid-template-columns: 1fr 1fr; }
+    .bottom-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<div class="container">
+  <div class="header">
+    <h1>POLYMARKET LIVE DASHBOARD</h1>
+    <div class="subtitle">FEB 19, 2026 &mdash; EVENING SESSION</div>
+    <div class="live-badge">
+      <span class="live-dot"></span>
+      BOTS ACTIVE &mdash; <span id="clock"></span>
+    </div>
+  </div>
+
+  <!-- ===== SUMMARY CARDS ===== -->
+  <div class="cards-row">
+
+    <!-- Momentum 15M Card -->
+    <div class="card">
+      <div class="card-label">Strategy 1</div>
+      <div class="card-title purple">MOMENTUM 15M &mdash; V2.2</div>
+      <div class="stat-row">
+        <span class="stat-label">Record</span>
+        <span class="stat-value green">1W / 0L</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Win Rate</span>
+        <span class="stat-value green">100%</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">PnL</span>
+        <span class="stat-value green">+$2.65</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Tier</span>
+        <span class="tier-badge">PROBATION $3.00</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Cycle</span>
+        <span class="stat-value cyan">170</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">HMM Regime</span>
+        <span class="hmm-badge">MEAN_REVERT 92%</span>
+      </div>
+      <p class="note-text">Scanning but not entering &mdash; BTC choppy, no strong signals tonight.</p>
+    </div>
+
+    <!-- Sniper 5M Card -->
+    <div class="card green-accent">
+      <div class="card-label">Strategy 2</div>
+      <div class="card-title green">SNIPER 5M LIVE &mdash; V2.0</div>
+      <div class="stat-row">
+        <span class="stat-label">Record</span>
+        <span class="stat-value green">6W / 1L</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Win Rate</span>
+        <span class="stat-value green">86%</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">PnL</span>
+        <span class="stat-value green">+$3.85</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Tier</span>
+        <span class="tier-badge">$3.00 / TRADE</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Markets Skipped</span>
+        <span class="stat-value" style="color:var(--dim);">202</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Method</span>
+        <span class="stat-value cyan">directional_clob</span>
+      </div>
+      <p class="note-text">Only enters on strong CLOB signals. 202 markets filtered out tonight.</p>
+    </div>
+
+    <!-- Combined Card -->
+    <div class="card purple-accent">
+      <div class="card-label">Combined Tonight</div>
+      <div class="card-title" style="color:var(--green);">ALL LIVE BOTS</div>
+      <div class="big-pnl green">+$6.50</div>
+      <div class="big-wr">87.5% WR</div>
+      <div class="stat-row">
+        <span class="stat-label">Total Trades</span>
+        <span class="stat-value cyan">8</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Record</span>
+        <span class="stat-value green">7W / 1L</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Avg Win</span>
+        <span class="stat-value green">+$1.35</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Only Loss</span>
+        <span class="stat-value red">-$2.96</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Status</span>
+        <span class="stat-value green">HEALTHY</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CUMULATIVE PNL CHART ===== -->
+  <div class="chart-section">
+    <div class="section-title">Cumulative PnL &mdash; 8 Live Trades (MST)</div>
+
+    <!-- SVG Line + Area chart -->
+    <div class="cumulative-chart">
+      <svg viewBox="0 0 800 200" preserveAspectRatio="xMidYMid meet">
+        <!-- Grid lines -->
+        <line x1="60" y1="20" x2="60" y2="170" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+        <line x1="60" y1="170" x2="780" y2="170" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+
+        <!-- Y-axis labels -->
+        <text x="50" y="28" fill="#6b7a8d" font-family="JetBrains Mono" font-size="10" text-anchor="end">+$8</text>
+        <text x="50" y="58" fill="#6b7a8d" font-family="JetBrains Mono" font-size="10" text-anchor="end">+$6</text>
+        <text x="50" y="88" fill="#6b7a8d" font-family="JetBrains Mono" font-size="10" text-anchor="end">+$4</text>
+        <text x="50" y="118" fill="#6b7a8d" font-family="JetBrains Mono" font-size="10" text-anchor="end">+$2</text>
+        <text x="50" y="148" fill="#6b7a8d" font-family="JetBrains Mono" font-size="10" text-anchor="end">$0</text>
+        <text x="50" y="175" fill="#6b7a8d" font-family="JetBrains Mono" font-size="10" text-anchor="end">-$2</text>
+
+        <!-- Horizontal grid -->
+        <line x1="60" y1="25" x2="780" y2="25" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+        <line x1="60" y1="55" x2="780" y2="55" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+        <line x1="60" y1="85" x2="780" y2="85" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+        <line x1="60" y1="115" x2="780" y2="115" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+        <!-- Zero line -->
+        <line x1="60" y1="145" x2="780" y2="145" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="4,4"/>
+
+        <!--
+          Data points (cumulative PnL):
+          Start:    $0.00    (y=145)
+          T1 2:04   -$2.96   (y=175)  LOSS
+          T2 2:14   -$1.71   (y=159)
+          T3 3:24   -$0.65   (y=152)
+          T4 9:39   +$0.76   (y=139)
+          T5 9:44   +$2.07   (y=129)
+          T6 10:22  +$4.72   (y=108)  momentum trade
+          T7 2:09p  +$5.76   (y=100)
+          T8 3:24p  +$6.50   (y=94)
+
+          X positions (evenly spaced): 80, 180, 280, 380, 480, 560, 660, 760
+        -->
+
+        <!-- Area fill under the line -->
+        <defs>
+          <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="rgba(0,255,136,0.25)"/>
+            <stop offset="100%" stop-color="rgba(0,255,136,0.0)"/>
+          </linearGradient>
+          <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#ff3366"/>
+            <stop offset="30%" stop-color="#00ff88"/>
+            <stop offset="100%" stop-color="#00d4ff"/>
+          </linearGradient>
+        </defs>
+
+        <!-- Area -->
+        <polygon points="80,145 80,175 180,159 280,152 380,139 480,129 560,108 660,100 760,94 760,145" fill="url(#areaGrad)" opacity="0.5"/>
+        <!-- Negative area (below zero) -->
+        <polygon points="80,145 80,175 180,159 280,152 280,145" fill="rgba(255,51,102,0.08)"/>
+
+        <!-- Line -->
+        <polyline
+          points="80,145 80,175 180,159 280,152 380,139 480,129 560,108 660,100 760,94"
+          fill="none"
+          stroke="url(#lineGrad)"
+          stroke-width="2.5"
+          stroke-linejoin="round"
+          stroke-linecap="round"
+        />
+
+        <!-- Data points -->
+        <!-- Start -->
+        <circle cx="80" cy="145" r="3" fill="#6b7a8d" stroke="none"/>
+        <!-- T1: LOSS -->
+        <circle cx="80" cy="175" r="5" fill="#ff3366" stroke="#0a0a0f" stroke-width="2"/>
+        <text x="80" y="190" fill="#ff3366" font-family="JetBrains Mono" font-size="9" text-anchor="middle">-$2.96</text>
+        <!-- T2 -->
+        <circle cx="180" cy="159" r="4" fill="#00ff88" stroke="#0a0a0f" stroke-width="2"/>
+        <!-- T3 -->
+        <circle cx="280" cy="152" r="4" fill="#00ff88" stroke="#0a0a0f" stroke-width="2"/>
+        <!-- T4 -->
+        <circle cx="380" cy="139" r="4" fill="#00ff88" stroke="#0a0a0f" stroke-width="2"/>
+        <!-- T5 -->
+        <circle cx="480" cy="129" r="4" fill="#00ff88" stroke="#0a0a0f" stroke-width="2"/>
+        <!-- T6: Momentum trade -->
+        <circle cx="560" cy="108" r="5" fill="#a855f7" stroke="#0a0a0f" stroke-width="2"/>
+        <text x="560" y="100" fill="#a855f7" font-family="JetBrains Mono" font-size="9" text-anchor="middle">MOM +$2.65</text>
+        <!-- T7 -->
+        <circle cx="660" cy="100" r="4" fill="#00ff88" stroke="#0a0a0f" stroke-width="2"/>
+        <!-- T8 -->
+        <circle cx="760" cy="94" r="5" fill="#00d4ff" stroke="#0a0a0f" stroke-width="2"/>
+        <text x="760" y="86" fill="#00d4ff" font-family="JetBrains Mono" font-size="10" font-weight="bold" text-anchor="middle">+$6.50</text>
+
+        <!-- X-axis time labels -->
+        <text x="80" y="198" fill="#6b7a8d" font-family="JetBrains Mono" font-size="8" text-anchor="middle">2:04a</text>
+        <text x="180" y="198" fill="#6b7a8d" font-family="JetBrains Mono" font-size="8" text-anchor="middle">2:14a</text>
+        <text x="280" y="198" fill="#6b7a8d" font-family="JetBrains Mono" font-size="8" text-anchor="middle">3:24a</text>
+        <text x="380" y="198" fill="#6b7a8d" font-family="JetBrains Mono" font-size="8" text-anchor="middle">9:39a</text>
+        <text x="480" y="198" fill="#6b7a8d" font-family="JetBrains Mono" font-size="8" text-anchor="middle">9:44a</text>
+        <text x="560" y="198" fill="#6b7a8d" font-family="JetBrains Mono" font-size="8" text-anchor="middle">10:22p</text>
+        <text x="660" y="198" fill="#6b7a8d" font-family="JetBrains Mono" font-size="8" text-anchor="middle">2:09p</text>
+        <text x="760" y="198" fill="#6b7a8d" font-family="JetBrains Mono" font-size="8" text-anchor="middle">3:24p</text>
+      </svg>
+    </div>
+
+    <!-- Per-trade bar chart -->
+    <div class="section-title" style="margin-top:24px;">Per-Trade PnL</div>
+    <div class="chart-container">
+      <div class="chart-zero-line"></div>
+      <div class="chart-zero-label">$0</div>
+
+      <!-- Trade 1: -$2.96 LOSS -->
+      <div class="chart-bar-group">
+        <div class="chart-bar-wrapper">
+          <div class="chart-bar negative" style="height: 74px; top: 50px;">
+            <span class="chart-bar-value below red">-$2.96</span>
+          </div>
+        </div>
+        <div class="chart-time">2:04 AM</div>
+        <div class="chart-bot-label" style="color:var(--cyan);">SNP</div>
+      </div>
+
+      <!-- Trade 2: +$1.25 -->
+      <div class="chart-bar-group">
+        <div class="chart-bar-wrapper">
+          <div class="chart-bar positive" style="height: 31px;">
+            <span class="chart-bar-value above green">+$1.25</span>
+          </div>
+        </div>
+        <div class="chart-time">2:14 AM</div>
+        <div class="chart-bot-label" style="color:var(--cyan);">SNP</div>
+      </div>
+
+      <!-- Trade 3: +$1.06 -->
+      <div class="chart-bar-group">
+        <div class="chart-bar-wrapper">
+          <div class="chart-bar positive" style="height: 27px;">
+            <span class="chart-bar-value above green">+$1.06</span>
+          </div>
+        </div>
+        <div class="chart-time">3:24 AM</div>
+        <div class="chart-bot-label" style="color:var(--cyan);">SNP</div>
+      </div>
+
+      <!-- Trade 4: +$1.41 -->
+      <div class="chart-bar-group">
+        <div class="chart-bar-wrapper">
+          <div class="chart-bar positive" style="height: 35px;">
+            <span class="chart-bar-value above green">+$1.41</span>
+          </div>
+        </div>
+        <div class="chart-time">9:39 AM</div>
+        <div class="chart-bot-label" style="color:var(--cyan);">SNP</div>
+      </div>
+
+      <!-- Trade 5: +$1.31 -->
+      <div class="chart-bar-group">
+        <div class="chart-bar-wrapper">
+          <div class="chart-bar positive" style="height: 33px;">
+            <span class="chart-bar-value above green">+$1.31</span>
+          </div>
+        </div>
+        <div class="chart-time">9:44 AM</div>
+        <div class="chart-bot-label" style="color:var(--cyan);">SNP</div>
+      </div>
+
+      <!-- Trade 6: +$2.65 (Momentum) -->
+      <div class="chart-bar-group">
+        <div class="chart-bar-wrapper">
+          <div class="chart-bar positive" style="height: 66px; background: linear-gradient(to top, rgba(168,85,247,0.6), rgba(168,85,247,0.9)); box-shadow: 0 0 10px rgba(168,85,247,0.2);">
+            <span class="chart-bar-value above" style="color:var(--purple);">+$2.65</span>
+          </div>
+        </div>
+        <div class="chart-time">10:22 PM</div>
+        <div class="chart-bot-label" style="color:var(--purple);">MOM</div>
+      </div>
+
+      <!-- Trade 7: +$1.04 -->
+      <div class="chart-bar-group">
+        <div class="chart-bar-wrapper">
+          <div class="chart-bar positive" style="height: 26px;">
+            <span class="chart-bar-value above green">+$1.04</span>
+          </div>
+        </div>
+        <div class="chart-time">2:09 PM</div>
+        <div class="chart-bot-label" style="color:var(--cyan);">SNP</div>
+      </div>
+
+      <!-- Trade 8: +$0.74 -->
+      <div class="chart-bar-group">
+        <div class="chart-bar-wrapper">
+          <div class="chart-bar positive" style="height: 19px;">
+            <span class="chart-bar-value above green">+$0.74</span>
+          </div>
+        </div>
+        <div class="chart-time">3:24 PM</div>
+        <div class="chart-bot-label" style="color:var(--cyan);">SNP</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TRADE LOG TABLE ===== -->
+  <div class="table-section">
+    <div class="section-title">Trade Log &mdash; All 8 Live Trades</div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Time (MST)</th>
+          <th>Bot</th>
+          <th>Side</th>
+          <th>Entry</th>
+          <th>Method</th>
+          <th>PnL</th>
+          <th>Result</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="color:var(--dim);">1</td>
+          <td>2:04 AM</td>
+          <td class="bot-sniper">Sniper 5M</td>
+          <td class="side-up">UP</td>
+          <td>$0.70</td>
+          <td style="color:var(--dim);">directional_clob</td>
+          <td class="result-loss">-$2.96</td>
+          <td class="result-loss">LOSS</td>
+        </tr>
+        <tr>
+          <td style="color:var(--dim);">2</td>
+          <td>2:14 AM</td>
+          <td class="bot-sniper">Sniper 5M</td>
+          <td class="side-up">UP</td>
+          <td>$0.70</td>
+          <td style="color:var(--dim);">directional_clob</td>
+          <td class="result-win">+$1.25</td>
+          <td class="result-win">WIN</td>
+        </tr>
+        <tr>
+          <td style="color:var(--dim);">3</td>
+          <td>3:24 AM</td>
+          <td class="bot-sniper">Sniper 5M</td>
+          <td class="side-down">DOWN</td>
+          <td>$0.75</td>
+          <td style="color:var(--dim);">directional_clob</td>
+          <td class="result-win">+$1.06</td>
+          <td class="result-win">WIN</td>
+        </tr>
+        <tr>
+          <td style="color:var(--dim);">4</td>
+          <td>9:39 AM</td>
+          <td class="bot-sniper">Sniper 5M</td>
+          <td class="side-down">DOWN</td>
+          <td>$0.70</td>
+          <td style="color:var(--dim);">directional_clob</td>
+          <td class="result-win">+$1.41</td>
+          <td class="result-win">WIN</td>
+        </tr>
+        <tr>
+          <td style="color:var(--dim);">5</td>
+          <td>9:44 AM</td>
+          <td class="bot-sniper">Sniper 5M</td>
+          <td class="side-down">DOWN</td>
+          <td>$0.72</td>
+          <td style="color:var(--dim);">directional_clob</td>
+          <td class="result-win">+$1.31</td>
+          <td class="result-win">WIN</td>
+        </tr>
+        <tr style="background:rgba(168,85,247,0.04);">
+          <td style="color:var(--purple);">6</td>
+          <td>10:22 PM <span style="font-size:0.6rem;color:var(--dim);">Feb 18</span></td>
+          <td class="bot-momentum">Momentum 15M</td>
+          <td class="side-down">DOWN</td>
+          <td>$0.47</td>
+          <td style="color:var(--dim);">momentum_15m</td>
+          <td class="result-win" style="color:var(--purple);text-shadow:0 0 8px rgba(168,85,247,0.3);">+$2.65</td>
+          <td class="result-win" style="color:var(--purple);">WIN</td>
+        </tr>
+        <tr>
+          <td style="color:var(--dim);">7</td>
+          <td>2:09 PM</td>
+          <td class="bot-sniper">Sniper 5M</td>
+          <td class="side-down">DOWN</td>
+          <td>$0.75</td>
+          <td style="color:var(--dim);">directional_clob</td>
+          <td class="result-win">+$1.04</td>
+          <td class="result-win">WIN</td>
+        </tr>
+        <tr>
+          <td style="color:var(--dim);">8</td>
+          <td>3:24 PM</td>
+          <td class="bot-sniper">Sniper 5M</td>
+          <td class="side-down">DOWN</td>
+          <td>$0.76</td>
+          <td style="color:var(--dim);">directional_clob</td>
+          <td class="result-win">+$0.74</td>
+          <td class="result-win">WIN</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ===== BOTTOM ROW: Side Breakdown, Paper Comparison, Session Info ===== -->
+  <div class="bottom-grid">
+
+    <!-- Side Breakdown -->
+    <div class="mini-card">
+      <div class="mini-title">Side Breakdown</div>
+
+      <div class="breakdown-row">
+        <span class="breakdown-label"><span class="side-up">UP</span> Trades</span>
+        <span class="breakdown-value" style="color:var(--text);">2</span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label"><span class="side-up">UP</span> Win Rate</span>
+        <span class="breakdown-value" style="color:var(--yellow);">50%</span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label"><span class="side-up">UP</span> PnL</span>
+        <span class="breakdown-value red">-$1.71</span>
+      </div>
+      <div class="bar-visual">
+        <div class="bar-fill red" style="width:30%;"></div>
+      </div>
+
+      <div style="height:12px;"></div>
+
+      <div class="breakdown-row">
+        <span class="breakdown-label"><span class="side-down">DOWN</span> Trades</span>
+        <span class="breakdown-value" style="color:var(--text);">6</span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label"><span class="side-down">DOWN</span> Win Rate</span>
+        <span class="breakdown-value green">100%</span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label"><span class="side-down">DOWN</span> PnL</span>
+        <span class="breakdown-value green">+$8.21</span>
+      </div>
+      <div class="bar-visual">
+        <div class="bar-fill green" style="width:100%;"></div>
+      </div>
+
+      <p class="note-text" style="margin-top:12px;">DOWN dominates tonight: 6/6 wins, all sniper + momentum profits came from DOWN bets.</p>
+    </div>
+
+    <!-- Paper Comparison -->
+    <div class="mini-card">
+      <div class="mini-title">Paper Comparison</div>
+      <div class="paper-tag">PAPER MODE</div>
+
+      <div style="font-family:'Orbitron',monospace;font-size:0.75rem;color:var(--purple);margin-bottom:10px;letter-spacing:1px;">SNIPER 5M PAPER</div>
+
+      <div class="breakdown-row">
+        <span class="breakdown-label">Record</span>
+        <span class="breakdown-value green">51W / 3L</span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">Win Rate</span>
+        <span class="breakdown-value green">94.4%</span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">PnL (paper)</span>
+        <span class="breakdown-value green">+$36.35</span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">Markets Skipped</span>
+        <span class="breakdown-value" style="color:var(--dim);">174</span>
+      </div>
+
+      <div style="height:12px;"></div>
+
+      <div style="font-family:'Orbitron',monospace;font-size:0.6rem;color:var(--dim);letter-spacing:1px;margin-bottom:6px;">LIVE vs PAPER</div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">Live WR</span>
+        <span class="breakdown-value cyan">86%</span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">Paper WR</span>
+        <span class="breakdown-value purple">94.4%</span>
+      </div>
+
+      <p class="note-text">Paper enters more aggressively, confirming the underlying edge is real. Live is more selective.</p>
+    </div>
+
+    <!-- Session Status -->
+    <div class="mini-card">
+      <div class="mini-title">Session Status</div>
+
+      <div class="breakdown-row">
+        <span class="breakdown-label">Momentum Session PnL</span>
+        <span class="breakdown-value" style="color:var(--dim);">$0.00</span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">Sniper Session PnL</span>
+        <span class="breakdown-value green">+$3.85</span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">Total Session PnL</span>
+        <span class="breakdown-value green">+$6.50</span>
+      </div>
+
+      <div style="height:10px;"></div>
+
+      <div style="font-family:'Orbitron',monospace;font-size:0.6rem;color:var(--dim);letter-spacing:1px;margin-bottom:6px;">HEALTH CHECK</div>
+
+      <div class="breakdown-row">
+        <span class="breakdown-label">Momentum Bot</span>
+        <span class="breakdown-value green">RUNNING</span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">Sniper Bot</span>
+        <span class="breakdown-value green">RUNNING</span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">Errors</span>
+        <span class="breakdown-value green">0</span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">Uptime</span>
+        <span class="breakdown-value cyan">STABLE</span>
+      </div>
+
+      <div style="height:10px;"></div>
+
+      <div style="font-family:'Orbitron',monospace;font-size:0.6rem;color:var(--dim);letter-spacing:1px;margin-bottom:6px;">BOT VERSIONS</div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">Momentum</span>
+        <span class="breakdown-value purple">V2.2</span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">Sniper</span>
+        <span class="breakdown-value cyan">V2.0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== FOOTER ===== -->
+  <div class="footer">
+    Bots running: <span class="pid">Momentum V2.2 (PID 62748)</span> | <span class="pid">Sniper V2.0 (PID 56872)</span>
+    &nbsp;&mdash;&nbsp; Generated Feb 19, 2026
+  </div>
+</div>
+
+<script>
+  // Live clock
+  function updateClock() {
+    const now = new Date();
+    const opts = {
+      timeZone: 'America/Denver',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    };
+    const timeStr = now.toLocaleTimeString('en-US', opts) + ' MST';
+    document.getElementById('clock').textContent = timeStr;
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+</script>
+
+</body>
+</html>

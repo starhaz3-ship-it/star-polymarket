@@ -34,13 +34,14 @@ sys.path.insert(0, str(Path(__file__).parent))
 load_dotenv()
 
 from pid_lock import acquire_pid_lock, release_pid_lock
+from adaptive_tuner import ParameterTuner, SNIPER_TUNER_CONFIG
 
 # ============================================================================
 # CONFIG
 # ============================================================================
 SNIPER_WINDOW = 63          # seconds before close to start looking (front-run whales)
 MIN_CONFIDENCE = 0.55       # minimum ask price to trigger entry
-MAX_ENTRY_PRICE = 0.76      # V1.1: cap at $0.76 — sweet spot $0.71-$0.75 is 95.6% WR
+MAX_ENTRY_PRICE = 0.78      # V2.1: raised from $0.76 — $0.77 entries had excellent depth (124-736sh)
 BASE_TRADE_SIZE = 3.00      # $3/trade per Star directive
 SCAN_INTERVAL = 5           # seconds between scans
 MAX_CONCURRENT = 2          # 1 directional + 1 oracle
@@ -272,6 +273,8 @@ class Sniper5MLive:
         self._last_log_time = 0.0
         self.client = None
         self.ml_depth = DepthMLFilter()
+        self.tuner = ParameterTuner(SNIPER_TUNER_CONFIG,
+                                     str(Path(__file__).parent / "sniper_tuner_state.json"))
         self._load()
 
         if not self.paper:
@@ -844,16 +847,24 @@ class Sniper5MLive:
                 side, binance_open, binance_current = await self._check_binance_direction(end_dt)
 
             if not side:
-                # CLOB CONFIDENCE: $0.70-$0.76 only (paper: 95% WR at $0.75)
-                # Above $0.76 drops to 64% WR — not enough edge
-                if up_ask and 0.70 <= up_ask <= 0.76 and (down_ask is None or up_ask > down_ask):
+                # CLOB CONFIDENCE: $0.70 to ML-tuned upper cap (default $0.78)
+                clob_cap = self.tuner.get_active_value("clob_upper")
+                if up_ask and 0.70 <= up_ask <= clob_cap and (down_ask is None or up_ask > down_ask):
                     side = "UP"
                     signal_source = "clob"
-                elif down_ask and 0.70 <= down_ask <= 0.76 and (up_ask is None or down_ask > up_ask):
+                elif down_ask and 0.70 <= down_ask <= clob_cap and (up_ask is None or down_ask > up_ask):
                     side = "DOWN"
                     signal_source = "clob"
 
             if not side:
+                # Shadow-track: if CLOB has ANY dominant side >= 0.65, record for ML learning
+                dominant = max(up_ask or 0, down_ask or 0)
+                shadow_side = "UP" if (up_ask or 0) > (down_ask or 0) else "DOWN"
+                if dominant >= 0.65 and end_dt:
+                    self.tuner.record_shadow(
+                        market_id=cid, end_time_iso=end_dt.isoformat(),
+                        side=shadow_side, entry_price=dominant,
+                        clob_dominant=dominant)
                 self.stats["skipped"] += 1
                 self.attempted_cids.add(cid)
                 print(f"[SKIP] No signal | Binance flat + CLOB unclear "
@@ -897,11 +908,18 @@ class Sniper5MLive:
             print(f"[{src_tag}] BTC {side} | CLOB: UP=${up_display:.2f} DN=${down_display:.2f} "
                   f"| entry=${entry_price:.2f} | depth={int(avail_shares)}sh [{depth_str}] | {time_left_sec:.0f}s left")
 
-            # Cap entry price
-            if entry_price > MAX_ENTRY_PRICE:
+            # Cap entry price — ML-tuned (default $0.78)
+            ml_max_entry = self.tuner.get_active_value("max_entry")
+            if entry_price > ml_max_entry:
+                # Shadow-track expensive skips for ML learning
+                if end_dt:
+                    self.tuner.record_shadow(
+                        market_id=cid, end_time_iso=end_dt.isoformat(),
+                        side=side, entry_price=entry_price,
+                        clob_dominant=max(up_display, down_display))
                 self.stats["skipped"] += 1
                 self.attempted_cids.add(cid)
-                print(f"[SKIP] Too expensive | {side} @ ${entry_price:.2f} > ${MAX_ENTRY_PRICE:.2f} "
+                print(f"[SKIP] Too expensive | {side} @ ${entry_price:.2f} > ${ml_max_entry:.2f} "
                       f"| {time_left_sec:.0f}s left | {question[:50]}")
                 continue
 
@@ -989,6 +1007,12 @@ class Sniper5MLive:
             }
 
             self.active[cid] = trade
+            # Shadow-track actual trade for ML tuner
+            if end_dt:
+                self.tuner.record_shadow(
+                    market_id=cid, end_time_iso=end_dt.isoformat(),
+                    side=side, entry_price=entry_price,
+                    clob_dominant=max(up_display, down_display))
             self._save()
 
             mode = "LIVE" if not self.paper else "PAPER"
@@ -1234,6 +1258,56 @@ class Sniper5MLive:
         if to_remove:
             self._save()
 
+        # ML TUNER: resolve shadow entries (learn from skipped markets too)
+        await self._resolve_shadow_entries()
+
+    async def _resolve_shadow_entries(self):
+        """Resolve shadow-tracked markets via Binance to learn optimal parameters."""
+        now = datetime.now(timezone.utc)
+        shadows = self.tuner.state.get("shadow", [])
+        if not shadows:
+            return
+
+        resolutions = {}
+        for entry in shadows:
+            end_str = entry.get("end_time", "")
+            if not end_str:
+                continue
+            try:
+                end_dt = datetime.fromisoformat(end_str)
+            except Exception:
+                continue
+            if (now - end_dt).total_seconds() < RESOLVE_DELAY + 5:
+                continue  # not yet resolvable
+            if (now - end_dt).total_seconds() > 600:
+                # Too old, mark as stale (will be dropped)
+                resolutions[entry["market_id"]] = None
+                continue
+
+            mid = entry["market_id"]
+            if mid not in resolutions:
+                outcome = await self.resolve_via_binance(end_dt)
+                if outcome:
+                    resolutions[mid] = outcome
+
+        # Filter out None (stale entries just get removed from shadow list)
+        valid = {k: v for k, v in resolutions.items() if v is not None}
+        if valid:
+            n = self.tuner.resolve_shadows(valid)
+            if n > 0:
+                total = self.tuner.state.get("total_resolved", 0)
+                if total % 10 == 0:
+                    print(self.tuner.get_report())
+
+        # Clean stale shadows
+        stale = {k for k, v in resolutions.items() if v is None}
+        if stale:
+            self.tuner.state["shadow"] = [
+                s for s in self.tuner.state["shadow"]
+                if s["market_id"] not in stale
+            ]
+            self.tuner._save()
+
     # ========================================================================
     # LOGGING
     # ========================================================================
@@ -1304,8 +1378,8 @@ class Sniper5MLive:
         print(f"    - Enter at {SNIPER_WINDOW}s before close | Binance signal > 0.07%")
         print(f"    - Entry: ${MIN_CONFIDENCE:.2f}-${MAX_ENTRY_PRICE:.2f} | FOK orders")
         print(f"  Strategy 1b — DIRECTIONAL/CLOB (confidence)")
-        print(f"    - Binance flat fallback | CLOB dominant side $0.70-$0.76")
-        print(f"    - Paper: 95% WR at $0.75 | above $0.76 = danger zone")
+        print(f"    - Binance flat fallback | CLOB dominant side $0.70-$0.78")
+        print(f"    - Live: 86% WR at $0.70-$0.76, extending to $0.78 (depth-backed)")
         print(f"  Strategy 2 — ORACLE (certainty)")
         print(f"    - Enter {ORACLE_MIN_DELAY}-{ORACLE_WINDOW}s AFTER close | direction KNOWN")
         print(f"    - Entry: up to ${ORACLE_MAX_ENTRY:.2f} | GTC orders | ~$0.05+/sh profit")

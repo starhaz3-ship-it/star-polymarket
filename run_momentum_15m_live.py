@@ -58,6 +58,7 @@ load_dotenv()
 # ============================================================================
 from pid_lock import acquire_pid_lock, release_pid_lock
 from hmm_regime_filter import HMMRegimeFilter
+from adaptive_tuner import ParameterTuner, MOMENTUM_TUNER_CONFIG
 
 # ============================================================================
 # CONFIG
@@ -76,7 +77,7 @@ RSI_MODERATE_DOWN_LO = 30   # V1.9b: Widened from 35 to 30
 RSI_MODERATE_DOWN_HI = 50
 MIN_ENTRY = 0.35            # V1.1: Raised from $0.10 — entries <$0.35 were 0W/3L (0% WR, -$7.50)
 MAX_ENTRY = 0.60            # maximum entry price (avoid paying premium)
-TIME_WINDOW = (2.0, 4.0)    # V2.1: Tightened from (2,8) — lab showed 2min=86% WR, 4min cutoff optimal
+TIME_WINDOW = (2.0, 6.0)    # V2.3: Widened from (2,4) — more entry opportunities while preserving edge
 SPREAD_OFFSET = 0.02        # paper fill spread simulation (ignored in live)
 RESOLVE_AGE_MIN = 18.0      # minutes before forcing resolution via API
 EMA_GAP_MIN_BP = None        # V1.7: REMOVED — was 2bp, cost 24% signals for 0.9% WR gain
@@ -861,6 +862,8 @@ class Momentum15MTrader:
         self.feed = BinanceLiveFeed()  # V2.0: WebSocket price feed
         self.hmm = HMMRegimeFilter()   # V2.1: HMM regime filter
         self.poly_ws = PolymarketWSFeed()  # V2.2: Polymarket WebSocket feed
+        self.tuner = ParameterTuner(MOMENTUM_TUNER_CONFIG,
+                                     str(Path(__file__).parent / "momentum_tuner_state.json"))
         self._candles_15m_cache = None  # V2.1: FRAMA_CMO 15M candle cache
         self._candles_15m_ts = 0        # V2.1: cache timestamp
         self._load()
@@ -1321,6 +1324,11 @@ class Momentum15MTrader:
                                 self.record_market_outcome(trade.get("_asset", "BTC"), winning)
                                 self.filter_ml.record_outcome(trade, won)
                                 self.v17_tracker.record_trade(trade, won)
+                                # ML TUNER: feed resolution
+                                tl_min = trade.get("_time_left", 3.0)
+                                self.tuner.resolve_shadows({
+                                    trade.get("condition_id", tid): winning
+                                })
                                 self.check_promotion()
                                 self._save()
                                 if self.check_auto_kill():
@@ -1411,6 +1419,11 @@ class Momentum15MTrader:
                                         ema_gap_bp=trade.get("_ema_gap_bp"),
                                         side=trade["side"],
                                     )
+
+                                # ML TUNER: feed resolution
+                                self.tuner.resolve_shadows({
+                                    trade.get("condition_id", tid): market_outcome
+                                })
 
                                 # Check promotion or auto-kill after each resolved trade
                                 self.check_promotion()
@@ -1544,7 +1557,8 @@ class Momentum15MTrader:
                 continue
 
             time_left = market.get("_time_left", 99)
-            if time_left < TIME_WINDOW[0] or time_left > TIME_WINDOW[1]:
+            ml_tw_upper = self.tuner.get_active_value("time_window_upper")
+            if time_left < TIME_WINDOW[0] or time_left > ml_tw_upper:
                 continue
 
             # Calculate momentum from 1-min candles
@@ -1815,6 +1829,15 @@ class Momentum15MTrader:
                 "pnl": 0.0,
             }
             open_count += 1
+
+            # ML TUNER: shadow-track this trade with time_left for window optimization
+            self.tuner.record_shadow(
+                market_id=cid,
+                end_time_iso=market.get("_end_dt", now.isoformat()),
+                side=side,
+                entry_price=entry_price,
+                clob_dominant=entry_price,
+                extra={"time_left_min": round(time_left, 1)})
 
             mode = "LIVE" if not self.paper else "PAPER"
             rsi_str = f"RSI={rsi_val:.0f}" if rsi_val is not None else "RSI=?"
