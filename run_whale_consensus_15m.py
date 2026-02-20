@@ -1,5 +1,5 @@
 """
-Whale Consensus 15M Trader V2.1
+Whale Consensus 15M Trader V3.2
 
 Enter 15M BTC Up/Down markets when 3+ tracked whales independently agree
 on a direction (all positioned the same way).
@@ -66,10 +66,11 @@ MAX_CONCURRENT = 3              # max open paper positions
 CONSENSUS_MIN = 3               # minimum whales agreeing for consensus
 MIN_WHALE_COST = 5.0            # minimum cost basis ($) for a whale vote to count
 TRADE_SIZE = 2.50               # base trade size (PROBATION)
-MIN_ENTRY_PRICE = 0.10          # minimum entry price (avoid extremes)
+MIN_ENTRY_PRICE = 0.50          # V3.2: Raised from $0.10 — entries <$0.50 are 55% WR coin flips
 MAX_ENTRY_PRICE = 0.65          # maximum entry price
 UP_SIZE_MULT = 0.50             # V2.1: Half size on UP trades (CSV: DOWN 12W/0L 100%, UP 3W/3L 50%)
 MIN_ENTRY_UP = 0.50             # V2.1: UP trades need $0.50+ entry (cheap UP = coin flip)
+SKIP_HOURS_UTC = {4, 8, 15, 18}  # V3.2: Dead hours — UTC 4(40%WR), 8(43%), 15(38%), 18(33%)
 
 # V3.0: Circuit Breaker + Kelly Sizing + SynthData
 CIRCUIT_BREAKER_LOSSES = 3      # consecutive losses → halt
@@ -124,7 +125,7 @@ CONSENSUS_WHALES = {
     "0x8dxd":           "0x63ce342161250d705dc0b16df89036c8e5f9ba9a",      # $885K PnL, early entries
     "Canine-Commandment": "0x1d0034134e339a309700ff2d34e99fa2d48b0313",    # $270K PnL, pairs arb
     "k9Q2mX4L8A7ZP3R": "0xd0d6053c3c37e727402d84c14069780d360993aa",      # $712K PnL, multi-timeframe
-    "BoneReader":       "0xd84c2b6d65dc596f49c7b6aadd6d74ca91e407b9",      # High-freq BTC/ETH
+    # "BoneReader" REMOVED V3.2: 57% WR with him vs 79% without. Active value destroyer.
     "vague-sourdough":  "0x70ec235a31eb35f243e2618d6ea3b5b8962bbb5d",      # $48K PnL, 5m scalper
     "gabagool22":       "0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d",      # $849K PnL, high volume
     "bratanbratishka":  "0xcbb1a3174d9ac5a0f57f5b86808204b9382e7afb",      # $97K PnL, 87% WR sniper
@@ -598,6 +599,11 @@ class WhaleConsensus15MTrader:
             self._warmup_ready = True
             print(f"[WARMUP] Ready after {elapsed:.0f}s")
 
+        # V3.2: Skip dead hours
+        utc_hour = datetime.now(timezone.utc).hour
+        if utc_hour in SKIP_HOURS_UTC:
+            return
+
         # 1. Discover active 15M BTC markets
         markets = await self.discover_15m_markets()
         target_markets = [
@@ -1053,11 +1059,11 @@ class WhaleConsensus15MTrader:
         tier = get_trade_size(self.stats["wins"], self.stats["losses"], live_count)
         # Banner
         print("=" * 70)
-        print(f"  WHALE CONSENSUS 15M {mode} TRADER V2.1 — DOWN-BIAS")
+        print(f"  WHALE CONSENSUS 15M {mode} TRADER V3.2 — DOWN-BIAS")
         print("=" * 70)
-        print(f"  V2.1: DOWN-bias (CSV: DOWN 12/12 100%, UP 3/6 50%)")
+        print(f"  V3.2: BoneReader removed (57%WR->79% without), min entry $0.50, skip dead hours")
         print(f"    - UP size: {UP_SIZE_MULT:.0%} (${tier*UP_SIZE_MULT:.2f}) | DOWN: full (${tier:.2f})")
-        print(f"    - UP min entry: ${MIN_ENTRY_UP:.2f} | DOWN min: ${MIN_ENTRY_PRICE:.2f}")
+        print(f"    - Entry range: ${MIN_ENTRY_PRICE:.2f}-${MAX_ENTRY_PRICE:.2f} | Skip UTC: {SKIP_HOURS_UTC}")
         print(f"  Strategy: Follow 3+ whale agreement on BTC 15M Up/Down direction")
         print(f"  Whales tracked: {len(CONSENSUS_WHALES)} top performers ($97K-$885K PnL each)")
         print(f"  Consensus: {CONSENSUS_MIN}+ whales agree = ENTER | Split = SKIP")
