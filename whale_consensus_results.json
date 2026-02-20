@@ -1,33 +1,33 @@
 {
   "active": {
-    "wc15m_0x185bc8acee3b21a3507f3cce7ab1a78df5e27fd6668589c31963ac26b0e7c426_DOWN": {
+    "wc15m_0x0f7059969283b33ef0ca35201c544f6586eb246a0d1de561b57dda5aa798994f_DOWN": {
       "side": "DOWN",
-      "entry_price": 0.65,
-      "size_usd": 2.04,
-      "shares": 3.1433,
-      "entry_time": "2026-02-20T16:18:22.373484+00:00",
-      "condition_id": "0x185bc8acee3b21a3507f3cce7ab1a78df5e27fd6668589c31963ac26b0e7c426",
-      "market_numeric_id": "1397957",
-      "question": "Bitcoin Up or Down - February 20, 11:15AM-11:30AM ET",
-      "event_title": "Bitcoin Up or Down - February 20, 11:15AM-11:30AM ET",
-      "end_dt": "2026-02-20T16:30:00+00:00",
+      "entry_price": 0.45,
+      "size_usd": 2.4,
+      "shares": 5.3333,
+      "entry_time": "2026-02-20T18:03:18.718727+00:00",
+      "condition_id": "0x0f7059969283b33ef0ca35201c544f6586eb246a0d1de561b57dda5aa798994f",
+      "market_numeric_id": "1398985",
+      "question": "Bitcoin Up or Down - February 20, 1:00PM-1:15PM ET",
+      "event_title": "Bitcoin Up or Down - February 20, 1:00PM-1:15PM ET",
+      "end_dt": "2026-02-20T18:15:00+00:00",
       "strategy": "whale_consensus",
       "consensus_count": 3,
       "consensus_whales": [
-        "0x8dxd",
+        "Square-Guy",
         "Canine-Commandment",
         "k9Q2mX4L8A7ZP3R"
       ],
       "consensus_whale_costs": {
-        "0x8dxd": 1070.67,
-        "Canine-Commandment": 1077.39,
-        "k9Q2mX4L8A7ZP3R": 1170.7
+        "Square-Guy": 535.07,
+        "Canine-Commandment": 613.93,
+        "k9Q2mX4L8A7ZP3R": 641.72
       },
-      "total_whale_cost": 3318.76,
-      "time_left_min": 11.7,
+      "total_whale_cost": 1790.72,
+      "time_left_min": 11.8,
       "status": "open",
       "pnl": 0.0,
-      "order_id": "0x434078597d782874dfbc22b1e42b6b7a42a9646b3016cb44a0d8d9041a48c486",
+      "order_id": "0x471ee17b858291a4eb79c06d0612a68123172f93ec9dd71880a167ebdd46f670",
       "live": true
     }
   },
@@ -4659,13 +4659,151 @@
       "outcome": "UP",
       "resolve_time": "2026-02-20T16:15:25.456280+00:00",
       "exit_price": 1.0
+    },
+    {
+      "side": "DOWN",
+      "entry_price": 0.65,
+      "size_usd": 2.04,
+      "shares": 3.1433,
+      "entry_time": "2026-02-20T16:18:22.373484+00:00",
+      "condition_id": "0x185bc8acee3b21a3507f3cce7ab1a78df5e27fd6668589c31963ac26b0e7c426",
+      "market_numeric_id": "1397957",
+      "question": "Bitcoin Up or Down - February 20, 11:15AM-11:30AM ET",
+      "event_title": "Bitcoin Up or Down - February 20, 11:15AM-11:30AM ET",
+      "end_dt": "2026-02-20T16:30:00+00:00",
+      "strategy": "whale_consensus",
+      "consensus_count": 3,
+      "consensus_whales": [
+        "0x8dxd",
+        "Canine-Commandment",
+        "k9Q2mX4L8A7ZP3R"
+      ],
+      "consensus_whale_costs": {
+        "0x8dxd": 1070.67,
+        "Canine-Commandment": 1077.39,
+        "k9Q2mX4L8A7ZP3R": 1170.7
+      },
+      "total_whale_cost": 3318.76,
+      "time_left_min": 11.7,
+      "status": "resolved",
+      "pnl": 1.1,
+      "order_id": "0x434078597d782874dfbc22b1e42b6b7a42a9646b3016cb44a0d8d9041a48c486",
+      "live": true,
+      "outcome": "DOWN",
+      "resolve_time": "2026-02-20T16:30:30.539973+00:00",
+      "exit_price": 1.0
+    },
+    {
+      "side": "UP",
+      "entry_price": 0.62,
+      "size_usd": 2.56,
+      "shares": 4.127,
+      "entry_time": "2026-02-20T16:33:06.164731+00:00",
+      "condition_id": "0x87244f17a1f8839d4cdce9873dd8512596cfa7a9b82f86918b1f72d0ed71f0d5",
+      "market_numeric_id": "1398405",
+      "question": "Bitcoin Up or Down - February 20, 11:30AM-11:45AM ET",
+      "event_title": "Bitcoin Up or Down - February 20, 11:30AM-11:45AM ET",
+      "end_dt": "2026-02-20T16:45:00+00:00",
+      "strategy": "whale_consensus",
+      "consensus_count": 5,
+      "consensus_whales": [
+        "Square-Guy",
+        "0x8dxd",
+        "Canine-Commandment",
+        "k9Q2mX4L8A7ZP3R",
+        "BoneReader"
+      ],
+      "consensus_whale_costs": {
+        "Square-Guy": 476.83,
+        "0x8dxd": 378.73,
+        "Canine-Commandment": 190.18,
+        "k9Q2mX4L8A7ZP3R": 817.59,
+        "BoneReader": 501.68
+      },
+      "total_whale_cost": 2365.01,
+      "time_left_min": 12.0,
+      "status": "resolved",
+      "pnl": 1.57,
+      "order_id": "0x3bebf27440cc077bdea9695c9eb032e6c70b03a18dcda01aa72e1cf29aaf79b1",
+      "live": true,
+      "outcome": "UP",
+      "resolve_time": "2026-02-20T16:45:37.999470+00:00",
+      "exit_price": 1.0
+    },
+    {
+      "side": "UP",
+      "entry_price": 0.51,
+      "size_usd": 2.08,
+      "shares": 4.0755,
+      "entry_time": "2026-02-20T17:33:23.602396+00:00",
+      "condition_id": "0xe84fbaa42a663c352fd47723e283a1a822785e5a77289789f84764fc170c413a",
+      "market_numeric_id": "1398859",
+      "question": "Bitcoin Up or Down - February 20, 12:30PM-12:45PM ET",
+      "event_title": "Bitcoin Up or Down - February 20, 12:30PM-12:45PM ET",
+      "end_dt": "2026-02-20T17:45:00+00:00",
+      "strategy": "whale_consensus",
+      "consensus_count": 3,
+      "consensus_whales": [
+        "0x8dxd",
+        "Canine-Commandment",
+        "k9Q2mX4L8A7ZP3R"
+      ],
+      "consensus_whale_costs": {
+        "0x8dxd": 1547.17,
+        "Canine-Commandment": 2053.51,
+        "k9Q2mX4L8A7ZP3R": 1623.24
+      },
+      "total_whale_cost": 5223.92,
+      "time_left_min": 11.7,
+      "status": "resolved",
+      "pnl": 2.0,
+      "order_id": "0xa872e0fa0bf42ca51a934388fc4e6bae4705f1dd754b59dc32f775e6e4d936bc",
+      "live": true,
+      "outcome": "UP",
+      "resolve_time": "2026-02-20T17:45:33.939467+00:00",
+      "exit_price": 1.0
+    },
+    {
+      "side": "DOWN",
+      "entry_price": 0.61,
+      "size_usd": 2.44,
+      "shares": 4.0,
+      "entry_time": "2026-02-20T17:48:33.182246+00:00",
+      "condition_id": "0x5ea6bdd9bf6e11dbb2273f5f4a8bae2a8f4675a97df13eb2df1c2c8da621827a",
+      "market_numeric_id": "1398876",
+      "question": "Bitcoin Up or Down - February 20, 12:45PM-1:00PM ET",
+      "event_title": "Bitcoin Up or Down - February 20, 12:45PM-1:00PM ET",
+      "end_dt": "2026-02-20T18:00:00+00:00",
+      "strategy": "whale_consensus",
+      "consensus_count": 4,
+      "consensus_whales": [
+        "0x732F1",
+        "Square-Guy",
+        "0x8dxd",
+        "BoneReader"
+      ],
+      "consensus_whale_costs": {
+        "0x732F1": 510.25,
+        "Square-Guy": 4903.59,
+        "0x8dxd": 3479.66,
+        "BoneReader": 145.15
+      },
+      "total_whale_cost": 9038.65,
+      "time_left_min": 11.5,
+      "status": "resolved",
+      "pnl": -2.44,
+      "order_id": "0x376efa896c9de9d45461e33ddd39a22d4ac44ec3903dff7806e288b45e2b601a",
+      "live": true,
+      "outcome": "UP",
+      "resolve_time": "2026-02-20T18:00:21.530042+00:00",
+      "exit_price": 0.0
     }
   ],
   "stats": {
-    "wins": 93,
-    "losses": 45,
-    "pnl": 97.56,
+    "wins": 96,
+    "losses": 46,
+    "pnl": 99.79,
     "start_time": "2026-02-19T04:44:18.146414+00:00"
   },
-  "last_updated": "2026-02-20T16:19:05.116262+00:00"
+  "last_updated": "2026-02-20T18:12:14.890334+00:00"
 }

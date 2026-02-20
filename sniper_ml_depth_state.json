@@ -191,11 +191,23 @@
       "spread_sum": 1.04,
       "won": true,
       "ts": "2026-02-20T14:45:16.691265+00:00"
+    },
+    {
+      "best_ask_ratio": 0.006,
+      "best_is_largest": false,
+      "depth_levels": 4,
+      "total_depth": 876,
+      "confidence": 0.59,
+      "signal_source": "binance",
+      "opposing_price": 0.43,
+      "spread_sum": 1.02,
+      "won": true,
+      "ts": "2026-02-20T17:15:18.621189+00:00"
     }
   ],
   "buckets": {
     "best_largest_False": {
-      "alpha": 9,
+      "alpha": 10,
       "beta": 2
     },
     "bar_mid": {
@@ -207,11 +219,11 @@
       "beta": 4
     },
     "conf_low": {
-      "alpha": 7,
+      "alpha": 8,
       "beta": 4
     },
     "opp_strong": {
-      "alpha": 5,
+      "alpha": 6,
       "beta": 4
     },
     "best_largest_True": {
@@ -231,11 +243,11 @@
       "beta": 1
     },
     "bar_low": {
-      "alpha": 7,
+      "alpha": 8,
       "beta": 1
     },
     "signal_binance": {
-      "alpha": 2,
+      "alpha": 3,
       "beta": 1
     }
   }

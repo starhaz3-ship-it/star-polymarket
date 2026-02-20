@@ -2,92 +2,82 @@
   "params": {
     "max_entry": {
       "0.72": {
-        "alpha": 12,
+        "alpha": 15,
         "beta": 5,
-        "trades": 15,
-        "pnl": 0.83
+        "trades": 18,
+        "pnl": 1.86
       },
       "0.74": {
-        "alpha": 12,
+        "alpha": 15,
         "beta": 5,
-        "trades": 15,
-        "pnl": 0.83
+        "trades": 18,
+        "pnl": 1.86
       },
       "0.76": {
-        "alpha": 19,
-        "beta": 7,
-        "trades": 24,
-        "pnl": 1.07
+        "alpha": 29,
+        "beta": 8,
+        "trades": 35,
+        "pnl": 3.09
       },
       "0.78": {
-        "alpha": 21,
-        "beta": 7,
-        "trades": 26,
-        "pnl": 1.52
+        "alpha": 32,
+        "beta": 8,
+        "trades": 38,
+        "pnl": 3.76
       },
       "0.80": {
-        "alpha": 23,
-        "beta": 7,
-        "trades": 28,
-        "pnl": 1.92
+        "alpha": 35,
+        "beta": 8,
+        "trades": 41,
+        "pnl": 4.36
       },
       "0.82": {
-        "alpha": 28,
-        "beta": 10,
-        "trades": 36,
-        "pnl": 0.41
+        "alpha": 40,
+        "beta": 11,
+        "trades": 49,
+        "pnl": 2.85
       }
     },
     "clob_upper": {
       "0.72": {
-        "alpha": 12,
+        "alpha": 15,
         "beta": 5,
-        "trades": 15,
-        "pnl": 0.83
+        "trades": 18,
+        "pnl": 1.86
       },
       "0.74": {
-        "alpha": 12,
+        "alpha": 15,
         "beta": 5,
-        "trades": 15,
-        "pnl": 0.83
+        "trades": 18,
+        "pnl": 1.86
       },
       "0.76": {
-        "alpha": 19,
-        "beta": 7,
-        "trades": 24,
-        "pnl": 1.07
+        "alpha": 29,
+        "beta": 8,
+        "trades": 35,
+        "pnl": 3.09
       },
       "0.78": {
-        "alpha": 21,
-        "beta": 7,
-        "trades": 26,
-        "pnl": 1.52
+        "alpha": 32,
+        "beta": 8,
+        "trades": 38,
+        "pnl": 3.76
       },
       "0.80": {
-        "alpha": 23,
-        "beta": 7,
-        "trades": 28,
-        "pnl": 1.92
+        "alpha": 35,
+        "beta": 8,
+        "trades": 41,
+        "pnl": 4.36
       },
       "0.82": {
-        "alpha": 28,
-        "beta": 10,
-        "trades": 36,
-        "pnl": 0.41
+        "alpha": 40,
+        "beta": 11,
+        "trades": 49,
+        "pnl": 2.85
       }
     }
   },
-  "shadow": [
-    {
-      "market_id": "0x07d6b25b869fefebc940d51f6310b70b48c19d9f1a46d6d34b261ad416ca07d2",
-      "end_time": "2026-02-20T16:20:00+00:00",
-      "side": "DOWN",
-      "entry_price": 0.96,
-      "clob_dominant": 0.96,
-      "ts": "2026-02-20T16:18:59.950633+00:00",
-      "extra": {}
-    }
-  ],
+  "shadow": [],
   "active": {
     "max_entry": "0.74",
     "clob_upper": "0.74"
@@ -578,7 +568,59 @@
       "new_trades": 15,
       "total_resolved": 150,
       "ts": "2026-02-20T15:50:24.040393+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.74",
+      "new": "0.80",
+      "old_wr": 72.2,
+      "new_wr": 80.6,
+      "old_pnl": 1.14,
+      "new_pnl": 3.48,
+      "old_trades": 16,
+      "new_trades": 34,
+      "total_resolved": 170,
+      "ts": "2026-02-20T17:10:24.640889+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.74",
+      "new": "0.80",
+      "old_wr": 72.2,
+      "new_wr": 80.6,
+      "old_pnl": 1.14,
+      "new_pnl": 3.48,
+      "old_trades": 16,
+      "new_trades": 34,
+      "total_resolved": 170,
+      "ts": "2026-02-20T17:10:24.640889+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.80",
+      "new": "0.74",
+      "old_wr": 81.1,
+      "new_wr": 73.7,
+      "old_pnl": 3.89,
+      "new_pnl": 1.55,
+      "old_trades": 35,
+      "new_trades": 17,
+      "total_resolved": 175,
+      "ts": "2026-02-20T17:25:22.036470+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.80",
+      "new": "0.74",
+      "old_wr": 81.1,
+      "new_wr": 73.7,
+      "old_pnl": 3.89,
+      "new_pnl": 1.55,
+      "old_trades": 35,
+      "new_trades": 17,
+      "total_resolved": 175,
+      "ts": "2026-02-20T17:25:22.036470+00:00"
     }
   ],
-  "total_resolved": 153
+  "total_resolved": 189
 }

@@ -7,8 +7,8 @@
     },
     "FRAMA_CMO": {
       "wins": 69,
-      "losses": 35,
-      "pnl": 296.72
+      "losses": 36,
+      "pnl": 289.96000000000004
     },
     "ICHI_ADXR_SMI": {
       "wins": 2,
@@ -16,9 +16,9 @@
       "pnl": 15.700000000000001
     },
     "VIDYA_AROON": {
-      "wins": 10,
+      "wins": 11,
       "losses": 6,
-      "pnl": 76.33
+      "pnl": 83.57
     },
     "VORTEX_RVI": {
       "wins": 7,
@@ -26,14 +26,14 @@
       "pnl": 47.580000000000005
     },
     "FIB_EMA_CONFIRM": {
-      "wins": 6,
+      "wins": 7,
       "losses": 7,
-      "pnl": 13.820000000000007
+      "pnl": 22.88000000000001
     },
     "_total": {
-      "wins": 97,
-      "losses": 52,
-      "pnl": 451.9199999999999
+      "wins": 99,
+      "losses": 53,
+      "pnl": 461.4599999999999
     }
   },
   "resolved": [
@@ -4655,8 +4655,101 @@
       "pnl": -6.2,
       "exit_price": 0.0,
       "exit_time": "2026-02-20T15:55:11.400112+00:00"
+    },
+    {
+      "side": "UP",
+      "entry_price": 0.545,
+      "size_usd": 6.76,
+      "entry_time": "2026-02-20T17:18:26.732719+00:00",
+      "condition_id": "0x58cb1b6112b45fb290035d9353e1f5c800ef4e4c1e7b61a5c627f4cba5d5248f",
+      "market_numeric_id": "1398841",
+      "title": "Bitcoin Up or Down - February 20, 12:15PM-12:30PM ET",
+      "strategy": "FRAMA_CMO",
+      "edge": 0.0131,
+      "fair_px": 0.5581,
+      "strength": 0.301,
+      "reason": "frama_up_pullback",
+      "btc_price": 67192.54,
+      "detail": "frama=67185 cmo=11.3 dcmid=67182",
+      "tte_seconds": 693,
+      "ml_features": {
+        "conf": 0.3008938384992308,
+        "ema_gap": 0.0,
+        "rsi": 50.0,
+        "atr_pct": 0.0,
+        "hour_utc": 17.0,
+        "edge": 0.013095971563656494,
+        "strength": 0.3008938384992308
+      },
+      "ml_prob": 0.683,
+      "status": "closed",
+      "pnl": -6.76,
+      "exit_price": 0.0,
+      "exit_time": "2026-02-20T17:39:21.830672+00:00"
+    },
+    {
+      "side": "UP",
+      "entry_price": 0.525,
+      "size_usd": 8.0,
+      "entry_time": "2026-02-20T17:50:07.713453+00:00",
+      "condition_id": "0x5ea6bdd9bf6e11dbb2273f5f4a8bae2a8f4675a97df13eb2df1c2c8da621827a",
+      "market_numeric_id": "1398876",
+      "title": "Bitcoin Up or Down - February 20, 12:45PM-1:00PM ET",
+      "strategy": "VIDYA_AROON",
+      "edge": 0.0983,
+      "fair_px": 0.6233,
+      "strength": 0.91,
+      "reason": "vidya_up_chaikin_cross",
+      "btc_price": 67550.0,
+      "detail": "vidya=67284 arU=56 arD=32 chaik=1152",
+      "tte_seconds": 593,
+      "ml_features": {
+        "conf": 0.9100000000000001,
+        "ema_gap": 0.0,
+        "rsi": 50.0,
+        "atr_pct": 0.0,
+        "hour_utc": 17.0,
+        "edge": 0.0983273765124878,
+        "strength": 0.9100000000000001
+      },
+      "ml_prob": 0.62,
+      "status": "closed",
+      "pnl": 7.24,
+      "exit_price": 1.0,
+      "exit_time": "2026-02-20T18:06:28.453848+00:00"
+    },
+    {
+      "side": "UP",
+      "entry_price": 0.365,
+      "size_usd": 5.21,
+      "entry_time": "2026-02-20T17:53:31.251672+00:00",
+      "condition_id": "0x5ea6bdd9bf6e11dbb2273f5f4a8bae2a8f4675a97df13eb2df1c2c8da621827a",
+      "market_numeric_id": "1398876",
+      "title": "Bitcoin Up or Down - February 20, 12:45PM-1:00PM ET",
+      "strategy": "FIB_EMA_CONFIRM",
+      "edge": 0.1786,
+      "fair_px": 0.5436,
+      "strength": 0.636,
+      "reason": "fib_ema_long",
+      "btc_price": 67652.34,
+      "detail": "conf=0.84 ema=bull rsi=67",
+      "tte_seconds": 388,
+      "ml_features": {
+        "conf": 0.8400000000000001,
+        "ema_gap": 3.120419034702006e-05,
+        "rsi": 67.04684158618849,
+        "atr_pct": 0.0022486815892631754,
+        "hour_utc": 17.0,
+        "edge": 0.17855322967588183,
+        "strength": 0.6363636363636369
+      },
+      "ml_prob": 0.502,
+      "status": "closed",
+      "pnl": 9.06,
+      "exit_price": 1.0,
+      "exit_time": "2026-02-20T18:09:51.187460+00:00"
     }
   ],
   "active": {},
-  "last_updated": "2026-02-20T16:18:49.205535+00:00"
+  "last_updated": "2026-02-20T18:12:08.081876+00:00"
 }
