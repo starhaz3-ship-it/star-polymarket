@@ -74,6 +74,11 @@ MIN_ENTRY_UP = 0.50             # V2.1: UP trades need $0.50+ entry (cheap UP = 
 # V3.0: Circuit Breaker + Kelly Sizing + SynthData
 CIRCUIT_BREAKER_LOSSES = 3      # consecutive losses → halt
 CIRCUIT_BREAKER_COOLDOWN = 1800  # 30 min cooldown after halt
+CIRCUIT_BREAKER_HALFSIZE = 2    # consecutive losses → half-size mode
+CIRCUIT_BREAKER_RECOVERY = 2    # trades at half-size before resuming full
+WARMUP_SECONDS = 30             # seconds of stable data before trading
+API_BACKOFF_BASE = 2.0          # exponential backoff base
+API_BACKOFF_MAX = 30.0          # max backoff delay
 KELLY_CAP = 0.05                # 5% max Kelly fraction
 KELLY_MIN_TRADES = 10           # min trades before Kelly activates
 BANKROLL_ESTIMATE = 100.0       # conservative bankroll estimate
@@ -227,6 +232,11 @@ class WhaleConsensus15MTrader:
                 break
             self._consecutive_losses += 1
 
+        self._recovery_trades = 0  # V3.1: trades at half-size after halt
+        self._warmup_start = time.time()
+        self._warmup_ready = False
+        self._api_consecutive_errors = 0
+
         if not self.paper:
             self._init_clob()
 
@@ -253,11 +263,22 @@ class WhaleConsensus15MTrader:
             creds = self.client.derive_api_key()
             self.client.set_api_creds(creds)
             print(f"[CLOB] Client initialized - LIVE MODE")
+            self._cleanup_stale_orders()
         except Exception as e:
             print(f"[CLOB] Init failed: {e}")
             traceback.print_exc()
             print(f"[CLOB] Falling back to PAPER mode")
             self.paper = True
+
+    def _cleanup_stale_orders(self):
+        if not self.client:
+            return
+        try:
+            resp = self.client.cancel_all()
+            if resp:
+                print(f"[CLEANUP] Cancelled stale orders from previous session")
+        except Exception as e:
+            print(f"[CLEANUP] No stale orders or error: {e}")
 
     def get_token_ids(self, market: dict) -> Tuple[Optional[str], Optional[str]]:
         """Extract UP/DOWN token IDs from market data."""
@@ -364,6 +385,7 @@ class WhaleConsensus15MTrader:
                             actual_price = float(assoc[0]["price"])
                         actual_cost = round(actual_price * size_matched, 2)
                         print(f"[LIVE] FILLED: {size_matched:.1f}sh @ ${actual_price:.2f} = ${actual_cost:.2f}")
+                        self._api_consecutive_errors = 0
                         return {
                             "filled": True, "shares": size_matched,
                             "price": actual_price, "cost": actual_cost,
@@ -380,8 +402,10 @@ class WhaleConsensus15MTrader:
                     }
             return None
         except Exception as e:
-            print(f"[LIVE] Order error: {e}")
-            traceback.print_exc()
+            self._api_consecutive_errors += 1
+            backoff = min(API_BACKOFF_BASE ** self._api_consecutive_errors, API_BACKOFF_MAX)
+            print(f"[BACKOFF] API error #{self._api_consecutive_errors}: {e} — {backoff:.0f}s")
+            await asyncio.sleep(backoff)
             return None
 
     # ========================================================================
@@ -567,6 +591,13 @@ class WhaleConsensus15MTrader:
         if time.time() < self._circuit_halt_until:
             return
 
+        if not self._warmup_ready:
+            elapsed = time.time() - self._warmup_start
+            if elapsed < WARMUP_SECONDS:
+                return
+            self._warmup_ready = True
+            print(f"[WARMUP] Ready after {elapsed:.0f}s")
+
         # 1. Discover active 15M BTC markets
         markets = await self.discover_15m_markets()
         target_markets = [
@@ -683,6 +714,12 @@ class WhaleConsensus15MTrader:
             elif s_edge <= -SYNTH_EDGE_THRESHOLD:
                 trade_size = round(trade_size * SYNTH_SIZE_REDUCE, 2)
                 print(f"  [SYNTH] Disagrees: edge={s_edge:+.1%} → ${trade_size:.2f}")
+
+        # V3.1: Graduated circuit breaker — half-size
+        if (self._consecutive_losses >= CIRCUIT_BREAKER_HALFSIZE or
+                self._recovery_trades < CIRCUIT_BREAKER_RECOVERY):
+            trade_size = round(trade_size * 0.5, 2)
+            print(f"  [HALFSIZE] ${trade_size:.2f}")
 
         # V2.1: DOWN-bias — UP trades get half size (CSV: DOWN 12/12 100%, UP 3/6 50%)
         if direction == "UP":
@@ -898,14 +935,21 @@ class WhaleConsensus15MTrader:
                 self.stats["losses"] += 1
             self.stats["pnl"] = round(self.stats["pnl"] + pnl, 2)
 
-            # V3.0: Circuit breaker
             if won:
+                if self._consecutive_losses >= CIRCUIT_BREAKER_HALFSIZE:
+                    self._recovery_trades = 1
+                    print(f"[RECOVERY] Win after {self._consecutive_losses} losses → half-size for {CIRCUIT_BREAKER_RECOVERY} trades")
+                else:
+                    self._recovery_trades = CIRCUIT_BREAKER_RECOVERY
                 self._consecutive_losses = 0
             else:
                 self._consecutive_losses += 1
+                self._recovery_trades = 0
                 if self._consecutive_losses >= CIRCUIT_BREAKER_LOSSES:
                     self._circuit_halt_until = time.time() + CIRCUIT_BREAKER_COOLDOWN
                     print(f"[CIRCUIT BREAKER] {self._consecutive_losses} losses → HALTED {CIRCUIT_BREAKER_COOLDOWN // 60}m")
+                elif self._consecutive_losses >= CIRCUIT_BREAKER_HALFSIZE:
+                    print(f"[HALFSIZE] {self._consecutive_losses} consecutive losses → half-size mode")
 
             # Move to resolved
             self.resolved.append(trade)

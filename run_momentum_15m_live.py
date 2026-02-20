@@ -99,6 +99,11 @@ CONSENSUS_SIZE_MULT = 1.5        # 1.5x size on consensus (conservative for smal
 # V3.0: Circuit Breaker + Kelly Sizing + SynthData
 CIRCUIT_BREAKER_LOSSES = 3      # consecutive losses → halt
 CIRCUIT_BREAKER_COOLDOWN = 1800  # 30 min cooldown after halt
+CIRCUIT_BREAKER_HALFSIZE = 2    # consecutive losses → half-size mode
+CIRCUIT_BREAKER_RECOVERY = 2    # trades at half-size before resuming full
+WARMUP_SECONDS = 30             # seconds of stable data before trading
+API_BACKOFF_BASE = 2.0          # exponential backoff base
+API_BACKOFF_MAX = 30.0          # max backoff delay
 KELLY_CAP = 0.05                # 5% max Kelly fraction
 KELLY_MIN_TRADES = 10           # min trades before Kelly activates
 BANKROLL_ESTIMATE = 100.0       # conservative bankroll estimate
@@ -1233,6 +1238,10 @@ class Momentum15MTrader:
         # V3.0: Circuit breaker
         self._circuit_halt_until = 0
         self._consecutive_losses = 0
+        self._recovery_trades = 0  # V3.1: trades at half-size after halt
+        self._warmup_start = time.time()
+        self._warmup_ready = False
+        self._api_consecutive_errors = 0
         for trade in reversed(self.resolved):
             if trade.get("pnl", 0) >= 0:
                 break
@@ -1358,10 +1367,21 @@ class Momentum15MTrader:
             creds = self.client.derive_api_key()
             self.client.set_api_creds(creds)
             print(f"[CLOB] Client initialized - LIVE MODE")
+            self._cleanup_stale_orders()
         except Exception as e:
             print(f"[CLOB] Init failed: {e}")
             print(f"[CLOB] Falling back to PAPER mode")
             self.paper = True
+
+    def _cleanup_stale_orders(self):
+        if not self.client:
+            return
+        try:
+            resp = self.client.cancel_all()
+            if resp:
+                print(f"[CLEANUP] Cancelled stale orders from previous session")
+        except Exception as e:
+            print(f"[CLEANUP] No stale orders or error: {e}")
 
     def _load(self):
         if RESULTS_FILE.exists():
@@ -1678,14 +1698,22 @@ class Momentum15MTrader:
                                 trade["_resolved_via"] = "ws"
 
                                 self.stats["wins" if won else "losses"] += 1
-                                # V3.0: Circuit breaker
+                                # V3.1: Graduated circuit breaker
                                 if won:
+                                    if self._consecutive_losses >= CIRCUIT_BREAKER_HALFSIZE:
+                                        self._recovery_trades = 1
+                                        print(f"[RECOVERY] Win after {self._consecutive_losses} losses → half-size for {CIRCUIT_BREAKER_RECOVERY} trades")
+                                    else:
+                                        self._recovery_trades = CIRCUIT_BREAKER_RECOVERY
                                     self._consecutive_losses = 0
                                 else:
                                     self._consecutive_losses += 1
+                                    self._recovery_trades = 0
                                     if self._consecutive_losses >= CIRCUIT_BREAKER_LOSSES:
                                         self._circuit_halt_until = time.time() + CIRCUIT_BREAKER_COOLDOWN
                                         print(f"[CIRCUIT BREAKER] {self._consecutive_losses} losses → HALTED {CIRCUIT_BREAKER_COOLDOWN // 60}m")
+                                    elif self._consecutive_losses >= CIRCUIT_BREAKER_HALFSIZE:
+                                        print(f"[HALFSIZE] {self._consecutive_losses} consecutive losses → half-size mode")
                                 self.stats["pnl"] += trade["pnl"]
                                 self.session_pnl += trade["pnl"]
                                 trade["tier"] = self.tier
@@ -1761,14 +1789,22 @@ class Momentum15MTrader:
 
                                 won = trade["pnl"] > 0
                                 self.stats["wins" if won else "losses"] += 1
-                                # V3.0: Circuit breaker
+                                # V3.1: Graduated circuit breaker
                                 if won:
+                                    if self._consecutive_losses >= CIRCUIT_BREAKER_HALFSIZE:
+                                        self._recovery_trades = 1
+                                        print(f"[RECOVERY] Win after {self._consecutive_losses} losses → half-size for {CIRCUIT_BREAKER_RECOVERY} trades")
+                                    else:
+                                        self._recovery_trades = CIRCUIT_BREAKER_RECOVERY
                                     self._consecutive_losses = 0
                                 else:
                                     self._consecutive_losses += 1
+                                    self._recovery_trades = 0
                                     if self._consecutive_losses >= CIRCUIT_BREAKER_LOSSES:
                                         self._circuit_halt_until = time.time() + CIRCUIT_BREAKER_COOLDOWN
                                         print(f"[CIRCUIT BREAKER] {self._consecutive_losses} losses → HALTED {CIRCUIT_BREAKER_COOLDOWN // 60}m")
+                                    elif self._consecutive_losses >= CIRCUIT_BREAKER_HALFSIZE:
+                                        print(f"[HALFSIZE] {self._consecutive_losses} consecutive losses → half-size mode")
                                 self.stats["pnl"] += trade["pnl"]
                                 self.session_pnl += trade["pnl"]
                                 trade["tier"] = self.tier  # record which tier this trade was at
@@ -2107,6 +2143,13 @@ class Momentum15MTrader:
         if time.time() < self._circuit_halt_until:
             return
 
+        if not self._warmup_ready:
+            elapsed = time.time() - self._warmup_start
+            if elapsed < WARMUP_SECONDS:
+                return
+            self._warmup_ready = True
+            print(f"[WARMUP] Ready after {elapsed:.0f}s")
+
         # V2.1: FRAMA_CMO signal (checked once per cycle, same for all BTC markets)
         frama_sig = await self._check_frama_cmo()
         frama_side = frama_sig.get("side")
@@ -2386,6 +2429,12 @@ class Momentum15MTrader:
                     trade_size = round(trade_size * SYNTH_SIZE_REDUCE, 2)
                     print(f"    [SYNTH] Disagrees: edge={s_edge:+.1%} → ${trade_size:.2f}")
 
+            # V3.1: Graduated circuit breaker — half-size when approaching halt
+            if (self._consecutive_losses >= CIRCUIT_BREAKER_HALFSIZE or
+                    self._recovery_trades < CIRCUIT_BREAKER_RECOVERY):
+                trade_size = round(trade_size * 0.5, 2)
+                print(f"    [HALFSIZE] ${trade_size:.2f}")
+
             shares = int(trade_size / entry_price)  # V1.9b: integer shares — CLOB rejects excess decimals
 
             # Enforce CLOB minimum shares
@@ -2478,8 +2527,15 @@ class Momentum15MTrader:
                             continue
 
                 except Exception as e:
-                    print(f"[LIVE] Order error: {e}")
+                    self._api_consecutive_errors += 1
+                    backoff = min(API_BACKOFF_BASE ** self._api_consecutive_errors, API_BACKOFF_MAX)
+                    print(f"[BACKOFF] API error #{self._api_consecutive_errors}: {e} — {backoff:.0f}s")
+                    await asyncio.sleep(backoff)
                     continue
+
+            # V3.1: Reset API error counter on successful fill
+            if fill_confirmed:
+                self._api_consecutive_errors = 0
 
             self.trades[trade_key] = {
                 "side": side,
@@ -2625,8 +2681,15 @@ class Momentum15MTrader:
                             print(f"[LIVE] Streak order failed: {resp.get('errorMsg', '?')}")
                             continue
                     except Exception as e:
-                        print(f"[LIVE] Streak order error: {e}")
+                        self._api_consecutive_errors += 1
+                        backoff = min(API_BACKOFF_BASE ** self._api_consecutive_errors, API_BACKOFF_MAX)
+                        print(f"[BACKOFF] Streak API error #{self._api_consecutive_errors}: {e} — {backoff:.0f}s")
+                        await asyncio.sleep(backoff)
                         continue
+
+                # V3.1: Reset API error counter on successful order
+                if order_id:
+                    self._api_consecutive_errors = 0
 
                 self.trades[trade_key] = {
                     "side": reversal_side,

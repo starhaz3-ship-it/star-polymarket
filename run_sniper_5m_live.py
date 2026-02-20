@@ -92,8 +92,13 @@ ASSETS = {"bitcoin": "BTC", "btc": "BTC", "ethereum": "ETH", "eth": "ETH"}
 BINANCE_SYMBOLS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT"}
 
 # V3.0: Circuit Breaker + Kelly Sizing + SynthData
-CIRCUIT_BREAKER_LOSSES = 3      # consecutive losses → halt
+CIRCUIT_BREAKER_LOSSES = 3      # consecutive losses → full halt
+CIRCUIT_BREAKER_HALFSIZE = 2    # consecutive losses → half-size mode
 CIRCUIT_BREAKER_COOLDOWN = 1800  # 30 min cooldown after halt
+CIRCUIT_BREAKER_RECOVERY = 2    # trades at half-size before resuming full
+WARMUP_SECONDS = 30             # seconds of stable data required before trading
+API_BACKOFF_BASE = 2.0          # exponential backoff base (seconds)
+API_BACKOFF_MAX = 30.0          # max backoff delay
 KELLY_CAP = 0.05                # 5% max Kelly fraction
 KELLY_MIN_TRADES = 10           # min trades before Kelly activates
 BANKROLL_ESTIMATE = 100.0       # conservative bankroll estimate
@@ -366,13 +371,21 @@ class Sniper5MLive:
                                      str(Path(__file__).parent / "sniper_tuner_state.json"))
         self._load()
 
-        # V3.0: Circuit breaker — halt after consecutive losses
+        # V3.0: Circuit breaker — graduated response
         self._circuit_halt_until = 0
         self._consecutive_losses = 0
+        self._recovery_trades = 0  # V3.1: trades at half-size after halt
         for trade in reversed(self.resolved):
             if trade.get("pnl", 0) >= 0:
                 break
             self._consecutive_losses += 1
+
+        # V3.1: Warmup guard — no trading until data is stable
+        self._warmup_start = time.time()
+        self._warmup_ready = False
+
+        # V3.1: API error backoff tracking
+        self._api_consecutive_errors = 0
 
         if not self.paper:
             self._init_clob()
@@ -399,11 +412,24 @@ class Sniper5MLive:
             creds = self.client.derive_api_key()
             self.client.set_api_creds(creds)
             print(f"[CLOB] Client initialized - LIVE MODE")
+            # V3.1: Startup cleanup — cancel orphaned orders from previous session
+            self._cleanup_stale_orders()
         except Exception as e:
             print(f"[CLOB] Init failed: {e}")
             traceback.print_exc()
             print(f"[CLOB] Falling back to PAPER mode")
             self.paper = True
+
+    def _cleanup_stale_orders(self):
+        """Cancel any orphaned limit orders from previous session."""
+        if not self.client:
+            return
+        try:
+            resp = self.client.cancel_all()
+            if resp:
+                print(f"[CLEANUP] Cancelled stale orders from previous session")
+        except Exception as e:
+            print(f"[CLEANUP] No stale orders or error: {e}")
 
     # ========================================================================
     # PERSISTENCE
@@ -798,6 +824,7 @@ class Sniper5MLive:
                         if assoc and isinstance(assoc[0], dict) and assoc[0].get("price"):
                             actual_price = float(assoc[0]["price"])
                         actual_cost = round(actual_price * size_matched, 2)
+                        self._api_consecutive_errors = 0  # V3.1: reset backoff on success
                         print(f"[LIVE] FILLED: {size_matched:.1f}sh @ ${actual_price:.2f} = ${actual_cost:.2f}")
                         return {
                             "filled": True,
@@ -831,8 +858,11 @@ class Sniper5MLive:
                     }
             return None
         except Exception as e:
-            print(f"[LIVE] Order error: {e}")
-            traceback.print_exc()
+            # V3.1: Exponential backoff on API errors
+            self._api_consecutive_errors += 1
+            backoff = min(API_BACKOFF_BASE ** self._api_consecutive_errors, API_BACKOFF_MAX)
+            print(f"[LIVE] Order error #{self._api_consecutive_errors}: {e} — backoff {backoff:.0f}s")
+            await asyncio.sleep(backoff)
             return None
 
     # ========================================================================
@@ -917,9 +947,16 @@ class Sniper5MLive:
             return
         if self.session_pnl <= -DAILY_LOSS_LIMIT:
             return
-        # V3.0: Circuit breaker — halt after consecutive losses
+        # V3.0: Circuit breaker — full halt after 3 losses
         if time.time() < self._circuit_halt_until:
             return
+        # V3.1: Warmup guard — wait for stable data after startup
+        if not self._warmup_ready:
+            elapsed = time.time() - self._warmup_start
+            if elapsed < WARMUP_SECONDS:
+                return
+            self._warmup_ready = True
+            print(f"[WARMUP] Ready after {elapsed:.0f}s")
 
         for market in markets:
             if len(self.active) >= MAX_CONCURRENT:
@@ -1079,6 +1116,15 @@ class Sniper5MLive:
                     trade_size = round(trade_size * SYNTH_SIZE_REDUCE, 2)
                     synth_tag = f" SYNTH-{s_edge:.0%}"
                     print(f"  [SYNTH] Disagrees: edge={s_edge:+.1%} → 0.5x size: ${trade_size:.2f}")
+
+            # V3.1: Graduated circuit breaker — half-size when approaching halt
+            if (self._consecutive_losses >= CIRCUIT_BREAKER_HALFSIZE or
+                    self._recovery_trades < CIRCUIT_BREAKER_RECOVERY):
+                trade_size = round(trade_size * 0.5, 2)
+                reason = (f"recovery {self._recovery_trades}/{CIRCUIT_BREAKER_RECOVERY}"
+                          if self._consecutive_losses < CIRCUIT_BREAKER_HALFSIZE
+                          else f"{self._consecutive_losses} consecutive losses")
+                print(f"  [HALFSIZE] ${trade_size:.2f} ({reason})")
 
             # V2.3: ETH minimum size until proven profitable
             if asset == "ETH":
@@ -1397,15 +1443,24 @@ class Sniper5MLive:
             self.stats["pnl"] += pnl
             self.session_pnl += pnl
 
-            # V3.0: Circuit breaker tracking
+            # V3.1: Graduated circuit breaker tracking
             if won:
+                if self._consecutive_losses >= CIRCUIT_BREAKER_HALFSIZE:
+                    self._recovery_trades = 1  # start recovery at half-size
+                    print(f"[RECOVERY] Win after {self._consecutive_losses} losses → "
+                          f"half-size for {CIRCUIT_BREAKER_RECOVERY} trades")
+                else:
+                    self._recovery_trades = CIRCUIT_BREAKER_RECOVERY  # already recovered
                 self._consecutive_losses = 0
             else:
                 self._consecutive_losses += 1
+                self._recovery_trades = 0
                 if self._consecutive_losses >= CIRCUIT_BREAKER_LOSSES:
                     self._circuit_halt_until = time.time() + CIRCUIT_BREAKER_COOLDOWN
                     print(f"[CIRCUIT BREAKER] {self._consecutive_losses} consecutive losses → "
                           f"HALTED for {CIRCUIT_BREAKER_COOLDOWN // 60} min")
+                elif self._consecutive_losses >= CIRCUIT_BREAKER_HALFSIZE:
+                    print(f"[HALFSIZE] {self._consecutive_losses} consecutive losses → half-size mode")
 
             # ML depth learning — record outcome for auto-tuning
             ml_feats = trade.get("_ml_features")
