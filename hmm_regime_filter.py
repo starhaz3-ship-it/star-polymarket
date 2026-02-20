@@ -56,11 +56,11 @@ REGIME_NAMES = {0: "TRENDING", 1: "MEAN_REVERT", 2: "CHOPPY"}
 
 # Strategy compatibility
 STRATEGY_REGIMES = {
-    "momentum":   ["TRENDING", "MEAN_REVERT"],  # V2.3: 15M bets have directional moves in all regimes
+    "momentum":   ["TRENDING", "MEAN_REVERT", "CHOPPY"],  # V2.4: Added CHOPPY — 15M binary options resolve too fast for regime to matter. Sniper proves 90% WR in CHOPPY.
     "contrarian": ["MEAN_REVERT"],
     "rsi":        ["MEAN_REVERT", "TRENDING"],
     "arb":        ["CHOPPY", "MEAN_REVERT", "TRENDING"],  # arb works in any regime
-    "sniper":     ["TRENDING", "MEAN_REVERT"],
+    "sniper":     ["TRENDING", "MEAN_REVERT", "CHOPPY"],  # V2.4: Sniper works in all regimes (90% WR live)
 }
 
 
