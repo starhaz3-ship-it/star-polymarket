@@ -1,38 +1,5 @@
 {
-  "active": {
-    "wc15m_0x4cf3949ada519c0193696a8cad7be1e775fe73f149d48be007eae6c94511ab9b_UP": {
-      "side": "UP",
-      "entry_price": 0.65,
-      "size_usd": 2.01,
-      "shares": 3.0909,
-      "entry_time": "2026-02-20T18:48:10.483791+00:00",
-      "condition_id": "0x4cf3949ada519c0193696a8cad7be1e775fe73f149d48be007eae6c94511ab9b",
-      "market_numeric_id": "1399039",
-      "question": "Bitcoin Up or Down - February 20, 1:45PM-2:00PM ET",
-      "event_title": "Bitcoin Up or Down - February 20, 1:45PM-2:00PM ET",
-      "end_dt": "2026-02-20T19:00:00+00:00",
-      "strategy": "whale_consensus",
-      "consensus_count": 4,
-      "consensus_whales": [
-        "Square-Guy",
-        "0x8dxd",
-        "Canine-Commandment",
-        "k9Q2mX4L8A7ZP3R"
-      ],
-      "consensus_whale_costs": {
-        "Square-Guy": 1307.44,
-        "0x8dxd": 2144.41,
-        "Canine-Commandment": 478.14,
-        "k9Q2mX4L8A7ZP3R": 578.98
-      },
-      "total_whale_cost": 4508.97,
-      "time_left_min": 11.9,
-      "status": "open",
-      "pnl": 0.0,
-      "order_id": "0x468da01e18067316dc4a208337504623b5c68ce17edbfd1c3fc9d194260c917d",
-      "live": true
-    }
-  },
+  "active": {},
   "resolved": [
     {
       "side": "UP",
@@ -4832,13 +4799,48 @@
       "outcome": "DOWN",
       "resolve_time": "2026-02-20T18:15:27.756995+00:00",
       "exit_price": 1.0
+    },
+    {
+      "side": "UP",
+      "entry_price": 0.65,
+      "size_usd": 2.01,
+      "shares": 3.0909,
+      "entry_time": "2026-02-20T18:48:10.483791+00:00",
+      "condition_id": "0x4cf3949ada519c0193696a8cad7be1e775fe73f149d48be007eae6c94511ab9b",
+      "market_numeric_id": "1399039",
+      "question": "Bitcoin Up or Down - February 20, 1:45PM-2:00PM ET",
+      "event_title": "Bitcoin Up or Down - February 20, 1:45PM-2:00PM ET",
+      "end_dt": "2026-02-20T19:00:00+00:00",
+      "strategy": "whale_consensus",
+      "consensus_count": 4,
+      "consensus_whales": [
+        "Square-Guy",
+        "0x8dxd",
+        "Canine-Commandment",
+        "k9Q2mX4L8A7ZP3R"
+      ],
+      "consensus_whale_costs": {
+        "Square-Guy": 1307.44,
+        "0x8dxd": 2144.41,
+        "Canine-Commandment": 478.14,
+        "k9Q2mX4L8A7ZP3R": 578.98
+      },
+      "total_whale_cost": 4508.97,
+      "time_left_min": 11.9,
+      "status": "resolved",
+      "pnl": 1.08,
+      "order_id": "0x468da01e18067316dc4a208337504623b5c68ce17edbfd1c3fc9d194260c917d",
+      "live": true,
+      "outcome": "UP",
+      "resolve_time": "2026-02-20T19:00:26.067727+00:00",
+      "exit_price": 1.0
     }
   ],
   "stats": {
-    "wins": 97,
+    "wins": 98,
     "losses": 46,
-    "pnl": 102.72,
+    "pnl": 103.8,
     "start_time": "2026-02-19T04:44:18.146414+00:00"
   },
-  "last_updated": "2026-02-20T18:52:55.519441+00:00"
+  "last_updated": "2026-02-20T19:05:32.722600+00:00"
 }
