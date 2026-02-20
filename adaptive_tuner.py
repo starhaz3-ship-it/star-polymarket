@@ -172,6 +172,25 @@ class ParameterTuner:
                         # Shorter delay = more trades. Trade taken if delay <= elapsed
                         elapsed = entry.get("extra", {}).get("elapsed_sec", 30)
                         would_include = (edge <= elapsed)
+                    elif param in ("contrarian_ceil",):
+                        # V2.4: Higher ceil = stricter (more filtered without consensus)
+                        # Trade passes if: consensus OR entry >= ceil
+                        has_consensus = entry.get("extra", {}).get("consensus", False)
+                        would_include = has_consensus or (entry_price >= edge)
+                    elif param in ("momentum_floor",):
+                        # V2.4: Higher floor = stricter (blocks weak momentum)
+                        # Trade passes if abs(momentum) >= floor
+                        mom = abs(entry.get("extra", {}).get("momentum_10m", 0))
+                        would_include = (mom >= edge)
+                    elif param in ("rsi_up",):
+                        # V2.4: Higher threshold = stricter for UP signals
+                        # DOWN signals always pass RSI_UP filter
+                        rsi = entry.get("extra", {}).get("rsi", 50)
+                        trade_side = entry.get("side", "DOWN")
+                        if trade_side == "UP":
+                            would_include = (rsi >= edge)
+                        else:
+                            would_include = True  # RSI-UP threshold only gates UP bets
 
                     if would_include:
                         b = self.state["params"][param][label]
@@ -303,5 +322,34 @@ MOMENTUM_TUNER_CONFIG = {
         "default_idx": 3,   # 6.0 (current setting)
         "floor_idx": 0,     # can tighten to 3.0
         "ceil_idx": 5,      # can widen to 8.0
+    },
+    # V2.4: ML-tuned quality parameters
+    "max_entry": {
+        "bins":   [0.55, 0.58, 0.60, 0.63, 0.65, 0.68],
+        "labels": ["0.55", "0.58", "0.60", "0.63", "0.65", "0.68"],
+        "default_idx": 4,   # 0.65
+        "floor_idx": 1,     # never below 0.58
+        "ceil_idx": 5,      # can go up to 0.68
+    },
+    "contrarian_ceil": {
+        "bins":   [0.38, 0.40, 0.43, 0.45, 0.48, 0.50],
+        "labels": ["0.38", "0.40", "0.43", "0.45", "0.48", "0.50"],
+        "default_idx": 3,   # 0.45
+        "floor_idx": 0,     # can relax to 0.38 (very permissive)
+        "ceil_idx": 5,      # can tighten to 0.50 (strict)
+    },
+    "momentum_floor": {
+        "bins":   [0.0006, 0.0008, 0.0010, 0.0012, 0.0015, 0.0018],
+        "labels": ["0.0006", "0.0008", "0.0010", "0.0012", "0.0015", "0.0018"],
+        "default_idx": 3,   # 0.0012
+        "floor_idx": 0,     # can relax to 0.0006
+        "ceil_idx": 5,      # can tighten to 0.0018
+    },
+    "rsi_up": {
+        "bins":   [55, 58, 60, 62, 65, 68],
+        "labels": ["55", "58", "60", "62", "65", "68"],
+        "default_idx": 3,   # 62
+        "floor_idx": 1,     # never below 58
+        "ceil_idx": 5,      # can tighten to 68
     },
 }

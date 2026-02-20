@@ -67,7 +67,7 @@ SCAN_INTERVAL = 30          # seconds between cycles
 MAX_CONCURRENT = 3          # max open positions
 MIN_MOMENTUM_10M = 0.0005   # V1.9b: Loosened from 0.08% to 0.05% — more trades
 MIN_MOMENTUM_5M = 0.0002    # V1.9b: Loosened from 0.03% to 0.02%
-RSI_CONFIRM_UP = 62         # V2.4: Raised from 60 — RSI exactly 60 caused a loss (borderline noise)
+RSI_CONFIRM_UP = 55         # V2.4: Hardcoded safety floor only — ML tuner controls actual threshold (55-68 range)
 RSI_CONFIRM_DOWN = 35       # V1.7: Tightened from 45 to 35
 # V1.9: Contrarian DISABLED (backtest: 8% WR)
 RSI_CONTRARIAN_LO = 25
@@ -76,7 +76,7 @@ RSI_CONTRARIAN_HI = 35
 RSI_MODERATE_DOWN_LO = 30   # V1.9b: Widened from 35 to 30
 RSI_MODERATE_DOWN_HI = 50
 MIN_ENTRY = 0.35            # V1.1: Raised from $0.10 — entries <$0.35 were 0W/3L (0% WR, -$7.50)
-MAX_ENTRY = 0.65            # V2.4: Raised from $0.60 — CLOB-aligned entries ($0.60-0.65) are our best trades. Sniper wins at $0.70+.
+MAX_ENTRY = 0.70            # V2.4: Hardcoded safety ceiling — ML tuner controls actual threshold (0.55-0.68 range)
 TIME_WINDOW = (2.0, 6.0)    # V2.3: Widened from (2,4) — more entry opportunities while preserving edge
 SPREAD_OFFSET = 0.02        # paper fill spread simulation (ignored in live)
 RESOLVE_AGE_MIN = 18.0      # minutes before forcing resolution via API
@@ -2163,18 +2163,50 @@ class Momentum15MTrader:
                 print(f"    [BS-EDGE LIVE] {side} @ ${entry_price:.2f} edge={bs_edge:.1%} | {bs_sig.get('detail', '')[:80]}")
             # else: strategy stays "momentum_strong" (single signal)
 
-            if not side or not entry_price or entry_price > MAX_ENTRY:
+            if not side or not entry_price:
                 continue
 
-            # V2.4: QUALITY FILTERS — prevent weak contrarian bets
-            # Filter 1: If entry < $0.45, CLOB disagrees with our signal — require consensus
-            if entry_price < CONTRARIAN_ENTRY_CEIL and not consensus:
-                print(f"    [CONTRARIAN-SKIP] {side} @ ${entry_price:.2f} — CLOB disagrees, no consensus")
+            # V2.4: ML-TUNED QUALITY FILTERS — ParameterTuner adjusts these via Thompson sampling
+            ml_max_entry = self.tuner.get_active_value("max_entry")
+            ml_contrarian_ceil = self.tuner.get_active_value("contrarian_ceil")
+            ml_mom_floor = self.tuner.get_active_value("momentum_floor")
+            ml_rsi_up = self.tuner.get_active_value("rsi_up")
+
+            if entry_price > ml_max_entry:
                 continue
 
-            # Filter 2: Momentum hard floor — block noise-level signals (0.05-0.10%)
-            if strategy == "momentum_strong" and abs(momentum_10m) < MOMENTUM_HARD_FLOOR:
-                print(f"    [WEAK-MOM-SKIP] {side} @ ${entry_price:.2f} — mom10m={momentum_10m:.4f} < {MOMENTUM_HARD_FLOOR}")
+            # Filter 1: Contrarian gate — CLOB disagrees, require consensus
+            if entry_price < ml_contrarian_ceil and not consensus:
+                # Shadow-track this skip so ML learns if the ceiling is too strict/loose
+                self.tuner.record_shadow(
+                    market_id=cid, end_time_iso=market.get("_end_dt", now.isoformat()),
+                    side=side, entry_price=entry_price, clob_dominant=entry_price,
+                    extra={"time_left_min": round(time_left, 1), "consensus": False,
+                           "momentum_10m": momentum_10m, "rsi": rsi_val or 50,
+                           "skip_reason": "contrarian_gate"})
+                print(f"    [CONTRARIAN-SKIP] {side} @ ${entry_price:.2f} < ${ml_contrarian_ceil:.2f} — no consensus")
+                continue
+
+            # Filter 2: Momentum hard floor — block noise-level signals
+            if strategy == "momentum_strong" and abs(momentum_10m) < ml_mom_floor:
+                self.tuner.record_shadow(
+                    market_id=cid, end_time_iso=market.get("_end_dt", now.isoformat()),
+                    side=side, entry_price=entry_price, clob_dominant=entry_price,
+                    extra={"time_left_min": round(time_left, 1), "consensus": consensus,
+                           "momentum_10m": momentum_10m, "rsi": rsi_val or 50,
+                           "skip_reason": "weak_momentum"})
+                print(f"    [WEAK-MOM-SKIP] {side} @ ${entry_price:.2f} — mom10m={momentum_10m:.4f} < {ml_mom_floor:.4f}")
+                continue
+
+            # Filter 3: RSI floor for UP signals (ML-tuned)
+            if side == "UP" and rsi_val is not None and rsi_val < ml_rsi_up:
+                self.tuner.record_shadow(
+                    market_id=cid, end_time_iso=market.get("_end_dt", now.isoformat()),
+                    side=side, entry_price=entry_price, clob_dominant=entry_price,
+                    extra={"time_left_min": round(time_left, 1), "consensus": consensus,
+                           "momentum_10m": momentum_10m, "rsi": rsi_val,
+                           "skip_reason": "rsi_too_low"})
+                print(f"    [RSI-SKIP] UP @ ${entry_price:.2f} — RSI={rsi_val:.0f} < {ml_rsi_up:.0f}")
                 continue
 
             # V1.5: Streak confluence — skip if betting WITH a long streak (likely to reverse)
@@ -2341,14 +2373,21 @@ class Momentum15MTrader:
             }
             open_count += 1
 
-            # ML TUNER: shadow-track this trade with time_left for window optimization
+            # ML TUNER: shadow-track this trade — feeds Thompson sampling for ALL parameters
             self.tuner.record_shadow(
                 market_id=cid,
                 end_time_iso=market.get("_end_dt", now.isoformat()),
                 side=side,
                 entry_price=entry_price,
                 clob_dominant=entry_price,
-                extra={"time_left_min": round(time_left, 1)})
+                extra={
+                    "time_left_min": round(time_left, 1),
+                    "consensus": consensus,
+                    "momentum_10m": momentum_10m,
+                    "rsi": rsi_val if rsi_val is not None else 50,
+                    "strategy": strategy,
+                    "traded": True,
+                })
 
             mode = "LIVE" if not self.paper else "PAPER"
             rsi_str = f"RSI={rsi_val:.0f}" if rsi_val is not None else "RSI=?"
@@ -2484,11 +2523,13 @@ class Momentum15MTrader:
         print(f"  FRAMA_CMO:     FRAMA(16) + CMO(14) + Donchian(20) trend pullback (paper: 69.5% WR)")
         print(f"  BS-EDGE:       Black-Scholes fair value vs CLOB price (shadow paper)")
         print(f"  CONSENSUS:     2+ signals agree -> {CONSENSUS_SIZE_MULT}x | 3 agree -> 2x")
-        print(f"V2.4 quality filters:")
-        print(f"  CONTRARIAN:    entry<${CONTRARIAN_ENTRY_CEIL} needs consensus (CLOB disagrees filter)")
-        print(f"  MOM FLOOR:     abs(mom10m)>{MOMENTUM_HARD_FLOOR:.4f} for momentum_strong entries")
-        print(f"  RSI FLOOR:     RSI>{RSI_CONFIRM_UP} for UP (raised from 60)")
-        print(f"V2.4 volume: MAX_ENTRY ${MAX_ENTRY}, HMM CHOPPY unblocked, all regimes trade")
+        tuner_vals = self.tuner.get_active_values()
+        print(f"V2.4 ML-TUNED quality filters (auto-adjusting via Thompson sampling):")
+        print(f"  CONTRARIAN:    entry<${tuner_vals.get('contrarian_ceil', 0.45):.2f} needs consensus")
+        print(f"  MOM FLOOR:     abs(mom10m)>{tuner_vals.get('momentum_floor', 0.0012):.4f}")
+        print(f"  RSI UP:        RSI>{tuner_vals.get('rsi_up', 62):.0f} for UP signals")
+        print(f"  MAX ENTRY:     ${tuner_vals.get('max_entry', 0.65):.2f}")
+        print(f"V2.4 volume: HMM CHOPPY unblocked, all regimes trade")
         print(f"FOK orders + fill verify (V1.8) | ML filter reset (clean priors)")
         print(f"Skip hours (UTC): {{7}} (2AM ET only)")
         print(f"Daily loss limit: ${DAILY_LOSS_LIMIT}")
@@ -2599,6 +2640,7 @@ class Momentum15MTrader:
                 # V1.4: ML filter report every 25 cycles
                 if cycle % 25 == 0 and cycle > 0:
                     print(self.filter_ml.get_report())
+                    print(self.tuner.get_report())
                     print(self.bs_ml.get_report())
                     print(self.cond_tracker.get_report())
                     print(self.v17_tracker.get_report())
