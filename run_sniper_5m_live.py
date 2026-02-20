@@ -1,5 +1,5 @@
 """
-Sniper 5M LIVE Trader V2.3
+Sniper 5M LIVE Trader V3.0
 
 Front-runs Chainlink oracle delay on 5-minute BTC+ETH Up/Down markets.
 Enters at 62-61 seconds before market close when direction is clear from CLOB orderbook.
@@ -90,6 +90,17 @@ SKIP_HOURS_UTC = {9, 12}    # V2.2: Skip worst hours — UTC 9 (4AM ET) 33%WR/-$
 ETH_SIZE_MULT = 0.34        # V2.3: ETH minimum size (~$1/trade) until proven profitable
 ASSETS = {"bitcoin": "BTC", "btc": "BTC", "ethereum": "ETH", "eth": "ETH"}
 BINANCE_SYMBOLS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT"}
+
+# V3.0: Circuit Breaker + Kelly Sizing + SynthData
+CIRCUIT_BREAKER_LOSSES = 3      # consecutive losses → halt
+CIRCUIT_BREAKER_COOLDOWN = 1800  # 30 min cooldown after halt
+KELLY_CAP = 0.05                # 5% max Kelly fraction
+KELLY_MIN_TRADES = 10           # min trades before Kelly activates
+BANKROLL_ESTIMATE = 100.0       # conservative bankroll estimate
+SYNTH_API_KEY = os.environ.get("SYNTHDATA_API_KEY", "")
+SYNTH_EDGE_THRESHOLD = 0.05    # 5pp minimum edge for SynthData boost
+SYNTH_SIZE_BOOST = 1.5         # 1.5x when Synth agrees with signal
+SYNTH_SIZE_REDUCE = 0.5        # 0.5x when Synth strongly disagrees
 
 
 # ============================================================================
@@ -266,23 +277,73 @@ class DepthMLFilter:
         return "\n".join(lines)
 
 
-def get_trade_size(wins: int, losses: int) -> float:
-    """Auto-scale trade size based on performance.
-    PROBATION ($3) -> PROMOTED ($5) at 20 trades, 55% WR, profitable
-    PROMOTED ($5) -> CHAMPION ($10) at 50 trades, 65% WR, profitable
+def get_trade_size(wins: int, losses: int, entry_price: float = 0.60,
+                    cumulative_pnl: float = 0.0) -> float:
+    """V3.0: Kelly criterion sizing — auto-scales based on empirical edge.
+    f* = (p_win * (b+1) - 1) / b, capped at 5% of bankroll.
+    Falls back to fixed $3 if <10 trades (not enough data for Kelly).
+    Returns 0 if Kelly says no edge (negative f*) — caller should skip trade.
     """
     total = wins + losses
-    if total == 0:
-        return BASE_TRADE_SIZE
-    wr = wins / total
-    pnl_positive = (wins > losses)  # proxy: more wins than losses = profitable
-    # CHAMPION: $10/trade after 50 trades with 65%+ WR
-    if total >= 50 and wr >= 0.65 and pnl_positive:
-        return 10.00
-    # PROMOTED: $5/trade after 20 trades with 55%+ WR
-    if total >= 20 and wr >= 0.55 and pnl_positive:
-        return 5.00
-    return BASE_TRADE_SIZE
+    if total < KELLY_MIN_TRADES:
+        return BASE_TRADE_SIZE  # not enough data for Kelly
+
+    bankroll = BANKROLL_ESTIMATE + cumulative_pnl
+    if bankroll <= 10:
+        return 1.0  # minimum when near-bankrupt
+
+    p_win = wins / total  # empirical win rate
+    p_mkt = max(min(entry_price, 0.95), 0.05)  # clamp to avoid div issues
+    b = (1 - p_mkt) / p_mkt  # payout ratio (win $b for every $1 risked)
+
+    f_star = (p_win * (b + 1) - 1) / b
+    f_eff = min(max(f_star, 0), KELLY_CAP)
+
+    if f_eff <= 0:
+        return 0  # Kelly says no edge — don't trade
+
+    size = round(bankroll * f_eff, 2)
+    return max(min(size, 10.0), 1.0)  # $1 floor, $10 ceiling
+
+
+# ============================================================================
+# V3.0: SYNTHDATA API — external probability oracle for consensus
+# ============================================================================
+_synth_cache: dict = {"data": None, "ts": 0}
+
+
+async def query_synthdata(asset: str = "BTC") -> Optional[dict]:
+    """Query SynthData for hourly probability forecast. Cached 60s."""
+    if not SYNTH_API_KEY:
+        return None
+    now = time.time()
+    if _synth_cache["data"] and now - _synth_cache["ts"] < 60:
+        cached = _synth_cache["data"]
+        if cached.get("_asset") == asset:
+            return cached
+    try:
+        url = "https://api.synthdata.co/insights/polymarket/up-down/hourly"
+        headers = {"Authorization": f"Apikey {SYNTH_API_KEY}"}
+        async with httpx.AsyncClient(timeout=5) as client:
+            r = await client.get(url, headers=headers, params={"asset": asset})
+            if r.status_code != 200:
+                return None
+            data = r.json()
+        synth_up = float(data.get("synth_probability_up", 0.5))
+        poly_up = float(data.get("polymarket_probability_up", 0.5))
+        result = {
+            "_asset": asset,
+            "synth_up": synth_up,
+            "synth_down": 1 - synth_up,
+            "poly_up": poly_up,
+            "edge_up": synth_up - poly_up,
+            "edge_down": -(synth_up - poly_up),
+        }
+        _synth_cache["data"] = result
+        _synth_cache["ts"] = now
+        return result
+    except Exception:
+        return None
 
 
 # ============================================================================
@@ -304,6 +365,14 @@ class Sniper5MLive:
         self.tuner = ParameterTuner(SNIPER_TUNER_CONFIG,
                                      str(Path(__file__).parent / "sniper_tuner_state.json"))
         self._load()
+
+        # V3.0: Circuit breaker — halt after consecutive losses
+        self._circuit_halt_until = 0
+        self._consecutive_losses = 0
+        for trade in reversed(self.resolved):
+            if trade.get("pnl", 0) >= 0:
+                break
+            self._consecutive_losses += 1
 
         if not self.paper:
             self._init_clob()
@@ -848,6 +917,9 @@ class Sniper5MLive:
             return
         if self.session_pnl <= -DAILY_LOSS_LIMIT:
             return
+        # V3.0: Circuit breaker — halt after consecutive losses
+        if time.time() < self._circuit_halt_until:
+            return
 
         for market in markets:
             if len(self.active) >= MAX_CONCURRENT:
@@ -985,8 +1057,28 @@ class Sniper5MLive:
                       f"| {time_left_sec:.0f}s left | {question[:50]}")
                 continue
 
-            # Auto-scale trade size
-            trade_size = get_trade_size(self.stats["wins"], self.stats["losses"])
+            # V3.0: Kelly sizing — auto-scales based on empirical edge
+            trade_size = get_trade_size(self.stats["wins"], self.stats["losses"],
+                                        entry_price, self.stats["pnl"])
+            if trade_size <= 0:
+                self.stats["skipped"] += 1
+                self.attempted_cids.add(cid)
+                print(f"[KELLY-SKIP] No edge at {self.stats['wins']}W/{self.stats['losses']}L | {question[:50]}")
+                continue
+
+            # V3.0: SynthData consensus — boost/reduce based on external oracle
+            synth = await query_synthdata(asset)
+            synth_tag = ""
+            if synth:
+                s_edge = synth["edge_up"] if side == "UP" else synth["edge_down"]
+                if s_edge >= SYNTH_EDGE_THRESHOLD:
+                    trade_size = round(trade_size * SYNTH_SIZE_BOOST, 2)
+                    synth_tag = f" SYNTH+{s_edge:.0%}"
+                    print(f"  [SYNTH] Agrees: edge={s_edge:+.1%} → 1.5x size: ${trade_size:.2f}")
+                elif s_edge <= -SYNTH_EDGE_THRESHOLD:
+                    trade_size = round(trade_size * SYNTH_SIZE_REDUCE, 2)
+                    synth_tag = f" SYNTH-{s_edge:.0%}"
+                    print(f"  [SYNTH] Disagrees: edge={s_edge:+.1%} → 0.5x size: ${trade_size:.2f}")
 
             # V2.3: ETH minimum size until proven profitable
             if asset == "ETH":
@@ -1101,6 +1193,9 @@ class Sniper5MLive:
         if oracle_active >= 1:
             return
         if self.session_pnl <= -DAILY_LOSS_LIMIT:
+            return
+        # V3.0: Circuit breaker
+        if time.time() < self._circuit_halt_until:
             return
 
         for market in markets:
@@ -1301,6 +1396,16 @@ class Sniper5MLive:
             self.stats["wins" if won else "losses"] += 1
             self.stats["pnl"] += pnl
             self.session_pnl += pnl
+
+            # V3.0: Circuit breaker tracking
+            if won:
+                self._consecutive_losses = 0
+            else:
+                self._consecutive_losses += 1
+                if self._consecutive_losses >= CIRCUIT_BREAKER_LOSSES:
+                    self._circuit_halt_until = time.time() + CIRCUIT_BREAKER_COOLDOWN
+                    print(f"[CIRCUIT BREAKER] {self._consecutive_losses} consecutive losses → "
+                          f"HALTED for {CIRCUIT_BREAKER_COOLDOWN // 60} min")
 
             # ML depth learning — record outcome for auto-tuning
             ml_feats = trade.get("_ml_features")

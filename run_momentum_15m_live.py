@@ -96,6 +96,17 @@ STREAK_REVERSAL_SIZE = 2.50      # Always minimal size (user directive)
 # V2.1: Consensus size multiplier — boost when momentum_strong + FRAMA_CMO agree
 CONSENSUS_SIZE_MULT = 1.5        # 1.5x size on consensus (conservative for small account)
 
+# V3.0: Circuit Breaker + Kelly Sizing + SynthData
+CIRCUIT_BREAKER_LOSSES = 3      # consecutive losses → halt
+CIRCUIT_BREAKER_COOLDOWN = 1800  # 30 min cooldown after halt
+KELLY_CAP = 0.05                # 5% max Kelly fraction
+KELLY_MIN_TRADES = 10           # min trades before Kelly activates
+BANKROLL_ESTIMATE = 100.0       # conservative bankroll estimate
+SYNTH_API_KEY = os.environ.get("SYNTHDATA_API_KEY", "")
+SYNTH_EDGE_THRESHOLD = 0.05    # 5pp minimum edge
+SYNTH_SIZE_BOOST = 1.5         # 1.5x when Synth agrees
+SYNTH_SIZE_REDUCE = 0.5        # 0.5x when Synth strongly disagrees
+
 # ============================================================================
 # FRAMA_CMO INDICATORS (ported from run_15m_strategies.py)
 # ============================================================================
@@ -466,6 +477,65 @@ ASSETS = {
 }
 
 RESULTS_FILE = Path(__file__).parent / "momentum_15m_results.json"
+
+
+# ============================================================================
+# V3.0: KELLY SIZING + SYNTHDATA QUERY
+# ============================================================================
+
+def kelly_size(wins: int, losses: int, entry_price: float, cumulative_pnl: float) -> float:
+    """V3.0: Kelly criterion sizing. Returns 0 if no edge."""
+    total = wins + losses
+    if total < KELLY_MIN_TRADES:
+        return 0  # not enough data, let tier system handle
+    bankroll = BANKROLL_ESTIMATE + cumulative_pnl
+    if bankroll <= 10:
+        return 1.0
+    p_win = wins / total
+    p_mkt = max(min(entry_price, 0.95), 0.05)
+    b = (1 - p_mkt) / p_mkt
+    f_star = (p_win * (b + 1) - 1) / b
+    f_eff = min(max(f_star, 0), KELLY_CAP)
+    if f_eff <= 0:
+        return 0
+    size = round(bankroll * f_eff, 2)
+    return max(min(size, 10.0), 1.0)
+
+
+_synth_cache: dict = {"data": None, "ts": 0}
+
+async def query_synthdata(asset: str = "BTC"):
+    """Query SynthData for hourly probability forecast. Cached 60s."""
+    if not SYNTH_API_KEY:
+        return None
+    now_ts = time.time()
+    if _synth_cache["data"] and now_ts - _synth_cache["ts"] < 60:
+        cached = _synth_cache["data"]
+        if cached.get("_asset") == asset:
+            return cached
+    try:
+        url = "https://api.synthdata.co/insights/polymarket/up-down/hourly"
+        headers = {"Authorization": f"Apikey {SYNTH_API_KEY}"}
+        async with httpx.AsyncClient(timeout=5) as client:
+            r = await client.get(url, headers=headers, params={"asset": asset})
+            if r.status_code != 200:
+                return None
+            data = r.json()
+        synth_up = float(data.get("synth_probability_up", 0.5))
+        poly_up = float(data.get("polymarket_probability_up", 0.5))
+        result = {
+            "_asset": asset,
+            "synth_up": synth_up,
+            "synth_down": 1 - synth_up,
+            "poly_up": poly_up,
+            "edge_up": synth_up - poly_up,
+            "edge_down": -(synth_up - poly_up),
+        }
+        _synth_cache["data"] = result
+        _synth_cache["ts"] = now_ts
+        return result
+    except Exception:
+        return None
 
 
 # ============================================================================
@@ -1160,6 +1230,13 @@ class Momentum15MTrader:
         self.bs_ml = BSEdgeML()          # V2.3: Black-Scholes edge ML
         self.cond_tracker = BayesianConditionTracker()  # V2.3: condition bucketing
         self._load()
+        # V3.0: Circuit breaker
+        self._circuit_halt_until = 0
+        self._consecutive_losses = 0
+        for trade in reversed(self.resolved):
+            if trade.get("pnl", 0) >= 0:
+                break
+            self._consecutive_losses += 1
         self._init_streak_tracker()  # V1.5: streak detection
 
         if not self.paper:
@@ -1601,6 +1678,14 @@ class Momentum15MTrader:
                                 trade["_resolved_via"] = "ws"
 
                                 self.stats["wins" if won else "losses"] += 1
+                                # V3.0: Circuit breaker
+                                if won:
+                                    self._consecutive_losses = 0
+                                else:
+                                    self._consecutive_losses += 1
+                                    if self._consecutive_losses >= CIRCUIT_BREAKER_LOSSES:
+                                        self._circuit_halt_until = time.time() + CIRCUIT_BREAKER_COOLDOWN
+                                        print(f"[CIRCUIT BREAKER] {self._consecutive_losses} losses → HALTED {CIRCUIT_BREAKER_COOLDOWN // 60}m")
                                 self.stats["pnl"] += trade["pnl"]
                                 self.session_pnl += trade["pnl"]
                                 trade["tier"] = self.tier
@@ -1676,6 +1761,14 @@ class Momentum15MTrader:
 
                                 won = trade["pnl"] > 0
                                 self.stats["wins" if won else "losses"] += 1
+                                # V3.0: Circuit breaker
+                                if won:
+                                    self._consecutive_losses = 0
+                                else:
+                                    self._consecutive_losses += 1
+                                    if self._consecutive_losses >= CIRCUIT_BREAKER_LOSSES:
+                                        self._circuit_halt_until = time.time() + CIRCUIT_BREAKER_COOLDOWN
+                                        print(f"[CIRCUIT BREAKER] {self._consecutive_losses} losses → HALTED {CIRCUIT_BREAKER_COOLDOWN // 60}m")
                                 self.stats["pnl"] += trade["pnl"]
                                 self.session_pnl += trade["pnl"]
                                 trade["tier"] = self.tier  # record which tier this trade was at
@@ -2010,6 +2103,10 @@ class Momentum15MTrader:
             print(f"[STOP] Daily loss limit hit: ${self.session_pnl:+.2f} (limit: -${DAILY_LOSS_LIMIT})")
             return
 
+        # V3.0: Circuit breaker
+        if time.time() < self._circuit_halt_until:
+            return
+
         # V2.1: FRAMA_CMO signal (checked once per cycle, same for all BTC markets)
         frama_sig = await self._check_frama_cmo()
         frama_side = frama_sig.get("side")
@@ -2267,6 +2364,27 @@ class Momentum15MTrader:
                     mult = 2.0  # 2x for all 3 signals agreeing
                 trade_size = round(trade_size * mult, 2)
                 print(f"    [SIZE BOOST] {strategy}: ${trade_size:.2f} ({mult}x)")
+
+            # V3.0: Kelly override — if enough data, Kelly replaces tier sizing
+            k_size = kelly_size(self.stats["wins"], self.stats["losses"],
+                                entry_price, self.stats["pnl"])
+            if k_size > 0:
+                trade_size = k_size
+                print(f"    [KELLY] ${trade_size:.2f} (replaces tier ${TIERS[self.tier]['size']:.2f})")
+            elif self.stats["wins"] + self.stats["losses"] >= KELLY_MIN_TRADES:
+                print(f"    [KELLY-SKIP] No edge — Kelly says don't trade")
+                continue
+
+            # V3.0: SynthData consensus
+            synth = await query_synthdata(asset)
+            if synth:
+                s_edge = synth["edge_up"] if side == "UP" else synth["edge_down"]
+                if s_edge >= SYNTH_EDGE_THRESHOLD:
+                    trade_size = round(trade_size * SYNTH_SIZE_BOOST, 2)
+                    print(f"    [SYNTH] Agrees: edge={s_edge:+.1%} → ${trade_size:.2f}")
+                elif s_edge <= -SYNTH_EDGE_THRESHOLD:
+                    trade_size = round(trade_size * SYNTH_SIZE_REDUCE, 2)
+                    print(f"    [SYNTH] Disagrees: edge={s_edge:+.1%} → ${trade_size:.2f}")
 
             shares = int(trade_size / entry_price)  # V1.9b: integer shares — CLOB rejects excess decimals
 

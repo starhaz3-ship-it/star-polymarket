@@ -71,19 +71,37 @@ MAX_ENTRY_PRICE = 0.65          # maximum entry price
 UP_SIZE_MULT = 0.50             # V2.1: Half size on UP trades (CSV: DOWN 12W/0L 100%, UP 3W/3L 50%)
 MIN_ENTRY_UP = 0.50             # V2.1: UP trades need $0.50+ entry (cheap UP = coin flip)
 
+# V3.0: Circuit Breaker + Kelly Sizing + SynthData
+CIRCUIT_BREAKER_LOSSES = 3      # consecutive losses → halt
+CIRCUIT_BREAKER_COOLDOWN = 1800  # 30 min cooldown after halt
+KELLY_CAP = 0.05                # 5% max Kelly fraction
+KELLY_MIN_TRADES = 10           # min trades before Kelly activates
+BANKROLL_ESTIMATE = 100.0       # conservative bankroll estimate
+SYNTH_API_KEY = os.environ.get("SYNTHDATA_API_KEY", "")
+SYNTH_EDGE_THRESHOLD = 0.05    # 5pp minimum edge
+SYNTH_SIZE_BOOST = 1.5         # 1.5x when Synth agrees
+SYNTH_SIZE_REDUCE = 0.5        # 0.5x when Synth strongly disagrees
 
-def get_trade_size(wins: int, losses: int, live_trades: int = 0) -> float:
-    """Auto-scale: PROBATION $2.50 -> PROMOTED $5 after 20 LIVE trades at 60% WR.
-    Paper history doesn't count — live fills have different characteristics."""
-    if live_trades < 20:
-        return TRADE_SIZE  # $2.50 PROBATION until 20 live trades
+
+def get_trade_size(wins: int, losses: int, live_trades: int = 0,
+                    entry_price: float = 0.50, cumulative_pnl: float = 0.0) -> float:
+    """V3.0: Kelly criterion sizing with minimum data fallback."""
     total = wins + losses
-    if total == 0:
-        return TRADE_SIZE
-    wr = wins / total
-    if wr >= 0.60 and wins > losses:
-        return 5.00
-    return TRADE_SIZE
+    if total < KELLY_MIN_TRADES:
+        return TRADE_SIZE  # $2.50 PROBATION until enough data
+    bankroll = BANKROLL_ESTIMATE + cumulative_pnl
+    if bankroll <= 10:
+        return 1.0
+    p_win = wins / total
+    p_mkt = max(min(entry_price, 0.95), 0.05)
+    b = (1 - p_mkt) / p_mkt
+    f_star = (p_win * (b + 1) - 1) / b
+    f_eff = min(max(f_star, 0), KELLY_CAP)
+    if f_eff <= 0:
+        return 0  # no edge
+    size = round(bankroll * f_eff, 2)
+    return max(min(size, 10.0), 1.0)
+
 TIME_WINDOW_MIN = 3.0           # earliest entry (minutes before close)
 TIME_WINDOW_MAX = 12.0          # latest entry (minutes before close)
 RESOLVE_DELAY_SEC = 20          # seconds after endDate to wait before resolving
@@ -143,6 +161,45 @@ def atomic_save(filepath: Path, data: dict):
 
 
 # ============================================================================
+# V3.0: SYNTHDATA ORACLE
+# ============================================================================
+_synth_cache: dict = {"data": None, "ts": 0}
+
+async def query_synthdata(asset: str = "BTC"):
+    """Query SynthData for hourly probability forecast. Cached 60s."""
+    if not SYNTH_API_KEY:
+        return None
+    now_ts = time.time()
+    if _synth_cache["data"] and now_ts - _synth_cache["ts"] < 60:
+        cached = _synth_cache["data"]
+        if cached.get("_asset") == asset:
+            return cached
+    try:
+        url = "https://api.synthdata.co/insights/polymarket/up-down/hourly"
+        headers = {"Authorization": f"Apikey {SYNTH_API_KEY}"}
+        async with httpx.AsyncClient(timeout=5) as client:
+            r = await client.get(url, headers=headers, params={"asset": asset})
+            if r.status_code != 200:
+                return None
+            data = r.json()
+        synth_up = float(data.get("synth_probability_up", 0.5))
+        poly_up = float(data.get("polymarket_probability_up", 0.5))
+        result = {
+            "_asset": asset,
+            "synth_up": synth_up,
+            "synth_down": 1 - synth_up,
+            "poly_up": poly_up,
+            "edge_up": synth_up - poly_up,
+            "edge_down": -(synth_up - poly_up),
+        }
+        _synth_cache["data"] = result
+        _synth_cache["ts"] = now_ts
+        return result
+    except Exception:
+        return None
+
+
+# ============================================================================
 # WHALE CONSENSUS 15M PAPER TRADER
 # ============================================================================
 class WhaleConsensus15MTrader:
@@ -161,6 +218,14 @@ class WhaleConsensus15MTrader:
         self.last_scan_result: Optional[str] = None   # status line from last scan
         self.last_scan_time: Optional[str] = None
         self._load()
+
+        # V3.0: Circuit breaker
+        self._circuit_halt_until = 0
+        self._consecutive_losses = 0
+        for trade in reversed(self.resolved):
+            if trade.get("pnl", 0) >= 0:
+                break
+            self._consecutive_losses += 1
 
         if not self.paper:
             self._init_clob()
@@ -498,6 +563,10 @@ class WhaleConsensus15MTrader:
 
     async def scan_whale_consensus(self):
         """Check all whales' positions on active 15M BTC markets."""
+        # V3.0: Circuit breaker
+        if time.time() < self._circuit_halt_until:
+            return
+
         # 1. Discover active 15M BTC markets
         markets = await self.discover_15m_markets()
         target_markets = [
@@ -594,9 +663,26 @@ class WhaleConsensus15MTrader:
         # Mark as attempted so we don't re-enter
         self.attempted_cids.add(cid)
 
-        # Auto-scale trade size
+        # V3.0: Get price estimate early for Kelly sizing
         live_count = sum(1 for t in self.resolved if t.get("live"))
-        trade_size = get_trade_size(self.stats["wins"], self.stats["losses"], live_count)
+        up_price, down_price = self.get_prices(market)
+        est_price = (up_price if direction == "UP" else down_price) if up_price else 0.50
+        trade_size = get_trade_size(self.stats["wins"], self.stats["losses"], live_count,
+                                     est_price, self.stats["pnl"])
+        if trade_size <= 0 and self.stats["wins"] + self.stats["losses"] >= KELLY_MIN_TRADES:
+            print(f"[KELLY-SKIP] No edge — Kelly says don't trade")
+            return
+
+        # V3.0: SynthData consensus
+        synth = await query_synthdata("BTC")
+        if synth:
+            s_edge = synth["edge_up"] if direction == "UP" else synth["edge_down"]
+            if s_edge >= SYNTH_EDGE_THRESHOLD:
+                trade_size = round(trade_size * SYNTH_SIZE_BOOST, 2)
+                print(f"  [SYNTH] Agrees: edge={s_edge:+.1%} → ${trade_size:.2f}")
+            elif s_edge <= -SYNTH_EDGE_THRESHOLD:
+                trade_size = round(trade_size * SYNTH_SIZE_REDUCE, 2)
+                print(f"  [SYNTH] Disagrees: edge={s_edge:+.1%} → ${trade_size:.2f}")
 
         # V2.1: DOWN-bias — UP trades get half size (CSV: DOWN 12/12 100%, UP 3/6 50%)
         if direction == "UP":
@@ -811,6 +897,15 @@ class WhaleConsensus15MTrader:
             else:
                 self.stats["losses"] += 1
             self.stats["pnl"] = round(self.stats["pnl"] + pnl, 2)
+
+            # V3.0: Circuit breaker
+            if won:
+                self._consecutive_losses = 0
+            else:
+                self._consecutive_losses += 1
+                if self._consecutive_losses >= CIRCUIT_BREAKER_LOSSES:
+                    self._circuit_halt_until = time.time() + CIRCUIT_BREAKER_COOLDOWN
+                    print(f"[CIRCUIT BREAKER] {self._consecutive_losses} losses → HALTED {CIRCUIT_BREAKER_COOLDOWN // 60}m")
 
             # Move to resolved
             self.resolved.append(trade)
