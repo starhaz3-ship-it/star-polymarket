@@ -748,13 +748,408 @@
           ]
         ]
       }
+    },
+    {
+      "condition_id": "0x7379ec2349aa0305711ef327ec151bf63a35962d19452ed88be17c29174b3ba0",
+      "question": "Bitcoin Up or Down - February 20, 2:50AM-2:55AM ET",
+      "side": "UP",
+      "entry_price": 0.75,
+      "confidence": 0.75,
+      "up_ask": 0.75,
+      "down_ask": 0.27,
+      "shares": 4.1053,
+      "cost": 3.08,
+      "trade_size_tier": 3.0,
+      "time_remaining_sec": 59.1,
+      "entry_time": "2026-02-20T07:54:05.992563+00:00",
+      "end_dt": "2026-02-20T07:55:00+00:00",
+      "status": "closed",
+      "pnl": 1.03,
+      "result": "WIN",
+      "order_id": "0x803f223841301e801f2ae6a81559c847e3889bfd3581be1c81fb20c1869235f9",
+      "live": true,
+      "strategy": "directional_clob",
+      "_ml_features": {
+        "best_ask_ratio": 0.033,
+        "best_is_largest": false,
+        "depth_levels": 4,
+        "total_depth": 326,
+        "confidence": 0.75,
+        "signal_source": "clob",
+        "opposing_price": 0.27,
+        "spread_sum": 1.02
+      },
+      "_ml_reason": "ml_pass(wr=87%)",
+      "_binance_open": 67881.6,
+      "_binance_current": 67900.01,
+      "_align_bp": 2.7,
+      "market_outcome": "UP",
+      "resolve_time": "2026-02-20T07:55:15.233579+00:00",
+      "signal_audit": {
+        "signal_55s": "FLAT",
+        "pct_55s": 0.0271,
+        "signal_57s": "FLAT",
+        "pct_57s": 0.0271,
+        "signal_60s": "FLAT",
+        "pct_60s": 0.0271,
+        "signal_63s": "FLAT",
+        "pct_63s": 0.0271,
+        "signal_65s": "FLAT",
+        "pct_65s": 0.0271,
+        "actual_direction": "DOWN",
+        "actual_pct": -0.0558,
+        "open_price": 67881.6,
+        "close_price": 67843.7,
+        "candle_closes": [
+          [
+            240.0,
+            67928.4
+          ],
+          [
+            180.0,
+            67905.47
+          ],
+          [
+            120.0,
+            67872.22
+          ],
+          [
+            60.0,
+            67900.0
+          ],
+          [
+            0.0,
+            67889.39
+          ],
+          [
+            -60.0,
+            67843.7
+          ]
+        ]
+      }
+    },
+    {
+      "condition_id": "0x5fdf5a0d4ecca89a2257c270cc8f2ba73d43795aa654110d235faf4bc8d4ccde",
+      "question": "Bitcoin Up or Down - February 20, 3:40AM-3:45AM ET",
+      "side": "DOWN",
+      "entry_price": 0.8,
+      "confidence": 0.8,
+      "up_ask": 0.25,
+      "down_ask": 0.76,
+      "shares": 3.0741,
+      "cost": 2.46,
+      "trade_size_tier": 3.0,
+      "time_remaining_sec": 59.7,
+      "entry_time": "2026-02-20T08:44:05.125931+00:00",
+      "end_dt": "2026-02-20T08:45:00+00:00",
+      "status": "closed",
+      "pnl": 0.61,
+      "result": "WIN",
+      "order_id": "0xa8859fe78f9d57c9b6b22bb0fcef43275d8376457e53fb5af7a4af275f17610d",
+      "live": true,
+      "strategy": "directional_clob",
+      "_ml_features": {
+        "best_ask_ratio": 0.676,
+        "best_is_largest": true,
+        "depth_levels": 2,
+        "total_depth": 129,
+        "confidence": 0.8,
+        "signal_source": "clob",
+        "opposing_price": 0.25,
+        "spread_sum": 1.01
+      },
+      "_ml_reason": "ml_pass(wr=91%)",
+      "_binance_open": 67808.98,
+      "_binance_current": 67799.22,
+      "_align_bp": 1.4,
+      "market_outcome": "DOWN",
+      "resolve_time": "2026-02-20T08:45:16.789221+00:00",
+      "signal_audit": {
+        "signal_55s": "FLAT",
+        "pct_55s": -0.0144,
+        "signal_57s": "FLAT",
+        "pct_57s": -0.0144,
+        "signal_60s": "FLAT",
+        "pct_60s": -0.0144,
+        "signal_63s": "FLAT",
+        "pct_63s": -0.0144,
+        "signal_65s": "FLAT",
+        "pct_65s": -0.0144,
+        "actual_direction": "DOWN",
+        "actual_pct": -0.0203,
+        "open_price": 67808.98,
+        "close_price": 67795.19,
+        "candle_closes": [
+          [
+            240.0,
+            67802.43
+          ],
+          [
+            180.0,
+            67798.59
+          ],
+          [
+            120.0,
+            67808.0
+          ],
+          [
+            60.0,
+            67799.22
+          ],
+          [
+            0.0,
+            67792.86
+          ],
+          [
+            -60.0,
+            67795.19
+          ]
+        ]
+      }
+    },
+    {
+      "condition_id": "0x5219addb1d9102d7544cd93832d1bbf72c492faf32ab1945bc9e5e5b58471ace",
+      "question": "Bitcoin Up or Down - February 20, 4:40AM-4:45AM ET",
+      "side": "UP",
+      "entry_price": 0.68,
+      "confidence": 0.68,
+      "up_ask": 0.7,
+      "down_ask": 0.32,
+      "shares": 4.1765,
+      "cost": 2.84,
+      "trade_size_tier": 3.0,
+      "time_remaining_sec": 59.8,
+      "entry_time": "2026-02-20T09:44:05.433349+00:00",
+      "end_dt": "2026-02-20T09:45:00+00:00",
+      "status": "closed",
+      "pnl": -2.84,
+      "result": "LOSS",
+      "order_id": "0x448ab62b8b47289e03cc834425f234f42defa202592667de533a41591a7956ec",
+      "live": true,
+      "strategy": "directional_clob",
+      "_ml_features": {
+        "best_ask_ratio": 0.373,
+        "best_is_largest": true,
+        "depth_levels": 4,
+        "total_depth": 501,
+        "confidence": 0.68,
+        "signal_source": "clob",
+        "opposing_price": 0.32,
+        "spread_sum": 1.02
+      },
+      "_ml_reason": "ml_pass(wr=76%)",
+      "_binance_open": 68153.92,
+      "_binance_current": 68165.74,
+      "_align_bp": 1.7,
+      "market_outcome": "DOWN",
+      "resolve_time": "2026-02-20T09:45:16.354206+00:00",
+      "signal_audit": {
+        "signal_55s": "FLAT",
+        "pct_55s": 0.0174,
+        "signal_57s": "FLAT",
+        "pct_57s": 0.0174,
+        "signal_60s": "FLAT",
+        "pct_60s": 0.0174,
+        "signal_63s": "FLAT",
+        "pct_63s": 0.0174,
+        "signal_65s": "FLAT",
+        "pct_65s": 0.0174,
+        "actual_direction": "UP",
+        "actual_pct": 0.0095,
+        "open_price": 68153.92,
+        "close_price": 68160.4,
+        "candle_closes": [
+          [
+            240.0,
+            68139.51
+          ],
+          [
+            180.0,
+            68142.55
+          ],
+          [
+            120.0,
+            68164.31
+          ],
+          [
+            60.0,
+            68165.75
+          ],
+          [
+            0.0,
+            68135.42
+          ],
+          [
+            -60.0,
+            68160.4
+          ]
+        ]
+      }
+    },
+    {
+      "condition_id": "0xbdc62655300e2a004f82354b354c74a55d8915053f4ac68c44ad3fbe48b4fe60",
+      "question": "Bitcoin Up or Down - February 20, 6:00AM-6:05AM ET",
+      "side": "DOWN",
+      "entry_price": 0.69,
+      "confidence": 0.69,
+      "up_ask": 0.34,
+      "down_ask": 0.71,
+      "shares": 4.1739,
+      "cost": 2.88,
+      "trade_size_tier": 3.0,
+      "time_remaining_sec": 60.9,
+      "entry_time": "2026-02-20T11:04:04.076626+00:00",
+      "end_dt": "2026-02-20T11:05:00+00:00",
+      "status": "closed",
+      "pnl": 1.29,
+      "result": "WIN",
+      "order_id": "0xb16f0ad2f106ec2b90c4b7258a0a65140de4685adfa2f4acec378cb3217eb75c",
+      "live": true,
+      "strategy": "directional_clob",
+      "_ml_features": {
+        "best_ask_ratio": 0.623,
+        "best_is_largest": true,
+        "depth_levels": 4,
+        "total_depth": 100,
+        "confidence": 0.69,
+        "signal_source": "clob",
+        "opposing_price": 0.34,
+        "spread_sum": 1.05
+      },
+      "_ml_reason": "ml_pass(wr=81%)",
+      "_binance_open": 67948.99,
+      "_binance_current": 67924.0,
+      "_align_bp": 3.7,
+      "market_outcome": "DOWN",
+      "resolve_time": "2026-02-20T11:05:15.141896+00:00",
+      "signal_audit": {
+        "signal_55s": "DOWN",
+        "pct_55s": -0.0317,
+        "signal_57s": "DOWN",
+        "pct_57s": -0.0317,
+        "signal_60s": "DOWN",
+        "pct_60s": -0.0317,
+        "signal_63s": "DOWN",
+        "pct_63s": -0.0317,
+        "signal_65s": "DOWN",
+        "pct_65s": -0.0317,
+        "actual_direction": "UP",
+        "actual_pct": 0.0065,
+        "open_price": 67948.99,
+        "close_price": 67953.39,
+        "candle_closes": [
+          [
+            240.0,
+            67926.43
+          ],
+          [
+            180.0,
+            67955.74
+          ],
+          [
+            120.0,
+            67949.57
+          ],
+          [
+            60.0,
+            67927.45
+          ],
+          [
+            0.0,
+            67920.26
+          ],
+          [
+            -60.0,
+            67953.39
+          ]
+        ]
+      }
+    },
+    {
+      "condition_id": "0x323a58603eca6f2619e7d4fb9b7fa53a044f22a232128fe38ce3ef95f2bc6ef2",
+      "question": "Bitcoin Up or Down - February 20, 7:50AM-7:55AM ET",
+      "side": "UP",
+      "entry_price": 0.71,
+      "confidence": 0.71,
+      "up_ask": 0.71,
+      "down_ask": 0.35,
+      "shares": 5.0213,
+      "cost": 3.57,
+      "trade_size_tier": 3.0,
+      "time_remaining_sec": 58.7,
+      "entry_time": "2026-02-20T12:54:06.767827+00:00",
+      "end_dt": "2026-02-20T12:55:00+00:00",
+      "status": "closed",
+      "pnl": -3.57,
+      "result": "LOSS",
+      "order_id": "0x27d4c0d96e6f69df9655d6042846e0511c7fed47977dad7a1f1d4413105f5a2e",
+      "live": true,
+      "strategy": "directional_clob",
+      "_ml_features": {
+        "best_ask_ratio": 0.673,
+        "best_is_largest": true,
+        "depth_levels": 4,
+        "total_depth": 743,
+        "confidence": 0.71,
+        "signal_source": "clob",
+        "opposing_price": 0.35,
+        "spread_sum": 1.06
+      },
+      "_ml_reason": "ml_pass(wr=72%)",
+      "_binance_open": 67497.61,
+      "_binance_current": 67515.15,
+      "_align_bp": 2.6,
+      "market_outcome": "DOWN",
+      "resolve_time": "2026-02-20T12:55:16.527353+00:00",
+      "signal_audit": {
+        "signal_55s": "UP",
+        "pct_55s": 0.0301,
+        "signal_57s": "UP",
+        "pct_57s": 0.0301,
+        "signal_60s": "UP",
+        "pct_60s": 0.0301,
+        "signal_63s": "UP",
+        "pct_63s": 0.0301,
+        "signal_65s": "UP",
+        "pct_65s": 0.0301,
+        "actual_direction": "DOWN",
+        "actual_pct": -0.0037,
+        "open_price": 67497.61,
+        "close_price": 67495.12,
+        "candle_closes": [
+          [
+            240.0,
+            67509.99
+          ],
+          [
+            180.0,
+            67567.87
+          ],
+          [
+            120.0,
+            67514.02
+          ],
+          [
+            60.0,
+            67517.96
+          ],
+          [
+            0.0,
+            67471.13
+          ],
+          [
+            -60.0,
+            67495.12
+          ]
+        ]
+      }
     }
   ],
   "stats": {
-    "wins": 9,
-    "losses": 1,
-    "pnl": 6.8100000000000005,
-    "skipped": 286
+    "wins": 12,
+    "losses": 3,
+    "pnl": 3.3300000000000014,
+    "skipped": 379
   },
-  "last_updated": "2026-02-20T06:19:59.946781+00:00"
+  "last_updated": "2026-02-20T14:33:06.970053+00:00"
 }

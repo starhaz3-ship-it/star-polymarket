@@ -1,0 +1,204 @@
+{
+  "params": {
+    "time_window_upper": {
+      "3.0": {
+        "alpha": 1,
+        "beta": 1,
+        "trades": 0,
+        "pnl": 0.0
+      },
+      "4.0": {
+        "alpha": 1,
+        "beta": 1,
+        "trades": 0,
+        "pnl": 0.0
+      },
+      "5.0": {
+        "alpha": 1,
+        "beta": 1,
+        "trades": 0,
+        "pnl": 0.0
+      },
+      "6.0": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      },
+      "7.0": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      },
+      "8.0": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      }
+    },
+    "max_entry": {
+      "0.60": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      },
+      "0.65": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      },
+      "0.68": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      },
+      "0.72": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      },
+      "0.75": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      },
+      "0.78": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      }
+    },
+    "contrarian_ceil": {
+      "0.38": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      },
+      "0.40": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      },
+      "0.43": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      },
+      "0.45": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      },
+      "0.48": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      },
+      "0.50": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      }
+    },
+    "momentum_floor": {
+      "0.0004": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      },
+      "0.0006": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      },
+      "0.0008": {
+        "alpha": 1,
+        "beta": 1,
+        "trades": 0,
+        "pnl": 0.0
+      },
+      "0.0010": {
+        "alpha": 1,
+        "beta": 1,
+        "trades": 0,
+        "pnl": 0.0
+      },
+      "0.0012": {
+        "alpha": 1,
+        "beta": 1,
+        "trades": 0,
+        "pnl": 0.0
+      },
+      "0.0015": {
+        "alpha": 1,
+        "beta": 1,
+        "trades": 0,
+        "pnl": 0.0
+      }
+    },
+    "rsi_up": {
+      "50": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      },
+      "53": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      },
+      "55": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      },
+      "58": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      },
+      "60": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      },
+      "63": {
+        "alpha": 1,
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.53
+      }
+    }
+  },
+  "shadow": [],
+  "active": {
+    "time_window_upper": "6.0",
+    "max_entry": "0.72",
+    "contrarian_ceil": "0.45",
+    "momentum_floor": "0.0008",
+    "rsi_up": "55"
+  },
+  "adjustments": [],
+  "total_resolved": 1
+}

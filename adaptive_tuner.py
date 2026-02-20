@@ -348,13 +348,13 @@ MOMENTUM_TUNER_CONFIG = {
         "floor_idx": 0,     # can tighten to 3.0
         "ceil_idx": 5,      # can widen to 8.0
     },
-    # V2.4: ML-tuned quality parameters
+    # V2.5: ML-tuned quality parameters — expanded ranges
     "max_entry": {
-        "bins":   [0.55, 0.58, 0.60, 0.63, 0.65, 0.68],
-        "labels": ["0.55", "0.58", "0.60", "0.63", "0.65", "0.68"],
-        "default_idx": 4,   # 0.65
-        "floor_idx": 1,     # never below 0.58
-        "ceil_idx": 5,      # can go up to 0.68
+        "bins":   [0.60, 0.65, 0.68, 0.72, 0.75, 0.78],
+        "labels": ["0.60", "0.65", "0.68", "0.72", "0.75", "0.78"],
+        "default_idx": 3,   # 0.72 — CSV shows $0.60-$0.80 = 100% WR
+        "floor_idx": 0,     # never below 0.60
+        "ceil_idx": 5,      # can go up to 0.78
     },
     "contrarian_ceil": {
         "bins":   [0.38, 0.40, 0.43, 0.45, 0.48, 0.50],
@@ -364,17 +364,17 @@ MOMENTUM_TUNER_CONFIG = {
         "ceil_idx": 5,      # can tighten to 0.50 (strict)
     },
     "momentum_floor": {
-        "bins":   [0.0006, 0.0008, 0.0010, 0.0012, 0.0015, 0.0018],
-        "labels": ["0.0006", "0.0008", "0.0010", "0.0012", "0.0015", "0.0018"],
-        "default_idx": 3,   # 0.0012
-        "floor_idx": 0,     # can relax to 0.0006
-        "ceil_idx": 5,      # can tighten to 0.0018
+        "bins":   [0.0004, 0.0006, 0.0008, 0.0010, 0.0012, 0.0015],
+        "labels": ["0.0004", "0.0006", "0.0008", "0.0010", "0.0012", "0.0015"],
+        "default_idx": 2,   # 0.0008 — lowered from 0.0012, was blocking too many signals
+        "floor_idx": 0,     # can relax to 0.0004
+        "ceil_idx": 5,      # can tighten to 0.0015
     },
     "rsi_up": {
-        "bins":   [55, 58, 60, 62, 65, 68],
-        "labels": ["55", "58", "60", "62", "65", "68"],
-        "default_idx": 3,   # 62
-        "floor_idx": 1,     # never below 58
-        "ceil_idx": 5,      # can tighten to 68
+        "bins":   [50, 53, 55, 58, 60, 63],
+        "labels": ["50", "53", "55", "58", "60", "63"],
+        "default_idx": 2,   # 55 — lowered from 62 — BTC RSI neutral most of the time
+        "floor_idx": 0,     # can relax to 50 (no RSI filter)
+        "ceil_idx": 5,      # can tighten to 63
     },
 }

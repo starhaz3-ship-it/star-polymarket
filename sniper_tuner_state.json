@@ -1,0 +1,527 @@
+{
+  "params": {
+    "max_entry": {
+      "0.72": {
+        "alpha": 11,
+        "beta": 5,
+        "trades": 14,
+        "pnl": 0.51
+      },
+      "0.74": {
+        "alpha": 11,
+        "beta": 5,
+        "trades": 14,
+        "pnl": 0.51
+      },
+      "0.76": {
+        "alpha": 17,
+        "beta": 7,
+        "trades": 22,
+        "pnl": 0.5
+      },
+      "0.78": {
+        "alpha": 19,
+        "beta": 7,
+        "trades": 24,
+        "pnl": 0.95
+      },
+      "0.80": {
+        "alpha": 21,
+        "beta": 7,
+        "trades": 26,
+        "pnl": 1.35
+      },
+      "0.82": {
+        "alpha": 26,
+        "beta": 10,
+        "trades": 34,
+        "pnl": -0.16
+      }
+    },
+    "clob_upper": {
+      "0.72": {
+        "alpha": 11,
+        "beta": 5,
+        "trades": 14,
+        "pnl": 0.51
+      },
+      "0.74": {
+        "alpha": 11,
+        "beta": 5,
+        "trades": 14,
+        "pnl": 0.51
+      },
+      "0.76": {
+        "alpha": 17,
+        "beta": 7,
+        "trades": 22,
+        "pnl": 0.5
+      },
+      "0.78": {
+        "alpha": 19,
+        "beta": 7,
+        "trades": 24,
+        "pnl": 0.95
+      },
+      "0.80": {
+        "alpha": 21,
+        "beta": 7,
+        "trades": 26,
+        "pnl": 1.35
+      },
+      "0.82": {
+        "alpha": 26,
+        "beta": 10,
+        "trades": 34,
+        "pnl": -0.16
+      }
+    }
+  },
+  "shadow": [
+    {
+      "market_id": "0x7e2fa45dcd743d5628263947cf9e62077705715e8b9272f1828fa1668100c385",
+      "end_time": "2026-02-20T14:35:00+00:00",
+      "side": "UP",
+      "entry_price": 0.96,
+      "clob_dominant": 0.95,
+      "ts": "2026-02-20T14:34:02.163532+00:00",
+      "extra": {}
+    }
+  ],
+  "active": {
+    "max_entry": "0.76",
+    "clob_upper": "0.76"
+  },
+  "adjustments": [
+    {
+      "param": "max_entry",
+      "old": "0.78",
+      "new": "0.82",
+      "old_wr": 75.0,
+      "new_wr": 80.0,
+      "old_trades": 2,
+      "new_trades": 3,
+      "total_resolved": 10,
+      "ts": "2026-02-20T00:10:20.977584+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.78",
+      "new": "0.82",
+      "old_wr": 75.0,
+      "new_wr": 80.0,
+      "old_trades": 2,
+      "new_trades": 3,
+      "total_resolved": 10,
+      "ts": "2026-02-20T00:10:20.977584+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.82",
+      "new": "0.80",
+      "old_wr": 83.3,
+      "new_wr": 80.0,
+      "old_trades": 4,
+      "new_trades": 3,
+      "total_resolved": 15,
+      "ts": "2026-02-20T00:40:22.793968+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.82",
+      "new": "0.78",
+      "old_wr": 75.0,
+      "new_wr": 83.3,
+      "old_trades": 6,
+      "new_trades": 4,
+      "total_resolved": 20,
+      "ts": "2026-02-20T01:10:23.964237+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.80",
+      "new": "0.74",
+      "old_wr": 83.3,
+      "new_wr": 80.0,
+      "old_trades": 4,
+      "new_trades": 3,
+      "total_resolved": 25,
+      "ts": "2026-02-20T01:45:21.104196+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.78",
+      "new": "0.76",
+      "old_wr": 83.3,
+      "new_wr": 80.0,
+      "old_trades": 4,
+      "new_trades": 3,
+      "total_resolved": 25,
+      "ts": "2026-02-20T01:45:21.104196+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.74",
+      "new": "0.80",
+      "old_wr": 83.3,
+      "new_wr": 88.9,
+      "old_trades": 4,
+      "new_trades": 7,
+      "total_resolved": 30,
+      "ts": "2026-02-20T02:10:22.354757+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.76",
+      "new": "0.80",
+      "old_wr": 85.7,
+      "new_wr": 88.9,
+      "old_trades": 5,
+      "new_trades": 7,
+      "total_resolved": 30,
+      "ts": "2026-02-20T02:10:22.354757+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.80",
+      "new": "0.82",
+      "old_wr": 88.9,
+      "new_wr": 83.3,
+      "old_trades": 7,
+      "new_trades": 10,
+      "total_resolved": 35,
+      "ts": "2026-02-20T02:40:22.557007+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.80",
+      "new": "0.74",
+      "old_wr": 88.9,
+      "new_wr": 83.3,
+      "old_trades": 7,
+      "new_trades": 4,
+      "total_resolved": 35,
+      "ts": "2026-02-20T02:40:22.557007+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.82",
+      "new": "0.78",
+      "old_wr": 85.7,
+      "new_wr": 90.9,
+      "old_trades": 12,
+      "new_trades": 9,
+      "total_resolved": 40,
+      "ts": "2026-02-20T03:10:22.054587+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.74",
+      "new": "0.80",
+      "old_wr": 87.5,
+      "new_wr": 90.9,
+      "old_trades": 6,
+      "new_trades": 9,
+      "total_resolved": 40,
+      "ts": "2026-02-20T03:10:22.054587+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.78",
+      "new": "0.80",
+      "old_wr": 90.9,
+      "new_wr": 90.9,
+      "old_trades": 9,
+      "new_trades": 9,
+      "total_resolved": 45,
+      "ts": "2026-02-20T03:50:21.759079+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.80",
+      "new": "0.76",
+      "old_wr": 84.6,
+      "new_wr": 81.8,
+      "old_trades": 11,
+      "new_trades": 9,
+      "total_resolved": 55,
+      "ts": "2026-02-20T05:00:22.508279+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.80",
+      "new": "0.78",
+      "old_wr": 84.6,
+      "new_wr": 84.6,
+      "old_trades": 11,
+      "new_trades": 11,
+      "total_resolved": 55,
+      "ts": "2026-02-20T05:00:22.508279+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.76",
+      "new": "0.74",
+      "old_wr": 83.3,
+      "new_wr": 80.0,
+      "old_trades": 10,
+      "new_trades": 8,
+      "total_resolved": 60,
+      "ts": "2026-02-20T05:40:22.917401+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.74",
+      "new": "0.78",
+      "old_wr": 80.0,
+      "new_wr": 87.5,
+      "old_trades": 8,
+      "new_trades": 14,
+      "total_resolved": 65,
+      "ts": "2026-02-20T06:10:23.305636+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.78",
+      "new": "0.74",
+      "old_wr": 87.5,
+      "new_wr": 80.0,
+      "old_trades": 14,
+      "new_trades": 8,
+      "total_resolved": 70,
+      "ts": "2026-02-20T06:55:21.623795+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.74",
+      "new": "0.78",
+      "old_wr": 81.8,
+      "new_wr": 83.3,
+      "old_trades": 9,
+      "new_trades": 16,
+      "total_resolved": 75,
+      "ts": "2026-02-20T07:30:23.239621+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.78",
+      "new": "0.82",
+      "old_wr": 80.0,
+      "new_wr": 78.6,
+      "old_trades": 18,
+      "new_trades": 26,
+      "total_resolved": 80,
+      "ts": "2026-02-20T08:05:21.004573+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.78",
+      "new": "0.82",
+      "old_wr": 80.0,
+      "new_wr": 78.6,
+      "old_trades": 18,
+      "new_trades": 26,
+      "total_resolved": 80,
+      "ts": "2026-02-20T08:05:21.004573+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.82",
+      "new": "0.80",
+      "old_wr": 78.6,
+      "new_wr": 81.0,
+      "old_trades": 26,
+      "new_trades": 19,
+      "total_resolved": 85,
+      "ts": "2026-02-20T08:30:21.282091+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.82",
+      "new": "0.78",
+      "old_wr": 78.6,
+      "new_wr": 80.0,
+      "old_trades": 26,
+      "new_trades": 18,
+      "total_resolved": 85,
+      "ts": "2026-02-20T08:30:21.282091+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.78",
+      "new": "0.74",
+      "old_wr": 80.0,
+      "new_wr": 75.0,
+      "old_trades": 18,
+      "new_trades": 10,
+      "total_resolved": 90,
+      "ts": "2026-02-20T09:10:22.519364+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.80",
+      "new": "0.76",
+      "old_wr": 79.2,
+      "new_wr": 75.0,
+      "old_trades": 22,
+      "new_trades": 18,
+      "total_resolved": 95,
+      "ts": "2026-02-20T09:40:20.995346+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.74",
+      "new": "0.76",
+      "old_wr": 76.9,
+      "new_wr": 75.0,
+      "old_trades": 11,
+      "new_trades": 18,
+      "total_resolved": 95,
+      "ts": "2026-02-20T09:40:20.995346+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.76",
+      "new": "0.82",
+      "old_wr": 71.4,
+      "new_wr": 75.0,
+      "old_trades": 19,
+      "new_trades": 30,
+      "total_resolved": 100,
+      "ts": "2026-02-20T10:10:20.962270+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.76",
+      "new": "0.80",
+      "old_wr": 71.4,
+      "new_wr": 76.0,
+      "old_trades": 19,
+      "new_trades": 23,
+      "total_resolved": 100,
+      "ts": "2026-02-20T10:10:20.962270+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.82",
+      "new": "0.80",
+      "old_wr": 75.0,
+      "new_wr": 76.0,
+      "old_trades": 30,
+      "new_trades": 23,
+      "total_resolved": 105,
+      "ts": "2026-02-20T10:40:21.343299+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.80",
+      "new": "0.78",
+      "old_wr": 76.0,
+      "new_wr": 73.9,
+      "old_trades": 23,
+      "new_trades": 21,
+      "total_resolved": 105,
+      "ts": "2026-02-20T10:40:21.344302+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.80",
+      "new": "0.74",
+      "old_wr": 76.9,
+      "new_wr": 73.3,
+      "old_trades": 24,
+      "new_trades": 13,
+      "total_resolved": 110,
+      "ts": "2026-02-20T11:05:22.947489+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.78",
+      "new": "0.80",
+      "old_wr": 75.0,
+      "new_wr": 76.9,
+      "old_trades": 22,
+      "new_trades": 24,
+      "total_resolved": 110,
+      "ts": "2026-02-20T11:05:22.948498+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.74",
+      "new": "0.76",
+      "old_wr": 73.3,
+      "new_wr": 73.9,
+      "old_trades": 13,
+      "new_trades": 21,
+      "total_resolved": 115,
+      "ts": "2026-02-20T11:30:22.852392+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.80",
+      "new": "0.82",
+      "old_wr": 77.8,
+      "new_wr": 76.5,
+      "old_trades": 25,
+      "new_trades": 32,
+      "total_resolved": 115,
+      "ts": "2026-02-20T11:30:22.852392+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.76",
+      "new": "0.78",
+      "old_wr": 73.9,
+      "new_wr": 76.0,
+      "old_trades": 21,
+      "new_trades": 23,
+      "total_resolved": 120,
+      "ts": "2026-02-20T12:05:23.896865+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.82",
+      "new": "0.74",
+      "old_wr": 76.5,
+      "new_wr": 73.3,
+      "old_trades": 32,
+      "new_trades": 13,
+      "total_resolved": 125,
+      "ts": "2026-02-20T12:35:21.419900+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.78",
+      "new": "0.82",
+      "old_wr": 73.1,
+      "new_wr": 74.3,
+      "old_trades": 24,
+      "new_trades": 33,
+      "total_resolved": 130,
+      "ts": "2026-02-20T13:00:21.050725+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.82",
+      "new": "0.76",
+      "old_wr": 72.2,
+      "new_wr": 70.8,
+      "old_trades": 34,
+      "new_trades": 22,
+      "total_resolved": 135,
+      "ts": "2026-02-20T13:55:23.139671+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.74",
+      "new": "0.76",
+      "old_wr": 68.8,
+      "new_wr": 70.8,
+      "old_trades": 14,
+      "new_trades": 22,
+      "total_resolved": 135,
+      "ts": "2026-02-20T13:55:23.139671+00:00"
+    }
+  ],
+  "total_resolved": 139
+}

@@ -76,7 +76,7 @@ RSI_CONTRARIAN_HI = 35
 RSI_MODERATE_DOWN_LO = 30   # V1.9b: Widened from 35 to 30
 RSI_MODERATE_DOWN_HI = 50
 MIN_ENTRY = 0.35            # V1.1: Raised from $0.10 — entries <$0.35 were 0W/3L (0% WR, -$7.50)
-MAX_ENTRY = 0.70            # V2.4: Hardcoded safety ceiling — ML tuner controls actual threshold (0.55-0.68 range)
+MAX_ENTRY = 0.80            # V2.5: Raised from 0.70 — CSV shows $0.60-$0.80 entries = 100% WR (59 trades)
 TIME_WINDOW = (2.0, 6.0)    # V2.3: Widened from (2,4) — more entry opportunities while preserving edge
 SPREAD_OFFSET = 0.02        # paper fill spread simulation (ignored in live)
 RESOLVE_AGE_MIN = 18.0      # minutes before forcing resolution via API
@@ -87,7 +87,7 @@ AUTO_KILL_MIN_WR = 0.50     # V1.2: minimum win rate to stay alive
 MIN_SHARES = 5              # CLOB minimum order size
 FOK_SLIPPAGE = 0.07         # V2.3.1: bumped from 0.03 — GTC orders weren't filling on thin books near close
 CONTRARIAN_ENTRY_CEIL = 0.45  # V2.4: If entry < this, CLOB disagrees — require consensus
-MOMENTUM_HARD_FLOOR = 0.0012  # V2.4: Minimum abs(momentum_10m), blocks noise-level 0.05-0.10% signals
+MOMENTUM_HARD_FLOOR = 0.0008  # V2.5: Lowered from 0.0012 — was blocking too many valid signals
 
 # V1.6: Streak reversal — bet AGAINST long streaks (backtested on 50K markets: 55% WR)
 STREAK_REVERSAL_MIN_STREAK = 3   # Minimum streak length to trigger reversal entry
@@ -1794,6 +1794,34 @@ class Momentum15MTrader:
                     pass
 
     # ========================================================================
+    # V2.5: RESOLVE TUNER SHADOWS — feed market outcomes to ML ParameterTuner
+    # ========================================================================
+    def _resolve_tuner_shadows(self):
+        """Resolve ML tuner shadow entries using Polymarket WS resolution data.
+        Shadows store token_ids; WS resolved_markets is keyed by token_id.
+        Match them up and feed outcomes to the tuner."""
+        if not self.poly_ws.is_connected():
+            return
+        shadows = self.tuner.state.get("shadow", [])
+        if not shadows:
+            return
+        resolutions = {}
+        for entry in shadows:
+            mid = entry.get("market_id")
+            tids = entry.get("extra", {}).get("token_ids", [])
+            if not tids or mid in resolutions:
+                continue
+            for tid in tids:
+                ws_res = self.poly_ws.resolved_markets.get(tid)
+                if ws_res and ws_res.get("winning"):
+                    resolutions[mid] = ws_res["winning"].upper()
+                    break
+        if resolutions:
+            n = self.tuner.resolve_shadows(resolutions)
+            if n > 0:
+                print(f"[ML-TUNE] Resolved {n} shadow markets | Total: {self.tuner.state.get('total_resolved', 0)}")
+
+    # ========================================================================
     # V2.1: FRAMA_CMO SIGNAL (15M candle-based trend pullback strategy)
     # ========================================================================
 
@@ -2183,7 +2211,8 @@ class Momentum15MTrader:
                     side=side, entry_price=entry_price, clob_dominant=entry_price,
                     extra={"time_left_min": round(time_left, 1), "consensus": False,
                            "momentum_10m": momentum_10m, "rsi": rsi_val or 50,
-                           "skip_reason": "contrarian_gate"})
+                           "skip_reason": "contrarian_gate",
+                           "token_ids": list(self.get_token_ids(market))})
                 print(f"    [CONTRARIAN-SKIP] {side} @ ${entry_price:.2f} < ${ml_contrarian_ceil:.2f} — no consensus")
                 continue
 
@@ -2194,18 +2223,21 @@ class Momentum15MTrader:
                     side=side, entry_price=entry_price, clob_dominant=entry_price,
                     extra={"time_left_min": round(time_left, 1), "consensus": consensus,
                            "momentum_10m": momentum_10m, "rsi": rsi_val or 50,
-                           "skip_reason": "weak_momentum"})
+                           "skip_reason": "weak_momentum",
+                           "token_ids": list(self.get_token_ids(market))})
                 print(f"    [WEAK-MOM-SKIP] {side} @ ${entry_price:.2f} — mom10m={momentum_10m:.4f} < {ml_mom_floor:.4f}")
                 continue
 
             # Filter 3: RSI floor for UP signals (ML-tuned)
-            if side == "UP" and rsi_val is not None and rsi_val < ml_rsi_up:
+            # V2.5: Only apply to momentum_strong — FRAMA_CMO uses CMO, consensus already multi-signal
+            if side == "UP" and strategy == "momentum_strong" and rsi_val is not None and rsi_val < ml_rsi_up:
                 self.tuner.record_shadow(
                     market_id=cid, end_time_iso=market.get("_end_dt", now.isoformat()),
                     side=side, entry_price=entry_price, clob_dominant=entry_price,
                     extra={"time_left_min": round(time_left, 1), "consensus": consensus,
                            "momentum_10m": momentum_10m, "rsi": rsi_val,
-                           "skip_reason": "rsi_too_low"})
+                           "skip_reason": "rsi_too_low",
+                           "token_ids": list(self.get_token_ids(market))})
                 print(f"    [RSI-SKIP] UP @ ${entry_price:.2f} — RSI={rsi_val:.0f} < {ml_rsi_up:.0f}")
                 continue
 
@@ -2511,7 +2543,7 @@ class Momentum15MTrader:
         mode = "PAPER" if self.paper else "LIVE"
         print("=" * 70)
         tier_size = TIERS[self.tier]["size"]
-        print(f"MOMENTUM 15M DIRECTIONAL TRADER V2.4 - {mode} MODE")
+        print(f"MOMENTUM 15M DIRECTIONAL TRADER V2.5 - {mode} MODE")
         print(f"Strategy: momentum_strong + FRAMA_CMO + Black-Scholes edge | BTC only")
         print(f"Assets: {', '.join(ASSETS.keys())}")
         print(f"Tier: {self.tier} (${tier_size:.2f}/trade) | Max concurrent: {MAX_CONCURRENT}")
@@ -2524,12 +2556,12 @@ class Momentum15MTrader:
         print(f"  BS-EDGE:       Black-Scholes fair value vs CLOB price (shadow paper)")
         print(f"  CONSENSUS:     2+ signals agree -> {CONSENSUS_SIZE_MULT}x | 3 agree -> 2x")
         tuner_vals = self.tuner.get_active_values()
-        print(f"V2.4 ML-TUNED quality filters (auto-adjusting via Thompson sampling):")
+        print(f"V2.5 ML-TUNED quality filters (auto-adjusting via Thompson sampling):")
         print(f"  CONTRARIAN:    entry<${tuner_vals.get('contrarian_ceil', 0.45):.2f} needs consensus")
-        print(f"  MOM FLOOR:     abs(mom10m)>{tuner_vals.get('momentum_floor', 0.0012):.4f}")
-        print(f"  RSI UP:        RSI>{tuner_vals.get('rsi_up', 62):.0f} for UP signals")
-        print(f"  MAX ENTRY:     ${tuner_vals.get('max_entry', 0.65):.2f}")
-        print(f"V2.4 volume: HMM CHOPPY unblocked, all regimes trade")
+        print(f"  MOM FLOOR:     abs(mom10m)>{tuner_vals.get('momentum_floor', 0.0008):.4f}")
+        print(f"  RSI UP:        RSI>{tuner_vals.get('rsi_up', 55):.0f} for momentum_strong UP only (not FRAMA/consensus)")
+        print(f"  MAX ENTRY:     ${tuner_vals.get('max_entry', 0.72):.2f}")
+        print(f"V2.5 fixes: RSI exempts FRAMA/consensus, raised MAX_ENTRY to $0.80, shadow resolution wired")
         print(f"FOK orders + fill verify (V1.8) | ML filter reset (clean priors)")
         print(f"Skip hours (UTC): {{7}} (2AM ET only)")
         print(f"Daily loss limit: ${DAILY_LOSS_LIMIT}")
@@ -2586,6 +2618,9 @@ class Momentum15MTrader:
 
                 # Resolve expired trades
                 await self.resolve_trades()
+
+                # V2.5: Resolve ML tuner shadows using WS market resolution data
+                self._resolve_tuner_shadows()
 
                 # Find new entries
                 await self.find_entries(all_candles, markets)

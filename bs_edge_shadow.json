@@ -1,0 +1,54 @@
+{
+  "active": {
+    "0x81607e2a87fe1f0556a0793c42e5b24d829711dd30a8c5292b1b716358333016": {
+      "side": "DOWN",
+      "entry_price": 0.515,
+      "edge": 0.3497,
+      "ts": "2026-02-20T06:26:18.205535+00:00"
+    },
+    "0xe3625ee1039e366e188938a52dfa7860ca4ead8e4fa509cb77eb7248915919a4": {
+      "side": "DOWN",
+      "entry_price": 0.38,
+      "edge": 0.1352,
+      "ts": "2026-02-20T08:09:49.477557+00:00"
+    },
+    "0x177f9e51873bde42370ec95efe713fc3ad86d9fad2083e373e7c19b9fc18d525": {
+      "side": "DOWN",
+      "entry_price": 0.37,
+      "edge": 0.1605,
+      "ts": "2026-02-20T09:25:01.119131+00:00"
+    },
+    "0xadc442b9202b318ec885270ae8c041b5201dc20e3cbe6c3071c4ccd67afd6439": {
+      "side": "DOWN",
+      "entry_price": 0.61,
+      "edge": 0.0752,
+      "ts": "2026-02-20T09:39:22.545189+00:00"
+    },
+    "0x03a4a1f6ca1877858933a31161dd7d7a9fecc266ec1884e0e7cbbaae045a7835": {
+      "side": "UP",
+      "entry_price": 0.52,
+      "edge": 0.4301,
+      "ts": "2026-02-20T11:27:47.138364+00:00"
+    },
+    "0x877aed3b9219f7d13d9c14dc193b9c42af31e51560df46fd14403e6c72bae642": {
+      "side": "DOWN",
+      "entry_price": 0.35,
+      "edge": 0.2578,
+      "ts": "2026-02-20T11:57:56.543990+00:00"
+    },
+    "0xe1301a4b58188240df317873ae88ea3c8ec6cfccf0c2a1770397555b2121ddd9": {
+      "side": "UP",
+      "entry_price": 0.67,
+      "edge": 0.0567,
+      "ts": "2026-02-20T12:56:11.703488+00:00"
+    },
+    "0x4efe335cb0292a7e5c17973e9b7fe4d4570fc845668b6b8f7cd16532075115cc": {
+      "side": "UP",
+      "entry_price": 0.6,
+      "edge": 0.0558,
+      "ts": "2026-02-20T14:25:04.973194+00:00"
+    }
+  },
+  "resolved": [],
+  "promoted": false
+}

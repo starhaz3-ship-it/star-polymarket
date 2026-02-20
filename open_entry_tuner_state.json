@@ -1,0 +1,585 @@
+{
+  "params": {
+    "signal_threshold_bp": {
+      "0.5": {
+        "alpha": 92,
+        "beta": 41,
+        "trades": 131,
+        "pnl": 25.5
+      },
+      "1.0": {
+        "alpha": 82,
+        "beta": 33,
+        "trades": 113,
+        "pnl": 24.5
+      },
+      "2.0": {
+        "alpha": 66,
+        "beta": 21,
+        "trades": 85,
+        "pnl": 22.5
+      },
+      "3.0": {
+        "alpha": 50,
+        "beta": 11,
+        "trades": 59,
+        "pnl": 19.5
+      },
+      "5.0": {
+        "alpha": 26,
+        "beta": 4,
+        "trades": 28,
+        "pnl": 11.0
+      },
+      "8.0": {
+        "alpha": 15,
+        "beta": 4,
+        "trades": 17,
+        "pnl": 5.5
+      }
+    },
+    "entry_delay_sec": {
+      "30": {
+        "alpha": 68,
+        "beta": 37,
+        "trades": 103,
+        "pnl": 15.5
+      },
+      "60": {
+        "alpha": 38,
+        "beta": 25,
+        "trades": 61,
+        "pnl": 6.5
+      },
+      "90": {
+        "alpha": 18,
+        "beta": 15,
+        "trades": 31,
+        "pnl": 1.5
+      },
+      "120": {
+        "alpha": 7,
+        "beta": 7,
+        "trades": 12,
+        "pnl": 0.0
+      },
+      "150": {
+        "alpha": 4,
+        "beta": 5,
+        "trades": 7,
+        "pnl": -0.5
+      },
+      "180": {
+        "alpha": 2,
+        "beta": 1,
+        "trades": 1,
+        "pnl": 0.5
+      }
+    }
+  },
+  "shadow": [
+    {
+      "market_id": "0x7e2fa45dcd743d5628263947cf9e62077705715e8b9272f1828fa1668100c385",
+      "end_time": "2026-02-20T14:35:00+00:00",
+      "side": "DOWN",
+      "entry_price": 0.5,
+      "clob_dominant": 20.577793629946648,
+      "ts": "2026-02-20T14:30:16.400536+00:00",
+      "extra": {
+        "elapsed_sec": 15.67931,
+        "strength_bp": -20.577793629946648
+      }
+    }
+  ],
+  "active": {
+    "signal_threshold_bp": "5.0",
+    "entry_delay_sec": "30"
+  },
+  "adjustments": [
+    {
+      "param": "signal_threshold_bp",
+      "old": "2.0",
+      "new": "3.0",
+      "old_wr": 57.1,
+      "new_wr": 80.0,
+      "old_trades": 5,
+      "new_trades": 3,
+      "total_resolved": 10,
+      "ts": "2026-02-20T02:56:05.852261+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "150",
+      "new": "30",
+      "old_wr": 60.0,
+      "new_wr": 50.0,
+      "old_trades": 3,
+      "new_trades": 10,
+      "total_resolved": 10,
+      "ts": "2026-02-20T02:56:05.852261+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "3.0",
+      "new": "5.0",
+      "old_wr": 88.9,
+      "new_wr": 83.3,
+      "old_trades": 7,
+      "new_trades": 4,
+      "total_resolved": 20,
+      "ts": "2026-02-20T03:55:56.068609+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "30",
+      "new": "150",
+      "old_wr": 50.0,
+      "new_wr": 60.0,
+      "old_trades": 14,
+      "new_trades": 3,
+      "total_resolved": 20,
+      "ts": "2026-02-20T03:55:56.069109+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "5.0",
+      "new": "1.0",
+      "old_wr": 85.7,
+      "new_wr": 71.4,
+      "old_trades": 5,
+      "new_trades": 19,
+      "total_resolved": 25,
+      "ts": "2026-02-20T04:21:19.404943+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "150",
+      "new": "90",
+      "old_wr": 60.0,
+      "new_wr": 56.2,
+      "old_trades": 3,
+      "new_trades": 14,
+      "total_resolved": 25,
+      "ts": "2026-02-20T04:21:19.404943+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "1.0",
+      "new": "3.0",
+      "old_wr": 68.0,
+      "new_wr": 84.6,
+      "old_trades": 23,
+      "new_trades": 11,
+      "total_resolved": 30,
+      "ts": "2026-02-20T04:45:53.301230+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "90",
+      "new": "150",
+      "old_wr": 52.9,
+      "new_wr": 60.0,
+      "old_trades": 15,
+      "new_trades": 3,
+      "total_resolved": 30,
+      "ts": "2026-02-20T04:45:53.301230+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "3.0",
+      "new": "1.0",
+      "old_wr": 85.7,
+      "new_wr": 65.5,
+      "old_trades": 12,
+      "new_trades": 27,
+      "total_resolved": 35,
+      "ts": "2026-02-20T05:11:03.903941+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "150",
+      "new": "120",
+      "old_wr": 44.4,
+      "new_wr": 44.4,
+      "old_trades": 7,
+      "new_trades": 7,
+      "total_resolved": 35,
+      "ts": "2026-02-20T05:11:03.904946+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "1.0",
+      "new": "3.0",
+      "old_wr": 68.8,
+      "new_wr": 87.5,
+      "old_trades": 30,
+      "new_trades": 14,
+      "total_resolved": 40,
+      "ts": "2026-02-20T05:35:21.523768+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "3.0",
+      "new": "5.0",
+      "old_wr": 81.0,
+      "new_wr": 81.8,
+      "old_trades": 19,
+      "new_trades": 9,
+      "total_resolved": 45,
+      "ts": "2026-02-20T06:00:57.503875+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "120",
+      "new": "150",
+      "old_wr": 53.8,
+      "new_wr": 44.4,
+      "old_trades": 11,
+      "new_trades": 7,
+      "total_resolved": 45,
+      "ts": "2026-02-20T06:00:57.503875+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "150",
+      "new": "90",
+      "old_wr": 44.4,
+      "new_wr": 54.8,
+      "old_trades": 7,
+      "new_trades": 29,
+      "total_resolved": 50,
+      "ts": "2026-02-20T06:26:17.645055+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "5.0",
+      "new": "3.0",
+      "old_wr": 76.9,
+      "new_wr": 80.8,
+      "old_trades": 11,
+      "new_trades": 24,
+      "total_resolved": 55,
+      "ts": "2026-02-20T06:50:45.643130+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "90",
+      "new": "30",
+      "old_wr": 56.2,
+      "new_wr": 56.0,
+      "old_trades": 30,
+      "new_trades": 48,
+      "total_resolved": 55,
+      "ts": "2026-02-20T06:50:45.643130+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "3.0",
+      "new": "5.0",
+      "old_wr": 77.8,
+      "new_wr": 76.9,
+      "old_trades": 25,
+      "new_trades": 11,
+      "total_resolved": 60,
+      "ts": "2026-02-20T07:15:23.738514+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "30",
+      "new": "90",
+      "old_wr": 55.6,
+      "new_wr": 56.2,
+      "old_trades": 52,
+      "new_trades": 30,
+      "total_resolved": 60,
+      "ts": "2026-02-20T07:15:23.739518+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "5.0",
+      "new": "3.0",
+      "old_wr": 76.9,
+      "new_wr": 79.3,
+      "old_trades": 11,
+      "new_trades": 27,
+      "total_resolved": 65,
+      "ts": "2026-02-20T07:40:51.709693+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "90",
+      "new": "60",
+      "old_wr": 56.2,
+      "new_wr": 59.1,
+      "old_trades": 30,
+      "new_trades": 42,
+      "total_resolved": 65,
+      "ts": "2026-02-20T07:40:51.709693+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "3.0",
+      "new": "5.0",
+      "old_wr": 80.6,
+      "new_wr": 80.0,
+      "old_trades": 29,
+      "new_trades": 13,
+      "total_resolved": 70,
+      "ts": "2026-02-20T08:05:23.003326+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "60",
+      "new": "90",
+      "old_wr": 60.0,
+      "new_wr": 56.2,
+      "old_trades": 43,
+      "new_trades": 30,
+      "total_resolved": 70,
+      "ts": "2026-02-20T08:05:23.004329+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "5.0",
+      "new": "8.0",
+      "old_wr": 81.2,
+      "new_wr": 70.0,
+      "old_trades": 14,
+      "new_trades": 8,
+      "total_resolved": 75,
+      "ts": "2026-02-20T08:30:51.513554+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "90",
+      "new": "120",
+      "old_wr": 56.2,
+      "new_wr": 53.8,
+      "old_trades": 30,
+      "new_trades": 11,
+      "total_resolved": 75,
+      "ts": "2026-02-20T08:30:51.513554+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "8.0",
+      "new": "3.0",
+      "old_wr": 70.0,
+      "new_wr": 82.9,
+      "old_trades": 8,
+      "new_trades": 33,
+      "total_resolved": 80,
+      "ts": "2026-02-20T08:56:15.899758+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "120",
+      "new": "90",
+      "old_wr": 53.8,
+      "new_wr": 56.2,
+      "old_trades": 11,
+      "new_trades": 30,
+      "total_resolved": 80,
+      "ts": "2026-02-20T08:56:15.899758+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "90",
+      "new": "30",
+      "old_wr": 56.2,
+      "new_wr": 62.3,
+      "old_trades": 30,
+      "new_trades": 75,
+      "total_resolved": 85,
+      "ts": "2026-02-20T09:20:44.255802+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "3.0",
+      "new": "8.0",
+      "old_wr": 83.8,
+      "new_wr": 72.7,
+      "old_trades": 35,
+      "new_trades": 9,
+      "total_resolved": 90,
+      "ts": "2026-02-20T09:45:21.396910+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "30",
+      "new": "60",
+      "old_wr": 62.0,
+      "new_wr": 63.2,
+      "old_trades": 77,
+      "new_trades": 55,
+      "total_resolved": 90,
+      "ts": "2026-02-20T09:45:21.396910+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "8.0",
+      "new": "5.0",
+      "old_wr": 72.7,
+      "new_wr": 83.3,
+      "old_trades": 9,
+      "new_trades": 16,
+      "total_resolved": 95,
+      "ts": "2026-02-20T10:10:52.958860+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "60",
+      "new": "30",
+      "old_wr": 62.1,
+      "new_wr": 62.7,
+      "old_trades": 56,
+      "new_trades": 81,
+      "total_resolved": 95,
+      "ts": "2026-02-20T10:10:52.958860+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "30",
+      "new": "120",
+      "old_wr": 63.5,
+      "new_wr": 53.8,
+      "old_trades": 83,
+      "new_trades": 11,
+      "total_resolved": 100,
+      "ts": "2026-02-20T10:35:25.516766+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "120",
+      "new": "60",
+      "old_wr": 50.0,
+      "new_wr": 60.7,
+      "old_trades": 12,
+      "new_trades": 59,
+      "total_resolved": 105,
+      "ts": "2026-02-20T11:00:51.981274+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "5.0",
+      "new": "3.0",
+      "old_wr": 85.7,
+      "new_wr": 83.7,
+      "old_trades": 19,
+      "new_trades": 41,
+      "total_resolved": 110,
+      "ts": "2026-02-20T11:25:21.756008+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "60",
+      "new": "90",
+      "old_wr": 60.7,
+      "new_wr": 54.5,
+      "old_trades": 59,
+      "new_trades": 31,
+      "total_resolved": 110,
+      "ts": "2026-02-20T11:25:21.756008+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "3.0",
+      "new": "8.0",
+      "old_wr": 84.8,
+      "new_wr": 76.9,
+      "old_trades": 44,
+      "new_trades": 11,
+      "total_resolved": 115,
+      "ts": "2026-02-20T11:50:58.068516+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "90",
+      "new": "30",
+      "old_wr": 54.5,
+      "new_wr": 63.6,
+      "old_trades": 31,
+      "new_trades": 97,
+      "total_resolved": 115,
+      "ts": "2026-02-20T11:50:58.068516+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "8.0",
+      "new": "5.0",
+      "old_wr": 78.6,
+      "new_wr": 88.0,
+      "old_trades": 12,
+      "new_trades": 23,
+      "total_resolved": 120,
+      "ts": "2026-02-20T12:15:29.947001+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "30",
+      "new": "60",
+      "old_wr": 64.0,
+      "new_wr": 60.3,
+      "old_trades": 98,
+      "new_trades": 61,
+      "total_resolved": 125,
+      "ts": "2026-02-20T12:41:08.449113+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "5.0",
+      "new": "8.0",
+      "old_wr": 88.5,
+      "new_wr": 80.0,
+      "old_trades": 24,
+      "new_trades": 13,
+      "total_resolved": 130,
+      "ts": "2026-02-20T13:05:30.480174+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "60",
+      "new": "30",
+      "old_wr": 60.3,
+      "new_wr": 64.4,
+      "old_trades": 61,
+      "new_trades": 102,
+      "total_resolved": 130,
+      "ts": "2026-02-20T13:05:30.480174+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "8.0",
+      "new": "5.0",
+      "old_wr": 75.0,
+      "new_wr": 85.2,
+      "old_trades": 14,
+      "new_trades": 25,
+      "total_resolved": 135,
+      "ts": "2026-02-20T13:30:21.507599+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "5.0",
+      "new": "3.0",
+      "old_wr": 85.2,
+      "new_wr": 80.7,
+      "old_trades": 25,
+      "new_trades": 55,
+      "total_resolved": 140,
+      "ts": "2026-02-20T13:56:01.204996+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "3.0",
+      "new": "5.0",
+      "old_wr": 81.4,
+      "new_wr": 85.7,
+      "old_trades": 57,
+      "new_trades": 26,
+      "total_resolved": 145,
+      "ts": "2026-02-20T14:20:22.489663+00:00"
+    }
+  ],
+  "total_resolved": 147
+}
