@@ -551,12 +551,145 @@
       "result": "WIN",
       "market_outcome": "DOWN",
       "resolve_time": "2026-02-20T06:00:18.118791+00:00"
+    },
+    {
+      "condition_id": "0x513b79dfec8381a03c7b811a2273e98ddeda7606e8457dc74140c9e7903c3ad7",
+      "question": "Bitcoin Up or Down - February 20, 4:05AM-4:10AM ET",
+      "side": "DOWN",
+      "entry_price": 0.505,
+      "rsi": 70.3,
+      "rsi_bucket": "70-75",
+      "volume_ok": true,
+      "shares": 4.9505,
+      "cost": 2.5,
+      "time_remaining_sec": 126.8,
+      "entry_time": "2026-02-20T09:07:53.990400+00:00",
+      "end_dt": "2026-02-20T09:10:00+00:00",
+      "status": "closed",
+      "pnl": 2.45,
+      "result": "WIN",
+      "market_outcome": "DOWN",
+      "resolve_time": "2026-02-20T09:10:17.188760+00:00"
+    },
+    {
+      "condition_id": "0x8923f99b1c684966fce58ded61cf5d2fbee85d09bb32cf02d7838bb456218d00",
+      "question": "Bitcoin Up or Down - February 20, 6:15AM-6:20AM ET",
+      "side": "UP",
+      "entry_price": 0.545,
+      "rsi": 25.1,
+      "rsi_bucket": "25-30",
+      "volume_ok": true,
+      "shares": 4.5872,
+      "cost": 2.5,
+      "time_remaining_sec": 239.4,
+      "entry_time": "2026-02-20T11:16:01.303471+00:00",
+      "end_dt": "2026-02-20T11:20:00+00:00",
+      "status": "closed",
+      "pnl": -2.5,
+      "result": "LOSS",
+      "market_outcome": "DOWN",
+      "resolve_time": "2026-02-20T11:20:20.148625+00:00"
+    },
+    {
+      "condition_id": "0x2469f1922f2986d6e91733f6fd283acf27e3647788aff15e72e3e70d9ef99d0a",
+      "question": "Bitcoin Up or Down - February 20, 6:20AM-6:25AM ET",
+      "side": "UP",
+      "entry_price": 0.525,
+      "rsi": 27.2,
+      "rsi_bucket": "25-30",
+      "volume_ok": true,
+      "shares": 4.7619,
+      "cost": 2.5,
+      "time_remaining_sec": 233.8,
+      "entry_time": "2026-02-20T11:21:06.988015+00:00",
+      "end_dt": "2026-02-20T11:25:00+00:00",
+      "status": "closed",
+      "pnl": -2.5,
+      "result": "LOSS",
+      "market_outcome": "DOWN",
+      "resolve_time": "2026-02-20T11:25:20.238377+00:00"
+    },
+    {
+      "condition_id": "0xcc0be3097d8163dbf0bb7fce8da246e9dceff3ccf9afb726e0af25287a5c0810",
+      "question": "Bitcoin Up or Down - February 20, 6:40AM-6:45AM ET",
+      "side": "UP",
+      "entry_price": 0.545,
+      "rsi": 14.8,
+      "rsi_bucket": "10-15",
+      "volume_ok": true,
+      "shares": 4.5872,
+      "cost": 2.5,
+      "time_remaining_sec": 234.9,
+      "entry_time": "2026-02-20T11:41:05.824752+00:00",
+      "end_dt": "2026-02-20T11:45:00+00:00",
+      "status": "closed",
+      "pnl": -2.5,
+      "result": "LOSS",
+      "market_outcome": "DOWN",
+      "resolve_time": "2026-02-20T11:45:17.683040+00:00"
+    },
+    {
+      "condition_id": "0x510ac3b9fa9480d7999d71ea4f2a35f742b955b920a3c21c464c6ad313513eb6",
+      "question": "Bitcoin Up or Down - February 20, 6:45AM-6:50AM ET",
+      "side": "UP",
+      "entry_price": 0.505,
+      "rsi": 14.3,
+      "rsi_bucket": "10-15",
+      "volume_ok": true,
+      "shares": 4.9505,
+      "cost": 2.5,
+      "time_remaining_sec": 236.3,
+      "entry_time": "2026-02-20T11:46:04.475456+00:00",
+      "end_dt": "2026-02-20T11:50:00+00:00",
+      "status": "closed",
+      "pnl": 2.45,
+      "result": "WIN",
+      "market_outcome": "UP",
+      "resolve_time": "2026-02-20T11:50:16.966204+00:00"
+    },
+    {
+      "condition_id": "0x31acccbb18446e608ba72004cbd3bb873888a20f9fb9210a70466e806ca0b8db",
+      "question": "Bitcoin Up or Down - February 20, 8:40AM-8:45AM ET",
+      "side": "UP",
+      "entry_price": 0.515,
+      "rsi": 25.2,
+      "rsi_bucket": "25-30",
+      "volume_ok": true,
+      "shares": 4.8544,
+      "cost": 2.5,
+      "time_remaining_sec": 239.9,
+      "entry_time": "2026-02-20T13:41:00.907010+00:00",
+      "end_dt": "2026-02-20T13:45:00+00:00",
+      "status": "closed",
+      "pnl": 2.35,
+      "result": "WIN",
+      "market_outcome": "UP",
+      "resolve_time": "2026-02-20T13:45:20.359484+00:00"
+    },
+    {
+      "condition_id": "0xe45a6b17ab9ef3e2a09eecfb476482ff3e909b824a9ddc26de7eed4d15628e25",
+      "question": "Bitcoin Up or Down - February 20, 10:05AM-10:10AM ET",
+      "side": "DOWN",
+      "entry_price": 0.525,
+      "rsi": 71.0,
+      "rsi_bucket": "70-75",
+      "volume_ok": true,
+      "shares": 4.7619,
+      "cost": 2.5,
+      "time_remaining_sec": 68.4,
+      "entry_time": "2026-02-20T15:08:52.361512+00:00",
+      "end_dt": "2026-02-20T15:10:00+00:00",
+      "status": "closed",
+      "pnl": 2.26,
+      "result": "WIN",
+      "market_outcome": "DOWN",
+      "resolve_time": "2026-02-20T15:10:19.004367+00:00"
     }
   ],
   "stats": {
-    "wins": 14,
-    "losses": 15,
-    "pnl": -3.25,
+    "wins": 18,
+    "losses": 18,
+    "pnl": -1.2400000000000007,
     "skipped": 0,
     "by_rsi_bucket": {
       "75-80": {
@@ -570,9 +703,9 @@
         "pnl": 2.45
       },
       "25-30": {
-        "wins": 4,
-        "losses": 2,
-        "pnl": 5.0
+        "wins": 5,
+        "losses": 4,
+        "pnl": 2.35
       },
       "20-25": {
         "wins": 1,
@@ -580,14 +713,14 @@
         "pnl": -5.05
       },
       "10-15": {
-        "wins": 0,
-        "losses": 2,
-        "pnl": -5.0
+        "wins": 1,
+        "losses": 3,
+        "pnl": -5.05
       },
       "70-75": {
-        "wins": 4,
+        "wins": 6,
         "losses": 2,
-        "pnl": 4.35
+        "pnl": 9.06
       },
       "80-85": {
         "wins": 2,
@@ -597,5 +730,5 @@
     },
     "start_time": "2026-02-19T04:42:37.813380+00:00"
   },
-  "last_updated": "2026-02-20T06:08:46.901947+00:00"
+  "last_updated": "2026-02-20T15:20:23.140094+00:00"
 }

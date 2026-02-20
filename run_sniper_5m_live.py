@@ -1,13 +1,19 @@
 """
-Sniper 5M LIVE Trader V1.0
+Sniper 5M LIVE Trader V2.1
 
 Front-runs Chainlink oracle delay on 5-minute BTC Up/Down markets.
 Enters at 62-61 seconds before market close when direction is clear from CLOB orderbook.
 
+V2.1 — DOWN-bias tuning (16 trades: DOWN 11W/0L 100%WR, UP 2W/3L 40%WR):
+  - ML WR threshold 80% for UP trades (blocks low-confidence UP bets)
+  - MIN entry $0.72 for UP trades (higher confidence required)
+  - DOWN-bias sizing: 50% size on UP trades until UP proves itself
+  - DOWN trades unchanged (100% WR, full size)
+
 Auto-scaling:
-  - $5/trade for first 20 trades
-  - $10/trade after 20 trades with >80% WR
-  - $20/trade after 100 trades with >80% WR
+  - $3/trade base (PROBATION)
+  - $5/trade after 20 trades with >55% WR
+  - $10/trade after 50 trades with >65% WR
 
 Usage:
   python -u run_sniper_5m_live.py --live
@@ -66,7 +72,10 @@ GAMMA_API_URL = "https://gamma-api.polymarket.com/events"
 
 # ML minimum trades before filter activates (collect data first)
 ML_MIN_TRADES = 8
-ML_MIN_WR_THRESHOLD = 0.50  # skip if estimated WR below this
+ML_MIN_WR_THRESHOLD = 0.50  # skip if estimated WR below this (DOWN trades)
+ML_UP_WR_THRESHOLD = 0.80   # V2.1: UP needs 80%+ ML WR (DOWN=11W/0L but UP=2W/3L, losses at 72-76%)
+MIN_ENTRY_UP = 0.72          # V2.1: UP trades need $0.72+ entry ($0.72+ = 100% WR, below = losses)
+UP_SIZE_MULT = 0.50          # V2.1: Half size on UP trades until UP direction proves itself
 
 
 # ============================================================================
@@ -183,10 +192,11 @@ class DepthMLFilter:
 
         return buckets
 
-    def should_trade(self, features: dict) -> tuple:
+    def should_trade(self, features: dict, side: str = "DOWN") -> tuple:
         """Returns (should_trade: bool, reason: str, expected_wr: float).
 
         Collects data for ML_MIN_TRADES, then starts soft-filtering.
+        V2.1: UP trades need ML_UP_WR_THRESHOLD (80%), DOWN uses ML_MIN_WR_THRESHOLD (50%).
         """
         total_data = len(self.state["features"])
 
@@ -210,14 +220,18 @@ class DepthMLFilter:
         # Average across matching buckets (ensemble)
         expected_wr = sum(bucket_samples) / len(bucket_samples)
 
-        if expected_wr < ML_MIN_WR_THRESHOLD:
+        # V2.1: Direction-aware threshold — UP needs higher confidence
+        threshold = ML_UP_WR_THRESHOLD if side == "UP" else ML_MIN_WR_THRESHOLD
+
+        if expected_wr < threshold:
             bad_buckets = []
             for bucket_name, _ in self._get_buckets(features):
                 b = self.state["buckets"].get(bucket_name, {"alpha": 1, "beta": 1})
                 mean = b["alpha"] / (b["alpha"] + b["beta"])
                 if mean < 0.50:
                     bad_buckets.append(f"{bucket_name}={mean:.0%}")
-            reason = f"ml_skip(wr={expected_wr:.0%} " + " ".join(bad_buckets) + ")"
+            dir_tag = f"UP>={ML_UP_WR_THRESHOLD:.0%}" if side == "UP" else ""
+            reason = f"ml_skip(wr={expected_wr:.0%} {dir_tag} " + " ".join(bad_buckets) + ")"
             return False, reason, expected_wr
 
         return True, f"ml_pass(wr={expected_wr:.0%})", expected_wr
@@ -930,8 +944,23 @@ class Sniper5MLive:
                       f"| {time_left_sec:.0f}s left | {question[:50]}")
                 continue
 
+            # V2.1: UP trades need higher minimum entry ($0.72+)
+            # Data: UP below $0.72 = losses, UP at $0.72+ with high ML = wins
+            if side == "UP" and entry_price < MIN_ENTRY_UP:
+                self.stats["skipped"] += 1
+                self.attempted_cids.add(cid)
+                print(f"[SKIP] UP too cheap | ${entry_price:.2f} < ${MIN_ENTRY_UP} min for UP "
+                      f"| {time_left_sec:.0f}s left | {question[:50]}")
+                continue
+
             # Auto-scale trade size
             trade_size = get_trade_size(self.stats["wins"], self.stats["losses"])
+
+            # V2.1: DOWN-bias sizing — UP gets half size (40% WR vs DOWN's 100%)
+            if side == "UP":
+                trade_size = round(trade_size * UP_SIZE_MULT, 2)
+                print(f"  [UP-BIAS] Reduced size: ${trade_size:.2f} (50% for UP trades)")
+
             desired_shares = math.floor(trade_size / entry_price)
             if desired_shares < 1:
                 desired_shares = 1
@@ -955,7 +984,7 @@ class Sniper5MLive:
             ml_features = DepthMLFilter.compute_features(
                 levels, entry_price, confidence, signal_source,
                 up_display, down_display)
-            ml_ok, ml_reason, ml_wr = self.ml_depth.should_trade(ml_features)
+            ml_ok, ml_reason, ml_wr = self.ml_depth.should_trade(ml_features, side=side)
             if not ml_ok:
                 self.stats["skipped"] += 1
                 self.attempted_cids.add(cid)
@@ -1372,18 +1401,17 @@ class Sniper5MLive:
         mode = "LIVE" if not self.paper else "PAPER"
         tier = get_trade_size(self.stats["wins"], self.stats["losses"])
         print("=" * 70)
-        print(f"  SNIPER 5M {mode} TRADER V2.0 — DUAL STRATEGY")
+        print(f"  SNIPER 5M {mode} TRADER V2.1 — DOWN-BIAS TUNED")
         print("=" * 70)
-        print(f"  Strategy 1a — DIRECTIONAL/BINANCE (prediction)")
+        print(f"  V2.1 DOWN-bias (16T: DOWN 11W/0L 100%, UP 2W/3L 40%):")
+        print(f"    - ML WR threshold: UP >= {ML_UP_WR_THRESHOLD:.0%} | DOWN >= {ML_MIN_WR_THRESHOLD:.0%}")
+        print(f"    - MIN entry: UP >= ${MIN_ENTRY_UP:.2f} | DOWN >= ${MIN_CONFIDENCE:.2f}")
+        print(f"    - Size: UP = {UP_SIZE_MULT:.0%} (${tier*UP_SIZE_MULT:.2f}) | DOWN = full (${tier:.2f})")
+        print(f"  Strategy 1a — DIRECTIONAL/BINANCE")
         print(f"    - Enter at {SNIPER_WINDOW}s before close | Binance signal > 0.07%")
         print(f"    - Entry: ${MIN_CONFIDENCE:.2f}-${MAX_ENTRY_PRICE:.2f} | FOK orders")
-        print(f"  Strategy 1b — DIRECTIONAL/CLOB (confidence)")
+        print(f"  Strategy 1b — DIRECTIONAL/CLOB")
         print(f"    - Binance flat fallback | CLOB dominant side $0.70-$0.78")
-        print(f"    - Live: 86% WR at $0.70-$0.76, extending to $0.78 (depth-backed)")
-        print(f"  Strategy 2 — ORACLE (certainty)")
-        print(f"    - Enter {ORACLE_MIN_DELAY}-{ORACLE_WINDOW}s AFTER close | direction KNOWN")
-        print(f"    - Entry: up to ${ORACLE_MAX_ENTRY:.2f} | GTC orders | ~$0.05+/sh profit")
-        print(f"  Size: ${tier:.2f}/trade (auto-scale: $5->$10->$20)")
         print(f"  Scan: every {SCAN_INTERVAL}s | Daily loss limit: ${DAILY_LOSS_LIMIT:.2f}")
         print(f"  Results: {RESULTS_FILE.name}")
         print("=" * 70)

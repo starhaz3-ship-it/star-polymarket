@@ -2,48 +2,48 @@
   "params": {
     "signal_threshold_bp": {
       "0.5": {
-        "alpha": 92,
-        "beta": 41,
-        "trades": 131,
+        "alpha": 97,
+        "beta": 46,
+        "trades": 141,
         "pnl": 25.5
       },
       "1.0": {
-        "alpha": 82,
-        "beta": 33,
-        "trades": 113,
+        "alpha": 87,
+        "beta": 38,
+        "trades": 123,
         "pnl": 24.5
       },
       "2.0": {
-        "alpha": 66,
-        "beta": 21,
-        "trades": 85,
-        "pnl": 22.5
+        "alpha": 71,
+        "beta": 24,
+        "trades": 93,
+        "pnl": 23.5
       },
       "3.0": {
-        "alpha": 50,
-        "beta": 11,
-        "trades": 59,
-        "pnl": 19.5
+        "alpha": 55,
+        "beta": 13,
+        "trades": 66,
+        "pnl": 21.0
       },
       "5.0": {
-        "alpha": 26,
-        "beta": 4,
-        "trades": 28,
-        "pnl": 11.0
+        "alpha": 30,
+        "beta": 6,
+        "trades": 34,
+        "pnl": 12.0
       },
       "8.0": {
-        "alpha": 15,
-        "beta": 4,
-        "trades": 17,
-        "pnl": 5.5
+        "alpha": 18,
+        "beta": 5,
+        "trades": 21,
+        "pnl": 6.5
       }
     },
     "entry_delay_sec": {
       "30": {
-        "alpha": 68,
+        "alpha": 69,
         "beta": 37,
-        "trades": 103,
-        "pnl": 15.5
+        "trades": 104,
+        "pnl": 16.0
       },
       "60": {
         "alpha": 38,
@@ -79,21 +79,21 @@
   },
   "shadow": [
     {
-      "market_id": "0x7e2fa45dcd743d5628263947cf9e62077705715e8b9272f1828fa1668100c385",
-      "end_time": "2026-02-20T14:35:00+00:00",
-      "side": "DOWN",
+      "market_id": "0x1e7eca2163a2b10c48266056eeb89b866305ab3ebc87ef9fa266979c05034240",
+      "end_time": "2026-02-20T15:25:00+00:00",
+      "side": "UP",
       "entry_price": 0.5,
-      "clob_dominant": 20.577793629946648,
-      "ts": "2026-02-20T14:30:16.400536+00:00",
+      "clob_dominant": 11.216483192862901,
+      "ts": "2026-02-20T15:20:32.318964+00:00",
       "extra": {
-        "elapsed_sec": 15.67931,
-        "strength_bp": -20.577793629946648
+        "elapsed_sec": 31.632302,
+        "strength_bp": 11.216483192862901
       }
     }
   ],
   "active": {
-    "signal_threshold_bp": "5.0",
-    "entry_delay_sec": "30"
+    "signal_threshold_bp": "8.0",
+    "entry_delay_sec": "90"
   },
   "adjustments": [
     {
@@ -579,7 +579,51 @@
       "new_trades": 26,
       "total_resolved": 145,
       "ts": "2026-02-20T14:20:22.489663+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "5.0",
+      "new": "3.0",
+      "old_wr": 84.4,
+      "new_wr": 81.0,
+      "old_trades": 30,
+      "new_trades": 61,
+      "total_resolved": 150,
+      "ts": "2026-02-20T14:46:19.861192+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "30",
+      "new": "60",
+      "old_wr": 64.8,
+      "new_wr": 60.3,
+      "old_trades": 103,
+      "new_trades": 61,
+      "total_resolved": 150,
+      "ts": "2026-02-20T14:46:19.861192+00:00"
+    },
+    {
+      "param": "signal_threshold_bp",
+      "old": "3.0",
+      "new": "8.0",
+      "old_wr": 80.6,
+      "new_wr": 78.3,
+      "old_trades": 65,
+      "new_trades": 21,
+      "total_resolved": 155,
+      "ts": "2026-02-20T15:10:55.785369+00:00"
+    },
+    {
+      "param": "entry_delay_sec",
+      "old": "60",
+      "new": "90",
+      "old_wr": 60.3,
+      "new_wr": 54.5,
+      "old_trades": 61,
+      "new_trades": 31,
+      "total_resolved": 155,
+      "ts": "2026-02-20T15:10:55.785369+00:00"
     }
   ],
-  "total_resolved": 147
+  "total_resolved": 157
 }

@@ -9,79 +9,79 @@
       },
       "4.0": {
         "alpha": 1,
-        "beta": 1,
-        "trades": 0,
-        "pnl": 0.0
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.39
       },
       "5.0": {
         "alpha": 1,
-        "beta": 1,
-        "trades": 0,
-        "pnl": 0.0
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.39
       },
       "6.0": {
         "alpha": 1,
-        "beta": 2,
-        "trades": 1,
-        "pnl": -0.53
+        "beta": 3,
+        "trades": 2,
+        "pnl": -0.92
       },
       "7.0": {
         "alpha": 1,
-        "beta": 2,
-        "trades": 1,
-        "pnl": -0.53
+        "beta": 3,
+        "trades": 2,
+        "pnl": -0.92
       },
       "8.0": {
         "alpha": 1,
-        "beta": 2,
-        "trades": 1,
-        "pnl": -0.53
+        "beta": 3,
+        "trades": 2,
+        "pnl": -0.92
       }
     },
     "max_entry": {
       "0.60": {
         "alpha": 1,
-        "beta": 2,
-        "trades": 1,
-        "pnl": -0.53
+        "beta": 3,
+        "trades": 2,
+        "pnl": -0.92
       },
       "0.65": {
         "alpha": 1,
-        "beta": 2,
-        "trades": 1,
-        "pnl": -0.53
+        "beta": 3,
+        "trades": 2,
+        "pnl": -0.92
       },
       "0.68": {
         "alpha": 1,
-        "beta": 2,
-        "trades": 1,
-        "pnl": -0.53
+        "beta": 3,
+        "trades": 2,
+        "pnl": -0.92
       },
       "0.72": {
         "alpha": 1,
-        "beta": 2,
-        "trades": 1,
-        "pnl": -0.53
+        "beta": 3,
+        "trades": 2,
+        "pnl": -0.92
       },
       "0.75": {
         "alpha": 1,
-        "beta": 2,
-        "trades": 1,
-        "pnl": -0.53
+        "beta": 3,
+        "trades": 2,
+        "pnl": -0.92
       },
       "0.78": {
         "alpha": 1,
-        "beta": 2,
-        "trades": 1,
-        "pnl": -0.53
+        "beta": 3,
+        "trades": 2,
+        "pnl": -0.92
       }
     },
     "contrarian_ceil": {
       "0.38": {
         "alpha": 1,
-        "beta": 2,
-        "trades": 1,
-        "pnl": -0.53
+        "beta": 3,
+        "trades": 2,
+        "pnl": -0.92
       },
       "0.40": {
         "alpha": 1,
@@ -117,33 +117,33 @@
     "momentum_floor": {
       "0.0004": {
         "alpha": 1,
-        "beta": 2,
-        "trades": 1,
-        "pnl": -0.53
+        "beta": 3,
+        "trades": 2,
+        "pnl": -0.92
       },
       "0.0006": {
         "alpha": 1,
-        "beta": 2,
-        "trades": 1,
-        "pnl": -0.53
+        "beta": 3,
+        "trades": 2,
+        "pnl": -0.92
       },
       "0.0008": {
         "alpha": 1,
-        "beta": 1,
-        "trades": 0,
-        "pnl": 0.0
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.39
       },
       "0.0010": {
         "alpha": 1,
-        "beta": 1,
-        "trades": 0,
-        "pnl": 0.0
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.39
       },
       "0.0012": {
         "alpha": 1,
-        "beta": 1,
-        "trades": 0,
-        "pnl": 0.0
+        "beta": 2,
+        "trades": 1,
+        "pnl": -0.39
       },
       "0.0015": {
         "alpha": 1,
@@ -155,39 +155,39 @@
     "rsi_up": {
       "50": {
         "alpha": 1,
-        "beta": 2,
-        "trades": 1,
-        "pnl": -0.53
+        "beta": 3,
+        "trades": 2,
+        "pnl": -0.92
       },
       "53": {
         "alpha": 1,
-        "beta": 2,
-        "trades": 1,
-        "pnl": -0.53
+        "beta": 3,
+        "trades": 2,
+        "pnl": -0.92
       },
       "55": {
         "alpha": 1,
-        "beta": 2,
-        "trades": 1,
-        "pnl": -0.53
+        "beta": 3,
+        "trades": 2,
+        "pnl": -0.92
       },
       "58": {
         "alpha": 1,
-        "beta": 2,
-        "trades": 1,
-        "pnl": -0.53
+        "beta": 3,
+        "trades": 2,
+        "pnl": -0.92
       },
       "60": {
         "alpha": 1,
-        "beta": 2,
-        "trades": 1,
-        "pnl": -0.53
+        "beta": 3,
+        "trades": 2,
+        "pnl": -0.92
       },
       "63": {
         "alpha": 1,
-        "beta": 2,
-        "trades": 1,
-        "pnl": -0.53
+        "beta": 3,
+        "trades": 2,
+        "pnl": -0.92
       }
     }
   },
@@ -200,5 +200,5 @@
     "rsi_up": "55"
   },
   "adjustments": [],
-  "total_resolved": 1
+  "total_resolved": 2
 }

@@ -119,47 +119,123 @@
       "spread_sum": 1.03,
       "won": true,
       "ts": "2026-02-20T04:05:17.284448+00:00"
+    },
+    {
+      "best_ask_ratio": 0.033,
+      "best_is_largest": false,
+      "depth_levels": 4,
+      "total_depth": 326,
+      "confidence": 0.75,
+      "signal_source": "clob",
+      "opposing_price": 0.27,
+      "spread_sum": 1.02,
+      "won": true,
+      "ts": "2026-02-20T07:55:16.701257+00:00"
+    },
+    {
+      "best_ask_ratio": 0.676,
+      "best_is_largest": true,
+      "depth_levels": 2,
+      "total_depth": 129,
+      "confidence": 0.8,
+      "signal_source": "clob",
+      "opposing_price": 0.25,
+      "spread_sum": 1.01,
+      "won": true,
+      "ts": "2026-02-20T08:45:18.310234+00:00"
+    },
+    {
+      "best_ask_ratio": 0.373,
+      "best_is_largest": true,
+      "depth_levels": 4,
+      "total_depth": 501,
+      "confidence": 0.68,
+      "signal_source": "clob",
+      "opposing_price": 0.32,
+      "spread_sum": 1.02,
+      "won": false,
+      "ts": "2026-02-20T09:45:17.808288+00:00"
+    },
+    {
+      "best_ask_ratio": 0.623,
+      "best_is_largest": true,
+      "depth_levels": 4,
+      "total_depth": 100,
+      "confidence": 0.69,
+      "signal_source": "clob",
+      "opposing_price": 0.34,
+      "spread_sum": 1.05,
+      "won": true,
+      "ts": "2026-02-20T11:05:16.646117+00:00"
+    },
+    {
+      "best_ask_ratio": 0.673,
+      "best_is_largest": true,
+      "depth_levels": 4,
+      "total_depth": 743,
+      "confidence": 0.71,
+      "signal_source": "clob",
+      "opposing_price": 0.35,
+      "spread_sum": 1.06,
+      "won": false,
+      "ts": "2026-02-20T12:55:18.074419+00:00"
+    },
+    {
+      "best_ask_ratio": 0.09,
+      "best_is_largest": false,
+      "depth_levels": 4,
+      "total_depth": 83,
+      "confidence": 0.68,
+      "signal_source": "binance",
+      "opposing_price": 0.29,
+      "spread_sum": 1.04,
+      "won": true,
+      "ts": "2026-02-20T14:45:16.691265+00:00"
     }
   ],
   "buckets": {
     "best_largest_False": {
-      "alpha": 7,
+      "alpha": 9,
       "beta": 2
     },
     "bar_mid": {
       "alpha": 3,
-      "beta": 2
+      "beta": 3
     },
     "signal_clob": {
-      "alpha": 10,
-      "beta": 2
+      "alpha": 13,
+      "beta": 4
     },
     "conf_low": {
-      "alpha": 5,
-      "beta": 2
+      "alpha": 7,
+      "beta": 4
     },
     "opp_strong": {
-      "alpha": 4,
-      "beta": 2
+      "alpha": 5,
+      "beta": 4
     },
     "best_largest_True": {
-      "alpha": 4,
-      "beta": 1
+      "alpha": 6,
+      "beta": 3
     },
     "bar_high": {
-      "alpha": 4,
-      "beta": 1
+      "alpha": 6,
+      "beta": 2
     },
     "conf_high": {
-      "alpha": 6,
+      "alpha": 8,
       "beta": 1
     },
     "opp_weak": {
-      "alpha": 7,
+      "alpha": 10,
       "beta": 1
     },
     "bar_low": {
-      "alpha": 5,
+      "alpha": 7,
+      "beta": 1
+    },
+    "signal_binance": {
+      "alpha": 2,
       "beta": 1
     }
   }
