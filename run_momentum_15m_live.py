@@ -85,7 +85,7 @@ DAILY_LOSS_LIMIT = 15.0     # stop trading if session losses exceed $15
 AUTO_KILL_TRADES = 20       # V1.2: auto-shutdown after this many trades if WR < 50%
 AUTO_KILL_MIN_WR = 0.50     # V1.2: minimum win rate to stay alive
 MIN_SHARES = 5              # CLOB minimum order size
-FOK_SLIPPAGE = 0.03         # cents above best ask to sweep multiple price levels
+FOK_SLIPPAGE = 0.07         # V2.3.1: bumped from 0.03 — GTC orders weren't filling on thin books near close
 
 # V1.6: Streak reversal — bet AGAINST long streaks (backtested on 50K markets: 55% WR)
 STREAK_REVERSAL_MIN_STREAK = 3   # Minimum streak length to trigger reversal entry
@@ -155,6 +155,295 @@ def calc_donchian(high, low, n=20):
         ll = float(np.min(low[i - n + 1:i + 1]))
         u[i], d[i], mid[i] = hh, ll, (hh + ll) / 2.0
     return u, d, mid
+
+
+# ============================================================================
+# V2.3: BLACK-SCHOLES BINARY OPTION FAIR VALUE
+# ============================================================================
+# Computes theoretical probability of BTC finishing above/below strike
+# using Black-Scholes for binary (digital) options. Compares to CLOB
+# price to find mispricing edge.
+#
+# Formula: P(UP) = N(d2)  where d2 = (ln(S/K) + (r - sig^2/2)*T) / (sig*sqrt(T))
+# For ultra-short expiries (15min), r~0, so: d2 = (ln(S/K) - sig^2*T/2) / (sig*sqrt(T))
+#
+# Volatility: annualized from 1-min ATR -> sigma = atr_1m / price * sqrt(525600)
+# Edge: bs_fair_value - clob_price. Positive = underpriced on CLOB.
+# ============================================================================
+
+def _norm_cdf(x: float) -> float:
+    """Standard normal CDF using math.erf (no scipy needed)."""
+    return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
+
+
+def bs_binary_fair_value(spot: float, strike: float, sigma_annual: float,
+                         t_minutes: float) -> dict:
+    """Black-Scholes fair value for a binary UP/DOWN option.
+
+    Args:
+        spot: current BTC price
+        strike: candle open price (the reference point)
+        sigma_annual: annualized volatility (e.g. 0.50 = 50%)
+        t_minutes: time remaining until expiry in minutes
+
+    Returns:
+        {"up_fair": float, "down_fair": float, "d2": float, "sigma_used": float}
+    """
+    if spot <= 0 or strike <= 0 or sigma_annual <= 0 or t_minutes <= 0:
+        return {"up_fair": 0.50, "down_fair": 0.50, "d2": 0.0, "sigma_used": 0.0}
+
+    T = t_minutes / 525600.0  # convert minutes to years (365.25 * 24 * 60)
+    sqrt_T = math.sqrt(T)
+
+    # d2 = (ln(S/K) - sigma^2 * T / 2) / (sigma * sqrt(T))
+    d2 = (math.log(spot / strike) - 0.5 * sigma_annual ** 2 * T) / (sigma_annual * sqrt_T)
+
+    up_fair = _norm_cdf(d2)
+    down_fair = 1.0 - up_fair
+
+    # Clamp to [0.02, 0.98] to avoid extreme values
+    up_fair = max(0.02, min(0.98, up_fair))
+    down_fair = max(0.02, min(0.98, down_fair))
+
+    return {"up_fair": up_fair, "down_fair": down_fair, "d2": d2, "sigma_used": sigma_annual}
+
+
+# V2.3: BS Edge threshold ML — Thompson sampling on minimum edge to trade
+BS_EDGE_THRESHOLDS = [0.03, 0.05, 0.08, 0.12]  # 3%, 5%, 8%, 12% edge
+BS_EDGE_DEFAULT = 0.05  # 5% default threshold
+
+
+class BSEdgeML:
+    """Thompson sampling on Black-Scholes edge thresholds.
+    Learns optimal minimum edge for profitable trades."""
+    STATE_FILE = Path(__file__).parent / "bs_edge_ml_state.json"
+
+    def __init__(self):
+        # Beta distributions for each threshold: {threshold: [alpha, beta]}
+        self.betas = {}
+        self.history = []
+        self._load()
+
+    def _load(self):
+        try:
+            with open(self.STATE_FILE) as f:
+                data = json.load(f)
+            self.betas = {float(k): v for k, v in data.get("betas", {}).items()}
+            self.history = data.get("history", [])
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+        for t in BS_EDGE_THRESHOLDS:
+            if t not in self.betas:
+                self.betas[t] = [2, 2]  # weak uniform prior
+
+    def _save(self):
+        data = {
+            "betas": {str(k): v for k, v in self.betas.items()},
+            "history": self.history[-200:],
+        }
+        try:
+            with open(self.STATE_FILE, "w") as f:
+                json.dump(data, f, indent=2)
+        except Exception:
+            pass
+
+    def select_threshold(self) -> float:
+        """Thompson sampling: sample from each threshold's Beta, pick highest WR."""
+        import random
+        best_t, best_sample = BS_EDGE_DEFAULT, -1
+        for t, (a, b) in self.betas.items():
+            sample = random.betavariate(max(a, 0.1), max(b, 0.1))
+            if sample > best_sample:
+                best_sample = sample
+                best_t = t
+        return best_t
+
+    def record_outcome(self, edge: float, won: bool):
+        """Update all thresholds that would have passed this trade."""
+        self.history.append({"edge": round(edge, 4), "won": won})
+        for t in BS_EDGE_THRESHOLDS:
+            if edge >= t:
+                if won:
+                    self.betas[t][0] += 1
+                else:
+                    self.betas[t][1] += 1
+        self._save()
+
+    # V2.3.1: Shadow paper tracking — BS-EDGE must prove itself before going live
+    SHADOW_FILE = Path(__file__).parent / "bs_edge_shadow.json"
+    PROMOTE_MIN_TRADES = 25
+    PROMOTE_MIN_WR = 0.65
+
+    def _load_shadow(self) -> dict:
+        try:
+            with open(self.SHADOW_FILE) as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {"active": {}, "resolved": [], "promoted": False}
+
+    def _save_shadow(self, data: dict):
+        try:
+            with open(self.SHADOW_FILE, "w") as f:
+                json.dump(data, f, indent=2)
+        except Exception:
+            pass
+
+    def record_shadow_entry(self, cid: str, side: str, entry_price: float, edge: float):
+        """Record a shadow (paper) BS-EDGE entry for tracking."""
+        data = self._load_shadow()
+        data["active"][cid] = {
+            "side": side, "entry_price": entry_price, "edge": round(edge, 4),
+            "ts": datetime.now(timezone.utc).isoformat(),
+        }
+        self._save_shadow(data)
+
+    def resolve_shadow(self, cid: str, market_outcome: str):
+        """Resolve a shadow entry when the market closes."""
+        data = self._load_shadow()
+        entry = data["active"].pop(cid, None)
+        if entry:
+            won = (entry["side"] == market_outcome)
+            entry["won"] = won
+            entry["outcome"] = market_outcome
+            data["resolved"].append(entry)
+            # Check auto-promotion
+            resolved = data["resolved"]
+            if len(resolved) >= self.PROMOTE_MIN_TRADES:
+                wins = sum(1 for r in resolved if r.get("won"))
+                wr = wins / len(resolved)
+                if wr >= self.PROMOTE_MIN_WR and not data.get("promoted"):
+                    data["promoted"] = True
+                    print(f"\n{'='*60}")
+                    print(f"[BS-EDGE PROMOTED] Shadow: {wins}W/{len(resolved)-wins}L "
+                          f"({wr:.0%} WR) over {len(resolved)} trades")
+                    print(f"  BS-EDGE now LIVE eligible!")
+                    print(f"{'='*60}\n")
+            self._save_shadow(data)
+
+    def is_live_eligible(self) -> bool:
+        """Check if BS-EDGE has earned live trading rights."""
+        data = self._load_shadow()
+        return data.get("promoted", False)
+
+    def get_report(self) -> str:
+        lines = ["[BS-ML] Edge threshold performance:"]
+        for t in BS_EDGE_THRESHOLDS:
+            a, b = self.betas.get(t, [2, 2])
+            total = a + b - 4  # subtract prior
+            wr = a / (a + b) * 100 if (a + b) > 0 else 0
+            lines.append(f"  {t*100:.0f}% edge | alpha={a:.0f} beta={b:.0f} | ~{wr:.0f}%WR | {max(0, total):.0f} data")
+        active = self.select_threshold()
+        lines.append(f"  Active threshold: {active*100:.0f}%")
+        # Shadow stats
+        data = self._load_shadow()
+        resolved = data.get("resolved", [])
+        active_sh = data.get("active", {})
+        if resolved:
+            wins = sum(1 for r in resolved if r.get("won"))
+            wr = wins / len(resolved) * 100
+            lines.append(f"  Shadow: {wins}W/{len(resolved)-wins}L ({wr:.0f}%WR) | "
+                         f"{len(active_sh)} active | "
+                         f"{'LIVE ELIGIBLE' if data.get('promoted') else f'need {max(0, self.PROMOTE_MIN_TRADES - len(resolved))} more trades'}")
+        else:
+            lines.append(f"  Shadow: 0 trades | need {self.PROMOTE_MIN_TRADES} trades at {self.PROMOTE_MIN_WR:.0%}+ WR")
+        return "\n".join(lines)
+
+
+class BayesianConditionTracker:
+    """Bayesian condition bucketing — track WR by price level, hour, and regime.
+    Learns which conditions are profitable and auto-skips bad buckets.
+    Inspired by polymarket-bot-arena's learning.py."""
+    STATE_FILE = Path(__file__).parent / "condition_buckets.json"
+    PRICE_BUCKETS = [(0.35, 0.42), (0.42, 0.50), (0.50, 0.58), (0.58, 0.60)]
+    HOUR_BUCKETS = list(range(24))  # 0-23 UTC
+    REGIME_BUCKETS = ["TRENDING", "MEAN_REVERT", "CHOPPY"]
+    MIN_TRADES_TO_SKIP = 10  # need this many trades before trusting a bucket
+    MIN_WR_TO_TRADE = 0.40   # skip if bucket WR < 40%
+
+    def __init__(self):
+        self.buckets = {}  # {bucket_key: [alpha, beta]}
+        self._load()
+
+    def _load(self):
+        try:
+            with open(self.STATE_FILE) as f:
+                self.buckets = json.load(f).get("buckets", {})
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+
+    def _save(self):
+        try:
+            with open(self.STATE_FILE, "w") as f:
+                json.dump({"buckets": self.buckets, "updated": datetime.now(timezone.utc).isoformat()}, f, indent=2)
+        except Exception:
+            pass
+
+    def _bucket_key(self, kind: str, value) -> str:
+        return f"{kind}:{value}"
+
+    def _price_bucket(self, price: float) -> str:
+        for lo, hi in self.PRICE_BUCKETS:
+            if lo <= price < hi:
+                return f"{lo:.2f}-{hi:.2f}"
+        return "other"
+
+    def should_trade(self, entry_price: float, hour_utc: int, regime: str) -> tuple:
+        """Check if current conditions are historically profitable.
+        Returns (should_trade: bool, skip_reason: str or None, details: dict)"""
+        checks = [
+            ("price", self._price_bucket(entry_price)),
+            ("hour", str(hour_utc)),
+            ("regime", regime),
+        ]
+        details = {}
+        for kind, val in checks:
+            key = self._bucket_key(kind, val)
+            if key in self.buckets:
+                a, b = self.buckets[key]
+                total = a + b - 2  # subtract prior
+                wr = a / (a + b) if (a + b) > 0 else 0.5
+                details[kind] = {"bucket": val, "wr": round(wr, 3), "trades": max(0, total)}
+                if total >= self.MIN_TRADES_TO_SKIP and wr < self.MIN_WR_TO_TRADE:
+                    return (False, f"{kind}={val} ({wr:.0%} WR over {total:.0f} trades)", details)
+            else:
+                details[kind] = {"bucket": val, "wr": 0.5, "trades": 0}
+        return (True, None, details)
+
+    def record_outcome(self, entry_price: float, hour_utc: int, regime: str, won: bool):
+        """Update all relevant condition buckets with trade outcome."""
+        updates = [
+            ("price", self._price_bucket(entry_price)),
+            ("hour", str(hour_utc)),
+            ("regime", regime),
+        ]
+        for kind, val in updates:
+            key = self._bucket_key(kind, val)
+            if key not in self.buckets:
+                self.buckets[key] = [1, 1]  # weak uniform prior
+            if won:
+                self.buckets[key][0] += 1
+            else:
+                self.buckets[key][1] += 1
+        self._save()
+
+    def get_report(self) -> str:
+        """Summary of condition bucket performance."""
+        lines = ["[COND] Condition bucket WR:"]
+        for kind in ["price", "hour", "regime"]:
+            kind_buckets = {k: v for k, v in self.buckets.items() if k.startswith(f"{kind}:")}
+            if not kind_buckets:
+                continue
+            parts = []
+            for key, (a, b) in sorted(kind_buckets.items()):
+                val = key.split(":", 1)[1]
+                total = a + b - 2
+                wr = a / (a + b) * 100 if (a + b) > 0 else 50
+                if total > 0:
+                    parts.append(f"{val}={wr:.0f}%({total:.0f}t)")
+            if parts:
+                lines.append(f"  {kind}: {' | '.join(parts)}")
+        return "\n".join(lines)
+
 
 # ============================================================================
 # PROMOTION PIPELINE: PROBATION -> PROMOTED -> CHAMPION
@@ -866,6 +1155,8 @@ class Momentum15MTrader:
                                      str(Path(__file__).parent / "momentum_tuner_state.json"))
         self._candles_15m_cache = None  # V2.1: FRAMA_CMO 15M candle cache
         self._candles_15m_ts = 0        # V2.1: cache timestamp
+        self.bs_ml = BSEdgeML()          # V2.3: Black-Scholes edge ML
+        self.cond_tracker = BayesianConditionTracker()  # V2.3: condition bucketing
         self._load()
         self._init_streak_tracker()  # V1.5: streak detection
 
@@ -1324,6 +1615,17 @@ class Momentum15MTrader:
                                 self.record_market_outcome(trade.get("_asset", "BTC"), winning)
                                 self.filter_ml.record_outcome(trade, won)
                                 self.v17_tracker.record_trade(trade, won)
+                                # V2.3: BS edge ML feedback
+                                if trade.get("_bs_edge", 0) > 0:
+                                    self.bs_ml.record_outcome(trade["_bs_edge"], won)
+                                # V2.3.1: Resolve BS shadow entries
+                                self.bs_ml.resolve_shadow(trade.get("condition_id", ""), winning)
+                                # V2.3: Condition bucket update
+                                self.cond_tracker.record_outcome(
+                                    trade.get("entry_price", 0.5),
+                                    datetime.fromisoformat(trade.get("entry_time", now.isoformat())).hour,
+                                    trade.get("_hmm_regime", "CHOPPY"),
+                                    won)
                                 # ML TUNER: feed resolution
                                 tl_min = trade.get("_time_left", 3.0)
                                 self.tuner.resolve_shadows({
@@ -1420,6 +1722,18 @@ class Momentum15MTrader:
                                         side=trade["side"],
                                     )
 
+                                # V2.3: BS edge ML feedback
+                                if trade.get("_bs_edge", 0) > 0:
+                                    self.bs_ml.record_outcome(trade["_bs_edge"], won)
+                                # V2.3.1: Resolve BS shadow entries
+                                self.bs_ml.resolve_shadow(trade.get("condition_id", ""), market_outcome)
+                                # V2.3: Condition bucket update
+                                self.cond_tracker.record_outcome(
+                                    trade.get("entry_price", 0.5),
+                                    datetime.fromisoformat(trade.get("entry_time", now.isoformat())).hour,
+                                    trade.get("_hmm_regime", "CHOPPY"),
+                                    won)
+
                                 # ML TUNER: feed resolution
                                 self.tuner.resolve_shadows({
                                     trade.get("condition_id", tid): market_outcome
@@ -1443,6 +1757,39 @@ class Momentum15MTrader:
                 print(f"[LOSS] {trade.get('_asset', '?')}:{trade['side']} ${trade['pnl']:+.2f} | aged out (no market ID)")
                 if self.check_auto_kill():
                     return
+
+        # V2.3.1: Resolve BS-EDGE shadow entries from WS resolved markets
+        shadow_data = self.bs_ml._load_shadow()
+        if shadow_data.get("active"):
+            for s_cid in list(shadow_data["active"].keys()):
+                # Check if any WS-resolved market matches this condition_id
+                for tok_id, res_info in self.poly_ws.resolved_markets.items():
+                    winning = res_info.get("winning", "")
+                    if winning:
+                        # We match by checking all resolved markets — imprecise but functional
+                        # The shadow entry cid won't match token_id, so we use Gamma API fallback
+                        pass
+            # Fallback: resolve shadows for markets that are past their end time
+            for s_cid, s_entry in list(shadow_data["active"].items()):
+                try:
+                    entry_ts = datetime.fromisoformat(s_entry["ts"])
+                    age_min = (now - entry_ts).total_seconds() / 60
+                    if age_min > 20:  # market should have resolved by now
+                        # Fetch outcome from Gamma API
+                        import httpx
+                        async with httpx.AsyncClient() as client:
+                            resp = await client.get(
+                                f"https://gamma-api.polymarket.com/markets?condition_id={s_cid}",
+                                timeout=10)
+                            markets = resp.json()
+                            if markets and len(markets) > 0:
+                                m = markets[0]
+                                if m.get("closed"):
+                                    outcome = m.get("market_outcome", m.get("outcome", ""))
+                                    if outcome:
+                                        self.bs_ml.resolve_shadow(s_cid, outcome.upper())
+                except Exception:
+                    pass
 
     # ========================================================================
     # V2.1: FRAMA_CMO SIGNAL (15M candle-based trend pullback strategy)
@@ -1511,6 +1858,96 @@ class Momentum15MTrader:
             reason = "frama_dn_pullback"
 
         return {"side": side, "reason": reason, "detail": f"frama={fv:.0f} cmo={mv:.1f} dcmid={mid:.0f}"}
+
+    # ========================================================================
+    # V2.3: BLACK-SCHOLES FAIR VALUE SIGNAL
+    # ========================================================================
+
+    def _compute_annualized_vol(self, candles: list) -> float:
+        """Compute annualized volatility from 1-min candle closes.
+        Uses rolling 14-bar ATR-style calculation, then annualizes."""
+        closes = [c["close"] for c in candles]
+        if len(closes) < 15:
+            return 0.50  # fallback: 50% annual vol (reasonable for BTC)
+        # 1-min log returns
+        returns = []
+        for i in range(1, len(closes)):
+            if closes[i] > 0 and closes[i-1] > 0:
+                returns.append(math.log(closes[i] / closes[i-1]))
+        if len(returns) < 10:
+            return 0.50
+        # Standard deviation of 1-min returns
+        mean_r = sum(returns) / len(returns)
+        var_r = sum((r - mean_r) ** 2 for r in returns) / (len(returns) - 1)
+        std_1m = math.sqrt(var_r)
+        # Annualize: sigma_annual = std_1m * sqrt(minutes_per_year)
+        sigma_annual = std_1m * math.sqrt(525600.0)
+        # Clamp to reasonable range (20% - 200% annual vol)
+        return max(0.20, min(2.00, sigma_annual))
+
+    def _check_bs_edge(self, candles: list, market: dict,
+                       up_price: float, down_price: float) -> dict:
+        """Black-Scholes binary option fair value vs CLOB price.
+
+        Returns {"side": "UP"/"DOWN"/None, "edge": float, "bs_up": float,
+                 "bs_down": float, "sigma": float, "threshold": float, "detail": str}
+        """
+        result = {"side": None, "edge": 0.0, "bs_up": 0.50, "bs_down": 0.50,
+                  "sigma": 0.0, "threshold": 0.0, "detail": ""}
+
+        spot = self.feed.current_price
+        if not spot or spot <= 0:
+            return result
+
+        # Get market timing
+        time_left = market.get("_time_left", 0)
+        if time_left <= 0.5:
+            return result  # too close to expiry, BS unstable
+
+        # Compute the candle open price (strike) from the earliest candle
+        # in the current 15M window. Since we have 1-min candles,
+        # the open is ~15 candles back from the close.
+        # Better: use the market start time to find the exact open candle.
+        # For now, approximate: 15min window started (15 - time_left) min ago
+        minutes_into_market = 15.0 - time_left
+        bars_back = max(1, min(int(minutes_into_market), len(candles) - 1))
+        strike = candles[-(bars_back + 1)]["close"] if bars_back < len(candles) else candles[0]["close"]
+
+        # Compute annualized vol from recent candle data
+        sigma = self._compute_annualized_vol(candles)
+
+        # BS fair value
+        bs = bs_binary_fair_value(spot, strike, sigma, time_left)
+        bs_up = bs["up_fair"]
+        bs_down = bs["down_fair"]
+
+        # ML-selected edge threshold
+        threshold = self.bs_ml.select_threshold()
+
+        # Compute edge: how much is CLOB underpricing vs BS fair value
+        up_edge = bs_up - up_price      # positive = UP underpriced on CLOB
+        down_edge = bs_down - down_price  # positive = DOWN underpriced on CLOB
+
+        side = None
+        edge = 0.0
+        if up_edge >= threshold and up_edge > down_edge:
+            side = "UP"
+            edge = up_edge
+        elif down_edge >= threshold and down_edge > up_edge:
+            side = "DOWN"
+            edge = down_edge
+
+        detail = (f"BS: UP={bs_up:.1%} DOWN={bs_down:.1%} | "
+                  f"CLOB: UP=${up_price:.2f} DOWN=${down_price:.2f} | "
+                  f"edge={max(up_edge, down_edge):.1%} (need {threshold:.0%}) | "
+                  f"S=${spot:,.0f} K=${strike:,.0f} sig={sigma:.0%} t={time_left:.1f}m")
+
+        result.update({
+            "side": side, "edge": edge, "bs_up": bs_up, "bs_down": bs_down,
+            "sigma": sigma, "threshold": threshold, "detail": detail,
+            "up_edge": up_edge, "down_edge": down_edge,
+        })
+        return result
 
     # ========================================================================
     # ENTRY
@@ -1663,22 +2100,66 @@ class Momentum15MTrader:
                     side = "DOWN"
                     entry_price = round(down_price + (SPREAD_OFFSET if self.paper else 0), 2)
 
-            # V2.1: FRAMA_CMO consensus / fallback logic
+            # V2.3: BLACK-SCHOLES edge signal (per-market, uses CLOB prices)
+            bs_sig = self._check_bs_edge(candles, market, up_price, down_price)
+            bs_side = bs_sig.get("side")
+            bs_edge = bs_sig.get("edge", 0.0)
+
+            # V2.3.1: BS-EDGE shadow paper tracking (not live until proven)
+            # Track what BS-EDGE would have done, auto-promote at 25T / 65%+ WR
+            bs_live_eligible = self.bs_ml.is_live_eligible()  # checks shadow stats
+            if bs_side and not bs_live_eligible:
+                bs_entry_p = up_price if bs_side == "UP" else down_price
+                if MIN_ENTRY <= bs_entry_p <= MAX_ENTRY:
+                    self.bs_ml.record_shadow_entry(cid, bs_side, bs_entry_p, bs_edge)
+                    print(f"    [BS-SHADOW] {bs_side} @ ${bs_entry_p:.2f} edge={bs_edge:.1%} (paper-only, need 25T/65%WR)")
+
+            # V2.1+V2.3: Multi-signal consensus logic
+            # Count how many independent signals agree: momentum, FRAMA_CMO, BS
+            signals = {}
+            if side:
+                signals["momentum"] = side
+            if frama_side:
+                signals["frama_cmo"] = frama_side
+            if bs_side and bs_live_eligible:
+                signals["bs_edge"] = bs_side  # only counts if promoted to live
+
+            # Determine consensus
             consensus = False
-            if side and frama_side == side:
-                # Both momentum_strong and FRAMA_CMO agree — consensus boost
-                consensus = True
-                strategy = "consensus"
-                print(f"    [CONSENSUS] momentum_strong + FRAMA_CMO both say {side} | {frama_sig.get('detail', '')}")
+            signal_count = len(signals)
+            if signal_count >= 2:
+                # Check if at least 2 agree on the same direction
+                from collections import Counter
+                votes = Counter(signals.values())
+                top_side, top_count = votes.most_common(1)[0]
+                if top_count >= 2:
+                    consensus = True
+                    if not side:
+                        side = top_side
+                        entry_price = round((up_price if side == "UP" else down_price) + (SPREAD_OFFSET if self.paper else 0), 2)
+                    elif side != top_side:
+                        # Momentum disagrees with majority — skip conflicting signal
+                        consensus = False
+                    if consensus:
+                        names = [k for k, v in signals.items() if v == top_side]
+                        strategy = "consensus" if top_count == 2 else "triple_consensus"
+                        print(f"    [{strategy.upper()}] {'+'.join(names)} -> {top_side} "
+                              f"| BS edge={bs_edge:.1%} | {bs_sig.get('detail', '')[:60]}")
             elif not side and frama_side:
-                # Only FRAMA_CMO fires — use it as standalone entry
                 side = frama_side
                 strategy = "frama_cmo"
                 entry_price = round((up_price if side == "UP" else down_price) + (SPREAD_OFFSET if self.paper else 0), 2)
                 if entry_price > MAX_ENTRY or entry_price < MIN_ENTRY:
                     continue
                 print(f"    [FRAMA_CMO] {side} @ ${entry_price:.2f} | {frama_sig.get('detail', '')}")
-            # else: strategy stays "momentum_strong" (set at line 1329)
+            elif not side and bs_side and bs_live_eligible:
+                side = bs_side
+                strategy = "bs_edge"
+                entry_price = round((up_price if side == "UP" else down_price) + (SPREAD_OFFSET if self.paper else 0), 2)
+                if entry_price > MAX_ENTRY or entry_price < MIN_ENTRY:
+                    continue
+                print(f"    [BS-EDGE LIVE] {side} @ ${entry_price:.2f} edge={bs_edge:.1%} | {bs_sig.get('detail', '')[:80]}")
+            # else: strategy stays "momentum_strong" (single signal)
 
             if not side or not entry_price or entry_price > MAX_ENTRY:
                 continue
@@ -1691,13 +2172,24 @@ class Momentum15MTrader:
                       f"streak | boost={streak_boost:.1f} (betting WITH, reversal likely)")
                 continue
 
+            # V2.3: Bayesian condition check — skip if bucket WR is bad
+            regime = self.hmm.current_regime() or "CHOPPY"
+            cond_ok, cond_skip, cond_details = self.cond_tracker.should_trade(
+                entry_price, now.hour, regime)
+            if not cond_ok:
+                print(f"[COND-SKIP] {asset}:{side} | {cond_skip}")
+                continue
+
             # Size based on current promotion tier
             trade_size = TIERS[self.tier]["size"]
 
-            # V2.1: Consensus size multiplier — boost when both signals agree
+            # V2.3: Consensus size multiplier — boost when multiple signals agree
             if consensus:
-                trade_size = round(trade_size * CONSENSUS_SIZE_MULT, 2)
-                print(f"    [SIZE BOOST] Consensus: ${trade_size:.2f} ({CONSENSUS_SIZE_MULT}x)")
+                mult = CONSENSUS_SIZE_MULT
+                if strategy == "triple_consensus":
+                    mult = 2.0  # 2x for all 3 signals agreeing
+                trade_size = round(trade_size * mult, 2)
+                print(f"    [SIZE BOOST] {strategy}: ${trade_size:.2f} ({mult}x)")
 
             shares = int(trade_size / entry_price)  # V1.9b: integer shares — CLOB rejects excess decimals
 
@@ -1824,6 +2316,12 @@ class Momentum15MTrader:
                 "_ema_gap_bp": round(ema_gap_bp, 1) if ema_gap_bp is not None else None,
                 "_expected_fee": round(expected_fee, 4),
                 "_consensus": consensus,
+                "_bs_edge": round(bs_edge, 4),
+                "_bs_up_fair": round(bs_sig.get("bs_up", 0.5), 4),
+                "_bs_down_fair": round(bs_sig.get("bs_down", 0.5), 4),
+                "_bs_sigma": round(bs_sig.get("sigma", 0), 4),
+                "_bs_threshold": round(bs_sig.get("threshold", 0), 4),
+                "_hmm_regime": regime,
                 "_price_source": "ws" if self.poly_ws.is_connected() else "gamma",
                 "status": "open",
                 "pnl": 0.0,
@@ -1844,10 +2342,11 @@ class Momentum15MTrader:
             streak_str = ""
             if streak_info["streak_len"] >= 2:
                 streak_str = f" | streak={streak_info['streak_len']}x{streak_info['streak_dir']} {streak_info['alignment']} b={streak_boost:.1f}"
-            frama_str = f" | {frama_sig.get('detail', '')}" if strategy in ("frama_cmo", "consensus") else ""
+            frama_str = f" | {frama_sig.get('detail', '')}" if strategy in ("frama_cmo", "consensus", "triple_consensus") else ""
+            bs_str = f" | BS edge={bs_edge:.1%}" if bs_edge > 0.01 else ""
             print(f"[ENTRY] {asset}:{side} ${entry_price:.2f} ${trade_size:.2f} ({shares:.0f}sh) | {strategy} | "
                   f"mom_10m={momentum_10m:+.4%} mom_5m={momentum_5m:+.4%} {rsi_str} | "
-                  f"[ML:{ml_preset}] | {asset}=${asset_price:,.2f} | time={time_left:.1f}m | [{mode}]{streak_str}{frama_str} | "
+                  f"[ML:{ml_preset}] | {asset}=${asset_price:,.2f} | time={time_left:.1f}m | [{mode}]{streak_str}{frama_str}{bs_str} | "
                   f"{question[:50]}")
 
         # ================================================================
@@ -1960,8 +2459,8 @@ class Momentum15MTrader:
         mode = "PAPER" if self.paper else "LIVE"
         print("=" * 70)
         tier_size = TIERS[self.tier]["size"]
-        print(f"MOMENTUM 15M DIRECTIONAL TRADER V2.2 - {mode} MODE")
-        print(f"Strategy: momentum_strong + FRAMA_CMO pullback + consensus boost | BTC only")
+        print(f"MOMENTUM 15M DIRECTIONAL TRADER V2.3 - {mode} MODE")
+        print(f"Strategy: momentum_strong + FRAMA_CMO + Black-Scholes edge | BTC only")
         print(f"Assets: {', '.join(ASSETS.keys())}")
         print(f"Tier: {self.tier} (${tier_size:.2f}/trade) | Max concurrent: {MAX_CONCURRENT}")
         print(f"Entry price: ${MIN_ENTRY:.2f}-${MAX_ENTRY:.2f}")
@@ -1970,13 +2469,13 @@ class Momentum15MTrader:
         print(f"  UP signal:     RSI >{RSI_CONFIRM_UP} + bullish momentum -> bet UP (backtest: 94% WR)")
         print(f"  MODERATE DOWN: RSI {RSI_MODERATE_DOWN_LO}-{RSI_MODERATE_DOWN_HI} + bearish momentum -> bet DOWN (backtest: 91% WR)")
         print(f"  FRAMA_CMO:     FRAMA(16) + CMO(14) + Donchian(20) trend pullback (paper: 69.5% WR)")
-        print(f"  CONSENSUS:     momentum + FRAMA_CMO agree -> {CONSENSUS_SIZE_MULT}x size")
+        print(f"  BS-EDGE:       Black-Scholes fair value vs CLOB price (ML threshold)")
+        print(f"  CONSENSUS:     2+ signals agree -> {CONSENSUS_SIZE_MULT}x | 3 agree -> 2x")
         print(f"FOK orders + fill verify (V1.8) | ML filter reset (clean priors)")
         print(f"Skip hours (UTC): {{7}} (2AM ET only)")
         print(f"Daily loss limit: ${DAILY_LOSS_LIMIT}")
         print(f"Scan interval: {SCAN_INTERVAL}s")
-        print(f"V2.1: +FRAMA_CMO signal, tighter window (2-4m), re-opened hour 13, consensus 1.5x")
-        print(f"V2.2: +Polymarket WS (real-time prices, instant resolution), taker fee calc")
+        print(f"V2.3: +Black-Scholes binary option fair value, ML edge threshold, triple consensus")
         print("=" * 70)
 
         # V2.0: Start WebSocket feed
@@ -2083,6 +2582,8 @@ class Momentum15MTrader:
                 # V1.4: ML filter report every 25 cycles
                 if cycle % 25 == 0 and cycle > 0:
                     print(self.filter_ml.get_report())
+                    print(self.bs_ml.get_report())
+                    print(self.cond_tracker.get_report())
                     print(self.v17_tracker.get_report())
                     print(self.hmm.get_report())
 

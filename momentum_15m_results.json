@@ -32,15 +32,56 @@
       "exit_price": 1.0,
       "exit_time": "2026-02-19T05:40:54.529819+00:00",
       "tier": "PROBATION"
+    },
+    {
+      "side": "UP",
+      "entry_price": 0.38,
+      "size_usd": 3.04,
+      "_shares": 8,
+      "entry_time": "2026-02-20T01:56:41.533603+00:00",
+      "condition_id": "0x113dceb492bd161bb0a1594c099e0f8e9d538dda0a358dea7bc2cc58296c5f9c",
+      "market_numeric_id": "1395746",
+      "_token_ids": [
+        "36989638172471564117851898391934547571604021525612835030456741279094401315754",
+        "44045860336683420882918389074445085205625375606551349008973310144007021505080"
+      ],
+      "title": "Bitcoin Up or Down - February 19, 8:45PM-9:00PM ET",
+      "strategy": "momentum_strong",
+      "asset": "BTC",
+      "_asset": "BTC",
+      "momentum_10m": 0.001061,
+      "momentum_5m": 0.000423,
+      "rsi": 60.0,
+      "ml_preset": "moderate",
+      "asset_price": 67298.35,
+      "order_id": "0xf12eacf3bebddad2b9da715509fc93af72469d8f776bc735b2cb341220863feb",
+      "_fill_confirmed": true,
+      "spike_15s": 0,
+      "spike_boosted": false,
+      "streak_len": 1,
+      "streak_dir": "DOWN",
+      "streak_alignment": "NEUTRAL",
+      "streak_boost": 1.0,
+      "_time_left": 3.3,
+      "_ema_gap_bp": 0.0,
+      "_expected_fee": 0.0362,
+      "_consensus": false,
+      "_price_source": "ws",
+      "status": "closed",
+      "pnl": -3.04,
+      "exit_price": 0.0,
+      "exit_time": "2026-02-20T02:14:46.323348+00:00",
+      "_resolved_via": "ws",
+      "tier": "PROBATION"
     }
   ],
   "stats": {
     "wins": 1,
-    "losses": 0,
-    "pnl": 2.65,
+    "losses": 1,
+    "pnl": -0.3900000000000001,
     "start_time": "2026-02-19T03:37:50.968718+00:00"
   },
-  "tier": "PROBATION",
+  "tier": "PROMOTED",
   "session_pnl": 0.0,
-  "last_updated": "2026-02-19T12:49:46.186642+00:00"
+  "last_updated": "2026-02-20T06:09:24.944677+00:00"
 }

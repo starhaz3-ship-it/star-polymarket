@@ -1,57 +1,307 @@
 [
  {
-  "ts": "2026-02-18T18:40:03.493125+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:35PM-1:40PM ET",
+  "ts": "2026-02-19T01:15:17.505696+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:10PM-8:15PM ET",
   "direction": "UP",
-  "secs_past_close": 2.1,
+  "secs_past_close": 16.1,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:40:07.418151+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:35PM-1:40PM ET",
+  "ts": "2026-02-19T01:15:21.512399+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:10PM-8:15PM ET",
   "direction": "UP",
-  "secs_past_close": 6.1,
+  "secs_past_close": 20.2,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:40:11.682924+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:35PM-1:40PM ET",
+  "ts": "2026-02-19T01:15:25.809360+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:10PM-8:15PM ET",
   "direction": "UP",
-  "secs_past_close": 10.1,
+  "secs_past_close": 24.3,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:40:16.176633+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:35PM-1:40PM ET",
+  "ts": "2026-02-19T01:15:30.023799+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:10PM-8:15PM ET",
   "direction": "UP",
-  "secs_past_close": 14.4,
+  "secs_past_close": 28.6,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:40:20.417350+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:35PM-1:40PM ET",
+  "ts": "2026-02-19T01:15:34.242373+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:10PM-8:15PM ET",
   "direction": "UP",
-  "secs_past_close": 18.9,
+  "secs_past_close": 32.8,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:40:24.607404+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:35PM-1:40PM ET",
+  "ts": "2026-02-19T01:15:38.406648+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:10PM-8:15PM ET",
+  "direction": "UP",
+  "secs_past_close": 37.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:15:42.562926+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:10PM-8:15PM ET",
+  "direction": "UP",
+  "secs_past_close": 41.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:15:46.754394+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:10PM-8:15PM ET",
+  "direction": "UP",
+  "secs_past_close": 45.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:15:50.862521+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:10PM-8:15PM ET",
+  "direction": "UP",
+  "secs_past_close": 49.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:15:55.063846+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:10PM-8:15PM ET",
+  "direction": "UP",
+  "secs_past_close": 53.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:15:59.303148+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:10PM-8:15PM ET",
+  "direction": "UP",
+  "secs_past_close": 57.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:20:04.681902+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:15PM-8:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 3.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:20:08.855563+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:15PM-8:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 7.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:20:12.942147+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:15PM-8:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 11.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:20:17.240520+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:15PM-8:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 15.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:20:21.434380+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:15PM-8:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 19.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:20:25.465591+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:15PM-8:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 24.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:20:29.585359+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:15PM-8:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 28.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:20:33.783149+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:15PM-8:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 32.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:20:37.911775+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:15PM-8:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 36.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:20:42.048048+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:15PM-8:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 40.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:20:46.227335+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:15PM-8:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 44.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:20:50.381049+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:15PM-8:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 48.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:20:54.432903+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:15PM-8:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 53.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:20:58.659965+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:15PM-8:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 57.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:25:04.019417+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:20PM-8:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 2.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:25:08.247310+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:20PM-8:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 6.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:25:12.413455+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:20PM-8:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 11.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:25:16.473627+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:20PM-8:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 15.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:25:20.421431+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:20PM-8:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 19.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:25:24.530681+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:20PM-8:25PM ET",
   "direction": "UP",
   "secs_past_close": 23.1,
   "best_ask": null,
@@ -60,99 +310,509 @@
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:40:28.794578+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:35PM-1:40PM ET",
+  "ts": "2026-02-19T01:25:28.606834+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:20PM-8:25PM ET",
   "direction": "UP",
-  "secs_past_close": 27.3,
+  "secs_past_close": 27.2,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:40:32.966093+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:35PM-1:40PM ET",
+  "ts": "2026-02-19T01:25:32.793293+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:20PM-8:25PM ET",
   "direction": "UP",
-  "secs_past_close": 31.5,
+  "secs_past_close": 31.3,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:40:37.141422+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:35PM-1:40PM ET",
+  "ts": "2026-02-19T01:25:36.875691+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:20PM-8:25PM ET",
   "direction": "UP",
-  "secs_past_close": 35.6,
+  "secs_past_close": 35.5,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:40:41.184021+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:35PM-1:40PM ET",
+  "ts": "2026-02-19T01:25:40.988276+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:20PM-8:25PM ET",
   "direction": "UP",
-  "secs_past_close": 39.7,
+  "secs_past_close": 39.5,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:40:45.108248+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:35PM-1:40PM ET",
+  "ts": "2026-02-19T01:25:45.105329+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:20PM-8:25PM ET",
   "direction": "UP",
-  "secs_past_close": 43.8,
+  "secs_past_close": 43.7,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:40:48.956313+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:35PM-1:40PM ET",
+  "ts": "2026-02-19T01:25:49.286872+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:20PM-8:25PM ET",
   "direction": "UP",
-  "secs_past_close": 47.7,
+  "secs_past_close": 47.8,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:40:52.790937+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:35PM-1:40PM ET",
+  "ts": "2026-02-19T01:25:53.392023+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:20PM-8:25PM ET",
   "direction": "UP",
-  "secs_past_close": 51.5,
+  "secs_past_close": 52.0,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:40:56.910249+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:35PM-1:40PM ET",
+  "ts": "2026-02-19T01:25:57.600361+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:20PM-8:25PM ET",
   "direction": "UP",
-  "secs_past_close": 55.4,
+  "secs_past_close": 56.1,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:41:01.122403+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:35PM-1:40PM ET",
+  "ts": "2026-02-19T01:30:05.542980+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:25PM-8:30PM ET",
   "direction": "UP",
-  "secs_past_close": 59.6,
+  "secs_past_close": 4.1,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:45:04.510967+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:40PM-1:45PM ET",
+  "ts": "2026-02-19T01:30:09.742744+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:25PM-8:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 8.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:30:14.184272+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:25PM-8:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 12.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:30:18.262624+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:25PM-8:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 16.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:30:22.252804+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:25PM-8:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 20.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:30:26.332212+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:25PM-8:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 24.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:30:30.475661+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:25PM-8:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 29.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:30:34.625283+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:25PM-8:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 33.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:30:38.782663+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:25PM-8:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 37.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:30:42.805605+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:25PM-8:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 41.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:30:46.797548+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:25PM-8:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 45.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:30:50.927180+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:25PM-8:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 49.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:30:55.034611+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:25PM-8:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 53.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:30:59.249359+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:25PM-8:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 57.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:35:05.769365+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:30PM-8:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 4.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:35:09.881091+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:30PM-8:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 8.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:35:14.242266+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:30PM-8:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 12.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:35:18.405700+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:30PM-8:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 16.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:35:22.694119+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:30PM-8:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 21.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:35:26.854493+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:30PM-8:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 25.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:35:31.051251+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:30PM-8:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 29.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:35:35.239533+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:30PM-8:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 33.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:35:39.336625+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:30PM-8:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 37.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:35:43.351558+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:30PM-8:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 42.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:35:47.455325+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:30PM-8:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 46.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:35:51.460500+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:30PM-8:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 50.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:35:55.720040+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:30PM-8:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 54.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:36:00.549029+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:30PM-8:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 59.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:40:05.709181+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:35PM-8:40PM ET",
   "direction": "DOWN",
+  "secs_past_close": 4.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:40:09.935764+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:35PM-8:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 8.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:40:14.183723+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:35PM-8:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 12.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:40:18.410254+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:35PM-8:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 16.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:40:22.524889+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:35PM-8:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 21.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:40:26.692827+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:35PM-8:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 25.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:40:31.001673+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:35PM-8:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 29.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:40:35.181946+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:35PM-8:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 33.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:40:39.302294+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:35PM-8:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 37.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:40:43.438143+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:35PM-8:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 42.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:40:47.517963+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:35PM-8:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 46.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:40:51.545085+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:35PM-8:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 50.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:40:55.578524+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:35PM-8:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 54.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:40:59.748078+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:35PM-8:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 58.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:45:04.761982+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:40PM-8:45PM ET",
+  "direction": "UP",
   "secs_past_close": 3.2,
   "best_ask": null,
   "total_shares": 0,
@@ -160,19 +820,159 @@
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:45:08.468443+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:40PM-1:45PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 7.1,
+  "ts": "2026-02-19T01:45:08.651419+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:40PM-8:45PM ET",
+  "direction": "UP",
+  "secs_past_close": 7.4,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:45:12.491460+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:40PM-1:45PM ET",
-  "direction": "DOWN",
+  "ts": "2026-02-19T01:45:12.818080+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:40PM-8:45PM ET",
+  "direction": "UP",
+  "secs_past_close": 11.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:45:17.046591+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:40PM-8:45PM ET",
+  "direction": "UP",
+  "secs_past_close": 15.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:45:21.243452+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:40PM-8:45PM ET",
+  "direction": "UP",
+  "secs_past_close": 19.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:45:25.410240+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:40PM-8:45PM ET",
+  "direction": "UP",
+  "secs_past_close": 23.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:45:29.532400+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:40PM-8:45PM ET",
+  "direction": "UP",
+  "secs_past_close": 28.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:45:33.809847+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:40PM-8:45PM ET",
+  "direction": "UP",
+  "secs_past_close": 32.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:45:37.968646+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:40PM-8:45PM ET",
+  "direction": "UP",
+  "secs_past_close": 36.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:45:42.250175+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:40PM-8:45PM ET",
+  "direction": "UP",
+  "secs_past_close": 40.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:45:46.317428+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:40PM-8:45PM ET",
+  "direction": "UP",
+  "secs_past_close": 44.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:45:50.460208+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:40PM-8:45PM ET",
+  "direction": "UP",
+  "secs_past_close": 49.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:45:54.561444+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:40PM-8:45PM ET",
+  "direction": "UP",
+  "secs_past_close": 53.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:45:58.720198+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:40PM-8:45PM ET",
+  "direction": "UP",
+  "secs_past_close": 57.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:50:04.103447+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:45PM-8:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 2.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:50:08.327040+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:45PM-8:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 6.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:50:12.435975+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:45PM-8:50PM ET",
+  "direction": "UP",
   "secs_past_close": 11.1,
   "best_ask": null,
   "total_shares": 0,
@@ -180,18 +980,438 @@
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:45:16.328329+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:40PM-1:45PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 15.1,
+  "ts": "2026-02-19T01:50:16.935026+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:45PM-8:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 15.4,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:45:20.271709+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:40PM-1:45PM ET",
+  "ts": "2026-02-19T01:50:21.095248+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:45PM-8:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 19.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:50:25.435639+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:45PM-8:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 23.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:50:29.501582+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:45PM-8:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 28.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:50:33.806775+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:45PM-8:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 32.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:50:37.899087+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:45PM-8:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 36.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:50:42.165190+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:45PM-8:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 40.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:50:46.648874+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:45PM-8:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 45.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:50:50.808429+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:45PM-8:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 49.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:50:54.799940+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:45PM-8:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 53.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:50:58.942808+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:45PM-8:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 57.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:55:06.285415+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:50PM-8:55PM ET",
+  "direction": "UP",
+  "secs_past_close": 4.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:55:10.533733+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:50PM-8:55PM ET",
+  "direction": "UP",
+  "secs_past_close": 9.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:55:14.725155+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:50PM-8:55PM ET",
+  "direction": "UP",
+  "secs_past_close": 13.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:55:18.943082+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:50PM-8:55PM ET",
+  "direction": "UP",
+  "secs_past_close": 17.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:55:23.062312+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:50PM-8:55PM ET",
+  "direction": "UP",
+  "secs_past_close": 21.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:55:27.242053+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:50PM-8:55PM ET",
+  "direction": "UP",
+  "secs_past_close": 25.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:55:31.519866+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:50PM-8:55PM ET",
+  "direction": "UP",
+  "secs_past_close": 30.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:55:35.760006+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:50PM-8:55PM ET",
+  "direction": "UP",
+  "secs_past_close": 34.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:55:39.884221+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:50PM-8:55PM ET",
+  "direction": "UP",
+  "secs_past_close": 38.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:55:44.058327+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:50PM-8:55PM ET",
+  "direction": "UP",
+  "secs_past_close": 42.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:55:48.097613+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:50PM-8:55PM ET",
+  "direction": "UP",
+  "secs_past_close": 46.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:55:52.169017+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:50PM-8:55PM ET",
+  "direction": "UP",
+  "secs_past_close": 50.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:55:56.324967+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:50PM-8:55PM ET",
+  "direction": "UP",
+  "secs_past_close": 54.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T01:56:00.380249+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:50PM-8:55PM ET",
+  "direction": "UP",
+  "secs_past_close": 59.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:00:04.336365+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:55PM-9:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 2.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:00:08.616215+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:55PM-9:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 7.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:00:12.728334+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:55PM-9:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 11.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:00:16.958379+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:55PM-9:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 15.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:00:21.056291+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:55PM-9:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 19.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:00:25.233241+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:55PM-9:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 23.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:00:29.475389+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:55PM-9:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 28.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:00:33.740346+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:55PM-9:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 32.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:00:37.930827+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:55PM-9:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 36.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:00:42.035085+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:55PM-9:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 40.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:00:46.218880+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:55PM-9:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 44.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:00:50.322663+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:55PM-9:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 48.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:00:54.477901+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:55PM-9:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 53.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:00:58.543100+00:00",
+  "question": "Bitcoin Up or Down - February 18, 8:55PM-9:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 57.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:05:03.729974+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:00PM-9:05PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 2.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:05:07.889599+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:00PM-9:05PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 6.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:05:12.165605+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:00PM-9:05PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 10.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:05:16.271686+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:00PM-9:05PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 14.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:05:20.410107+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:00PM-9:05PM ET",
   "direction": "DOWN",
   "secs_past_close": 18.9,
   "best_ask": null,
@@ -200,368 +1420,78 @@
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:45:24.346513+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:40PM-1:45PM ET",
+  "ts": "2026-02-19T02:05:24.585859+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:00PM-9:05PM ET",
   "direction": "DOWN",
-  "secs_past_close": 22.9,
+  "secs_past_close": 23.1,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:45:28.423771+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:40PM-1:45PM ET",
+  "ts": "2026-02-19T02:05:28.808547+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:00PM-9:05PM ET",
   "direction": "DOWN",
-  "secs_past_close": 27.1,
+  "secs_past_close": 27.3,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:45:32.380389+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:40PM-1:45PM ET",
+  "ts": "2026-02-19T02:05:33.115236+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:00PM-9:05PM ET",
   "direction": "DOWN",
-  "secs_past_close": 31.0,
+  "secs_past_close": 31.6,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:45:36.376567+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:40PM-1:45PM ET",
+  "ts": "2026-02-19T02:05:37.246695+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:00PM-9:05PM ET",
   "direction": "DOWN",
-  "secs_past_close": 35.0,
+  "secs_past_close": 35.8,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:45:40.349296+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:40PM-1:45PM ET",
+  "ts": "2026-02-19T02:05:41.524402+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:00PM-9:05PM ET",
   "direction": "DOWN",
-  "secs_past_close": 39.0,
+  "secs_past_close": 40.0,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:45:44.648117+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:40PM-1:45PM ET",
+  "ts": "2026-02-19T02:05:45.710567+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:00PM-9:05PM ET",
   "direction": "DOWN",
-  "secs_past_close": 43.0,
+  "secs_past_close": 44.3,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:45:48.665556+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:40PM-1:45PM ET",
+  "ts": "2026-02-19T02:05:49.888310+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:00PM-9:05PM ET",
   "direction": "DOWN",
-  "secs_past_close": 47.3,
+  "secs_past_close": 48.5,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:45:52.746892+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:40PM-1:45PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 51.3,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:45:56.743361+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:40PM-1:45PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 55.4,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:46:00.728321+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:40PM-1:45PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 59.4,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:50:03.489907+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:45PM-1:50PM ET",
-  "direction": "UP",
-  "secs_past_close": 2.2,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:50:07.404053+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:45PM-1:50PM ET",
-  "direction": "UP",
-  "secs_past_close": 6.0,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:50:11.334194+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:45PM-1:50PM ET",
-  "direction": "UP",
-  "secs_past_close": 10.0,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:50:15.343706+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:45PM-1:50PM ET",
-  "direction": "UP",
-  "secs_past_close": 14.0,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:50:19.339535+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:45PM-1:50PM ET",
-  "direction": "UP",
-  "secs_past_close": 18.0,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:50:23.344223+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:45PM-1:50PM ET",
-  "direction": "UP",
-  "secs_past_close": 22.0,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:50:27.390465+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:45PM-1:50PM ET",
-  "direction": "UP",
-  "secs_past_close": 26.0,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:50:31.477600+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:45PM-1:50PM ET",
-  "direction": "UP",
-  "secs_past_close": 30.1,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:50:35.518407+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:45PM-1:50PM ET",
-  "direction": "UP",
-  "secs_past_close": 34.1,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:50:39.577754+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:45PM-1:50PM ET",
-  "direction": "UP",
-  "secs_past_close": 38.2,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:50:43.575467+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:45PM-1:50PM ET",
-  "direction": "UP",
-  "secs_past_close": 42.2,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:50:47.517900+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:45PM-1:50PM ET",
-  "direction": "UP",
-  "secs_past_close": 46.2,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:50:51.412666+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:45PM-1:50PM ET",
-  "direction": "UP",
-  "secs_past_close": 50.1,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:50:55.427746+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:45PM-1:50PM ET",
-  "direction": "UP",
-  "secs_past_close": 54.0,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:55:05.434642+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:50PM-1:55PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 4.0,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:55:09.324867+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:50PM-1:55PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 8.0,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:55:13.340061+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:50PM-1:55PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 11.9,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:55:17.340266+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:50PM-1:55PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 16.0,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:55:21.658864+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:50PM-1:55PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 20.0,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:55:25.709286+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:50PM-1:55PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 24.3,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:55:29.654804+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:50PM-1:55PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 28.3,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:55:33.687674+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:50PM-1:55PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 32.4,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:55:37.671577+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:50PM-1:55PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 36.3,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:55:41.803420+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:50PM-1:55PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 40.3,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:55:45.971362+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:50PM-1:55PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 44.5,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:55:49.940192+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:50PM-1:55PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 48.6,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T18:55:53.725721+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:50PM-1:55PM ET",
+  "ts": "2026-02-19T02:05:53.963156+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:00PM-9:05PM ET",
   "direction": "DOWN",
   "secs_past_close": 52.5,
   "best_ask": null,
@@ -570,168 +1500,18 @@
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T18:55:57.601484+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:50PM-1:55PM ET",
+  "ts": "2026-02-19T02:05:58.250343+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:00PM-9:05PM ET",
   "direction": "DOWN",
-  "secs_past_close": 56.4,
+  "secs_past_close": 56.7,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T19:00:04.642403+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:55PM-2:00PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 3.2,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T19:00:08.635884+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:55PM-2:00PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 7.3,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T19:00:12.747402+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:55PM-2:00PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 11.2,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T19:00:16.713106+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:55PM-2:00PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 15.4,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T19:00:20.604877+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:55PM-2:00PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 19.4,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T19:00:24.468394+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:55PM-2:00PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 23.2,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T19:00:28.380790+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:55PM-2:00PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 27.0,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T19:00:32.337026+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:55PM-2:00PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 31.0,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T19:00:36.422256+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:55PM-2:00PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 35.0,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T19:00:40.390766+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:55PM-2:00PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 39.0,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T19:00:44.938330+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:55PM-2:00PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 43.6,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T19:00:49.064196+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:55PM-2:00PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 47.6,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T19:00:53.105529+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:55PM-2:00PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 51.7,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T19:00:57.063424+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:55PM-2:00PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 55.8,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T19:01:01.051875+00:00",
-  "question": "Bitcoin Up or Down - February 18, 1:55PM-2:00PM ET",
-  "direction": "DOWN",
-  "secs_past_close": 59.7,
-  "best_ask": null,
-  "total_shares": 0,
-  "levels": [],
-  "has_liquidity_095": false
- },
- {
-  "ts": "2026-02-18T19:05:04.665710+00:00",
-  "question": "Bitcoin Up or Down - February 18, 2:00PM-2:05PM ET",
+  "ts": "2026-02-19T02:10:04.938739+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:05PM-9:10PM ET",
   "direction": "UP",
   "secs_past_close": 3.5,
   "best_ask": null,
@@ -740,58 +1520,1458 @@
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T19:05:08.532105+00:00",
-  "question": "Bitcoin Up or Down - February 18, 2:00PM-2:05PM ET",
+  "ts": "2026-02-19T02:10:08.907082+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:05PM-9:10PM ET",
   "direction": "UP",
-  "secs_past_close": 7.3,
+  "secs_past_close": 7.6,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T19:05:12.334634+00:00",
-  "question": "Bitcoin Up or Down - February 18, 2:00PM-2:05PM ET",
+  "ts": "2026-02-19T02:10:13.251751+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:05PM-9:10PM ET",
   "direction": "UP",
-  "secs_past_close": 11.1,
+  "secs_past_close": 11.7,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T19:05:16.133110+00:00",
-  "question": "Bitcoin Up or Down - February 18, 2:00PM-2:05PM ET",
+  "ts": "2026-02-19T02:10:17.308956+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:05PM-9:10PM ET",
   "direction": "UP",
-  "secs_past_close": 14.9,
+  "secs_past_close": 15.9,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T19:05:20.161270+00:00",
-  "question": "Bitcoin Up or Down - February 18, 2:00PM-2:05PM ET",
+  "ts": "2026-02-19T02:10:21.299299+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:05PM-9:10PM ET",
   "direction": "UP",
-  "secs_past_close": 18.8,
+  "secs_past_close": 20.0,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T19:05:24.218067+00:00",
-  "question": "Bitcoin Up or Down - February 18, 2:00PM-2:05PM ET",
+  "ts": "2026-02-19T02:10:25.369406+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:05PM-9:10PM ET",
   "direction": "UP",
-  "secs_past_close": 22.8,
+  "secs_past_close": 23.9,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T19:05:28.125848+00:00",
-  "question": "Bitcoin Up or Down - February 18, 2:00PM-2:05PM ET",
+  "ts": "2026-02-19T02:10:29.484570+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:05PM-9:10PM ET",
+  "direction": "UP",
+  "secs_past_close": 28.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:10:33.560574+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:05PM-9:10PM ET",
+  "direction": "UP",
+  "secs_past_close": 32.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:10:37.725188+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:05PM-9:10PM ET",
+  "direction": "UP",
+  "secs_past_close": 36.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:10:41.847960+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:05PM-9:10PM ET",
+  "direction": "UP",
+  "secs_past_close": 40.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:10:46.042450+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:05PM-9:10PM ET",
+  "direction": "UP",
+  "secs_past_close": 44.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:10:50.299659+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:05PM-9:10PM ET",
+  "direction": "UP",
+  "secs_past_close": 48.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:10:54.440794+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:05PM-9:10PM ET",
+  "direction": "UP",
+  "secs_past_close": 53.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:10:58.672592+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:05PM-9:10PM ET",
+  "direction": "UP",
+  "secs_past_close": 57.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:15:05.157455+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:10PM-9:15PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 3.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:15:09.333649+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:10PM-9:15PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 7.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:15:13.395909+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:10PM-9:15PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 12.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:15:17.439780+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:10PM-9:15PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 16.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:15:21.732042+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:10PM-9:15PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 20.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:15:25.887867+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:10PM-9:15PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 24.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:15:30.229722+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:10PM-9:15PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 28.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:15:34.358497+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:10PM-9:15PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 32.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:15:38.374595+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:10PM-9:15PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 37.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:15:42.481565+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:10PM-9:15PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 41.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:15:46.650232+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:10PM-9:15PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 45.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:15:50.853315+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:10PM-9:15PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 49.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:15:55.016433+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:10PM-9:15PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 53.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:15:59.231694+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:10PM-9:15PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 57.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:20:05.403297+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:15PM-9:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 4.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:20:09.453387+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:15PM-9:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 8.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:20:13.520391+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:15PM-9:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 12.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:20:17.725329+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:15PM-9:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 16.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:20:21.763875+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:15PM-9:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 20.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:20:25.799836+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:15PM-9:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 24.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:20:29.941672+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:15PM-9:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 28.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:20:34.240470+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:15PM-9:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 32.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:20:38.269245+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:15PM-9:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 36.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:20:42.422629+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:15PM-9:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 41.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:20:46.392836+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:15PM-9:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 45.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:20:51.228815+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:15PM-9:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 49.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:20:55.295804+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:15PM-9:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 53.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:20:59.535730+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:15PM-9:20PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 58.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:25:04.823339+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:20PM-9:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 3.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:25:09.028797+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:20PM-9:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 7.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:25:13.393514+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:20PM-9:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 11.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:25:17.527064+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:20PM-9:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 16.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:25:21.552233+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:20PM-9:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 20.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:25:25.767119+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:20PM-9:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 24.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:25:29.940024+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:20PM-9:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 28.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:25:34.079625+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:20PM-9:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 32.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:25:38.273707+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:20PM-9:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 36.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:25:42.231669+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:20PM-9:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 40.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:25:46.526737+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:20PM-9:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 45.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:25:50.784775+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:20PM-9:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 49.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:25:54.975373+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:20PM-9:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 53.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:25:59.235281+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:20PM-9:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 57.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:30:04.372316+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:25PM-9:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 2.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:30:08.534608+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:25PM-9:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 7.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:30:12.648328+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:25PM-9:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 11.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:30:16.891667+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:25PM-9:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 15.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:30:20.936629+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:25PM-9:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 19.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:30:25.222686+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:25PM-9:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 23.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:30:29.447977+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:25PM-9:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 27.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:30:33.613258+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:25PM-9:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 32.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:30:37.926583+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:25PM-9:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 36.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:30:42.232397+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:25PM-9:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 40.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:30:46.384971+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:25PM-9:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 44.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:30:50.732420+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:25PM-9:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 49.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:30:54.892931+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:25PM-9:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 53.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:30:59.211081+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:25PM-9:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 57.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:35:04.872181+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:30PM-9:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 3.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:35:08.939063+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:30PM-9:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 7.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:35:13.219853+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:30PM-9:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 11.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:35:17.401411+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:30PM-9:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 15.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:35:21.564867+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:30PM-9:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 20.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:35:25.624366+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:30PM-9:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 24.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:35:29.703634+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:30PM-9:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 28.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:35:33.776733+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:30PM-9:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 32.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:35:38.228417+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:30PM-9:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 36.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:35:42.326582+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:30PM-9:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 40.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:35:46.402274+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:30PM-9:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 45.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:35:50.602143+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:30PM-9:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 49.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:35:54.740160+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:30PM-9:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 53.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:35:58.824796+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:30PM-9:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 57.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:40:03.460130+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:35PM-9:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 2.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:40:07.606150+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:35PM-9:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 6.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:40:11.737636+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:35PM-9:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 10.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:40:15.800351+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:35PM-9:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 14.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:40:20.286387+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:35PM-9:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 18.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:40:24.425011+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:35PM-9:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 23.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:40:28.585732+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:35PM-9:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 27.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:40:32.701976+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:35PM-9:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 31.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:40:36.920560+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:35PM-9:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 35.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:40:41.046072+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:35PM-9:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 39.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:40:45.237231+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:35PM-9:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 43.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:40:49.409087+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:35PM-9:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 48.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:40:53.541804+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:35PM-9:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 52.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:40:57.655065+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:35PM-9:40PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 56.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:45:05.840386+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:40PM-9:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 4.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:45:10.065977+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:40PM-9:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 8.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:45:14.941830+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:40PM-9:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 13.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:45:18.979695+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:40PM-9:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 17.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:45:23.227957+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:40PM-9:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 21.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:45:27.436727+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:40PM-9:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 25.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:45:31.542251+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:40PM-9:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 30.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:45:35.697481+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:40PM-9:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 34.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:45:39.859091+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:40PM-9:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 38.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:45:43.954701+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:40PM-9:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 42.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:45:47.946102+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:40PM-9:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 46.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:45:52.082539+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:40PM-9:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 50.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:45:56.280136+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:40PM-9:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 54.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:46:00.701087+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:40PM-9:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 59.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:50:05.226593+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:45PM-9:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 3.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:50:09.317949+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:45PM-9:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 7.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:50:13.491171+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:45PM-9:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 12.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:50:17.597891+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:45PM-9:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 16.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:50:21.758687+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:45PM-9:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 20.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:50:25.894425+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:45PM-9:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 24.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:50:30.082388+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:45PM-9:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 28.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:50:34.248212+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:45PM-9:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 32.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:50:38.462642+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:45PM-9:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 37.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:50:42.574269+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:45PM-9:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 41.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:50:46.722424+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:45PM-9:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 45.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:50:50.877420+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:45PM-9:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 49.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:50:55.042083+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:45PM-9:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 53.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:50:59.224043+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:45PM-9:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 57.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:55:04.277284+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:50PM-9:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 2.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:55:08.486218+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:50PM-9:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 7.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:55:12.727365+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:50PM-9:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 11.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:55:16.955863+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:50PM-9:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 15.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:55:21.091775+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:50PM-9:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 19.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:55:25.340098+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:50PM-9:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 23.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:55:29.423764+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:50PM-9:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 28.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:55:33.488190+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:50PM-9:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 32.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:55:37.833862+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:50PM-9:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 36.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:55:41.881369+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:50PM-9:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 40.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:55:46.025812+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:50PM-9:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 44.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:55:50.224319+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:50PM-9:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 48.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:55:54.348037+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:50PM-9:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 52.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T02:55:58.335272+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:50PM-9:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 57.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:00:03.385673+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:55PM-10:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 2.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:00:07.405676+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:55PM-10:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 6.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:00:11.614091+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:55PM-10:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 10.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:00:15.730010+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:55PM-10:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 14.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:00:19.892037+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:55PM-10:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 18.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:00:24.089046+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:55PM-10:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 22.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:00:28.257706+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:55PM-10:00PM ET",
   "direction": "UP",
   "secs_past_close": 26.8,
   "best_ask": null,
@@ -800,48 +2980,178 @@
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T19:05:32.058056+00:00",
-  "question": "Bitcoin Up or Down - February 18, 2:00PM-2:05PM ET",
+  "ts": "2026-02-19T03:00:32.619642+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:55PM-10:00PM ET",
   "direction": "UP",
-  "secs_past_close": 30.8,
+  "secs_past_close": 31.0,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T19:05:36.052113+00:00",
-  "question": "Bitcoin Up or Down - February 18, 2:00PM-2:05PM ET",
+  "ts": "2026-02-19T03:00:36.711662+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:55PM-10:00PM ET",
   "direction": "UP",
-  "secs_past_close": 34.7,
+  "secs_past_close": 35.2,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T19:05:40.033291+00:00",
-  "question": "Bitcoin Up or Down - February 18, 2:00PM-2:05PM ET",
+  "ts": "2026-02-19T03:00:40.779815+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:55PM-10:00PM ET",
   "direction": "UP",
-  "secs_past_close": 38.7,
+  "secs_past_close": 39.3,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T19:05:43.937197+00:00",
-  "question": "Bitcoin Up or Down - February 18, 2:00PM-2:05PM ET",
+  "ts": "2026-02-19T03:00:44.960531+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:55PM-10:00PM ET",
   "direction": "UP",
-  "secs_past_close": 42.7,
+  "secs_past_close": 43.5,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T19:05:47.997899+00:00",
-  "question": "Bitcoin Up or Down - February 18, 2:00PM-2:05PM ET",
+  "ts": "2026-02-19T03:00:49.242316+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:55PM-10:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 47.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:00:53.431834+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:55PM-10:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 51.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:00:57.771055+00:00",
+  "question": "Bitcoin Up or Down - February 18, 9:55PM-10:00PM ET",
+  "direction": "UP",
+  "secs_past_close": 56.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:05:05.962648+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:00PM-10:05PM ET",
+  "direction": "UP",
+  "secs_past_close": 4.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:05:10.329075+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:00PM-10:05PM ET",
+  "direction": "UP",
+  "secs_past_close": 8.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:05:14.487791+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:00PM-10:05PM ET",
+  "direction": "UP",
+  "secs_past_close": 13.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:05:18.573466+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:00PM-10:05PM ET",
+  "direction": "UP",
+  "secs_past_close": 17.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:05:22.723509+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:00PM-10:05PM ET",
+  "direction": "UP",
+  "secs_past_close": 21.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:05:26.918641+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:00PM-10:05PM ET",
+  "direction": "UP",
+  "secs_past_close": 25.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:05:31.074450+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:00PM-10:05PM ET",
+  "direction": "UP",
+  "secs_past_close": 29.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:05:35.319733+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:00PM-10:05PM ET",
+  "direction": "UP",
+  "secs_past_close": 33.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:05:39.587562+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:00PM-10:05PM ET",
+  "direction": "UP",
+  "secs_past_close": 38.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:05:43.803916+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:00PM-10:05PM ET",
+  "direction": "UP",
+  "secs_past_close": 42.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:05:48.143690+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:00PM-10:05PM ET",
   "direction": "UP",
   "secs_past_close": 46.6,
   "best_ask": null,
@@ -850,18 +3160,1179 @@
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T19:05:51.940734+00:00",
-  "question": "Bitcoin Up or Down - February 18, 2:00PM-2:05PM ET",
+  "ts": "2026-02-19T03:05:52.439688+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:00PM-10:05PM ET",
   "direction": "UP",
-  "secs_past_close": 50.6,
+  "secs_past_close": 50.9,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T19:05:55.808642+00:00",
-  "question": "Bitcoin Up or Down - February 18, 2:00PM-2:05PM ET",
+  "ts": "2026-02-19T03:05:56.477224+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:00PM-10:05PM ET",
+  "direction": "UP",
+  "secs_past_close": 55.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:06:00.795511+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:00PM-10:05PM ET",
+  "direction": "UP",
+  "secs_past_close": 59.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:10:05.322483+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:05PM-10:10PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 3.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:10:09.601728+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:05PM-10:10PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 8.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:10:13.653782+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:05PM-10:10PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 12.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:10:17.736548+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:05PM-10:10PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 16.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:10:21.942696+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:05PM-10:10PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 20.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:10:25.767140+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:05PM-10:10PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 24.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:10:29.743168+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:05PM-10:10PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 28.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:10:33.725369+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:05PM-10:10PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 32.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:10:38.083716+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:05PM-10:10PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 36.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:10:42.323988+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:05PM-10:10PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 40.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:10:46.503624+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:05PM-10:10PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 45.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:10:50.734349+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:05PM-10:10PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 49.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:10:54.986497+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:05PM-10:10PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 53.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:10:59.306270+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:05PM-10:10PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 57.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:15:04.744312+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:10PM-10:15PM ET",
+  "direction": "UP",
+  "secs_past_close": 3.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:15:08.913151+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:10PM-10:15PM ET",
+  "direction": "UP",
+  "secs_past_close": 7.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:15:13.299632+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:10PM-10:15PM ET",
+  "direction": "UP",
+  "secs_past_close": 11.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:15:17.706890+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:10PM-10:15PM ET",
+  "direction": "UP",
+  "secs_past_close": 16.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:15:21.713682+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:10PM-10:15PM ET",
+  "direction": "UP",
+  "secs_past_close": 20.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:15:25.986452+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:10PM-10:15PM ET",
+  "direction": "UP",
+  "secs_past_close": 24.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:15:29.997894+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:10PM-10:15PM ET",
+  "direction": "UP",
+  "secs_past_close": 28.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:15:34.199890+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:10PM-10:15PM ET",
+  "direction": "UP",
+  "secs_past_close": 32.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:15:38.377140+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:10PM-10:15PM ET",
+  "direction": "UP",
+  "secs_past_close": 36.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:15:42.598333+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:10PM-10:15PM ET",
+  "direction": "UP",
+  "secs_past_close": 41.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:15:47.496156+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:10PM-10:15PM ET",
+  "direction": "UP",
+  "secs_past_close": 46.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:15:51.722275+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:10PM-10:15PM ET",
+  "direction": "UP",
+  "secs_past_close": 50.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:15:55.890051+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:10PM-10:15PM ET",
+  "direction": "UP",
+  "secs_past_close": 54.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:15:59.865731+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:10PM-10:15PM ET",
+  "direction": "UP",
+  "secs_past_close": 58.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:20:05.535257+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:15PM-10:20PM ET",
+  "direction": "UP",
+  "secs_past_close": 4.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:20:09.524459+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:15PM-10:20PM ET",
+  "direction": "UP",
+  "secs_past_close": 8.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:20:13.463363+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:15PM-10:20PM ET",
+  "direction": "UP",
+  "secs_past_close": 12.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:20:17.373295+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:15PM-10:20PM ET",
+  "direction": "UP",
+  "secs_past_close": 16.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:20:21.232020+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:15PM-10:20PM ET",
+  "direction": "UP",
+  "secs_past_close": 20.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:20:25.093086+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:15PM-10:20PM ET",
+  "direction": "UP",
+  "secs_past_close": 23.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:20:29.208656+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:15PM-10:20PM ET",
+  "direction": "UP",
+  "secs_past_close": 27.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:20:33.234100+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:15PM-10:20PM ET",
+  "direction": "UP",
+  "secs_past_close": 31.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:20:37.231879+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:15PM-10:20PM ET",
+  "direction": "UP",
+  "secs_past_close": 35.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:20:41.217510+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:15PM-10:20PM ET",
+  "direction": "UP",
+  "secs_past_close": 39.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:20:45.407071+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:15PM-10:20PM ET",
+  "direction": "UP",
+  "secs_past_close": 43.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:20:49.596283+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:15PM-10:20PM ET",
+  "direction": "UP",
+  "secs_past_close": 48.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:20:53.880947+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:15PM-10:20PM ET",
+  "direction": "UP",
+  "secs_past_close": 52.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:20:58.227802+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:15PM-10:20PM ET",
+  "direction": "UP",
+  "secs_past_close": 56.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:25:03.665225+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:20PM-10:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 2.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:25:07.926851+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:20PM-10:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 6.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:25:12.207687+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:20PM-10:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 10.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:25:16.350502+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:20PM-10:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 14.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:25:20.627575+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:20PM-10:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 19.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:25:24.961317+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:20PM-10:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 23.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:25:29.222734+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:20PM-10:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 27.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:25:33.298597+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:20PM-10:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 31.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:25:37.461171+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:20PM-10:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 36.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:25:41.623308+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:20PM-10:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 40.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:25:45.756057+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:20PM-10:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 44.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:25:49.971357+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:20PM-10:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 48.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:25:53.974602+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:20PM-10:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 52.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:25:58.080092+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:20PM-10:25PM ET",
+  "direction": "UP",
+  "secs_past_close": 56.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:30:05.226511+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:25PM-10:30PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 4.0,
+  "best_ask": 0.01,
+  "total_shares": 877393.8,
+  "levels": [
+   [
+    0.01,
+    597045.4
+   ],
+   [
+    0.02,
+    33149.0
+   ],
+   [
+    0.03,
+    11834.0
+   ],
+   [
+    0.04,
+    17831.0
+   ],
+   [
+    0.05,
+    8839.0
+   ],
+   [
+    0.06,
+    8510.0
+   ],
+   [
+    0.07,
+    20510.0
+   ],
+   [
+    0.08,
+    20510.0
+   ],
+   [
+    0.09,
+    14532.0
+   ],
+   [
+    0.1,
+    6005.0
+   ]
+  ],
+  "has_liquidity_095": true
+ },
+ {
+  "ts": "2026-02-19T03:35:03.585878+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:30PM-10:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 2.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:35:07.713727+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:30PM-10:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 6.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:35:11.851122+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:30PM-10:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 10.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:35:15.985177+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:30PM-10:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 14.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:35:20.254522+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:30PM-10:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 18.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:35:24.487976+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:30PM-10:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 23.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:35:28.701095+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:30PM-10:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 27.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:35:32.868027+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:30PM-10:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 31.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:35:37.232875+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:30PM-10:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 35.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:35:41.461285+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:30PM-10:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 40.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:35:45.660873+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:30PM-10:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 44.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:35:49.800893+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:30PM-10:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 48.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:35:53.835772+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:30PM-10:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 52.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T03:35:57.850401+00:00",
+  "question": "Bitcoin Up or Down - February 18, 10:30PM-10:35PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 56.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:30:06.039908+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:25PM-11:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 4.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:30:10.364148+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:25PM-11:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 8.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:30:14.590662+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:25PM-11:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 13.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:30:18.916000+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:25PM-11:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 17.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:30:23.191771+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:25PM-11:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 21.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:30:27.365516+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:25PM-11:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 25.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:30:31.530954+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:25PM-11:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 30.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:30:35.747623+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:25PM-11:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 34.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:30:40.219717+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:25PM-11:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 38.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:30:44.490571+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:25PM-11:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 42.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:30:48.699442+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:25PM-11:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 47.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:30:52.954954+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:25PM-11:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 51.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:30:57.236509+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:25PM-11:30PM ET",
+  "direction": "UP",
+  "secs_past_close": 55.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:35:04.843850+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:30PM-11:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 3.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:35:08.998582+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:30PM-11:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 7.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:35:13.218545+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:30PM-11:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 11.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:35:17.497050+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:30PM-11:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 16.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:35:21.735214+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:30PM-11:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 20.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:35:26.041183+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:30PM-11:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 24.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:35:30.232897+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:30PM-11:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 28.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:35:34.515533+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:30PM-11:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 33.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:35:38.733272+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:30PM-11:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 37.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:35:42.725453+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:30PM-11:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 41.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:35:46.789623+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:30PM-11:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 45.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:35:50.984818+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:30PM-11:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 49.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:35:55.244573+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:30PM-11:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 53.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:35:59.601635+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:30PM-11:35PM ET",
+  "direction": "UP",
+  "secs_past_close": 58.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:40:05.306880+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:35PM-11:40PM ET",
+  "direction": "UP",
+  "secs_past_close": 3.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:40:09.630410+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:35PM-11:40PM ET",
+  "direction": "UP",
+  "secs_past_close": 8.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:40:13.878717+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:35PM-11:40PM ET",
+  "direction": "UP",
+  "secs_past_close": 12.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:40:18.223994+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:35PM-11:40PM ET",
+  "direction": "UP",
+  "secs_past_close": 16.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:40:22.489688+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:35PM-11:40PM ET",
+  "direction": "UP",
+  "secs_past_close": 21.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:40:26.879289+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:35PM-11:40PM ET",
+  "direction": "UP",
+  "secs_past_close": 25.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:40:31.212824+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:35PM-11:40PM ET",
+  "direction": "UP",
+  "secs_past_close": 29.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:40:35.316834+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:35PM-11:40PM ET",
+  "direction": "UP",
+  "secs_past_close": 33.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:40:39.383879+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:35PM-11:40PM ET",
+  "direction": "UP",
+  "secs_past_close": 38.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:40:43.526990+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:35PM-11:40PM ET",
+  "direction": "UP",
+  "secs_past_close": 42.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:40:47.633756+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:35PM-11:40PM ET",
+  "direction": "UP",
+  "secs_past_close": 46.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:40:51.942496+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:35PM-11:40PM ET",
+  "direction": "UP",
+  "secs_past_close": 50.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:40:56.149837+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:35PM-11:40PM ET",
   "direction": "UP",
   "secs_past_close": 54.6,
   "best_ask": null,
@@ -870,10 +4341,700 @@
   "has_liquidity_095": false
  },
  {
-  "ts": "2026-02-18T19:05:59.686602+00:00",
-  "question": "Bitcoin Up or Down - February 18, 2:00PM-2:05PM ET",
+  "ts": "2026-02-19T04:41:00.389095+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:35PM-11:40PM ET",
   "direction": "UP",
-  "secs_past_close": 58.5,
+  "secs_past_close": 58.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:45:04.395489+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:40PM-11:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 2.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:45:08.781792+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:40PM-11:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 7.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:45:13.211933+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:40PM-11:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 11.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:45:17.480806+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:40PM-11:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 16.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:45:21.836982+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:40PM-11:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 20.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:45:26.211599+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:40PM-11:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 24.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:45:30.497371+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:40PM-11:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 29.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:45:34.812957+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:40PM-11:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 33.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:45:39.005357+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:40PM-11:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 37.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:45:43.214397+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:40PM-11:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 41.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:45:47.429158+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:40PM-11:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 46.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:45:51.510769+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:40PM-11:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 50.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:45:55.644219+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:40PM-11:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 54.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:45:59.896347+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:40PM-11:45PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 58.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:50:06.044926+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:45PM-11:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 4.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:50:10.512107+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:45PM-11:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 8.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:50:14.752679+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:45PM-11:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 13.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:50:18.955899+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:45PM-11:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 17.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:50:23.208266+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:45PM-11:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 21.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:50:27.565275+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:45PM-11:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 26.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:50:32.005015+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:45PM-11:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 30.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:50:36.256322+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:45PM-11:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 34.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:50:40.627378+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:45PM-11:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 39.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:50:44.918428+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:45PM-11:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 43.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:50:49.267011+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:45PM-11:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 47.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:50:53.567063+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:45PM-11:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 52.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:50:57.963814+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:45PM-11:50PM ET",
+  "direction": "UP",
+  "secs_past_close": 56.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:55:03.736062+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:50PM-11:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 2.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:55:08.033231+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:50PM-11:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 6.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:55:12.273868+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:50PM-11:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 10.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:55:16.605392+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:50PM-11:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 15.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:55:20.876946+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:50PM-11:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 19.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:55:24.806519+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:50PM-11:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 23.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:55:29.045921+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:50PM-11:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 27.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:55:33.235473+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:50PM-11:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 31.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:55:37.489083+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:50PM-11:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 36.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:55:41.654850+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:50PM-11:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 40.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:55:45.910185+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:50PM-11:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 44.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:55:50.205390+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:50PM-11:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 48.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:55:54.316396+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:50PM-11:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 52.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T04:55:58.708873+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:50PM-11:55PM ET",
+  "direction": "DOWN",
+  "secs_past_close": 57.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:00:05.071391+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:55PM-12:00AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 3.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:00:09.464540+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:55PM-12:00AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 7.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:00:14.223384+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:55PM-12:00AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 12.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:00:18.490816+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:55PM-12:00AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 17.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:00:22.636661+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:55PM-12:00AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 21.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:00:26.643815+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:55PM-12:00AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 25.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:00:30.930642+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:55PM-12:00AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 29.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:00:35.217712+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:55PM-12:00AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 33.6,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:00:39.572381+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:55PM-12:00AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 38.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:00:43.787460+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:55PM-12:00AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 42.3,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:00:48.077752+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:55PM-12:00AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 46.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:00:52.316331+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:55PM-12:00AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 50.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:00:56.598940+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:55PM-12:00AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 55.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:01:00.888639+00:00",
+  "question": "Bitcoin Up or Down - February 18, 11:55PM-12:00AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 59.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:05:05.724919+00:00",
+  "question": "Bitcoin Up or Down - February 19, 12:00AM-12:05AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 4.2,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:05:10.003914+00:00",
+  "question": "Bitcoin Up or Down - February 19, 12:00AM-12:05AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 8.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:05:14.229308+00:00",
+  "question": "Bitcoin Up or Down - February 19, 12:00AM-12:05AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 12.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:05:18.416106+00:00",
+  "question": "Bitcoin Up or Down - February 19, 12:00AM-12:05AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 16.9,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:05:22.657037+00:00",
+  "question": "Bitcoin Up or Down - February 19, 12:00AM-12:05AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 21.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:05:26.793673+00:00",
+  "question": "Bitcoin Up or Down - February 19, 12:00AM-12:05AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 25.4,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:05:31.034386+00:00",
+  "question": "Bitcoin Up or Down - February 19, 12:00AM-12:05AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 29.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:05:35.278104+00:00",
+  "question": "Bitcoin Up or Down - February 19, 12:00AM-12:05AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 33.8,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:05:39.808204+00:00",
+  "question": "Bitcoin Up or Down - February 19, 12:00AM-12:05AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 38.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:05:43.992083+00:00",
+  "question": "Bitcoin Up or Down - February 19, 12:00AM-12:05AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 42.5,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:05:48.228094+00:00",
+  "question": "Bitcoin Up or Down - February 19, 12:00AM-12:05AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 46.7,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:05:52.419027+00:00",
+  "question": "Bitcoin Up or Down - February 19, 12:00AM-12:05AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 51.0,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:05:56.589233+00:00",
+  "question": "Bitcoin Up or Down - February 19, 12:00AM-12:05AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 55.1,
+  "best_ask": null,
+  "total_shares": 0,
+  "levels": [],
+  "has_liquidity_095": false
+ },
+ {
+  "ts": "2026-02-19T05:06:00.774399+00:00",
+  "question": "Bitcoin Up or Down - February 19, 12:00AM-12:05AM ET",
+  "direction": "DOWN",
+  "secs_past_close": 59.3,
   "best_ask": null,
   "total_shares": 0,
   "levels": [],

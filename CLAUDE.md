@@ -13,7 +13,7 @@
 - **EXCEPTION (2026-02-18)**: `run_momentum_15m_live.py --live` is APPROVED by Star. ONLY live strategy. V2.0 GTC orders (FOK fix applied). PROBATION $2.50/trade, auto-promotes. Paper: 9W/4L 69% WR +$13.32.
 - **DEMOTED (2026-02-18)**: `run_pairs_arb.py --live --mode 15M` — demoted to paper. Live PnL: -$0.45. One exposed loss wiped all hedged gains.
 - **KILLED (2026-02-18)**: `run_pairs_arb.py --live --mode 5M` — 5M bail liquidity crisis. 4/4 bails = full loss ($4.50-$4.95 each). Live PnL: -$13.30. DO NOT RESTART.
-- **DEMOTED (2026-02-18)**: `run_sniper_5m_live.py --live` — demoted to paper. Live PnL: -$1.36. Oracle trades are phantom (don't fill). W:L ratio 0.34x.
+- **LIVE (2026-02-19)**: `run_sniper_5m_live.py --live` — UN-DEMOTED. Live PnL: +$6.81. Record: 9W/1L (90% WR). Consistent $1+ wins. W:L ratio 0.37x but 90% WR makes it profitable.
 - **NEVER** run `run_maker.py` — KILLED permanently. Lost ~$300 on 1c spreads with no edge. Do NOT restart, do NOT suggest restarting.
 - **ON SESSION START**: Verify NO unauthorized live traders are running. Check with `_find_procs.py`.
 - Allowed live: `run_momentum_15m_live.py --live` AND `run_sniper_5m_live.py --live`

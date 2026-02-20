@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """
-Open-Entry 5M BTC Paper Trader v1.1 + ML Tuner
-================================================
-Inspired by 7thStaircase strategy ($44.5K all-time, 2,485 predictions):
-- Enter EVERY 5M BTC market at open (~30s after open)
-- Quick directional signal from Binance real-time price
-- Paper trade at CLOB ask price (realistic fill simulation)
-- Hold to resolution, track W/L and PnL
-- ML auto-tunes signal threshold + entry timing via Thompson sampling
+Open-Entry 5M BTC Paper Trader v2.0 — Adaptive ML
+===================================================
+Inspired by 7thStaircase strategy ($44.5K all-time, 2,485 predictions).
 
-Key difference from our other bots: ENTER AT OPEN, not near close.
-At open, prices are ~$0.50 = 100% ROI if correct vs 33-67% at $0.60-0.75.
-Target: 78%+ market coverage (59/76 possible per 6-hour session).
+V2.0 changes (W:L ratio fix):
+  1. Hard price cap ($0.60) — skip when signal is already priced in
+  2. Adaptive delay — volatility regime (ATR/RSI) adjusts entry timing
+  3. Contrarian mode — bet AGAINST when CLOB > $0.85 (market overconfident)
+
+Three entry modes:
+  MOMENTUM:   CLOB <= $0.60, bet WITH signal. Fair risk/reward.
+  CONTRARIAN: CLOB >= $0.85, bet AGAINST signal. Cheap entry, big upside.
+  SKIP:       $0.60-$0.85 dead zone. Signal priced in but not extreme enough.
 """
 
 import asyncio
@@ -31,15 +32,31 @@ from pid_lock import acquire_pid_lock, release_pid_lock
 from adaptive_tuner import ParameterTuner
 
 # ── Config ──────────────────────────────────────────────────────────────────
-VERSION = "1.0"
-TRADE_SIZE = 3.00               # $ per paper trade
+VERSION = "2.1"
+TRADE_SIZE = 3.00               # flat fallback (used when not enough data for Kelly)
+BANKROLL = 119.00               # current Polymarket balance for Kelly sizing
+KELLY_FRACTION = 0.5            # Half Kelly (captures 75% of growth, much less variance)
+MIN_KELLY_SIZE = 2.00           # floor: never bet less than this
+MAX_KELLY_SIZE = 15.00          # ceiling: cap risk while proving edge
+MIN_KELLY_TRADES = 10           # need this many trades per mode before Kelly kicks in
 MIN_SHARES = 5                  # CLOB minimum
 SCAN_INTERVAL = 15              # seconds between Gamma API polls
-ENTRY_WINDOW = (15, 90)         # enter 15-90 sec after market open
+ENTRY_WINDOW = (15, 270)        # enter 15-270 sec after market open (adaptive delay controls actual)
 RESOLVE_DELAY = 20              # seconds after close to check resolution
 SIGNAL_THRESHOLD_BP = 1.0       # min 1bp move to pick a direction (else skip)
 MAX_CONCURRENT = 5              # max open positions at once
 ASSET = "BTC"
+
+# V2.0: W:L ratio fixes
+MAX_ENTRY_PRICE = 0.60          # Hard cap: skip momentum entries above this
+CONTRARIAN_MIN_PRICE = 0.85     # Flip direction when CLOB dominant is above this
+RSI_OVERBOUGHT = 70             # Skip UP momentum when RSI > this
+RSI_OVERSOLD = 30               # Skip DOWN momentum when RSI < this
+VOL_DELAY_MULT = {              # Multiply ML base delay by this
+    "HIGH": 0.25,               # High vol → enter early (direction clear fast)
+    "NORMAL": 0.6,              # Normal vol → moderate delay
+    "LOW": 1.0,                 # Low vol → full delay (need time for signal)
+}
 GAMMA_URL = "https://gamma-api.polymarket.com/events"
 BINANCE_WS_URL = "wss://stream.binance.com:9443/ws/btcusdt@trade"
 BINANCE_REST_URL = "https://api.binance.com/api/v3/klines"
@@ -51,24 +68,47 @@ LOG_EVERY_N = 5                 # print summary every N cycles
 OPEN_ENTRY_TUNER_CONFIG = {
     "signal_threshold_bp": {
         # How many basis points of BTC move needed before we pick a direction
-        # Lower = more trades (enter on tiny moves), Higher = fewer but more confident
+        # Backtest: 0.5bp=75.5%WR/+$1090, 2.0bp=78.3%WR/+$1030, 3.0bp=80.2%WR/+$960
         "bins": [0.5, 1.0, 2.0, 3.0, 5.0, 8.0],
         "labels": ["0.5", "1.0", "2.0", "3.0", "5.0", "8.0"],
-        "default_idx": 1,  # start at 1.0bp
+        "default_idx": 2,  # start at 2.0bp (backtest sweet spot: high WR + high PnL)
         "floor_idx": 0,
         "ceil_idx": 5,
     },
     "entry_delay_sec": {
         # How many seconds after market open to enter
-        # Earlier = cheaper price (~$0.50), Later = more signal data
-        "bins": [15, 20, 30, 45, 60],
-        "labels": ["15", "20", "30", "45", "60"],
-        "default_idx": 2,  # start at 30s
+        # Backtest: 180s=75-80%WR (best), 120s=70-73%WR, 60s=65%WR, 30s=~50%WR
+        "bins": [30, 60, 90, 120, 150, 180],
+        "labels": ["30", "60", "90", "120", "150", "180"],
+        "default_idx": 4,  # start at 150s (close to backtest optimal 180s)
         "floor_idx": 0,
-        "ceil_idx": 4,
+        "ceil_idx": 5,
     },
 }
 TUNER_STATE_FILE = str(Path(__file__).parent / "open_entry_tuner_state.json")
+
+
+def compute_kelly_size(win_rate: float, entry_price: float,
+                       bankroll: float = BANKROLL) -> float:
+    """Compute Half Kelly bet size for a binary Polymarket contract.
+
+    Kelly fraction = p - (1-p)/b
+    where p = win probability, b = payout odds = (1 - entry) / entry.
+    Returns dollar amount to bet (Half Kelly, clamped to [MIN, MAX]).
+    """
+    if entry_price <= 0.02 or entry_price >= 0.98 or win_rate <= 0:
+        return TRADE_SIZE  # fallback to flat size
+
+    b = (1.0 - entry_price) / entry_price  # payout odds
+    q = 1.0 - win_rate
+    kelly_f = win_rate - q / b  # Kelly fraction of bankroll
+
+    if kelly_f <= 0:
+        return 0.0  # negative Kelly = don't bet
+
+    half_kelly = kelly_f * KELLY_FRACTION * bankroll
+    return max(MIN_KELLY_SIZE, min(MAX_KELLY_SIZE, round(half_kelly, 2)))
+
 
 # ── Binance Live Feed ───────────────────────────────────────────────────────
 class BinanceFeed:
@@ -80,6 +120,8 @@ class BinanceFeed:
         self._task = None
         self._prices_1m = []    # (timestamp, price) tuples for last 5 min
         self._candle_opens = {} # {candle_start_ts: open_price} for 5M candles
+        self._indicators_cache = None
+        self._indicators_ts = 0
 
     def start(self):
         self._task = asyncio.create_task(self._ws_loop())
@@ -151,6 +193,74 @@ class BinanceFeed:
     def is_stale(self, max_age=10):
         return time.time() - self.last_update > max_age
 
+    async def fetch_1m_indicators(self):
+        """Fetch 1M candles from Binance REST and compute ATR, RSI, EMA slope.
+        Cached for 30 seconds."""
+        now = time.time()
+        if self._indicators_cache and now - self._indicators_ts < 30:
+            return self._indicators_cache
+
+        default = {"regime": "NORMAL", "atr_bp": 0, "rsi": 50.0, "ema_slope_bp": 0}
+        try:
+            async with httpx.AsyncClient() as client:
+                r = await client.get(
+                    f"{BINANCE_REST_URL}?symbol=BTCUSDT&interval=1m&limit=30",
+                    timeout=10,
+                )
+                klines = r.json()
+        except Exception:
+            return default
+
+        if not klines or len(klines) < 16:
+            return default
+
+        closes = np.array([float(k[4]) for k in klines])
+        highs = np.array([float(k[2]) for k in klines])
+        lows = np.array([float(k[3]) for k in klines])
+
+        # ATR(14) in basis points
+        tr = np.maximum(
+            highs[1:] - lows[1:],
+            np.maximum(
+                np.abs(highs[1:] - closes[:-1]),
+                np.abs(lows[1:] - closes[:-1]),
+            ),
+        )
+        atr = np.mean(tr[-14:])
+        atr_bp = atr / closes[-1] * 10000
+
+        # RSI(14)
+        deltas = np.diff(closes)
+        gains = np.where(deltas > 0, deltas, 0.0)
+        losses_arr = np.where(deltas < 0, -deltas, 0.0)
+        avg_gain = np.mean(gains[-14:])
+        avg_loss = np.mean(losses_arr[-14:])
+        rs = avg_gain / max(avg_loss, 1e-10)
+        rsi = 100.0 - (100.0 / (1.0 + rs))
+
+        # EMA(5) slope in basis points
+        ema5 = np.mean(closes[-5:])
+        ema5_prev = np.mean(closes[-6:-1])
+        ema_slope_bp = (ema5 - ema5_prev) / closes[-1] * 10000
+
+        # Volatility regime classification
+        if atr_bp > 8:
+            regime = "HIGH"
+        elif atr_bp < 3:
+            regime = "LOW"
+        else:
+            regime = "NORMAL"
+
+        result = {
+            "regime": regime,
+            "atr_bp": round(atr_bp, 2),
+            "rsi": round(rsi, 1),
+            "ema_slope_bp": round(ema_slope_bp, 2),
+        }
+        self._indicators_cache = result
+        self._indicators_ts = now
+        return result
+
 
 # ── Paper Trader ────────────────────────────────────────────────────────────
 class OpenEntry5MPaper:
@@ -159,12 +269,18 @@ class OpenEntry5MPaper:
         self.active = {}        # cid -> trade dict
         self.resolved = []      # list of resolved trades
         self.stats = {"wins": 0, "losses": 0, "pnl": 0.0, "skipped": 0, "entered": 0}
+        # Per-mode tracking for Kelly sizing
+        self.mode_stats = {
+            "momentum": {"wins": 0, "losses": 0},
+            "contrarian": {"wins": 0, "losses": 0},
+        }
         self.attempted_cids = set()
         self.binance = BinanceFeed()
         self.tuner = ParameterTuner(OPEN_ENTRY_TUNER_CONFIG, TUNER_STATE_FILE)
         self.cycle = 0
         self.session_pnl = 0.0
         self._running = True
+        self._current_indicators = {"regime": "NORMAL", "atr_bp": 0, "rsi": 50.0, "ema_slope_bp": 0}
 
     def load(self):
         """Load prior state from JSON."""
@@ -174,16 +290,27 @@ class OpenEntry5MPaper:
                 self.resolved = data.get("resolved", [])
                 self.active = data.get("active", {})
                 self.stats = data.get("stats", self.stats)
-                # Rebuild attempted CIDs from history
+                # Rebuild attempted CIDs and per-mode stats from history
                 for t in self.resolved:
                     self.attempted_cids.add(t.get("condition_id", ""))
+                    mode = t.get("strategy", "momentum")
+                    if mode not in self.mode_stats:
+                        self.mode_stats[mode] = {"wins": 0, "losses": 0}
+                    if t.get("result") == "WIN":
+                        self.mode_stats[mode]["wins"] += 1
+                    elif t.get("result") == "LOSS":
+                        self.mode_stats[mode]["losses"] += 1
                 for cid in self.active:
                     self.attempted_cids.add(cid)
                 w, l = self.stats["wins"], self.stats["losses"]
                 total = w + l
                 wr = 100 * w / total if total else 0
+                mode_summary = " | ".join(
+                    f"{m}:{s['wins']}W/{s['losses']}L"
+                    for m, s in self.mode_stats.items() if s['wins'] + s['losses'] > 0
+                )
                 print(f"[LOAD] {total} resolved, {len(self.active)} active | "
-                      f"PnL: ${self.stats['pnl']:+.2f} | {w}W/{l}L {wr:.0f}%WR")
+                      f"PnL: ${self.stats['pnl']:+.2f} | {w}W/{l}L {wr:.0f}%WR | {mode_summary}")
             except Exception as e:
                 print(f"[LOAD] Error: {e}")
 
@@ -222,9 +349,12 @@ class OpenEntry5MPaper:
             end_dt = start_dt + timedelta(minutes=5)
             elapsed_sec = (now - start_dt).total_seconds()
 
-            # ML-tuned entry delay: enter when elapsed >= tuned delay
+            # Adaptive delay: base ML delay × volatility multiplier
             ml_delay = self.tuner.get_active_value("entry_delay_sec")
-            if not (ml_delay <= elapsed_sec <= ENTRY_WINDOW[1]):
+            regime = self._current_indicators.get("regime", "NORMAL")
+            vol_mult = VOL_DELAY_MULT.get(regime, 0.6)
+            effective_delay = max(15, ml_delay * vol_mult)
+            if not (effective_delay <= elapsed_sec <= ENTRY_WINDOW[1]):
                 continue
 
             try:
@@ -298,7 +428,13 @@ class OpenEntry5MPaper:
         return 0.50  # default to $0.50 at open
 
     async def enter_trade(self, market: dict):
-        """Enter a paper trade on a newly opened market."""
+        """Enter a paper trade with adaptive mode selection.
+
+        Three modes based on CLOB price:
+          MOMENTUM:   price <= $0.60 → bet WITH signal (fair risk/reward)
+          CONTRARIAN: price >= $0.85 → bet AGAINST signal (cheap entry, big upside)
+          SKIP:       $0.60-$0.85 → dead zone (signal priced in, not extreme enough)
+        """
         cid = market["cid"]
         self.attempted_cids.add(cid)
 
@@ -311,25 +447,23 @@ class OpenEntry5MPaper:
         ml_threshold = self.tuner.get_active_value("signal_threshold_bp")
         side, strength_bp, detail = self.binance.get_direction_signal(start_ts)
 
-        # Shadow-track ALL markets (even if we skip due to threshold)
-        # so the ML tuner can learn from skipped opportunities
+        # Shadow-track ALL markets for ML tuner learning
         shadow_side = "UP" if strength_bp > 0 else "DOWN" if strength_bp < 0 else None
 
         if side is None or abs(strength_bp) < ml_threshold:
-            # Signal below ML threshold — shadow-track and skip
             if shadow_side:
                 self.tuner.record_shadow(
                     market_id=cid,
                     end_time_iso=market["end_dt"].isoformat(),
                     side=shadow_side,
-                    entry_price=0.50,  # approximate open price
+                    entry_price=0.50,
                     clob_dominant=abs(strength_bp),
                     extra={"elapsed_sec": market["elapsed_sec"], "strength_bp": strength_bp},
                 )
             self.stats["skipped"] += 1
             return
 
-        # Shadow-track this trade too (for tuner learning on all bins)
+        # Shadow-track this trade too
         self.tuner.record_shadow(
             market_id=cid,
             end_time_iso=market["end_dt"].isoformat(),
@@ -339,27 +473,90 @@ class OpenEntry5MPaper:
             extra={"elapsed_sec": market["elapsed_sec"], "strength_bp": strength_bp},
         )
 
-        # Get realistic entry price from CLOB
-        token_id = market["up_token"] if side == "UP" else market["down_token"]
-        entry_price = await self.get_clob_price(token_id)
+        # ── Get BOTH CLOB prices ──────────────────────────────────────
+        up_price = await self.get_clob_price(market["up_token"])
+        down_price = await self.get_clob_price(market["down_token"])
+        momentum_price = up_price if side == "UP" else down_price
+        contrarian_price = down_price if side == "UP" else up_price
 
-        if entry_price <= 0.05 or entry_price >= 0.95:
+        # ── Mode selection based on CLOB price ────────────────────────
+        indicators = self._current_indicators
+        entry_side = side
+        entry_price = 0.0
+        strategy = None
+
+        if momentum_price >= CONTRARIAN_MIN_PRICE:
+            # CONTRARIAN MODE: market overconfident, bet the other way
+            entry_side = "DOWN" if side == "UP" else "UP"
+            entry_price = contrarian_price
+            strategy = "contrarian"
+
+            # Sanity: cheap side must actually be cheap
+            if entry_price > (1.0 - CONTRARIAN_MIN_PRICE + 0.05):
+                self.stats["skipped"] += 1
+                return
+
+        elif momentum_price <= MAX_ENTRY_PRICE:
+            # MOMENTUM MODE: price is fair, bet with signal
+            entry_side = side
+            entry_price = momentum_price
+            strategy = "momentum"
+
+            # RSI filter: skip when indicator says move is exhausted
+            rsi = indicators.get("rsi", 50.0)
+            if entry_side == "UP" and rsi > RSI_OVERBOUGHT:
+                self.stats["skipped"] += 1
+                print(f"  [SKIP-RSI] UP but RSI={rsi:.0f} > {RSI_OVERBOUGHT} (overbought)")
+                return
+            if entry_side == "DOWN" and rsi < RSI_OVERSOLD:
+                self.stats["skipped"] += 1
+                print(f"  [SKIP-RSI] DOWN but RSI={rsi:.0f} < {RSI_OVERSOLD} (oversold)")
+                return
+
+        else:
+            # DEAD ZONE: signal priced in but not extreme enough for contrarian
+            self.stats["skipped"] += 1
+            print(f"  [SKIP] Dead zone ${momentum_price:.2f} "
+                  f"(>{MAX_ENTRY_PRICE} but <{CONTRARIAN_MIN_PRICE})")
+            return
+
+        # Final sanity
+        if entry_price <= 0.02 or entry_price >= 0.98:
             self.stats["skipped"] += 1
             return
 
-        shares = max(MIN_SHARES, math.floor(TRADE_SIZE / entry_price))
+        # ── Kelly sizing ───────────────────────────────────────────────
+        mode_s = self.mode_stats.get(strategy, {"wins": 0, "losses": 0})
+        mode_total = mode_s["wins"] + mode_s["losses"]
+        if mode_total >= MIN_KELLY_TRADES:
+            mode_wr = mode_s["wins"] / mode_total
+            trade_size = compute_kelly_size(mode_wr, entry_price)
+            sizing_method = f"kelly({mode_wr:.0%})"
+            if trade_size <= 0:
+                self.stats["skipped"] += 1
+                print(f"  [SKIP-KELLY] Negative Kelly for {strategy} "
+                      f"({mode_wr:.0%}WR @ ${entry_price:.2f})")
+                return
+        else:
+            trade_size = TRADE_SIZE
+            sizing_method = f"flat(need {MIN_KELLY_TRADES - mode_total} more)"
+
+        shares = max(MIN_SHARES, math.floor(trade_size / entry_price))
         cost = round(shares * entry_price, 4)
+        token_id = market["up_token"] if entry_side == "UP" else market["down_token"]
 
         trade = {
             "condition_id": cid,
             "question": market["title"][:80],
-            "side": side,
+            "side": entry_side,
             "entry_price": round(entry_price, 4),
             "shares": shares,
             "cost": round(cost, 4),
-            "trade_size": TRADE_SIZE,
+            "trade_size": trade_size,
+            "sizing_method": sizing_method,
             "signal_strength_bp": round(strength_bp, 2),
             "signal_detail": detail,
+            "signal_side": side,
             "elapsed_at_entry_sec": round(market["elapsed_sec"], 1),
             "entry_time": datetime.now(timezone.utc).isoformat(),
             "end_dt": market["end_dt"].isoformat(),
@@ -368,7 +565,8 @@ class OpenEntry5MPaper:
             "status": "open",
             "pnl": 0.0,
             "result": None,
-            "strategy": "open_entry_momentum",
+            "strategy": strategy,
+            "indicators": indicators,
             "paper": True,
         }
 
@@ -376,8 +574,12 @@ class OpenEntry5MPaper:
         self.stats["entered"] += 1
         self.save()
 
-        print(f"  [ENTER] {side} @ ${entry_price:.2f} ({shares}sh/${cost:.2f}) | "
-              f"Signal: {detail} | {market['title'][:55]}")
+        mode_tag = "CONTRA" if strategy == "contrarian" else "MOM"
+        regime = indicators.get("regime", "?")
+        rsi_val = indicators.get("rsi", 0)
+        print(f"  [{mode_tag}] {entry_side} @ ${entry_price:.2f} ({shares}sh/${cost:.2f}) | "
+              f"Size: {sizing_method} | Signal: {detail} | Vol:{regime} RSI:{rsi_val:.0f} | "
+              f"{market['title'][:40]}")
 
     async def resolve_trades(self):
         """Check if any active trades have resolved."""
@@ -403,14 +605,20 @@ class OpenEntry5MPaper:
             trade = self.active.pop(cid)
             won = (trade["side"] == outcome) if outcome != "TIMEOUT" else False
 
+            mode = trade.get("strategy", "momentum")
+            if mode not in self.mode_stats:
+                self.mode_stats[mode] = {"wins": 0, "losses": 0}
+
             if won:
                 pnl = round(trade["shares"] * 1.0 - trade["cost"], 4)
                 trade["result"] = "WIN"
                 self.stats["wins"] += 1
+                self.mode_stats[mode]["wins"] += 1
             else:
                 pnl = round(-trade["cost"], 4)
                 trade["result"] = "LOSS"
                 self.stats["losses"] += 1
+                self.mode_stats[mode]["losses"] += 1
 
             trade["pnl"] = pnl
             trade["market_outcome"] = outcome
@@ -572,26 +780,30 @@ class OpenEntry5MPaper:
         ml_delay = self.tuner.get_active_value("entry_delay_sec")
         print(f"""
 ======================================================================
-OPEN ENTRY 5M PAPER TRADER v{VERSION} + ML TUNER
-Strategy: Enter EVERY 5M BTC market at open (~30s after open)
-Signal: Binance real-time momentum (price vs candle open)
-ML threshold: {ml_thresh}bp (auto-tuned via Thompson sampling)
-ML entry delay: {ml_delay}s after open (auto-tuned)
-Entry window: {ml_delay}-{ENTRY_WINDOW[1]}s after market open
-Trade size: ${TRADE_SIZE:.2f} paper
+OPEN ENTRY 5M PAPER TRADER v{VERSION} — ADAPTIVE ML
+Strategy: 3-mode entry (momentum / contrarian / skip)
+Signal: Binance momentum + RSI filter + volatility regime
+MOMENTUM:   CLOB <= ${MAX_ENTRY_PRICE} -> bet WITH signal
+CONTRARIAN: CLOB >= ${CONTRARIAN_MIN_PRICE} -> bet AGAINST signal
+SKIP:       ${MAX_ENTRY_PRICE}-${CONTRARIAN_MIN_PRICE} dead zone
+ML threshold: {ml_thresh}bp | Base delay: {ml_delay}s
+Adaptive delay: HIGH x{VOL_DELAY_MULT["HIGH"]} / NORMAL x{VOL_DELAY_MULT["NORMAL"]} / LOW x{VOL_DELAY_MULT["LOW"]}
+RSI filter: skip UP>{RSI_OVERBOUGHT} / DOWN<{RSI_OVERSOLD}
+Sizing: Half Kelly (${MIN_KELLY_SIZE}-${MAX_KELLY_SIZE}), flat ${TRADE_SIZE} until {MIN_KELLY_TRADES} trades/mode
 Max concurrent: {MAX_CONCURRENT}
-Scan interval: {SCAN_INTERVAL}s
-Inspired by: 7thStaircase (+$44.5K, 78% market coverage)
 ======================================================================
 """)
 
         while self._running:
             self.cycle += 1
 
-            # 1. Discover new markets
+            # 0. Refresh volatility indicators (cached 30s)
+            self._current_indicators = await self.binance.fetch_1m_indicators()
+
+            # 1. Discover new markets (uses adaptive delay from indicators)
             markets = await self.discover_markets()
 
-            # 2. Enter new trades
+            # 2. Enter new trades (uses mode selection from indicators)
             for market in markets:
                 await self.enter_trade(market)
 
@@ -611,11 +823,16 @@ Inspired by: 7thStaircase (+$44.5K, 78% market coverage)
                 btc_str = f"BTC=${self.binance.current_price:,.2f}" if self.binance.current_price else "BTC=?"
                 ml_thresh = self.tuner.get_active_value("signal_threshold_bp")
                 ml_delay = self.tuner.get_active_value("entry_delay_sec")
+                regime = self._current_indicators.get("regime", "?")
+                rsi = self._current_indicators.get("rsi", 0)
+                atr = self._current_indicators.get("atr_bp", 0)
+                vol_mult = VOL_DELAY_MULT.get(regime, 0.6)
+                eff_delay = max(15, ml_delay * vol_mult)
                 print(f"--- Cycle {self.cycle} | PAPER | Active: {len(self.active)} | "
                       f"{w}W/{l}L {wr:.0f}%WR | PnL: ${self.stats['pnl']:+.2f} | "
                       f"Session: ${self.session_pnl:+.2f} | "
                       f"Entered: {self.stats['entered']} Skip: {self.stats['skipped']} | "
-                      f"ML: thresh={ml_thresh}bp delay={ml_delay}s | "
+                      f"Vol:{regime} ATR:{atr:.1f}bp RSI:{rsi:.0f} delay:{eff_delay:.0f}s | "
                       f"{btc_str}{stale} ---")
 
             await asyncio.sleep(SCAN_INTERVAL)

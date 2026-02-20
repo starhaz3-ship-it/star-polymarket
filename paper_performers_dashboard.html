@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POLYMARKET PAPER PERFORMERS</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a14;
+    color: #e0e0e0;
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(0,255,195,0.03) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(168,85,247,0.03) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 80%, rgba(0,170,255,0.02) 0%, transparent 50%);
+    animation: bgPulse 12s ease-in-out infinite alternate;
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  @keyframes bgPulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.7; }
+  }
+
+  @keyframes glowPulse {
+    0%, 100% { box-shadow: 0 0 15px rgba(0,255,195,0.15), inset 0 1px 0 rgba(0,255,195,0.2); }
+    50% { box-shadow: 0 0 25px rgba(0,255,195,0.25), inset 0 1px 0 rgba(0,255,195,0.35); }
+  }
+
+  @keyframes scanline {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100vh); }
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .container {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 20px 24px;
+  }
+
+  /* ===== TITLE BAR ===== */
+  .title-bar {
+    text-align: center;
+    padding: 28px 0 20px;
+    position: relative;
+    animation: fadeInUp 0.6s ease;
+  }
+
+  .title-bar h1 {
+    font-family: 'Orbitron', monospace;
+    font-weight: 800;
+    font-size: 2.4rem;
+    color: #00ffc3;
+    letter-spacing: 6px;
+    text-shadow: 0 0 30px rgba(0,255,195,0.4), 0 0 60px rgba(0,255,195,0.15);
+    margin-bottom: 6px;
+  }
+
+  .title-bar .subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: #888;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .status-pill {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 6px 18px;
+    background: rgba(0,255,195,0.08);
+    border: 1px solid rgba(0,255,195,0.25);
+    border-radius: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: #00ffc3;
+    letter-spacing: 1px;
+  }
+
+  .status-pill .dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: #00ffc3;
+    border-radius: 50%;
+    margin-right: 6px;
+    animation: glowDot 1.5s ease-in-out infinite;
+  }
+
+  @keyframes glowDot {
+    0%, 100% { box-shadow: 0 0 4px #00ffc3; }
+    50% { box-shadow: 0 0 12px #00ffc3, 0 0 20px rgba(0,255,195,0.4); }
+  }
+
+  /* ===== GLASSMORPHISM CARD ===== */
+  .glass-card {
+    background: rgba(16,16,32,0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeInUp 0.6s ease both;
+  }
+
+  .glass-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #00ffc3, transparent);
+    animation: glowPulse 3s ease-in-out infinite;
+  }
+
+  /* ===== HERO CARDS ROW ===== */
+  .hero-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .hero-card {
+    padding: 20px;
+  }
+
+  .hero-card .card-label {
+    font-family: 'Orbitron', monospace;
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: #00ffc3;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+    text-shadow: 0 0 10px rgba(0,255,195,0.3);
+  }
+
+  .hero-card .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .hero-card .stat-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .hero-card .stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .hero-card .pnl-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin: 8px 0;
+  }
+
+  .profit { color: #00ff88; }
+  .loss { color: #ff3355; }
+  .caution { color: #ffcc00; }
+  .cyan { color: #00ffc3; }
+  .purple { color: #a855f7; }
+  .blue { color: #00aaff; }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+
+  .badge-new { background: rgba(0,255,195,0.15); color: #00ffc3; border: 1px solid rgba(0,255,195,0.3); }
+  .badge-demoted { background: rgba(255,51,85,0.15); color: #ff3355; border: 1px solid rgba(255,51,85,0.3); }
+  .badge-promo { background: rgba(0,255,136,0.15); color: #00ff88; border: 1px solid rgba(0,255,136,0.3); }
+  .badge-integrated { background: rgba(168,85,247,0.15); color: #a855f7; border: 1px solid rgba(168,85,247,0.3); }
+  .badge-live { background: rgba(255,204,0,0.15); color: #ffcc00; border: 1px solid rgba(255,204,0,0.3); }
+  .badge-dead { background: rgba(255,51,85,0.1); color: #ff3355; border: 1px solid rgba(255,51,85,0.2); }
+
+  /* ===== CHART SECTION ===== */
+  .chart-section {
+    margin-bottom: 24px;
+    padding: 24px;
+  }
+
+  .chart-section .section-title {
+    font-family: 'Orbitron', monospace;
+    font-weight: 700;
+    font-size: 1rem;
+    color: #00ffc3;
+    letter-spacing: 3px;
+    margin-bottom: 16px;
+    text-shadow: 0 0 10px rgba(0,255,195,0.2);
+  }
+
+  .chart-container {
+    position: relative;
+    height: 320px;
+    width: 100%;
+  }
+
+  .chart-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .chart-half {
+    height: 300px;
+  }
+
+  /* ===== TABLE ===== */
+  .table-section {
+    margin-bottom: 24px;
+    padding: 24px;
+  }
+
+  .table-section .section-title {
+    font-family: 'Orbitron', monospace;
+    font-weight: 700;
+    font-size: 1rem;
+    color: #00ffc3;
+    letter-spacing: 3px;
+    margin-bottom: 16px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  thead th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+
+  tbody td {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+
+  tbody tr {
+    transition: background 0.2s;
+  }
+
+  tbody tr:hover {
+    background: rgba(0,255,195,0.03);
+  }
+
+  .row-profit { border-left: 2px solid #00ff88; }
+  .row-loss { border-left: 2px solid #ff3355; background: rgba(255,51,85,0.03); }
+
+  /* ===== VOLSPLIT DEEP DIVE ===== */
+  .volsplit-section {
+    margin-bottom: 24px;
+    padding: 24px;
+  }
+
+  .trade-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .trade-card {
+    background: rgba(0,255,195,0.03);
+    border: 1px solid rgba(0,255,195,0.1);
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  .trade-card .trade-header {
+    font-family: 'Orbitron', monospace;
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: #00ffc3;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(0,255,195,0.1);
+  }
+
+  .trade-card .trade-detail {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: #aaa;
+    margin-bottom: 4px;
+    line-height: 1.6;
+  }
+
+  .trade-card .trade-result {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(0,255,195,0.1);
+  }
+
+  /* ===== FOOTER ===== */
+  .footer {
+    text-align: center;
+    padding: 24px 0 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: #555;
+    letter-spacing: 2px;
+    border-top: 1px solid rgba(255,255,255,0.04);
+    margin-top: 16px;
+  }
+
+  /* Responsive */
+  @media (max-width: 1200px) {
+    .hero-row { grid-template-columns: repeat(2, 1fr); }
+    .chart-row { grid-template-columns: 1fr; }
+    .trade-cards { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 768px) {
+    .hero-row { grid-template-columns: 1fr; }
+    .title-bar h1 { font-size: 1.4rem; letter-spacing: 3px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- TITLE BAR -->
+  <div class="title-bar">
+    <h1>POLYMARKET PAPER PERFORMERS</h1>
+    <div class="subtitle">FEB 19, 2026 &mdash; SYSTEM EVALUATION</div>
+    <div class="status-pill">
+      <span class="dot"></span>
+      <span id="clock">--:-- PM MST</span>
+    </div>
+  </div>
+
+  <!-- HERO SUMMARY ROW -->
+  <div class="hero-row">
+
+    <!-- Card 1: VOLSPLIT 15M -->
+    <div class="glass-card hero-card" style="animation-delay: 0.1s;">
+      <div class="card-label">VOLSPLIT 15M</div>
+      <div class="stat-row">
+        <span class="stat-label">Record</span>
+        <span class="stat-value cyan">2W / 0L</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Win Rate</span>
+        <span class="stat-value profit">100%</span>
+      </div>
+      <div class="pnl-value profit">+$3.20</div>
+      <div class="stat-row">
+        <span class="stat-label">Entered</span>
+        <span class="stat-value" style="color:#aaa;">3 pairs (1 active)</span>
+      </div>
+      <span class="badge badge-new">NEW &mdash; TESTING</span>
+    </div>
+
+    <!-- Card 2: SNIPER 5M -->
+    <div class="glass-card hero-card" style="animation-delay: 0.2s;">
+      <div class="card-label" style="color:#a855f7;">SNIPER 5M</div>
+      <div class="stat-row">
+        <span class="stat-label">Record</span>
+        <span class="stat-value purple">59W / 3L</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Win Rate</span>
+        <span class="stat-value profit">95.2%</span>
+      </div>
+      <div class="pnl-value profit">+$43.23</div>
+      <div class="stat-row">
+        <span class="stat-label">Avg Win</span>
+        <span class="stat-value profit">$0.86</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Avg Loss</span>
+        <span class="stat-value loss">-$2.50</span>
+      </div>
+      <span class="badge badge-demoted">DEMOTED &mdash; PHANTOM FILLS</span>
+    </div>
+
+    <!-- Card 3: WHALE CONSENSUS -->
+    <div class="glass-card hero-card" style="animation-delay: 0.3s;">
+      <div class="card-label" style="color:#00aaff;">WHALE CONSENSUS</div>
+      <div class="stat-row">
+        <span class="stat-label">Record</span>
+        <span class="stat-value blue">56W / 34L</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Win Rate</span>
+        <span class="stat-value caution">62.2%</span>
+      </div>
+      <div class="pnl-value profit">+$39.82</div>
+      <div class="stat-row">
+        <span class="stat-label">Avg Win</span>
+        <span class="stat-value profit">$2.23</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Avg Loss</span>
+        <span class="stat-value loss">-$2.50</span>
+      </div>
+      <span class="badge badge-promo">PROMOTION CANDIDATE</span>
+    </div>
+
+    <!-- Card 4: 15M STRATEGY LAB -->
+    <div class="glass-card hero-card" style="animation-delay: 0.4s;">
+      <div class="card-label" style="color:#a855f7;">15M STRATEGY LAB</div>
+      <div class="stat-row">
+        <span class="stat-label">Total Trades</span>
+        <span class="stat-value purple">137</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Top Strategy</span>
+        <span class="stat-value" style="color:#aaa;">FRAMA_CMO</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">FRAMA Record</span>
+        <span class="stat-value profit">65W/32L 67%</span>
+      </div>
+      <div class="pnl-value profit">+$441.88</div>
+      <div class="stat-row">
+        <span class="stat-label">6 Strategies</span>
+        <span class="stat-value profit">90W / 47L</span>
+      </div>
+      <span class="badge badge-integrated">INTEGRATED TO V2.3</span>
+    </div>
+
+  </div>
+
+  <!-- CUMULATIVE PNL CHART -->
+  <div class="glass-card chart-section" style="animation-delay: 0.5s;">
+    <div class="section-title">CUMULATIVE PNL BY SYSTEM</div>
+    <div class="chart-container">
+      <canvas id="cumulativePnlChart"></canvas>
+    </div>
+  </div>
+
+  <!-- WIN RATE + PER-TRADE PNL ROW -->
+  <div class="chart-row">
+    <!-- WIN RATE COMPARISON -->
+    <div class="glass-card chart-section" style="animation-delay: 0.6s;">
+      <div class="section-title">WIN RATE COMPARISON</div>
+      <div class="chart-half">
+        <canvas id="winRateChart"></canvas>
+      </div>
+    </div>
+
+    <!-- PER-TRADE PNL BARS -->
+    <div class="glass-card chart-section" style="animation-delay: 0.7s;">
+      <div class="section-title">WHALE CONSENSUS &mdash; LAST 20 TRADES</div>
+      <div class="chart-half">
+        <canvas id="perTradePnlChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- STRATEGY LEADERBOARD TABLE -->
+  <div class="glass-card table-section" style="animation-delay: 0.8s;">
+    <div class="section-title">STRATEGY LEADERBOARD</div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>System</th>
+          <th>Record</th>
+          <th>Win Rate</th>
+          <th>Total PnL</th>
+          <th>Avg Win</th>
+          <th>Avg Loss</th>
+          <th>W:L Ratio</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="row-profit">
+          <td class="cyan">1</td>
+          <td>FRAMA_CMO <span style="color:#555;font-size:0.65rem;">15M LAB</span></td>
+          <td>65W / 32L</td>
+          <td class="profit">67.0%</td>
+          <td class="profit">+$296.71</td>
+          <td class="profit">$7.93</td>
+          <td class="loss">-$6.83</td>
+          <td class="caution">1.16x</td>
+          <td><span class="badge badge-integrated">INTEGRATED</span></td>
+        </tr>
+        <tr class="row-profit">
+          <td class="cyan">2</td>
+          <td>VIDYA_AROON <span style="color:#555;font-size:0.65rem;">15M LAB</span></td>
+          <td>9W / 6L</td>
+          <td class="caution">60.0%</td>
+          <td class="profit">+$68.49</td>
+          <td class="profit">$12.63</td>
+          <td class="loss">-$7.52</td>
+          <td class="profit">1.68x</td>
+          <td><span class="badge badge-promo">WATCHING</span></td>
+        </tr>
+        <tr class="row-profit">
+          <td class="cyan">3</td>
+          <td>SNIPER 5M <span style="color:#555;font-size:0.65rem;">PAPER</span></td>
+          <td>59W / 3L</td>
+          <td class="profit">95.2%</td>
+          <td class="profit">+$43.23</td>
+          <td class="profit">$0.86</td>
+          <td class="loss">-$2.50</td>
+          <td style="color:#aaa;">0.34x</td>
+          <td><span class="badge badge-demoted">DEMOTED</span></td>
+        </tr>
+        <tr class="row-profit">
+          <td class="cyan">4</td>
+          <td>WHALE CONSENSUS <span style="color:#555;font-size:0.65rem;">15M</span></td>
+          <td>56W / 34L</td>
+          <td class="caution">62.2%</td>
+          <td class="profit">+$39.82</td>
+          <td class="profit">$2.23</td>
+          <td class="loss">-$2.50</td>
+          <td style="color:#aaa;">0.89x</td>
+          <td><span class="badge badge-promo">PROMO CAND.</span></td>
+        </tr>
+        <tr class="row-profit">
+          <td class="cyan">5</td>
+          <td>VORTEX_RVI <span style="color:#555;font-size:0.65rem;">15M LAB</span></td>
+          <td>6W / 1L</td>
+          <td class="profit">85.7%</td>
+          <td class="profit">+$39.09</td>
+          <td class="profit">$7.30</td>
+          <td class="loss">-$4.74</td>
+          <td class="profit">1.54x</td>
+          <td><span class="badge badge-new">SMALL SAMPLE</span></td>
+        </tr>
+        <tr class="row-profit">
+          <td class="cyan">6</td>
+          <td>FIB_EMA_CONFIRM <span style="color:#555;font-size:0.65rem;">15M LAB</span></td>
+          <td>6W / 6L</td>
+          <td class="caution">50.0%</td>
+          <td class="profit">+$20.02</td>
+          <td class="profit">$9.96</td>
+          <td class="loss">-$6.63</td>
+          <td class="profit">1.50x</td>
+          <td><span class="badge badge-new">EVALUATING</span></td>
+        </tr>
+        <tr class="row-profit">
+          <td class="cyan">7</td>
+          <td>ICHI_ADXR_SMI <span style="color:#555;font-size:0.65rem;">15M LAB</span></td>
+          <td>2W / 0L</td>
+          <td class="profit">100%</td>
+          <td class="profit">+$15.70</td>
+          <td class="profit">$7.85</td>
+          <td style="color:#555;">N/A</td>
+          <td style="color:#555;">N/A</td>
+          <td><span class="badge badge-new">SMALL SAMPLE</span></td>
+        </tr>
+        <tr class="row-profit">
+          <td class="cyan">8</td>
+          <td>VOLSPLIT 15M <span style="color:#555;font-size:0.65rem;">PAPER</span></td>
+          <td>2W / 0L</td>
+          <td class="profit">100%</td>
+          <td class="profit">+$3.20</td>
+          <td class="profit">$1.60</td>
+          <td style="color:#555;">N/A</td>
+          <td style="color:#555;">N/A</td>
+          <td><span class="badge badge-new">NEW &mdash; TESTING</span></td>
+        </tr>
+        <tr class="row-profit">
+          <td class="cyan">9</td>
+          <td>EMA_STOCHRSI <span style="color:#555;font-size:0.65rem;">15M LAB</span></td>
+          <td>2W / 2L</td>
+          <td class="caution">50.0%</td>
+          <td class="profit">+$1.87</td>
+          <td class="profit">$4.93</td>
+          <td class="loss">-$4.00</td>
+          <td class="profit">1.23x</td>
+          <td><span class="badge badge-new">SMALL SAMPLE</span></td>
+        </tr>
+        <tr class="row-loss">
+          <td style="color:#ff3355;">10</td>
+          <td>MOMENTUM 15M <span style="color:#555;font-size:0.65rem;">LIVE</span></td>
+          <td>1W / 1L</td>
+          <td class="caution">50.0%</td>
+          <td class="loss">-$0.39</td>
+          <td class="profit">$2.65</td>
+          <td class="loss">-$3.04</td>
+          <td style="color:#aaa;">0.87x</td>
+          <td><span class="badge badge-live">LIVE &mdash; PROBATION</span></td>
+        </tr>
+        <!-- DEAD SYSTEMS -->
+        <tr class="row-loss" style="opacity:0.5;">
+          <td style="color:#ff3355;">--</td>
+          <td>MOMENTUM 1H <span style="color:#555;font-size:0.65rem;">DEAD</span></td>
+          <td colspan="6" style="color:#555;font-size:0.7rem;">Killed — No edge on hourly timeframe. Zero fills, zero signal overlap.</td>
+          <td><span class="badge badge-dead">DEAD</span></td>
+        </tr>
+        <tr class="row-loss" style="opacity:0.5;">
+          <td style="color:#ff3355;">--</td>
+          <td>OPEN_ENTRY 5M <span style="color:#555;font-size:0.65rem;">DEAD</span></td>
+          <td colspan="6" style="color:#555;font-size:0.7rem;">Killed — Random entry timing. 40% WR, negative EV. Structural impossibility.</td>
+          <td><span class="badge badge-dead">DEAD</span></td>
+        </tr>
+        <tr class="row-loss" style="opacity:0.5;">
+          <td style="color:#ff3355;">--</td>
+          <td>EMA_RSI 5M <span style="color:#555;font-size:0.65rem;">DEAD</span></td>
+          <td colspan="6" style="color:#555;font-size:0.7rem;">Killed — Directional 5M trading. 40% WR, -$214 lifetime. Structurally unprofitable.</td>
+          <td><span class="badge badge-dead">DEAD</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- VOLSPLIT DEEP DIVE -->
+  <div class="glass-card volsplit-section" style="animation-delay: 0.9s;">
+    <div class="section-title">VOLSPLIT 15M &mdash; DEEP DIVE</div>
+    <div class="trade-cards">
+      <!-- Trade 1 -->
+      <div class="trade-card">
+        <div class="trade-header">TRADE #1 &mdash; WIN</div>
+        <div class="trade-detail">Market: BTC Up/Down 10:15-10:30 PM ET</div>
+        <div class="trade-detail">Entry: UP@$0.49 + DOWN@$0.52</div>
+        <div class="trade-detail">Cost/pair: <span class="caution">$1.01</span> &times; 5 shares = $5.05</div>
+        <div class="trade-detail">Sold: UP@$0.65 + DOWN@$0.65</div>
+        <div class="trade-detail">Revenue: $3.25 + $3.25 = $6.50</div>
+        <div class="trade-result profit">+$1.45</div>
+      </div>
+      <!-- Trade 2 -->
+      <div class="trade-card">
+        <div class="trade-header">TRADE #2 &mdash; WIN</div>
+        <div class="trade-detail">Market: BTC Up/Down 10:30-10:45 PM ET</div>
+        <div class="trade-detail">Entry: UP@$0.41 + DOWN@$0.64</div>
+        <div class="trade-detail">Cost/pair: <span class="caution">$1.05</span> &times; 5 shares = $5.25</div>
+        <div class="trade-detail">Sold: UP@$0.74 + DOWN@$0.66</div>
+        <div class="trade-detail">Revenue: $3.70 + $3.30 = $7.00</div>
+        <div class="trade-result profit">+$1.75</div>
+      </div>
+      <!-- Trade 3 -->
+      <div class="trade-card">
+        <div class="trade-header">TRADE #3 &mdash; IN PROGRESS</div>
+        <div class="trade-detail">Market: BTC Up/Down 10:45-11:00 PM ET</div>
+        <div class="trade-detail">Entry: UP@$0.45 + DOWN@$0.45</div>
+        <div class="trade-detail">Cost/pair: <span class="profit">$0.90</span> &times; 5 shares = $4.50</div>
+        <div class="trade-detail">UP sold @$0.65 &rarr; $3.25</div>
+        <div class="trade-detail">DOWN: <span class="caution">Monitoring...</span></div>
+        <div class="trade-result caution">PENDING</div>
+      </div>
+    </div>
+
+    <!-- Cost reduction mini chart -->
+    <div style="margin-top:20px; max-width:500px;">
+      <div class="section-title" style="font-size:0.8rem; margin-bottom:10px;">COST PER PAIR REDUCTION</div>
+      <div style="height:120px;">
+        <canvas id="costReductionChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    GENERATED FEB 19, 2026 <span id="footerTime">8:XX PM</span> MST &nbsp;|&nbsp; PAPER SYSTEM EVALUATION &nbsp;|&nbsp; STAR TRADING LAB
+  </div>
+
+</div>
+
+<script>
+// ===== CLOCK =====
+function updateClock() {
+  const now = new Date();
+  // MST = UTC - 7
+  const mst = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) - (7 * 3600000));
+  let h = mst.getHours();
+  const m = String(mst.getMinutes()).padStart(2, '0');
+  const s = String(mst.getSeconds()).padStart(2, '0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  const timeStr = `${h}:${m}:${s} ${ampm} MST`;
+  document.getElementById('clock').textContent = timeStr;
+  document.getElementById('footerTime').textContent = `${h}:${m} ${ampm}`;
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ===== CHART DEFAULTS =====
+Chart.defaults.color = '#888';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.04)';
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
+Chart.defaults.font.size = 11;
+
+// ===== DATA =====
+const volsplitPnls = [1.45, 1.75];
+const sniperPnls = [0.83, 0.83, 0.83, 0.92, 0.83, 0.83, -2.5, 0.79, 1.02, 0.83, 0.97, -2.5, 0.83, 0.83, 0.83, 1.07, 0.83, -2.5, 0.83, 0.83, 0.88, 0.83, 0.92, 0.83, 0.83, 0.97, 0.83, 0.83, 0.83, 0.83, 0.83, 0.83, 0.83, 0.83, 0.83, 0.83, 0.83, 0.83, 0.92, 0.97, 0.83, 0.83, 0.83, 0.83, 0.83, 0.83, 0.83, 0.97, 0.88, 0.88, 0.79, 0.97, 0.88, 0.83, 0.83, 1.07, 0.83, 0.83, 0.83, 0.83, 0.83, 0.83];
+const whalePnls = [-2.5, 2.45, -2.5, 2.0, -2.5, 2.45, 2.76, -2.5, 2.35, 2.26, 2.35, -2.5, -2.5, 2.26, -2.5, -2.5, -2.5, -2.5, 2.45, 1.85, 2.26, -2.5, 2.22, -2.5, 2.26, 2.17, 2.35, 2.26, -2.5, -2.5, -2.5, 1.7, 1.44, 2.71, 2.65, 2.76, 2.99, -2.5, 2.26, -2.5, -2.5, -2.5, -2.5, 2.09, 2.26, 2.26, 1.77, 2.26, 2.17, 2.35, -2.5, -2.5, 2.09, -2.5, -2.5, -2.5, -2.5, 2.0, 2.55, 2.31, -2.5, 2.17, 2.17, 2.17, 2.13, -2.5, 2.35, 2.26, -2.5, 2.55, -2.5, -2.5, -2.5, 2.13, 2.55, -2.5, 2.45, 1.77, 2.17, 2.26, 2.09, 2.35, 2.0, 2.45, 2.26, 1.5, 2.17, 1.63, -2.5, 1.92];
+const framaPnls = [-3.86, 7.55, -5.03, 4.05, 4.53, 3.42, -4.06, -3.96, 3.69, 8.42, -4.38, 3.69, 4.32, 22.83, 3.59, 10.2, -4.55, 4.12, 4.12, -5.8, -4.53, 3.72, 4.09, -4.7, 3.65, 3.54, 6.34, -4.66, 3.29, -8.0, -8.0, 8.49, -8.0, 5.39, 12.44, -8.0, 7.24, 7.84, -7.3, -7.31, 8.8, 6.28, 6.23, 5.58, 5.5, 5.78, 7.84, 6.6, -8.0, -8.0, 6.55, 6.33, 19.12, 12.25, -8.0, -7.69, -8.0, 40.48, -8.0, 7.84, 8.46, 7.53, 8.16, -8.0, 14.37, 8.71, 6.19, 6.04, -8.0, 6.95, 6.95, -8.0, 6.95, 7.24, -7.2, 7.53, -7.81, 8.59, 6.95, 7.24, 7.84, 6.95, 7.53, 6.95, 17.81, 6.52, -7.63, 6.41, -8.0, 6.11, 6.81, -8.0, 7.18, 7.53, -8.0, -8.0, 13.94];
+
+function cumulative(arr) {
+  let cum = 0;
+  return arr.map(v => { cum += v; return parseFloat(cum.toFixed(2)); });
+}
+
+const volCum = cumulative(volsplitPnls);
+const sniperCum = cumulative(sniperPnls);
+const whaleCum = cumulative(whalePnls);
+const framaCum = cumulative(framaPnls);
+
+// Pad shorter arrays with null for alignment on same x-axis
+const maxLen = Math.max(volCum.length, sniperCum.length, whaleCum.length, framaCum.length);
+const labels = Array.from({length: maxLen}, (_, i) => i + 1);
+
+function padArray(arr, len) {
+  const padded = [...arr];
+  while (padded.length < len) padded.push(null);
+  return padded;
+}
+
+// ===== CUMULATIVE PNL CHART =====
+const cumCtx = document.getElementById('cumulativePnlChart').getContext('2d');
+
+function makeGradient(ctx, color, h) {
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, color.replace('1)', '0.25)'));
+  g.addColorStop(1, color.replace('1)', '0.0)'));
+  return g;
+}
+
+new Chart(cumCtx, {
+  type: 'line',
+  data: {
+    labels: labels,
+    datasets: [
+      {
+        label: 'FRAMA_CMO',
+        data: padArray(framaCum, maxLen),
+        borderColor: '#00ff88',
+        backgroundColor: makeGradient(cumCtx, 'rgba(0,255,136,1)', 320),
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        fill: true,
+        tension: 0.3,
+        spanGaps: false,
+      },
+      {
+        label: 'Sniper 5M',
+        data: padArray(sniperCum, maxLen),
+        borderColor: '#a855f7',
+        backgroundColor: makeGradient(cumCtx, 'rgba(168,85,247,1)', 320),
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        fill: true,
+        tension: 0.3,
+        spanGaps: false,
+      },
+      {
+        label: 'Whale Consensus',
+        data: padArray(whaleCum, maxLen),
+        borderColor: '#00aaff',
+        backgroundColor: makeGradient(cumCtx, 'rgba(0,170,255,1)', 320),
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        fill: true,
+        tension: 0.3,
+        spanGaps: false,
+      },
+      {
+        label: 'Volsplit 15M',
+        data: padArray(volCum, maxLen),
+        borderColor: '#00ffc3',
+        backgroundColor: makeGradient(cumCtx, 'rgba(0,255,195,1)', 320),
+        borderWidth: 2.5,
+        pointRadius: 3,
+        pointBackgroundColor: '#00ffc3',
+        fill: true,
+        tension: 0.3,
+        spanGaps: false,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: {
+        labels: {
+          padding: 20,
+          usePointStyle: true,
+          font: { family: "'JetBrains Mono', monospace", size: 11 }
+        }
+      },
+      tooltip: {
+        backgroundColor: 'rgba(10,10,20,0.95)',
+        borderColor: 'rgba(0,255,195,0.3)',
+        borderWidth: 1,
+        titleFont: { family: "'JetBrains Mono', monospace" },
+        bodyFont: { family: "'JetBrains Mono', monospace" },
+        callbacks: {
+          label: function(ctx) {
+            return ctx.dataset.label + ': $' + (ctx.parsed.y !== null ? ctx.parsed.y.toFixed(2) : 'N/A');
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        title: { display: true, text: 'TRADE #', color: '#666', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+        grid: { color: 'rgba(255,255,255,0.03)' },
+        ticks: { maxTicksLimit: 20 }
+      },
+      y: {
+        title: { display: true, text: 'CUMULATIVE PNL ($)', color: '#666', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        ticks: {
+          callback: function(v) { return '$' + v; }
+        }
+      }
+    }
+  }
+});
+
+// ===== WIN RATE CHART =====
+const wrCtx = document.getElementById('winRateChart').getContext('2d');
+
+const wrSystems = ['Volsplit 15M', 'Sniper 5M', 'VORTEX_RVI', 'FRAMA_CMO', 'Whale Consensus', 'FIB_EMA_CONFIRM', 'Momentum 15M'];
+const wrValues = [100, 95.2, 85.7, 67.0, 62.2, 50.0, 50.0];
+const wrTrades = [2, 62, 7, 97, 90, 12, 2];
+const wrColors = wrValues.map(v => v > 80 ? '#00ff88' : (v >= 60 ? '#00ffc3' : '#ffcc00'));
+
+new Chart(wrCtx, {
+  type: 'bar',
+  data: {
+    labels: wrSystems,
+    datasets: [{
+      label: 'Win Rate %',
+      data: wrValues,
+      backgroundColor: wrColors.map(c => c + '55'),
+      borderColor: wrColors,
+      borderWidth: 1.5,
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: 'rgba(10,10,20,0.95)',
+        borderColor: 'rgba(0,255,195,0.3)',
+        borderWidth: 1,
+        callbacks: {
+          afterLabel: function(ctx) {
+            return 'Trades: ' + wrTrades[ctx.dataIndex];
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        min: 0, max: 105,
+        grid: { color: 'rgba(255,255,255,0.03)' },
+        ticks: { callback: v => v + '%' }
+      },
+      y: {
+        grid: { display: false },
+        ticks: { font: { size: 10 } }
+      }
+    }
+  },
+  plugins: [{
+    afterDatasetsDraw: function(chart) {
+      const ctx2 = chart.ctx;
+      chart.data.datasets[0].data.forEach((value, i) => {
+        const meta = chart.getDatasetMeta(0);
+        const bar = meta.data[i];
+        ctx2.fillStyle = '#e0e0e0';
+        ctx2.font = "bold 11px 'JetBrains Mono', monospace";
+        ctx2.textAlign = 'left';
+        ctx2.fillText(value.toFixed(1) + '%', bar.x + 6, bar.y + 4);
+        ctx2.fillStyle = '#666';
+        ctx2.font = "10px 'JetBrains Mono', monospace";
+        ctx2.fillText('(' + wrTrades[i] + ' trades)', bar.x + 56, bar.y + 4);
+      });
+    }
+  }]
+});
+
+// ===== PER-TRADE PNL BARS (WHALE CONSENSUS LAST 20) =====
+const ptCtx = document.getElementById('perTradePnlChart').getContext('2d');
+const last20 = whalePnls.slice(-20);
+const last20Labels = Array.from({length: 20}, (_, i) => '#' + (whalePnls.length - 19 + i));
+const last20Colors = last20.map(v => v > 0 ? 'rgba(0,255,136,0.7)' : 'rgba(255,51,85,0.7)');
+const last20Borders = last20.map(v => v > 0 ? '#00ff88' : '#ff3355');
+
+new Chart(ptCtx, {
+  type: 'bar',
+  data: {
+    labels: last20Labels,
+    datasets: [{
+      label: 'PnL ($)',
+      data: last20,
+      backgroundColor: last20Colors,
+      borderColor: last20Borders,
+      borderWidth: 1,
+      borderRadius: 3,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: 'rgba(10,10,20,0.95)',
+        borderColor: 'rgba(0,255,195,0.3)',
+        borderWidth: 1,
+        callbacks: {
+          label: function(ctx) {
+            return (ctx.parsed.y >= 0 ? '+' : '') + '$' + ctx.parsed.y.toFixed(2);
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { font: { size: 9 }, maxRotation: 45 }
+      },
+      y: {
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        ticks: { callback: v => '$' + v.toFixed(1) }
+      }
+    }
+  }
+});
+
+// ===== COST REDUCTION CHART =====
+const crCtx = document.getElementById('costReductionChart').getContext('2d');
+
+new Chart(crCtx, {
+  type: 'bar',
+  data: {
+    labels: ['Trade 1', 'Trade 2', 'Trade 3'],
+    datasets: [{
+      label: 'Cost/Pair',
+      data: [1.01, 1.05, 0.90],
+      backgroundColor: ['rgba(255,204,0,0.3)', 'rgba(255,204,0,0.3)', 'rgba(0,255,136,0.4)'],
+      borderColor: ['#ffcc00', '#ffcc00', '#00ff88'],
+      borderWidth: 1.5,
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: function(ctx) { return '$' + ctx.parsed.y.toFixed(2) + '/pair'; },
+          afterLabel: function(ctx) {
+            if (ctx.dataIndex === 2) return 'Limit orders!';
+            return '';
+          }
+        }
+      }
+    },
+    scales: {
+      x: { grid: { display: false } },
+      y: {
+        min: 0.80, max: 1.10,
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        ticks: { callback: v => '$' + v.toFixed(2), font: { size: 9 } }
+      }
+    }
+  },
+  plugins: [{
+    afterDatasetsDraw: function(chart) {
+      const ctx2 = chart.ctx;
+      chart.data.datasets[0].data.forEach((value, i) => {
+        const meta = chart.getDatasetMeta(0);
+        const bar = meta.data[i];
+        ctx2.fillStyle = i === 2 ? '#00ff88' : '#ffcc00';
+        ctx2.font = "bold 11px 'JetBrains Mono', monospace";
+        ctx2.textAlign = 'center';
+        ctx2.fillText('$' + value.toFixed(2), bar.x, bar.y - 6);
+      });
+    }
+  }]
+});
+</script>
+</body>
+</html>

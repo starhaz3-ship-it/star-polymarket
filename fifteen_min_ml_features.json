@@ -1163,6 +1163,546 @@
     "strength": 0.40909090909090945
    },
    "won": false
+  },
+  {
+   "features": {
+    "conf": 0.7882946478244461,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 20.0,
+    "edge": 0.15073840326002508,
+    "strength": 0.7882946478244461
+   },
+   "won": false
+  },
+  {
+   "features": {
+    "conf": 0.6372970330826826,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 20.0,
+    "edge": 0.2912938852217326,
+    "strength": 0.6372970330826826
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.6770205565532783,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 21.0,
+    "edge": 0.1682765394836253,
+    "strength": 0.6770205565532783
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.5275069171640041,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 21.0,
+    "edge": 0.08136768457975652,
+    "strength": 0.5275069171640041
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.42019708030734154,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 23.0,
+    "edge": 0.035786116442602656,
+    "strength": 0.42019708030734154
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.4772797079987996,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 0.0,
+    "edge": 0.112180501552955,
+    "strength": 0.4772797079987996
+   },
+   "won": false
+  },
+  {
+   "features": {
+    "conf": 0.5166722025183081,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 0.0,
+    "edge": 0.08075249542065044,
+    "strength": 0.5166722025183081
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.7099712251933179,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 1.0,
+    "edge": 0.3548606840542997,
+    "strength": 0.7099712251933179
+   },
+   "won": false
+  },
+  {
+   "features": {
+    "conf": 0.6062847807812459,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 2.0,
+    "edge": 0.09404626664986138,
+    "strength": 0.6062847807812459
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.5095327218780081,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 3.0,
+    "edge": 0.09325008918223887,
+    "strength": 0.5095327218780081
+   },
+   "won": false
+  },
+  {
+   "features": {
+    "conf": 0.5628041233138843,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 3.0,
+    "edge": 0.09683388973824103,
+    "strength": 0.5628041233138843
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.5408067874718292,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 3.0,
+    "edge": 0.1056631108806414,
+    "strength": 0.5408067874718292
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.3600859725197037,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 4.0,
+    "edge": 0.08224920623271104,
+    "strength": 0.3600859725197037
+   },
+   "won": false
+  },
+  {
+   "features": {
+    "conf": 0.5115578048179314,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 6.0,
+    "edge": 0.0998950285382415,
+    "strength": 0.5115578048179314
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.4418717987502664,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 8.0,
+    "edge": 0.07285747291509781,
+    "strength": 0.4418717987502664
+   },
+   "won": false
+  },
+  {
+   "features": {
+    "conf": 0.4363646565824727,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 9.0,
+    "edge": 0.13692465455712266,
+    "strength": 0.4363646565824727
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.7358882623498243,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 9.0,
+    "edge": 0.011318308944090805,
+    "strength": 0.7358882623498243
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.5324520438248745,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 10.0,
+    "edge": 0.0806182385055535,
+    "strength": 0.5324520438248745
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.5825320881536504,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 11.0,
+    "edge": 0.09721997790401793,
+    "strength": 0.5825320881536504
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.5196454200185905,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 11.0,
+    "edge": 0.12061952501502571,
+    "strength": 0.5196454200185905
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.7536563015030786,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 11.0,
+    "edge": 0.09393693826761751,
+    "strength": 0.7536563015030786
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.7195421837344897,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 12.0,
+    "edge": 0.09660942684757223,
+    "strength": 0.7195421837344897
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.6764504009017498,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 13.0,
+    "edge": 0.11678460351371289,
+    "strength": 0.6764504009017498
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.71670216475666,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 13.0,
+    "edge": 0.14537821634847592,
+    "strength": 0.71670216475666
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.7026796390261306,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 13.0,
+    "edge": 0.1350417570123018,
+    "strength": 0.7026796390261306
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.7194516145292755,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 14.0,
+    "edge": 0.11323794403085385,
+    "strength": 0.7194516145292755
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.4929175246262169,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 15.0,
+    "edge": 0.30650915529369005,
+    "strength": 0.4929175246262169
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.7737432422158399,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 15.0,
+    "edge": 0.27098574705527245,
+    "strength": 0.7737432422158399
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.40045960811262576,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 16.0,
+    "edge": 0.07414995801338098,
+    "strength": 0.40045960811262576
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.5816244944403999,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 16.0,
+    "edge": 0.3338857728768072,
+    "strength": 0.5816244944403999
+   },
+   "won": false
+  },
+  {
+   "features": {
+    "conf": 0.4173035353142567,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 16.0,
+    "edge": 0.35592796331427223,
+    "strength": 0.4173035353142567
+   },
+   "won": false
+  },
+  {
+   "features": {
+    "conf": 0.8400000000000001,
+    "ema_gap": 0.0023262094504114526,
+    "rsi": 80.61677365283214,
+    "atr_pct": 0.0015380352898565143,
+    "hour_utc": 17.0,
+    "edge": 0.10478628351234354,
+    "strength": 0.6363636363636369
+   },
+   "won": false
+  },
+  {
+   "features": {
+    "conf": 0.7058278400701806,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 18.0,
+    "edge": 0.02595757972289836,
+    "strength": 0.7058278400701806
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.5333025825322046,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 19.0,
+    "edge": 0.0782954681018464,
+    "strength": 0.5333025825322046
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.6293697767449395,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 20.0,
+    "edge": 0.23366453816593113,
+    "strength": 0.6293697767449395
+   },
+   "won": false
+  },
+  {
+   "features": {
+    "conf": 0.37594543718139795,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 20.0,
+    "edge": 0.09295435588897294,
+    "strength": 0.37594543718139795
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.5679432626237573,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 21.0,
+    "edge": 0.0927718292570805,
+    "strength": 0.5679432626237573
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.491811712516569,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 21.0,
+    "edge": 0.11982877086013954,
+    "strength": 0.491811712516569
+   },
+   "won": false
+  },
+  {
+   "features": {
+    "conf": 0.4590686934847856,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 1.0,
+    "edge": 0.09358611295560437,
+    "strength": 0.4590686934847856
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.4782288569254597,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 2.0,
+    "edge": 0.10569564275731047,
+    "strength": 0.4782288569254597
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.46620535180443545,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 2.0,
+    "edge": 0.09702713684010467,
+    "strength": 0.46620535180443545
+   },
+   "won": false
+  },
+  {
+   "features": {
+    "conf": 0.47713087826953254,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 2.0,
+    "edge": 0.11140815471287879,
+    "strength": 0.47713087826953254
+   },
+   "won": false
+  },
+  {
+   "features": {
+    "conf": 0.4221273742262374,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 3.0,
+    "edge": 0.26718521859042066,
+    "strength": 0.4221273742262374
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.46586054910292335,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 5.0,
+    "edge": 0.01084021702986182,
+    "strength": 0.46586054910292335
+   },
+   "won": true
+  },
+  {
+   "features": {
+    "conf": 0.4973238885618372,
+    "ema_gap": 0.0,
+    "rsi": 50.0,
+    "atr_pct": 0.0,
+    "hour_utc": 5.0,
+    "edge": 0.05673343505339079,
+    "strength": 0.4973238885618372
+   },
+   "won": true
   }
  ]
 }
