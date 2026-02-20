@@ -6,9 +6,9 @@
       "pnl": 1.7699999999999996
     },
     "FRAMA_CMO": {
-      "wins": 68,
+      "wins": 69,
       "losses": 35,
-      "pnl": 291.08000000000004
+      "pnl": 296.72
     },
     "ICHI_ADXR_SMI": {
       "wins": 2,
@@ -27,13 +27,13 @@
     },
     "FIB_EMA_CONFIRM": {
       "wins": 6,
-      "losses": 6,
-      "pnl": 20.020000000000007
+      "losses": 7,
+      "pnl": 13.820000000000007
     },
     "_total": {
-      "wins": 96,
-      "losses": 51,
-      "pnl": 452.4799999999999
+      "wins": 97,
+      "losses": 52,
+      "pnl": 451.9199999999999
     }
   },
   "resolved": [
@@ -4593,8 +4593,70 @@
       "pnl": 5.91,
       "exit_price": 1.0,
       "exit_time": "2026-02-20T15:08:49.012396+00:00"
+    },
+    {
+      "side": "DOWN",
+      "entry_price": 0.555,
+      "size_usd": 7.04,
+      "entry_time": "2026-02-20T15:34:12.770870+00:00",
+      "condition_id": "0xe1e1fa82bf8d4183dee63ae3463359c0c6c1095831d31a5deb86af4f3f48667a",
+      "market_numeric_id": "1397821",
+      "title": "Bitcoin Up or Down - February 20, 10:30AM-10:45AM ET",
+      "strategy": "FRAMA_CMO",
+      "edge": 0.0391,
+      "fair_px": 0.5941,
+      "strength": 0.339,
+      "reason": "frama_dn_pullback",
+      "btc_price": 67028.35,
+      "detail": "frama=67040 cmo=-14.9 dcmid=67234",
+      "tte_seconds": 647,
+      "ml_features": {
+        "conf": 0.3390678886799515,
+        "ema_gap": 0.0,
+        "rsi": 50.0,
+        "atr_pct": 0.0,
+        "hour_utc": 15.0,
+        "edge": 0.039138033569394826,
+        "strength": 0.3390678886799515
+      },
+      "ml_prob": 0.683,
+      "status": "closed",
+      "pnl": 5.64,
+      "exit_price": 1.0,
+      "exit_time": "2026-02-20T15:50:38.326075+00:00"
+    },
+    {
+      "side": "UP",
+      "entry_price": 0.155,
+      "size_usd": 6.2,
+      "entry_time": "2026-02-20T15:38:43.896124+00:00",
+      "condition_id": "0xe1e1fa82bf8d4183dee63ae3463359c0c6c1095831d31a5deb86af4f3f48667a",
+      "market_numeric_id": "1397821",
+      "title": "Bitcoin Up or Down - February 20, 10:30AM-10:45AM ET",
+      "strategy": "FIB_EMA_CONFIRM",
+      "edge": 0.3471,
+      "fair_px": 0.5021,
+      "strength": 0.227,
+      "reason": "fib_ema_long",
+      "btc_price": 67168.36,
+      "detail": "conf=0.75 ema=bull rsi=44",
+      "tte_seconds": 376,
+      "ml_features": {
+        "conf": 0.75,
+        "ema_gap": 0.0005590253914622884,
+        "rsi": 44.14796624302492,
+        "atr_pct": 0.0021531289859859954,
+        "hour_utc": 15.0,
+        "edge": 0.34714067735143084,
+        "strength": 0.2272727272727275
+      },
+      "ml_prob": 0.654,
+      "status": "closed",
+      "pnl": -6.2,
+      "exit_price": 0.0,
+      "exit_time": "2026-02-20T15:55:11.400112+00:00"
     }
   ],
   "active": {},
-  "last_updated": "2026-02-20T15:20:06.242486+00:00"
+  "last_updated": "2026-02-20T16:18:49.205535+00:00"
 }

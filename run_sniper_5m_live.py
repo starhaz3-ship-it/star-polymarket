@@ -1,8 +1,13 @@
 """
-Sniper 5M LIVE Trader V2.1
+Sniper 5M LIVE Trader V2.2
 
 Front-runs Chainlink oracle delay on 5-minute BTC Up/Down markets.
 Enters at 62-61 seconds before market close when direction is clear from CLOB orderbook.
+
+V2.2 — Skip toxic hours:
+  - Skip UTC 9 (4AM ET): 33% WR, -$4.55 (2 of 3 losses)
+  - Skip UTC 12 (7AM ET): 0% WR, -$3.57 (1 of 3 losses)
+  - All other hours: 13W/0L, 100% WR, +$12.75
 
 V2.1 — DOWN-bias tuning (16 trades: DOWN 11W/0L 100%WR, UP 2W/3L 40%WR):
   - ML WR threshold 80% for UP trades (blocks low-confidence UP bets)
@@ -76,6 +81,7 @@ ML_MIN_WR_THRESHOLD = 0.50  # skip if estimated WR below this (DOWN trades)
 ML_UP_WR_THRESHOLD = 0.80   # V2.1: UP needs 80%+ ML WR (DOWN=11W/0L but UP=2W/3L, losses at 72-76%)
 MIN_ENTRY_UP = 0.72          # V2.1: UP trades need $0.72+ entry ($0.72+ = 100% WR, below = losses)
 UP_SIZE_MULT = 0.50          # V2.1: Half size on UP trades until UP direction proves itself
+SKIP_HOURS_UTC = {9, 12}    # V2.2: Skip worst hours — UTC 9 (4AM ET) 33%WR/-$4.55, UTC 12 (7AM ET) 0%WR/-$3.57
 
 
 # ============================================================================
@@ -845,6 +851,13 @@ class Sniper5MLive:
             question = market.get("question", "?")
             end_dt = market.get("_end_dt_parsed")
 
+            # V2.2: Skip toxic hours (ALL 3 losses came from UTC 9+12)
+            if end_dt and end_dt.hour in SKIP_HOURS_UTC:
+                self.stats["skipped"] += 1
+                self.attempted_cids.add(cid)
+                print(f"[SKIP] Toxic hour {end_dt.hour} UTC | {question[:50]}")
+                continue
+
             # STEP 1: Get CLOB prices for both sides
             up_tid, down_tid = self.get_token_ids(market)
             up_ask = (await self.get_best_ask(up_tid)) if up_tid else None
@@ -1401,8 +1414,9 @@ class Sniper5MLive:
         mode = "LIVE" if not self.paper else "PAPER"
         tier = get_trade_size(self.stats["wins"], self.stats["losses"])
         print("=" * 70)
-        print(f"  SNIPER 5M {mode} TRADER V2.1 — DOWN-BIAS TUNED")
+        print(f"  SNIPER 5M {mode} TRADER V2.2 — SKIP TOXIC HOURS")
         print("=" * 70)
+        print(f"  V2.2: Skip UTC hours {SKIP_HOURS_UTC} (4AM+7AM ET = ALL 3 losses, -$8.12)")
         print(f"  V2.1 DOWN-bias (16T: DOWN 11W/0L 100%, UP 2W/3L 40%):")
         print(f"    - ML WR threshold: UP >= {ML_UP_WR_THRESHOLD:.0%} | DOWN >= {ML_MIN_WR_THRESHOLD:.0%}")
         print(f"    - MIN entry: UP >= ${MIN_ENTRY_UP:.2f} | DOWN >= ${MIN_CONFIDENCE:.2f}")

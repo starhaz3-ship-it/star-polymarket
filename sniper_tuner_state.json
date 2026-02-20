@@ -14,28 +14,28 @@
         "pnl": 0.83
       },
       "0.76": {
-        "alpha": 18,
+        "alpha": 19,
         "beta": 7,
-        "trades": 23,
-        "pnl": 0.82
+        "trades": 24,
+        "pnl": 1.07
       },
       "0.78": {
-        "alpha": 20,
+        "alpha": 21,
         "beta": 7,
-        "trades": 25,
-        "pnl": 1.27
+        "trades": 26,
+        "pnl": 1.52
       },
       "0.80": {
-        "alpha": 22,
+        "alpha": 23,
         "beta": 7,
-        "trades": 27,
-        "pnl": 1.67
+        "trades": 28,
+        "pnl": 1.92
       },
       "0.82": {
-        "alpha": 27,
+        "alpha": 28,
         "beta": 10,
-        "trades": 35,
-        "pnl": 0.16
+        "trades": 36,
+        "pnl": 0.41
       }
     },
     "clob_upper": {
@@ -52,34 +52,44 @@
         "pnl": 0.83
       },
       "0.76": {
-        "alpha": 18,
+        "alpha": 19,
         "beta": 7,
-        "trades": 23,
-        "pnl": 0.82
+        "trades": 24,
+        "pnl": 1.07
       },
       "0.78": {
-        "alpha": 20,
+        "alpha": 21,
         "beta": 7,
-        "trades": 25,
-        "pnl": 1.27
+        "trades": 26,
+        "pnl": 1.52
       },
       "0.80": {
-        "alpha": 22,
+        "alpha": 23,
         "beta": 7,
-        "trades": 27,
-        "pnl": 1.67
+        "trades": 28,
+        "pnl": 1.92
       },
       "0.82": {
-        "alpha": 27,
+        "alpha": 28,
         "beta": 10,
-        "trades": 35,
-        "pnl": 0.16
+        "trades": 36,
+        "pnl": 0.41
       }
     }
   },
-  "shadow": [],
+  "shadow": [
+    {
+      "market_id": "0x07d6b25b869fefebc940d51f6310b70b48c19d9f1a46d6d34b261ad416ca07d2",
+      "end_time": "2026-02-20T16:20:00+00:00",
+      "side": "DOWN",
+      "entry_price": 0.96,
+      "clob_dominant": 0.96,
+      "ts": "2026-02-20T16:18:59.950633+00:00",
+      "extra": {}
+    }
+  ],
   "active": {
-    "max_entry": "0.78",
+    "max_entry": "0.74",
     "clob_upper": "0.74"
   },
   "adjustments": [
@@ -555,7 +565,20 @@
       "new_trades": 15,
       "total_resolved": 145,
       "ts": "2026-02-20T15:05:23.149479+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.78",
+      "new": "0.74",
+      "old_wr": 74.1,
+      "new_wr": 70.6,
+      "old_pnl": 1.27,
+      "new_pnl": 0.83,
+      "old_trades": 25,
+      "new_trades": 15,
+      "total_resolved": 150,
+      "ts": "2026-02-20T15:50:24.040393+00:00"
     }
   ],
-  "total_resolved": 146
+  "total_resolved": 153
 }
