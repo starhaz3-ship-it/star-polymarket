@@ -1,5 +1,5 @@
 """
-Whale Consensus 15M Trader V2.0
+Whale Consensus 15M Trader V2.1
 
 Enter 15M BTC Up/Down markets when 3+ tracked whales independently agree
 on a direction (all positioned the same way).
@@ -68,6 +68,8 @@ MIN_WHALE_COST = 5.0            # minimum cost basis ($) for a whale vote to cou
 TRADE_SIZE = 2.50               # base trade size (PROBATION)
 MIN_ENTRY_PRICE = 0.10          # minimum entry price (avoid extremes)
 MAX_ENTRY_PRICE = 0.65          # maximum entry price
+UP_SIZE_MULT = 0.50             # V2.1: Half size on UP trades (CSV: DOWN 12W/0L 100%, UP 3W/3L 50%)
+MIN_ENTRY_UP = 0.50             # V2.1: UP trades need $0.50+ entry (cheap UP = coin flip)
 
 
 def get_trade_size(wins: int, losses: int, live_trades: int = 0) -> float:
@@ -596,6 +598,11 @@ class WhaleConsensus15MTrader:
         live_count = sum(1 for t in self.resolved if t.get("live"))
         trade_size = get_trade_size(self.stats["wins"], self.stats["losses"], live_count)
 
+        # V2.1: DOWN-bias — UP trades get half size (CSV: DOWN 12/12 100%, UP 3/6 50%)
+        if direction == "UP":
+            trade_size = round(trade_size * UP_SIZE_MULT, 2)
+            print(f"  [UP-BIAS] Reduced size: ${trade_size:.2f} (50% for UP trades)")
+
         if self.paper:
             # PAPER MODE: use gamma API prices + spread offset
             up_price, down_price = self.get_prices(market)
@@ -608,6 +615,11 @@ class WhaleConsensus15MTrader:
             if entry_price < MIN_ENTRY_PRICE or entry_price > MAX_ENTRY_PRICE:
                 print(f"[SKIP] Price ${entry_price:.2f} out of range "
                       f"[${MIN_ENTRY_PRICE}-${MAX_ENTRY_PRICE}]")
+                return
+
+            # V2.1: UP trades need higher minimum entry
+            if direction == "UP" and entry_price < MIN_ENTRY_UP:
+                print(f"[SKIP] UP too cheap | ${entry_price:.2f} < ${MIN_ENTRY_UP} min for UP")
                 return
 
             shares = trade_size / entry_price
@@ -632,6 +644,11 @@ class WhaleConsensus15MTrader:
             if entry_price < MIN_ENTRY_PRICE or entry_price > MAX_ENTRY_PRICE:
                 print(f"[SKIP] CLOB price ${entry_price:.2f} out of range "
                       f"[${MIN_ENTRY_PRICE}-${MAX_ENTRY_PRICE}]")
+                return
+
+            # V2.1: UP trades need higher minimum entry
+            if direction == "UP" and entry_price < MIN_ENTRY_UP:
+                print(f"[SKIP] UP too cheap | ${entry_price:.2f} < ${MIN_ENTRY_UP} min for UP")
                 return
 
             desired_shares = math.floor(trade_size / entry_price)
@@ -897,10 +914,12 @@ class WhaleConsensus15MTrader:
         tier = get_trade_size(self.stats["wins"], self.stats["losses"], live_count)
         # Banner
         print("=" * 70)
-        print(f"  WHALE CONSENSUS 15M {mode} TRADER V2.0")
+        print(f"  WHALE CONSENSUS 15M {mode} TRADER V2.1 — DOWN-BIAS")
         print("=" * 70)
+        print(f"  V2.1: DOWN-bias (CSV: DOWN 12/12 100%, UP 3/6 50%)")
+        print(f"    - UP size: {UP_SIZE_MULT:.0%} (${tier*UP_SIZE_MULT:.2f}) | DOWN: full (${tier:.2f})")
+        print(f"    - UP min entry: ${MIN_ENTRY_UP:.2f} | DOWN min: ${MIN_ENTRY_PRICE:.2f}")
         print(f"  Strategy: Follow 3+ whale agreement on BTC 15M Up/Down direction")
-        print(f"  Paper: 136T, 67.6% WR, +$97.61 | 3-whale=74% WR, 5-whale=72% WR")
         print(f"  Whales tracked: {len(CONSENSUS_WHALES)} top performers ($97K-$885K PnL each)")
         print(f"  Consensus: {CONSENSUS_MIN}+ whales agree = ENTER | Split = SKIP")
         print(f"  Entry window: {TIME_WINDOW_MIN:.0f}-{TIME_WINDOW_MAX:.0f} min before close")

@@ -2,78 +2,78 @@
   "params": {
     "max_entry": {
       "0.72": {
-        "alpha": 15,
+        "alpha": 17,
         "beta": 5,
-        "trades": 18,
-        "pnl": 1.86
+        "trades": 20,
+        "pnl": 2.53
       },
       "0.74": {
-        "alpha": 15,
+        "alpha": 17,
         "beta": 5,
-        "trades": 18,
-        "pnl": 1.86
+        "trades": 20,
+        "pnl": 2.53
       },
       "0.76": {
-        "alpha": 29,
+        "alpha": 33,
         "beta": 8,
-        "trades": 35,
-        "pnl": 3.09
+        "trades": 39,
+        "pnl": 4.26
       },
       "0.78": {
-        "alpha": 32,
+        "alpha": 36,
         "beta": 8,
-        "trades": 38,
-        "pnl": 3.76
+        "trades": 42,
+        "pnl": 4.93
       },
       "0.80": {
-        "alpha": 35,
+        "alpha": 39,
         "beta": 8,
-        "trades": 41,
-        "pnl": 4.36
+        "trades": 45,
+        "pnl": 5.53
       },
       "0.82": {
-        "alpha": 40,
+        "alpha": 44,
         "beta": 11,
-        "trades": 49,
-        "pnl": 2.85
+        "trades": 53,
+        "pnl": 4.02
       }
     },
     "clob_upper": {
       "0.72": {
-        "alpha": 15,
+        "alpha": 17,
         "beta": 5,
-        "trades": 18,
-        "pnl": 1.86
+        "trades": 20,
+        "pnl": 2.53
       },
       "0.74": {
-        "alpha": 15,
+        "alpha": 17,
         "beta": 5,
-        "trades": 18,
-        "pnl": 1.86
+        "trades": 20,
+        "pnl": 2.53
       },
       "0.76": {
-        "alpha": 29,
+        "alpha": 33,
         "beta": 8,
-        "trades": 35,
-        "pnl": 3.09
+        "trades": 39,
+        "pnl": 4.26
       },
       "0.78": {
-        "alpha": 32,
+        "alpha": 36,
         "beta": 8,
-        "trades": 38,
-        "pnl": 3.76
+        "trades": 42,
+        "pnl": 4.93
       },
       "0.80": {
-        "alpha": 35,
+        "alpha": 39,
         "beta": 8,
-        "trades": 41,
-        "pnl": 4.36
+        "trades": 45,
+        "pnl": 5.53
       },
       "0.82": {
-        "alpha": 40,
+        "alpha": 44,
         "beta": 11,
-        "trades": 49,
-        "pnl": 2.85
+        "trades": 53,
+        "pnl": 4.02
       }
     }
   },
@@ -622,5 +622,5 @@
       "ts": "2026-02-20T17:25:22.036470+00:00"
     }
   ],
-  "total_resolved": 189
+  "total_resolved": 201
 }
