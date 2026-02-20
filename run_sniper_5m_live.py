@@ -1,8 +1,13 @@
 """
-Sniper 5M LIVE Trader V2.2
+Sniper 5M LIVE Trader V2.3
 
-Front-runs Chainlink oracle delay on 5-minute BTC Up/Down markets.
+Front-runs Chainlink oracle delay on 5-minute BTC+ETH Up/Down markets.
 Enters at 62-61 seconds before market close when direction is clear from CLOB orderbook.
+
+V2.3 — Add ETH markets:
+  - ETH 5M Up/Down markets now scanned alongside BTC
+  - ETH trades at minimum size (~$1/trade, 34% of base) until proven profitable
+  - Asset-aware Binance signals (BTCUSDT/ETHUSDT)
 
 V2.2 — Skip toxic hours:
   - Skip UTC 9 (4AM ET): 33% WR, -$4.55 (2 of 3 losses)
@@ -82,6 +87,9 @@ ML_UP_WR_THRESHOLD = 0.80   # V2.1: UP needs 80%+ ML WR (DOWN=11W/0L but UP=2W/3
 MIN_ENTRY_UP = 0.72          # V2.1: UP trades need $0.72+ entry ($0.72+ = 100% WR, below = losses)
 UP_SIZE_MULT = 0.50          # V2.1: Half size on UP trades until UP direction proves itself
 SKIP_HOURS_UTC = {9, 12}    # V2.2: Skip worst hours — UTC 9 (4AM ET) 33%WR/-$4.55, UTC 12 (7AM ET) 0%WR/-$3.57
+ETH_SIZE_MULT = 0.34        # V2.3: ETH minimum size (~$1/trade) until proven profitable
+ASSETS = {"bitcoin": "BTC", "btc": "BTC", "ethereum": "ETH", "eth": "ETH"}
+BINANCE_SYMBOLS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT"}
 
 
 # ============================================================================
@@ -417,9 +425,16 @@ class Sniper5MLive:
                 now = datetime.now(timezone.utc)
                 for event in r.json():
                     title = event.get("title", "").lower()
-                    if "bitcoin" not in title and "btc" not in title:
+                    # V2.3: Match BTC and ETH markets
+                    asset = None
+                    for keyword, a in ASSETS.items():
+                        if keyword in title:
+                            asset = a
+                            break
+                    if not asset:
                         continue
                     for m in event.get("markets", []):
+                        m["_asset"] = asset
                         if m.get("closed", True):
                             continue
                         end_date = m.get("endDate", "")
@@ -517,7 +532,7 @@ class Sniper5MLive:
     # BINANCE
     # ========================================================================
 
-    async def resolve_via_binance(self, end_dt: datetime) -> Optional[str]:
+    async def resolve_via_binance(self, end_dt: datetime, symbol: str = "BTCUSDT") -> Optional[str]:
         try:
             start_dt = end_dt - timedelta(minutes=5)
             start_ms = int(start_dt.timestamp() * 1000)
@@ -525,7 +540,7 @@ class Sniper5MLive:
 
             async with httpx.AsyncClient(timeout=15) as client:
                 r = await client.get(BINANCE_REST_URL, params={
-                    "symbol": "BTCUSDT", "interval": "5m",
+                    "symbol": symbol, "interval": "5m",
                     "startTime": start_ms, "endTime": end_ms, "limit": 5,
                 })
                 r.raise_for_status()
@@ -533,7 +548,7 @@ class Sniper5MLive:
 
                 if not klines:
                     r2 = await client.get(BINANCE_REST_URL, params={
-                        "symbol": "BTCUSDT", "interval": "1m",
+                        "symbol": symbol, "interval": "1m",
                         "startTime": start_ms, "endTime": end_ms, "limit": 10,
                     })
                     r2.raise_for_status()
@@ -565,7 +580,7 @@ class Sniper5MLive:
             print(f"[BINANCE] Resolution error: {e}")
             return None
 
-    async def _audit_signal_timing(self, end_dt: datetime) -> dict:
+    async def _audit_signal_timing(self, end_dt: datetime, symbol: str = "BTCUSDT") -> dict:
         """Post-trade audit: what would Binance signal have been at 55/57/60/63/65s?"""
         audit = {}
         try:
@@ -575,7 +590,7 @@ class Sniper5MLive:
 
             async with httpx.AsyncClient(timeout=10) as client:
                 r = await client.get(BINANCE_REST_URL, params={
-                    "symbol": "BTCUSDT", "interval": "1m",
+                    "symbol": symbol, "interval": "1m",
                     "startTime": start_ms, "endTime": end_ms, "limit": 10,
                 })
                 if r.status_code != 200:
@@ -632,7 +647,7 @@ class Sniper5MLive:
             audit["error"] = str(e)
         return audit
 
-    async def _check_binance_direction(self, end_dt: datetime) -> tuple:
+    async def _check_binance_direction(self, end_dt: datetime, symbol: str = "BTCUSDT") -> tuple:
         """Returns (direction_or_None, open_5m, current_price)."""
         try:
             start_dt = end_dt - timedelta(minutes=5)
@@ -641,7 +656,7 @@ class Sniper5MLive:
 
             async with httpx.AsyncClient(timeout=8) as client:
                 r = await client.get(BINANCE_REST_URL, params={
-                    "symbol": "BTCUSDT", "interval": "1m",
+                    "symbol": symbol, "interval": "1m",
                     "startTime": start_ms, "endTime": now_ms, "limit": 10,
                 })
                 if r.status_code != 200:
@@ -677,7 +692,7 @@ class Sniper5MLive:
             up_tid, down_tid = self.get_token_ids(market)
             token_id = up_tid if side == "UP" else down_tid
             if not token_id:
-                print(f"[LIVE] No token ID for BTC:{side}")
+                print(f"[LIVE] No token ID for {side}")
                 return None
 
             # Add slippage to sweep multiple price levels (FOK needs all shares filled)
@@ -865,13 +880,17 @@ class Sniper5MLive:
             up_display = up_ask if up_ask is not None else 0.0
             down_display = down_ask if down_ask is not None else 0.0
 
+            # V2.3: Asset-aware Binance symbol
+            asset = market.get("_asset", "BTC")
+            binance_sym = BINANCE_SYMBOLS.get(asset, "BTCUSDT")
+
             # STEP 2: Determine side — Binance first, CLOB fallback
             side = None
             signal_source = "binance"
             binance_open = None
             binance_current = None
             if end_dt:
-                side, binance_open, binance_current = await self._check_binance_direction(end_dt)
+                side, binance_open, binance_current = await self._check_binance_direction(end_dt, symbol=binance_sym)
 
             if not side:
                 # CLOB CONFIDENCE: $0.70 to ML-tuned upper cap (default $0.78)
@@ -898,7 +917,7 @@ class Sniper5MLive:
                       f"UP=${up_display:.2f} DN=${down_display:.2f} | {time_left_sec:.0f}s | {question[:50]}")
                 continue
 
-            # STEP 2b: Binance alignment check — BTC must be on our side of 5M open
+            # STEP 2b: Binance alignment check — price must be on our side of 5M open
             # Analysis of 30 trades: 26W all aligned, 4L all misaligned (100% discriminator)
             if binance_open and binance_current:
                 align_gap = binance_current - binance_open
@@ -906,7 +925,7 @@ class Sniper5MLive:
                     align_bp = abs(align_gap) / binance_open * 10000
                     self.stats["skipped"] += 1
                     self.attempted_cids.add(cid)
-                    print(f"[SKIP] Binance NOT aligned | Bet UP but BTC ${binance_current:.0f} "
+                    print(f"[SKIP] Binance NOT aligned | Bet UP but {asset} ${binance_current:.0f} "
                           f"< 5M open ${binance_open:.0f} ({align_bp:.1f}bp wrong side) "
                           f"| {time_left_sec:.0f}s | {question[:40]}")
                     continue
@@ -914,7 +933,7 @@ class Sniper5MLive:
                     align_bp = abs(align_gap) / binance_open * 10000
                     self.stats["skipped"] += 1
                     self.attempted_cids.add(cid)
-                    print(f"[SKIP] Binance NOT aligned | Bet DOWN but BTC ${binance_current:.0f} "
+                    print(f"[SKIP] Binance NOT aligned | Bet DOWN but {asset} ${binance_current:.0f} "
                           f"> 5M open ${binance_open:.0f} ({align_bp:.1f}bp wrong side) "
                           f"| {time_left_sec:.0f}s | {question[:40]}")
                     continue
@@ -932,7 +951,7 @@ class Sniper5MLive:
 
             depth_str = " | ".join(f"${p:.2f}x{int(s)}" for p, s in levels[:4])
             src_tag = "BINANCE" if signal_source == "binance" else "CLOB"
-            print(f"[{src_tag}] BTC {side} | CLOB: UP=${up_display:.2f} DN=${down_display:.2f} "
+            print(f"[{src_tag}] {asset} {side} | CLOB: UP=${up_display:.2f} DN=${down_display:.2f} "
                   f"| entry=${entry_price:.2f} | depth={int(avail_shares)}sh [{depth_str}] | {time_left_sec:.0f}s left")
 
             # Cap entry price — ML-tuned (default $0.78)
@@ -968,6 +987,13 @@ class Sniper5MLive:
 
             # Auto-scale trade size
             trade_size = get_trade_size(self.stats["wins"], self.stats["losses"])
+
+            # V2.3: ETH minimum size until proven profitable
+            if asset == "ETH":
+                trade_size = round(trade_size * ETH_SIZE_MULT, 2)
+                if trade_size < 1.0:
+                    trade_size = 1.0
+                print(f"  [ETH] Min size: ${trade_size:.2f} (unproven asset)")
 
             # V2.1: DOWN-bias sizing — UP gets half size (40% WR vs DOWN's 100%)
             if side == "UP":
@@ -1012,7 +1038,7 @@ class Sniper5MLive:
             # Place order (live or paper)
             fill = await self.place_live_order(market, side, entry_price, shares, actual_trade_size)
             if fill is None:
-                print(f"[SKIP] Order not filled | BTC {side} @ ${entry_price:.2f} | {question[:50]}")
+                print(f"[SKIP] Order not filled | {asset} {side} @ ${entry_price:.2f} | {question[:50]}")
                 continue
 
             # Use actual fill data
@@ -1040,6 +1066,7 @@ class Sniper5MLive:
                 "result": None,
                 "order_id": fill.get("order_id", ""),
                 "live": not self.paper,
+                "asset": asset,
                 "strategy": f"directional_{signal_source}",
                 "_ml_features": ml_features,
                 "_ml_reason": ml_reason,
@@ -1062,7 +1089,7 @@ class Sniper5MLive:
             if binance_open and binance_current:
                 a_bp = ((binance_current - binance_open) / binance_open * 10000) * (1 if side == "UP" else -1)
                 align_tag = f" | align={a_bp:+.1f}bp"
-            print(f"\n[{mode}] BTC {side} @ ${entry_price:.2f} (conf={confidence:.2f}) | "
+            print(f"\n[{mode}] {asset} {side} @ ${entry_price:.2f} (conf={confidence:.2f}) | "
                   f"${cost:.2f} ({shares:.1f}sh) | "
                   f"{time_left_sec:.0f}s left | tier=${trade_size:.0f} | "
                   f"UP=${up_ask:.2f} DN=${down_ask:.2f}{align_tag} | "
@@ -1096,8 +1123,12 @@ class Sniper5MLive:
             if not end_dt:
                 continue
 
+            # V2.3: Asset-aware Binance symbol for oracle
+            asset = market.get("_asset", "BTC")
+            binance_sym = BINANCE_SYMBOLS.get(asset, "BTCUSDT")
+
             # Get COMPLETED Binance 5-min candle — direction is KNOWN
-            direction = await self.resolve_via_binance(end_dt)
+            direction = await self.resolve_via_binance(end_dt, symbol=binance_sym)
             if not direction:
                 # Don't mark attempted — Binance may finalize on next poll
                 secs_past = abs(time_left_sec)
@@ -1147,14 +1178,14 @@ class Sniper5MLive:
 
             depth_str = " | ".join(f"${p:.2f}x{int(s)}" for p, s in levels[:4])
             secs_past = abs(time_left_sec)
-            print(f"[ORACLE] BTC {direction} KNOWN | ask=${best_ask:.2f} | "
+            print(f"[ORACLE] {asset} {direction} KNOWN | ask=${best_ask:.2f} | "
                   f"depth={int(avail_shares)}sh [{depth_str}] | "
                   f"profit=${profit_per_share:.2f}/sh (${expected_profit:.2f} total) | "
                   f"{secs_past:.0f}s past close")
 
             fill = await self.place_oracle_order(market, direction, best_ask, shares, actual_cost)
             if fill is None:
-                print(f"[ORACLE] No fill | BTC {direction} @ ${best_ask:.2f} | {question[:50]}")
+                print(f"[ORACLE] No fill | {asset} {direction} @ ${best_ask:.2f} | {question[:50]}")
                 continue
 
             shares = fill["shares"]
@@ -1177,6 +1208,7 @@ class Sniper5MLive:
                 "pnl": 0.0,
                 "result": None,
                 "order_id": fill.get("order_id", ""),
+                "asset": asset,
                 "live": not self.paper,
                 "strategy": "oracle",
             }
@@ -1185,7 +1217,7 @@ class Sniper5MLive:
             self._save()
 
             mode = "LIVE" if not self.paper else "PAPER"
-            print(f"\n[{mode}|ORACLE] BTC {direction} @ ${entry_price:.2f} | "
+            print(f"\n[{mode}|ORACLE] {asset} {direction} @ ${entry_price:.2f} | "
                   f"${cost:.2f} ({shares:.1f}sh) | "
                   f"DIRECTION KNOWN | min profit=${profit_per_share:.2f}/sh | "
                   f"{question[:50]}")
@@ -1215,7 +1247,9 @@ class Sniper5MLive:
             if seconds_past_close < RESOLVE_DELAY:
                 continue
 
-            outcome = await self.resolve_via_binance(end_dt)
+            trade_asset = trade.get("asset", "BTC")
+            resolve_sym = BINANCE_SYMBOLS.get(trade_asset, "BTCUSDT")
+            outcome = await self.resolve_via_binance(end_dt, symbol=resolve_sym)
             if outcome is None:
                 if seconds_past_close > 120:
                     trade["status"] = "closed"
@@ -1227,7 +1261,7 @@ class Sniper5MLive:
                     self.session_pnl += trade["pnl"]
                     self.resolved.append(trade)
                     to_remove.append(cid)
-                    print(f"[LOSS] BTC:{trade['side']} ${trade['pnl']:+.2f} | "
+                    print(f"[LOSS] {trade_asset}:{trade['side']} ${trade['pnl']:+.2f} | "
                           f"No Binance data | {trade['question'][:45]}")
                 continue
 
@@ -1246,7 +1280,7 @@ class Sniper5MLive:
 
             # Signal timing audit — what would signal have been at different entry times?
             try:
-                audit = await self._audit_signal_timing(end_dt)
+                audit = await self._audit_signal_timing(end_dt, symbol=resolve_sym)
                 trade["signal_audit"] = audit
                 # Print audit summary
                 audit_parts = []
@@ -1288,7 +1322,7 @@ class Sniper5MLive:
                 ml_tag = (f" | bar={ml_feats['best_ask_ratio']:.0%}"
                           f" top={'Y' if ml_feats['best_is_largest'] else 'N'}")
 
-            print(f"[{tag}|{strat_label}] BTC:{trade['side']} ${pnl:+.2f} | "
+            print(f"[{tag}|{strat_label}] {trade_asset}:{trade['side']} ${pnl:+.2f} | "
                   f"entry=${trade['entry_price']:.2f} tier=${tier:.0f} | "
                   f"market={outcome} | "
                   f"{w}W/{l}L {wr:.0f}%WR ${self.stats['pnl']:+.2f} | "
@@ -1376,7 +1410,7 @@ class Sniper5MLive:
                 closest_time = tl
                 closest = m
 
-        market_str = "No active 5M BTC markets"
+        market_str = "No active 5M markets"
         sniper_str = "NO"
         if closest:
             q = closest.get("question", "?")[:50]
@@ -1414,8 +1448,9 @@ class Sniper5MLive:
         mode = "LIVE" if not self.paper else "PAPER"
         tier = get_trade_size(self.stats["wins"], self.stats["losses"])
         print("=" * 70)
-        print(f"  SNIPER 5M {mode} TRADER V2.2 — SKIP TOXIC HOURS")
+        print(f"  SNIPER 5M {mode} TRADER V2.3 — BTC + ETH")
         print("=" * 70)
+        print(f"  V2.3: Added ETH markets | ETH size={ETH_SIZE_MULT:.0%} (~$1/trade) until proven")
         print(f"  V2.2: Skip UTC hours {SKIP_HOURS_UTC} (4AM+7AM ET = ALL 3 losses, -$8.12)")
         print(f"  V2.1 DOWN-bias (16T: DOWN 11W/0L 100%, UP 2W/3L 40%):")
         print(f"    - ML WR threshold: UP >= {ML_UP_WR_THRESHOLD:.0%} | DOWN >= {ML_MIN_WR_THRESHOLD:.0%}")
