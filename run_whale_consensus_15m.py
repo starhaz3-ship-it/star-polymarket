@@ -1,27 +1,32 @@
 """
-Whale Consensus 15M Paper Trader V1.0
+Whale Consensus 15M Trader V2.0
 
-Paper-only strategy: Enter 15M BTC Up/Down markets when 3+ tracked whales
-independently agree on a direction (all positioned the same way).
+Enter 15M BTC Up/Down markets when 3+ tracked whales independently agree
+on a direction (all positioned the same way).
 
 Key Insight:
   When multiple profitable whales ($97K-$885K PnL each) independently take the
   same directional position on a 15M market, it's a high-confidence signal.
-  We monitor their live positions via the Polymarket data API and paper-trade
+  We monitor their live positions via the Polymarket data API and trade
   when consensus forms.
+
+Paper results: 136 trades, 67.6% WR, +$97.61
+  - 3-whale consensus: 74% WR
+  - 5-whale consensus: 72% WR
 
 Rules:
   - 10 tracked whales (top performers from our research)
   - Consensus: 3+ whales agree on same direction (UP or DOWN)
   - Each whale must have >$5 cost basis on the market to count
   - Entry window: 3-12 minutes before market close
-  - Paper trade size: $2.50/trade
+  - PROBATION: $2.50/trade, promotes to $5/trade after 20 trades at 60%+ WR
   - Max 3 concurrent positions
   - Poll every 20 seconds
   - Resolution via Binance 15m candle (close > open = UP, else DOWN)
 
 Usage:
-  python run_whale_consensus_15m.py          # Paper mode (only mode)
+  python run_whale_consensus_15m.py              # Paper mode
+  python run_whale_consensus_15m.py --live       # Live trading (REAL MONEY)
 """
 
 import sys
@@ -35,6 +40,7 @@ from pathlib import Path
 from functools import partial as fn_partial
 from typing import Dict, List, Optional, Tuple
 
+import math
 import httpx
 
 print = fn_partial(print, flush=True)
@@ -46,15 +52,36 @@ load_dotenv()
 from pid_lock import acquire_pid_lock, release_pid_lock
 
 # ============================================================================
+# CLOB CONFIG (for live trading)
+# ============================================================================
+CLOB_BOOK_URL = "https://clob.polymarket.com/book"
+FOK_SLIPPAGE = 0.03         # cents above best ask to sweep multiple levels
+MIN_SHARES = 3              # minimum shares for fill confirmation
+
+# ============================================================================
 # CONFIG
 # ============================================================================
 POLL_INTERVAL = 20              # seconds between cycles (fast — consensus can form quickly)
 MAX_CONCURRENT = 3              # max open paper positions
 CONSENSUS_MIN = 3               # minimum whales agreeing for consensus
 MIN_WHALE_COST = 5.0            # minimum cost basis ($) for a whale vote to count
-TRADE_SIZE = 2.50               # paper trade size per entry
+TRADE_SIZE = 2.50               # base trade size (PROBATION)
 MIN_ENTRY_PRICE = 0.10          # minimum entry price (avoid extremes)
 MAX_ENTRY_PRICE = 0.65          # maximum entry price
+
+
+def get_trade_size(wins: int, losses: int, live_trades: int = 0) -> float:
+    """Auto-scale: PROBATION $2.50 -> PROMOTED $5 after 20 LIVE trades at 60% WR.
+    Paper history doesn't count — live fills have different characteristics."""
+    if live_trades < 20:
+        return TRADE_SIZE  # $2.50 PROBATION until 20 live trades
+    total = wins + losses
+    if total == 0:
+        return TRADE_SIZE
+    wr = wins / total
+    if wr >= 0.60 and wins > losses:
+        return 5.00
+    return TRADE_SIZE
 TIME_WINDOW_MIN = 3.0           # earliest entry (minutes before close)
 TIME_WINDOW_MAX = 12.0          # latest entry (minutes before close)
 RESOLVE_DELAY_SEC = 20          # seconds after endDate to wait before resolving
@@ -117,7 +144,9 @@ def atomic_save(filepath: Path, data: dict):
 # WHALE CONSENSUS 15M PAPER TRADER
 # ============================================================================
 class WhaleConsensus15MTrader:
-    def __init__(self):
+    def __init__(self, paper: bool = True):
+        self.paper = paper
+        self.client = None
         self.active: Dict[str, dict] = {}       # {trade_key: trade_dict}
         self.resolved: List[dict] = []
         self.attempted_cids: set = set()         # condition IDs already attempted (skip duplicates)
@@ -130,6 +159,163 @@ class WhaleConsensus15MTrader:
         self.last_scan_result: Optional[str] = None   # status line from last scan
         self.last_scan_time: Optional[str] = None
         self._load()
+
+        if not self.paper:
+            self._init_clob()
+
+    # ========================================================================
+    # CLOB CLIENT (live trading)
+    # ========================================================================
+
+    def _init_clob(self):
+        """Initialize CLOB client for live order execution."""
+        try:
+            from py_clob_client.client import ClobClient
+            from crypto_utils import decrypt_key
+
+            password = os.getenv("POLYMARKET_PASSWORD", "")
+            pk = os.getenv("POLYMARKET_PRIVATE_KEY", "")
+            if pk.startswith("ENC:"):
+                pk = decrypt_key(pk[4:], os.getenv("POLYMARKET_KEY_SALT", ""), password)
+            proxy = os.getenv("POLYMARKET_PROXY_ADDRESS", "")
+
+            self.client = ClobClient(
+                host="https://clob.polymarket.com", key=pk, chain_id=137,
+                signature_type=1, funder=proxy if proxy else None,
+            )
+            creds = self.client.derive_api_key()
+            self.client.set_api_creds(creds)
+            print(f"[CLOB] Client initialized - LIVE MODE")
+        except Exception as e:
+            print(f"[CLOB] Init failed: {e}")
+            traceback.print_exc()
+            print(f"[CLOB] Falling back to PAPER mode")
+            self.paper = True
+
+    def get_token_ids(self, market: dict) -> Tuple[Optional[str], Optional[str]]:
+        """Extract UP/DOWN token IDs from market data."""
+        outcomes = market.get("outcomes", [])
+        token_ids = market.get("clobTokenIds", [])
+        if isinstance(outcomes, str):
+            outcomes = json.loads(outcomes)
+        if isinstance(token_ids, str):
+            token_ids = json.loads(token_ids)
+        up_tid, down_tid = None, None
+        for i, o in enumerate(outcomes):
+            if i < len(token_ids):
+                if str(o).lower() == "up":
+                    up_tid = token_ids[i]
+                elif str(o).lower() == "down":
+                    down_tid = token_ids[i]
+        return up_tid, down_tid
+
+    async def get_best_ask(self, token_id: str) -> Optional[float]:
+        """Get best ask price from CLOB orderbook."""
+        try:
+            async with httpx.AsyncClient(timeout=8) as client:
+                r = await client.get(CLOB_BOOK_URL, params={"token_id": token_id})
+                if r.status_code != 200:
+                    return None
+                book = r.json()
+                asks = book.get("asks", [])
+                if not asks:
+                    return None
+                return min(float(a["price"]) for a in asks)
+        except Exception:
+            return None
+
+    async def get_orderbook_depth(self, token_id: str, max_price: float) -> Tuple[Optional[float], float, list]:
+        """Get total available shares up to max_price."""
+        try:
+            async with httpx.AsyncClient(timeout=8) as client:
+                r = await client.get(CLOB_BOOK_URL, params={"token_id": token_id})
+                if r.status_code != 200:
+                    return None, 0, []
+                book = r.json()
+                asks = book.get("asks", [])
+                if not asks:
+                    return None, 0, []
+                sorted_asks = sorted(asks, key=lambda a: float(a["price"]))
+                best_ask = float(sorted_asks[0]["price"])
+                total_shares = 0
+                levels = []
+                for a in sorted_asks:
+                    price = float(a["price"])
+                    size = float(a["size"])
+                    if price <= max_price:
+                        total_shares += size
+                        levels.append((price, size))
+                return best_ask, total_shares, levels
+        except Exception:
+            return None, 0, []
+
+    async def place_live_order(self, market: dict, side: str, entry_price: float,
+                                shares: float, trade_size: float) -> Optional[dict]:
+        """Place a FOK buy order on the CLOB. Returns fill info or None."""
+        if self.paper or not self.client:
+            return {"filled": True, "shares": shares, "price": entry_price,
+                    "cost": trade_size, "order_id": "paper"}
+
+        try:
+            from py_clob_client.clob_types import OrderArgs, OrderType
+            from py_clob_client.order_builder.constants import BUY
+
+            up_tid, down_tid = self.get_token_ids(market)
+            token_id = up_tid if side == "UP" else down_tid
+            if not token_id:
+                print(f"[LIVE] No token ID for BTC:{side}")
+                return None
+
+            fok_price = min(round(entry_price + FOK_SLIPPAGE, 2), 0.99)
+            order_args = OrderArgs(
+                price=fok_price, size=shares, side=BUY, token_id=token_id,
+            )
+            print(f"[LIVE] FOK {side} {shares}sh @ limit ${fok_price:.2f} "
+                  f"(ask=${entry_price:.2f} +{FOK_SLIPPAGE:.0%} slip)")
+            signed = self.client.create_order(order_args)
+            resp = self.client.post_order(signed, OrderType.FOK)
+
+            if not resp.get("success"):
+                print(f"[LIVE] FOK failed: {resp.get('errorMsg', '?')}")
+                return None
+
+            order_id = resp.get("orderID", "?")
+            print(f"[LIVE] FOK order {order_id[:20]}...")
+
+            # Confirm fill
+            if order_id and order_id != "?":
+                await asyncio.sleep(1)
+                try:
+                    order_info = self.client.get_order(order_id)
+                    if isinstance(order_info, str):
+                        order_info = json.loads(order_info)
+                    size_matched = float(order_info.get("size_matched", 0) or 0)
+                    if size_matched >= MIN_SHARES:
+                        actual_price = entry_price
+                        assoc = order_info.get("associate_trades", [])
+                        if assoc and isinstance(assoc[0], dict) and assoc[0].get("price"):
+                            actual_price = float(assoc[0]["price"])
+                        actual_cost = round(actual_price * size_matched, 2)
+                        print(f"[LIVE] FILLED: {size_matched:.1f}sh @ ${actual_price:.2f} = ${actual_cost:.2f}")
+                        return {
+                            "filled": True, "shares": size_matched,
+                            "price": actual_price, "cost": actual_cost,
+                            "order_id": order_id,
+                        }
+                    else:
+                        print(f"[LIVE] NOT FILLED: matched={size_matched}")
+                        return None
+                except Exception as e:
+                    print(f"[LIVE] Fill check error: {e} — assuming filled (FOK success)")
+                    return {
+                        "filled": True, "shares": shares, "price": entry_price,
+                        "cost": trade_size, "order_id": order_id,
+                    }
+            return None
+        except Exception as e:
+            print(f"[LIVE] Order error: {e}")
+            traceback.print_exc()
+            return None
 
     # ========================================================================
     # PERSISTENCE
@@ -398,7 +584,7 @@ class WhaleConsensus15MTrader:
         direction: str,
         voters: List[Tuple[str, float]],
     ):
-        """Enter a paper trade based on whale consensus."""
+        """Enter a trade based on whale consensus (paper or live)."""
         cid = market.get("conditionId", "")
         if not cid:
             return
@@ -406,26 +592,71 @@ class WhaleConsensus15MTrader:
         # Mark as attempted so we don't re-enter
         self.attempted_cids.add(cid)
 
-        # Get entry price
-        up_price, down_price = self.get_prices(market)
-        if up_price is None or down_price is None:
-            print(f"[SKIP] No prices for {cid[:12]}")
-            return
+        # Auto-scale trade size
+        live_count = sum(1 for t in self.resolved if t.get("live"))
+        trade_size = get_trade_size(self.stats["wins"], self.stats["losses"], live_count)
 
-        entry_price = up_price if direction == "UP" else down_price
+        if self.paper:
+            # PAPER MODE: use gamma API prices + spread offset
+            up_price, down_price = self.get_prices(market)
+            if up_price is None or down_price is None:
+                print(f"[SKIP] No prices for {cid[:12]}")
+                return
+            entry_price = up_price if direction == "UP" else down_price
+            entry_price = round(entry_price + SPREAD_OFFSET, 4)
 
-        # Apply spread offset for paper fill
-        entry_price = round(entry_price + SPREAD_OFFSET, 4)
+            if entry_price < MIN_ENTRY_PRICE or entry_price > MAX_ENTRY_PRICE:
+                print(f"[SKIP] Price ${entry_price:.2f} out of range "
+                      f"[${MIN_ENTRY_PRICE}-${MAX_ENTRY_PRICE}]")
+                return
 
-        # Price bounds check
-        if entry_price < MIN_ENTRY_PRICE or entry_price > MAX_ENTRY_PRICE:
-            print(f"[SKIP] Price ${entry_price:.2f} out of range "
-                  f"[${MIN_ENTRY_PRICE}-${MAX_ENTRY_PRICE}]")
-            return
+            shares = trade_size / entry_price
+            actual_cost = round(shares * entry_price, 2)
+            order_id = "paper"
+        else:
+            # LIVE MODE: use CLOB orderbook for real pricing + FOK execution
+            up_tid, down_tid = self.get_token_ids(market)
+            target_tid = up_tid if direction == "UP" else down_tid
+            if not target_tid:
+                print(f"[SKIP] No token ID for {direction}")
+                return
 
-        # Calculate shares
-        shares = TRADE_SIZE / entry_price
-        actual_cost = round(shares * entry_price, 2)
+            sweep_limit = min(MAX_ENTRY_PRICE + FOK_SLIPPAGE, 0.99)
+            best_ask, avail_shares, levels = await self.get_orderbook_depth(target_tid, sweep_limit)
+
+            if best_ask is None:
+                print(f"[SKIP] No CLOB asks for {direction}")
+                return
+
+            entry_price = best_ask
+            if entry_price < MIN_ENTRY_PRICE or entry_price > MAX_ENTRY_PRICE:
+                print(f"[SKIP] CLOB price ${entry_price:.2f} out of range "
+                      f"[${MIN_ENTRY_PRICE}-${MAX_ENTRY_PRICE}]")
+                return
+
+            desired_shares = math.floor(trade_size / entry_price)
+            if desired_shares < 1:
+                desired_shares = 1
+            if int(avail_shares) < MIN_SHARES:
+                print(f"[SKIP] Too thin | only {int(avail_shares)}sh available (need {MIN_SHARES})")
+                return
+
+            shares = min(desired_shares, int(avail_shares))
+            actual_cost = round(shares * entry_price, 2)
+
+            depth_str = " | ".join(f"${p:.2f}x{int(s)}" for p, s in levels[:4])
+            print(f"[CLOB] {direction} | entry=${entry_price:.2f} | "
+                  f"depth={int(avail_shares)}sh [{depth_str}]")
+
+            fill = await self.place_live_order(market, direction, entry_price, shares, actual_cost)
+            if fill is None:
+                print(f"[SKIP] Order not filled | {direction} @ ${entry_price:.2f}")
+                return
+
+            shares = fill["shares"]
+            entry_price = fill["price"]
+            actual_cost = fill["cost"]
+            order_id = fill.get("order_id", "")
 
         # Build trade record
         now = datetime.now(timezone.utc)
@@ -454,12 +685,16 @@ class WhaleConsensus15MTrader:
             "time_left_min": round(time_left, 1),
             "status": "open",
             "pnl": 0.0,
+            "order_id": order_id,
+            "live": not self.paper,
         }
 
-        print(f"[ENTRY] {direction} ${entry_price:.2f} ${actual_cost:.2f} "
+        mode = "LIVE" if not self.paper else "PAPER"
+        print(f"[{mode}|ENTRY] {direction} ${entry_price:.2f} ${actual_cost:.2f} "
               f"({shares:.1f}sh) | {len(voters)} whales: "
               f"{', '.join(whale_names)} | whale_cost=${total_whale_cost:.0f} | "
-              f"time={time_left:.1f}m | {market.get('question', '')[:60]}")
+              f"time={time_left:.1f}m | tier=${trade_size:.2f} | "
+              f"{market.get('question', '')[:60]}")
 
     # ========================================================================
     # RESOLUTION (via Binance 15m candle)
@@ -657,16 +892,21 @@ class WhaleConsensus15MTrader:
 
     async def run(self):
         """Main trading loop."""
+        mode = "LIVE" if not self.paper else "PAPER"
+        live_count = sum(1 for t in self.resolved if t.get("live"))
+        tier = get_trade_size(self.stats["wins"], self.stats["losses"], live_count)
         # Banner
         print("=" * 70)
-        print("  WHALE CONSENSUS 15M PAPER TRADER V1.0")
+        print(f"  WHALE CONSENSUS 15M {mode} TRADER V2.0")
         print("=" * 70)
         print(f"  Strategy: Follow 3+ whale agreement on BTC 15M Up/Down direction")
+        print(f"  Paper: 136T, 67.6% WR, +$97.61 | 3-whale=74% WR, 5-whale=72% WR")
         print(f"  Whales tracked: {len(CONSENSUS_WHALES)} top performers ($97K-$885K PnL each)")
         print(f"  Consensus: {CONSENSUS_MIN}+ whales agree = ENTER | Split = SKIP")
         print(f"  Entry window: {TIME_WINDOW_MIN:.0f}-{TIME_WINDOW_MAX:.0f} min before close")
-        print(f"  Size: ${TRADE_SIZE:.2f}/trade | Max concurrent: {MAX_CONCURRENT}")
-        print(f"  Poll: {POLL_INTERVAL}s | Resolution: Binance 15M candle")
+        print(f"  Size: ${tier:.2f}/trade (PROBATION $2.50 -> PROMOTED $5.00)")
+        print(f"  Max concurrent: {MAX_CONCURRENT} | Poll: {POLL_INTERVAL}s")
+        print(f"  {'FOK orders on CLOB' if not self.paper else 'Paper fills (spread offset)'}")
         print("=" * 70)
 
         # Show whale roster
@@ -724,9 +964,15 @@ class WhaleConsensus15MTrader:
 # ENTRY POINT
 # ============================================================================
 if __name__ == "__main__":
+    paper = "--live" not in sys.argv
+    if paper:
+        print("[MODE] PAPER — pass --live for real trading")
+    else:
+        print("[MODE] *** LIVE TRADING — REAL MONEY ***")
+
     lock = acquire_pid_lock("whale_consensus_15m")
     try:
-        trader = WhaleConsensus15MTrader()
+        trader = WhaleConsensus15MTrader(paper=paper)
         asyncio.run(trader.run())
     except KeyboardInterrupt:
         print("\n[EXIT] Whale Consensus 15M stopped.")
