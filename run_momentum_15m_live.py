@@ -68,6 +68,7 @@ MAX_CONCURRENT = 3          # max open positions
 MIN_MOMENTUM_10M = 0.0005   # V1.9b: Loosened from 0.08% to 0.05% — more trades
 MIN_MOMENTUM_5M = 0.0002    # V1.9b: Loosened from 0.03% to 0.02%
 RSI_CONFIRM_UP = 55         # V2.4: Hardcoded safety floor only — ML tuner controls actual threshold (55-68 range)
+RSI_CEILING_UP = 65         # V4.3: RSI > 65 on UP = 33% WR (overbought → false UP signal). Block.
 RSI_CONFIRM_DOWN = 35       # V1.7: Tightened from 45 to 35
 # V1.9: Contrarian DISABLED (backtest: 8% WR)
 RSI_CONTRARIAN_LO = 25
@@ -2407,6 +2408,9 @@ class Momentum15MTrader:
                 # NORMAL UP: Bullish momentum + RSI confirms → bet UP (on-chain: 88% WR)
                 if not rsi_override and rsi_val is not None and rsi_val < RSI_CONFIRM_UP:
                     continue  # RSI too weak for UP
+                # V4.3: RSI ceiling for UP — overbought = false signal (33% WR when RSI > 65)
+                if not rsi_override and rsi_val is not None and rsi_val > RSI_CEILING_UP:
+                    continue  # RSI too high — overbought, UP signal unreliable
                 if MIN_ENTRY <= up_price <= MAX_ENTRY:
                     side = "UP"
                     entry_price = round(up_price + (SPREAD_OFFSET if self.paper else 0), 2)
