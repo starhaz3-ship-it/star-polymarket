@@ -239,27 +239,51 @@
       "spread_sum": 1.01,
       "won": false,
       "ts": "2026-02-20T23:35:17.666075+00:00"
+    },
+    {
+      "best_ask_ratio": 0.017,
+      "best_is_largest": false,
+      "depth_levels": 4,
+      "total_depth": 264,
+      "confidence": 0.72,
+      "signal_source": "clob",
+      "opposing_price": 0.32,
+      "spread_sum": 1.04,
+      "won": true,
+      "ts": "2026-02-21T04:05:19.061192+00:00"
+    },
+    {
+      "best_ask_ratio": 0.022,
+      "best_is_largest": false,
+      "depth_levels": 4,
+      "total_depth": 1449,
+      "confidence": 0.7,
+      "signal_source": "clob",
+      "opposing_price": 0.21,
+      "spread_sum": 0.92,
+      "won": false,
+      "ts": "2026-02-21T10:45:16.639396+00:00"
     }
   ],
   "buckets": {
     "best_largest_False": {
-      "alpha": 12,
-      "beta": 3
+      "alpha": 13,
+      "beta": 4
     },
     "bar_mid": {
       "alpha": 3,
       "beta": 3
     },
     "signal_clob": {
-      "alpha": 15,
-      "beta": 5
+      "alpha": 16,
+      "beta": 6
     },
     "conf_low": {
-      "alpha": 10,
-      "beta": 4
+      "alpha": 11,
+      "beta": 5
     },
     "opp_strong": {
-      "alpha": 8,
+      "alpha": 9,
       "beta": 4
     },
     "best_largest_True": {
@@ -276,11 +300,11 @@
     },
     "opp_weak": {
       "alpha": 10,
-      "beta": 2
+      "beta": 3
     },
     "bar_low": {
-      "alpha": 10,
-      "beta": 2
+      "alpha": 11,
+      "beta": 3
     },
     "signal_binance": {
       "alpha": 3,

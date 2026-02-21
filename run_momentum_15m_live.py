@@ -76,10 +76,12 @@ RSI_CONTRARIAN_HI = 35
 RSI_MODERATE_DOWN_LO = 30   # V1.9b: Widened from 35 to 30
 RSI_MODERATE_DOWN_HI = 50
 MIN_ENTRY = 0.35            # V1.1: Raised from $0.10 — entries <$0.35 were 0W/3L (0% WR, -$7.50)
-MAX_ENTRY = 0.80            # V2.5: Raised from 0.70 — CSV shows $0.60-$0.80 entries = 100% WR (59 trades)
-DEAD_ZONE_LO = 0.55         # V4.1: Entry dead zone — CSV Feb 21: 33% WR at 0.55-0.65, -$22.55
-DEAD_ZONE_HI = 0.65         # V4.1: Skip entries in this range (below=OK 57%WR, above=OK 75%WR)
-TIME_WINDOW = (2.0, 6.0)    # V2.3: Widened from (2,4) — more entry opportunities while preserving edge
+MAX_ENTRY = 0.65            # V4.2: Lowered from 0.80 — momentum data: entries >$0.65 have worse risk/reward
+# V4.2: Dead zone REMOVED — momentum-only data shows 5W/1L (83% WR) at 0.55-0.64
+# V4.1's CSV analysis was contaminated with sniper trades. Momentum thrives here.
+# DEAD_ZONE_LO = 0.55
+# DEAD_ZONE_HI = 0.65
+TIME_WINDOW = (2.0, 8.0)    # V4.2: Widened from (2,6) — analysis shows 6-8 min entries have good WR
 SPREAD_OFFSET = 0.02        # paper fill spread simulation (ignored in live)
 RESOLVE_AGE_MIN = 18.0      # minutes before forcing resolution via API
 EMA_GAP_MIN_BP = None        # V1.7: REMOVED — was 2bp, cost 24% signals for 0.9% WR gain
@@ -90,6 +92,7 @@ MIN_SHARES = 5              # CLOB minimum order size
 FOK_SLIPPAGE = 0.07         # V2.3.1: bumped from 0.03 — GTC orders weren't filling on thin books near close
 CONTRARIAN_ENTRY_CEIL = 0.45  # V2.4: If entry < this, CLOB disagrees — require consensus
 MOMENTUM_HARD_FLOOR = 0.0008  # V2.5: Lowered from 0.0012 — was blocking too many valid signals
+MOMENTUM_CEILING = 0.0012    # V4.2: Momentum >0.12% = 1W/4L — too volatile, market already priced in
 
 # V1.6: Streak reversal — bet AGAINST long streaks (backtested on 50K markets: 55% WR)
 STREAK_REVERSAL_MIN_STREAK = 3   # Minimum streak length to trigger reversal entry
@@ -2211,9 +2214,11 @@ class Momentum15MTrader:
         """Find momentum-based entries on 15M markets across all assets."""
         now = datetime.now(timezone.utc)
 
-        # V4.1: Skip dead hours — UTC 7 (2AM ET) + UTC 19-21 (2-4PM ET afternoon disaster)
-        # Feb 21 CSV: 2PM-5PM ET = 2W/6L, net -$9.62. Afternoon BTC too noisy.
-        SKIP_HOURS = {7, 19, 20, 21}
+        # V4.2: Fixed skip hours based on actual momentum bot data (not mixed CSV)
+        # Removed UTC 19,21 — momentum data shows 3W/0L at those hours
+        # Added UTC 0,1 — momentum data shows 1W/4L, -$8.09 at midnight-1AM ET
+        # Kept UTC 7 (2AM ET 0% WR) and UTC 20 (3PM ET worst single hour)
+        SKIP_HOURS = {0, 1, 7, 20}
         if now.hour in SKIP_HOURS:
             return
 
@@ -2346,11 +2351,16 @@ class Momentum15MTrader:
                 ml_m5 *= 0.5
                 spike_boosted = True
 
+            # V4.2: Momentum ceiling — >0.12% = too volatile, market already priced in (1W/4L)
+            abs_m10 = abs(momentum_10m)
+            if abs_m10 > MOMENTUM_CEILING and not spike_boosted:
+                continue
+
             if momentum_10m > ml_m10 and momentum_5m > ml_m5:
                 # NORMAL UP: Bullish momentum + RSI confirms → bet UP (on-chain: 88% WR)
                 if not rsi_override and rsi_val is not None and rsi_val < RSI_CONFIRM_UP:
                     continue  # RSI too weak for UP
-                if MIN_ENTRY <= up_price <= MAX_ENTRY and not (DEAD_ZONE_LO <= up_price <= DEAD_ZONE_HI):
+                if MIN_ENTRY <= up_price <= MAX_ENTRY:
                     side = "UP"
                     entry_price = round(up_price + (SPREAD_OFFSET if self.paper else 0), 2)
             elif momentum_10m < -ml_m10 and momentum_5m < -ml_m5:
@@ -2361,7 +2371,7 @@ class Momentum15MTrader:
                     continue
                 # MODERATE DOWN (or mega spike override): bearish momentum → bet DOWN
                 # Backtest: 91.40% WR, +$385 over 93 trades
-                if MIN_ENTRY <= down_price <= MAX_ENTRY and not (DEAD_ZONE_LO <= down_price <= DEAD_ZONE_HI):
+                if MIN_ENTRY <= down_price <= MAX_ENTRY:
                     side = "DOWN"
                     entry_price = round(down_price + (SPREAD_OFFSET if self.paper else 0), 2)
 

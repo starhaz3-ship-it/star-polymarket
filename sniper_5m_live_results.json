@@ -1542,13 +1542,173 @@
           ]
         ]
       }
+    },
+    {
+      "condition_id": "0xb87ed5e4de7627a19f299f4b40eda5a240e10e725a19317530ec2fd2cd9642a2",
+      "question": "Bitcoin Up or Down - February 20, 11:00PM-11:05PM ET",
+      "side": "DOWN",
+      "entry_price": 0.72,
+      "confidence": 0.72,
+      "up_ask": 0.32,
+      "down_ask": 0.72,
+      "shares": 3.0822,
+      "cost": 2.22,
+      "trade_size_tier": 2.67,
+      "time_remaining_sec": 59.3,
+      "entry_time": "2026-02-21T04:04:05.641936+00:00",
+      "end_dt": "2026-02-21T04:05:00+00:00",
+      "status": "closed",
+      "pnl": 0.86,
+      "result": "WIN",
+      "order_id": "0x4a28458c392d83098e4ce9474962e7276f715f9e2ea19ebbe7e20019c7da5a2d",
+      "live": true,
+      "asset": "BTC",
+      "strategy": "directional_clob",
+      "_ml_features": {
+        "best_ask_ratio": 0.017,
+        "best_is_largest": false,
+        "depth_levels": 4,
+        "total_depth": 264,
+        "confidence": 0.72,
+        "signal_source": "clob",
+        "opposing_price": 0.32,
+        "spread_sum": 1.04
+      },
+      "_ml_reason": "ml_pass(wr=78%)",
+      "_binance_open": 67667.77,
+      "_binance_current": 67650.01,
+      "_align_bp": 2.6,
+      "market_outcome": "DOWN",
+      "resolve_time": "2026-02-21T04:05:17.539368+00:00",
+      "signal_audit": {
+        "signal_55s": "FLAT",
+        "pct_55s": -0.0237,
+        "signal_57s": "FLAT",
+        "pct_57s": -0.0237,
+        "signal_60s": "FLAT",
+        "pct_60s": -0.0237,
+        "signal_63s": "FLAT",
+        "pct_63s": -0.0237,
+        "signal_65s": "FLAT",
+        "pct_65s": -0.0237,
+        "actual_direction": "DOWN",
+        "actual_pct": -0.0463,
+        "open_price": 67667.77,
+        "close_price": 67636.41,
+        "candle_closes": [
+          [
+            240.0,
+            67636.26
+          ],
+          [
+            180.0,
+            67616.39
+          ],
+          [
+            120.0,
+            67620.04
+          ],
+          [
+            60.0,
+            67651.76
+          ],
+          [
+            0.0,
+            67631.94
+          ],
+          [
+            -60.0,
+            67636.41
+          ]
+        ]
+      }
+    },
+    {
+      "condition_id": "0xf0d338b4b229a7916b315c238de08e3cf433dd278fecfc80fe4166a60c6801eb",
+      "question": "Bitcoin Up or Down - February 21, 5:40AM-5:45AM ET",
+      "side": "DOWN",
+      "entry_price": 0.7,
+      "confidence": 0.7,
+      "up_ask": 0.21,
+      "down_ask": 0.71,
+      "shares": 7.3,
+      "cost": 5.11,
+      "trade_size_tier": 5.38,
+      "time_remaining_sec": 61.3,
+      "entry_time": "2026-02-21T10:44:03.591952+00:00",
+      "end_dt": "2026-02-21T10:45:00+00:00",
+      "status": "closed",
+      "pnl": -5.11,
+      "result": "LOSS",
+      "order_id": "0xeefd5c6c4a491367a11dcb50ee514f026a28b5ae8324fd48134318157654f976",
+      "live": true,
+      "asset": "BTC",
+      "strategy": "directional_clob",
+      "_ml_features": {
+        "best_ask_ratio": 0.022,
+        "best_is_largest": false,
+        "depth_levels": 4,
+        "total_depth": 1449,
+        "confidence": 0.7,
+        "signal_source": "clob",
+        "opposing_price": 0.21,
+        "spread_sum": 0.92
+      },
+      "_ml_reason": "ml_pass(wr=80%)",
+      "_binance_open": 68213.72,
+      "_binance_current": 68196.02,
+      "_align_bp": 2.6,
+      "market_outcome": "UP",
+      "resolve_time": "2026-02-21T10:45:15.223782+00:00",
+      "signal_audit": {
+        "signal_55s": "FLAT",
+        "pct_55s": -0.0259,
+        "signal_57s": "FLAT",
+        "pct_57s": -0.0259,
+        "signal_60s": "FLAT",
+        "pct_60s": -0.0259,
+        "signal_63s": "FLAT",
+        "pct_63s": -0.0259,
+        "signal_65s": "FLAT",
+        "pct_65s": -0.0259,
+        "actual_direction": "DOWN",
+        "actual_pct": -0.0018,
+        "open_price": 68213.72,
+        "close_price": 68212.52,
+        "candle_closes": [
+          [
+            240.0,
+            68191.51
+          ],
+          [
+            180.0,
+            68193.75
+          ],
+          [
+            120.0,
+            68193.75
+          ],
+          [
+            60.0,
+            68196.03
+          ],
+          [
+            0.0,
+            68230.84
+          ],
+          [
+            -60.0,
+            68212.52
+          ]
+        ]
+      }
     }
   ],
   "stats": {
-    "wins": 16,
-    "losses": 4,
-    "pnl": 6.6800000000000015,
-    "skipped": 626
+    "wins": 17,
+    "losses": 5,
+    "pnl": 2.4300000000000015,
+    "skipped": 958
   },
-  "last_updated": "2026-02-21T02:10:50.706560+00:00"
+  "last_updated": "2026-02-21T16:22:29.142552+00:00"
 }

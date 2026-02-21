@@ -1,5 +1,144 @@
 {
-  "active": {},
+  "active": {
+    "15m_0x420de0e29067e345445b8d119a73dbd4b53aeaf8dfe269c7f95137c6a581b835_UP": {
+      "side": "UP",
+      "entry_price": 0.57,
+      "size_usd": 2.85,
+      "_shares": 5,
+      "entry_time": "2026-02-21T10:25:06.428003+00:00",
+      "condition_id": "0x420de0e29067e345445b8d119a73dbd4b53aeaf8dfe269c7f95137c6a581b835",
+      "market_numeric_id": "1401605",
+      "_token_ids": [
+        "52323408165583659601413266346169274611834930218435811420263048795618681558910",
+        "114440851471780610002653948622947117863921015811841010057415078809537288537239"
+      ],
+      "title": "Bitcoin Up or Down - February 21, 5:15AM-5:30AM ET",
+      "strategy": "frama_cmo",
+      "asset": "BTC",
+      "_asset": "BTC",
+      "momentum_10m": 8.3e-05,
+      "momentum_5m": -0.000118,
+      "rsi": 58.2,
+      "ml_preset": "moderate",
+      "asset_price": 68191.93,
+      "order_id": "0xca88525bbce61af366f1d2edb92c188ed2b3e9230fcfa30aa2e6abc4782efd27",
+      "_fill_confirmed": true,
+      "spike_15s": 0,
+      "spike_boosted": false,
+      "streak_len": 1,
+      "streak_dir": "UP",
+      "streak_alignment": "NEUTRAL",
+      "streak_boost": 1.0,
+      "_time_left": 5.3,
+      "_ema_gap_bp": 0.2,
+      "_expected_fee": 0.0391,
+      "_consensus": false,
+      "_bs_edge": 0.0,
+      "_bs_up_fair": 0.5096,
+      "_bs_down_fair": 0.4904,
+      "_bs_sigma": 0.2,
+      "_bs_threshold": 0.08,
+      "_hmm_regime": "MEAN_REVERT",
+      "_price_source": "ws",
+      "status": "closed",
+      "pnl": 2.15,
+      "exit_price": 1.0,
+      "exit_time": "2026-02-21T10:43:32.575212+00:00",
+      "_resolved_via": "ws"
+    },
+    "15m_0x2f0fc8326c59d459b09accb0421c2ccd41161e61285a1fecf808c0c72cda005f_UP": {
+      "side": "UP",
+      "entry_price": 0.61,
+      "size_usd": 3.05,
+      "_shares": 5,
+      "entry_time": "2026-02-21T10:40:51.225325+00:00",
+      "condition_id": "0x2f0fc8326c59d459b09accb0421c2ccd41161e61285a1fecf808c0c72cda005f",
+      "market_numeric_id": "1401624",
+      "_token_ids": [
+        "49705134827902111782223236433768849167292243577299935920958665618500682964552",
+        "95217650514279784541099943535503320673248527751183292746476668288128938759867"
+      ],
+      "title": "Bitcoin Up or Down - February 21, 5:30AM-5:45AM ET",
+      "strategy": "frama_cmo",
+      "asset": "BTC",
+      "_asset": "BTC",
+      "momentum_10m": -0.000432,
+      "momentum_5m": -0.000255,
+      "rsi": 46.9,
+      "ml_preset": "moderate",
+      "asset_price": 68185.06,
+      "order_id": "0xf47a307318a6993e88050b951d6304f669d8dc5568584d33f5a5ecbd02af2faa",
+      "_fill_confirmed": true,
+      "spike_15s": 0,
+      "spike_boosted": false,
+      "streak_len": 1,
+      "streak_dir": "UP",
+      "streak_alignment": "NEUTRAL",
+      "streak_boost": 1.0,
+      "_time_left": 4.6,
+      "_ema_gap_bp": 1.1,
+      "_expected_fee": 0.0416,
+      "_consensus": false,
+      "_bs_edge": 0.2224,
+      "_bs_up_fair": 0.3076,
+      "_bs_down_fair": 0.6924,
+      "_bs_sigma": 0.2,
+      "_bs_threshold": 0.08,
+      "_hmm_regime": "TRENDING",
+      "_price_source": "ws",
+      "status": "closed",
+      "pnl": 1.95,
+      "exit_price": 1.0,
+      "exit_time": "2026-02-21T10:59:10.767610+00:00",
+      "_resolved_via": "ws"
+    },
+    "15m_0xb34489591a4e431479034dee873aacc2ab38d9a9aa291f8ca995f0430d56f569_UP": {
+      "side": "UP",
+      "entry_price": 0.73,
+      "size_usd": 3.65,
+      "_shares": 5,
+      "entry_time": "2026-02-21T15:10:08.149839+00:00",
+      "condition_id": "0xb34489591a4e431479034dee873aacc2ab38d9a9aa291f8ca995f0430d56f569",
+      "market_numeric_id": "1402430",
+      "_token_ids": [
+        "97064022747217243345191887409520158287039083593205337841412042052098553485069",
+        "50526581019328443543821737359570976459025127412075730554013598239674132648969"
+      ],
+      "title": "Bitcoin Up or Down - February 21, 10:00AM-10:15AM ET",
+      "strategy": "frama_cmo",
+      "asset": "BTC",
+      "_asset": "BTC",
+      "momentum_10m": 0.0,
+      "momentum_5m": -0.0,
+      "rsi": 46.4,
+      "ml_preset": "moderate",
+      "asset_price": 68468.13,
+      "order_id": "0xd2490969ea6ee03770d5261bd8728fc9981d45b416c6e33ef16691ec65326b69",
+      "_fill_confirmed": true,
+      "spike_15s": 0,
+      "spike_boosted": false,
+      "streak_len": 1,
+      "streak_dir": "UP",
+      "streak_alignment": "NEUTRAL",
+      "streak_boost": 1.0,
+      "_time_left": 5.4,
+      "_ema_gap_bp": 2.3,
+      "_expected_fee": 0.0415,
+      "_consensus": false,
+      "_bs_edge": 0.1008,
+      "_bs_up_fair": 0.5492,
+      "_bs_down_fair": 0.4508,
+      "_bs_sigma": 0.2824,
+      "_bs_threshold": 0.03,
+      "_hmm_regime": "MEAN_REVERT",
+      "_price_source": "ws",
+      "status": "closed",
+      "pnl": 1.35,
+      "exit_price": 1.0,
+      "exit_time": "2026-02-21T15:28:48.979920+00:00",
+      "_resolved_via": "ws"
+    }
+  },
   "resolved": [
     {
       "side": "DOWN",
@@ -123,7 +262,7 @@
     }
   ],
   "stats": {
-    "wins": 1,
+    "wins": 4,
     "losses": 2,
     "pnl": -5.91,
     "start_time": "2026-02-19T03:37:50.968718+00:00",
@@ -144,10 +283,27 @@
           "pnl": -5.52,
           "ts": 1771612967.247837
         }
+      ],
+      "frama_cmo": [
+        {
+          "won": true,
+          "pnl": 2.15,
+          "ts": 1771670612.5752125
+        },
+        {
+          "won": true,
+          "pnl": 1.95,
+          "ts": 1771671550.7676103
+        },
+        {
+          "won": true,
+          "pnl": 1.35,
+          "ts": 1771687728.9799209
+        }
       ]
     }
   },
   "tier": "PROBATION",
   "session_pnl": 0.0,
-  "last_updated": "2026-02-21T02:10:12.119466+00:00"
+  "last_updated": "2026-02-21T16:22:07.235512+00:00"
 }

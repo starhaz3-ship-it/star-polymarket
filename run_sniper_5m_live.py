@@ -1,5 +1,5 @@
 """
-Sniper 5M LIVE Trader V3.0
+Sniper 5M LIVE Trader V3.1
 
 Front-runs Chainlink oracle delay on 5-minute BTC+ETH Up/Down markets.
 Enters at 62-61 seconds before market close when direction is clear from CLOB orderbook.
@@ -57,7 +57,7 @@ from adaptive_tuner import ParameterTuner, SNIPER_TUNER_CONFIG
 # ============================================================================
 SNIPER_WINDOW = 63          # seconds before close to start looking (front-run whales)
 MIN_CONFIDENCE = 0.55       # minimum ask price to trigger entry
-MAX_ENTRY_PRICE = 0.78      # V2.1: raised from $0.76 — $0.77 entries had excellent depth (124-736sh)
+MAX_ENTRY_PRICE = 0.80      # V3.1: raised from $0.78 — paper shows 79.3% WR at $0.80, 42% more trades
 BASE_TRADE_SIZE = 3.00      # $3/trade per Star directive
 SCAN_INTERVAL = 5           # seconds between scans
 MAX_CONCURRENT = 2          # 1 directional + 1 oracle
@@ -86,7 +86,7 @@ ML_MIN_WR_THRESHOLD = 0.50  # skip if estimated WR below this (DOWN trades)
 ML_UP_WR_THRESHOLD = 0.80   # V2.1: UP needs 80%+ ML WR (DOWN=11W/0L but UP=2W/3L, losses at 72-76%)
 MIN_ENTRY_UP = 0.72          # V2.1: UP trades need $0.72+ entry ($0.72+ = 100% WR, below = losses)
 UP_SIZE_MULT = 0.50          # V2.1: Half size on UP trades until UP direction proves itself
-SKIP_HOURS_UTC = {9, 12}    # V2.2: Skip worst hours — UTC 9 (4AM ET) 33%WR/-$4.55, UTC 12 (7AM ET) 0%WR/-$3.57
+SKIP_HOURS_UTC = {9}        # V3.1: Removed UTC 12 — paper shows 8W/0L at UTC 12 (recovers ~24 trades/day)
 ETH_SIZE_MULT = 0.34        # V2.3: ETH minimum size (~$1/trade) until proven profitable
 ASSETS = {"bitcoin": "BTC", "btc": "BTC", "ethereum": "ETH", "eth": "ETH"}
 BINANCE_SYMBOLS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT"}
@@ -762,9 +762,9 @@ class Sniper5MLive:
                 open_price = float(klines[0][1])
                 close_price = float(klines[-1][4])
                 pct = (close_price - open_price) / open_price * 100
-                if pct > 0.07:
+                if pct > 0.04:
                     return "UP", open_price, close_price
-                elif pct < -0.07:
+                elif pct < -0.04:
                     return "DOWN", open_price, close_price
                 return None, open_price, close_price  # FLAT but still return prices
         except Exception:
@@ -1002,12 +1002,14 @@ class Sniper5MLive:
                 side, binance_open, binance_current = await self._check_binance_direction(end_dt, symbol=binance_sym)
 
             if not side:
-                # CLOB CONFIDENCE: $0.70 to ML-tuned upper cap (default $0.78)
-                clob_cap = self.tuner.get_active_value("clob_upper")
-                if up_ask and 0.70 <= up_ask <= clob_cap and (down_ask is None or up_ask > down_ask):
+                # V3.1: CLOB CONFIDENCE: $0.65+ with dominance → signal
+                # Previous bug: clob_cap (~0.78) threw away 226 high-confidence signals at $0.79-$0.85
+                # Now: use MAX_ENTRY_PRICE as cap (checked again at entry), let more signals through
+                clob_cap = MAX_ENTRY_PRICE
+                if up_ask and 0.65 <= up_ask <= clob_cap and (down_ask is None or up_ask > down_ask):
                     side = "UP"
                     signal_source = "clob"
-                elif down_ask and 0.70 <= down_ask <= clob_cap and (up_ask is None or down_ask > up_ask):
+                elif down_ask and 0.65 <= down_ask <= clob_cap and (up_ask is None or down_ask > up_ask):
                     side = "DOWN"
                     signal_source = "clob"
 
@@ -1611,7 +1613,7 @@ class Sniper5MLive:
         print(f"  SNIPER 5M {mode} TRADER V2.3 — BTC + ETH")
         print("=" * 70)
         print(f"  V2.3: Added ETH markets | ETH size={ETH_SIZE_MULT:.0%} (~$1/trade) until proven")
-        print(f"  V2.2: Skip UTC hours {SKIP_HOURS_UTC} (4AM+7AM ET = ALL 3 losses, -$8.12)")
+        print(f"  V3.1: Skip UTC hours {SKIP_HOURS_UTC} | Binance threshold 0.04% | CLOB floor $0.65")
         print(f"  V2.1 DOWN-bias (16T: DOWN 11W/0L 100%, UP 2W/3L 40%):")
         print(f"    - ML WR threshold: UP >= {ML_UP_WR_THRESHOLD:.0%} | DOWN >= {ML_MIN_WR_THRESHOLD:.0%}")
         print(f"    - MIN entry: UP >= ${MIN_ENTRY_UP:.2f} | DOWN >= ${MIN_CONFIDENCE:.2f}")
