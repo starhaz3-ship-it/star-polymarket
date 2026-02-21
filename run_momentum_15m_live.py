@@ -187,6 +187,92 @@ def calc_donchian(high, low, n=20):
 
 
 # ============================================================================
+# VORTEX_RVI INDICATORS (ported from run_15m_strategies.py)
+# ============================================================================
+
+def calc_sma(arr: np.ndarray, n: int) -> np.ndarray:
+    out = np.full_like(arr, np.nan, dtype=float)
+    if n <= 0 or len(arr) < n:
+        return out
+    c = np.cumsum(arr, dtype=float)
+    c[n:] = c[n:] - c[:-n]
+    out[n - 1:] = c[n - 1:] / n
+    return out
+
+
+def calc_true_range(high, low, close):
+    out = np.empty_like(close, dtype=float)
+    out[0] = high[0] - low[0]
+    for i in range(1, len(close)):
+        out[i] = max(high[i] - low[i], abs(high[i] - close[i-1]), abs(low[i] - close[i-1]))
+    return out
+
+
+def calc_atr(high, low, close, n=14):
+    return calc_sma(calc_true_range(high, low, close), n)
+
+
+def calc_vortex(high, low, close, n=14):
+    """Vortex Indicator. Returns (VI+, VI-)."""
+    vm_plus = np.full_like(close, np.nan, dtype=float)
+    vm_minus = np.full_like(close, np.nan, dtype=float)
+    tr = calc_true_range(high, low, close)
+    for i in range(1, len(close)):
+        vm_plus[i] = abs(high[i] - low[i - 1])
+        vm_minus[i] = abs(low[i] - high[i - 1])
+    vi_plus = np.full_like(close, np.nan, dtype=float)
+    vi_minus = np.full_like(close, np.nan, dtype=float)
+    for i in range(n - 1, len(close)):
+        tr_sum = float(np.sum(tr[i - n + 1:i + 1]))
+        if tr_sum <= 0:
+            continue
+        vi_plus[i] = float(np.sum(vm_plus[i - n + 1:i + 1])) / tr_sum
+        vi_minus[i] = float(np.sum(vm_minus[i - n + 1:i + 1])) / tr_sum
+    return vi_plus, vi_minus
+
+
+def calc_rvi(open_, high, low, close, n=10):
+    """Relative Vigor Index. Returns (rvi, signal)."""
+    co = close - open_
+    hl = high - low
+    num = calc_sma(co, 4)
+    den = calc_sma(hl, 4)
+    ratio = num / np.where(den == 0, np.nan, den)
+    r = calc_sma(np.nan_to_num(ratio, nan=0.0), n)
+    sig = calc_sma(np.nan_to_num(r, nan=0.0), 4)
+    return r, sig
+
+
+def calc_obv(close, vol):
+    """On-Balance Volume."""
+    out = np.full_like(close, np.nan, dtype=float)
+    acc = 0.0
+    out[0] = 0.0
+    for i in range(1, len(close)):
+        if close[i] > close[i - 1]:
+            acc += vol[i]
+        elif close[i] < close[i - 1]:
+            acc -= vol[i]
+        out[i] = acc
+    return out
+
+
+def calc_lin_slope(x, n=30):
+    """Linear regression slope over rolling window."""
+    out = np.full_like(x, np.nan, dtype=float)
+    if len(x) < n:
+        return out
+    t = np.arange(n, dtype=float)
+    t_mean = t.mean()
+    denom = np.sum((t - t_mean) ** 2)
+    for i in range(n - 1, len(x)):
+        y = x[i - n + 1:i + 1].astype(float)
+        num = np.sum((t - t_mean) * (y - y.mean()))
+        out[i] = num / denom if denom != 0 else 0.0
+    return out
+
+
+# ============================================================================
 # V2.3: BLACK-SCHOLES BINARY OPTION FAIR VALUE
 # ============================================================================
 # Computes theoretical probability of BTC finishing above/below strike
@@ -2112,7 +2198,9 @@ class Momentum15MTrader:
             close = np.array([float(k[4]) for k in klines])
             high = np.array([float(k[2]) for k in klines])
             low = np.array([float(k[3]) for k in klines])
-            self._candles_15m_cache = (close, high, low)
+            open_ = np.array([float(k[1]) for k in klines])
+            vol = np.array([float(k[5]) for k in klines])
+            self._candles_15m_cache = (close, high, low, open_, vol)
             self._candles_15m_ts = now
             return self._candles_15m_cache
         except Exception as e:
@@ -2126,7 +2214,7 @@ class Momentum15MTrader:
         data = await self._fetch_15m_candles()
         if data is None:
             return {"side": None, "reason": "no_data", "detail": ""}
-        close, high, low = data
+        close, high, low = data[0], data[1], data[2]
         if len(close) < 30:
             return {"side": None, "reason": "insufficient_bars", "detail": ""}
 
@@ -2162,6 +2250,71 @@ class Momentum15MTrader:
             reason = "frama_dn_pullback"
 
         return {"side": side, "reason": reason, "detail": f"frama={fv:.0f} cmo={mv:.1f} dcmid={mid:.0f}"}
+
+    # ========================================================================
+    # VORTEX_RVI SIGNAL (15M candle-based vortex cross + RVI momentum + OBV)
+    # ========================================================================
+
+    async def _check_vortex_rvi(self):
+        """VORTEX_RVI signal from 15M candles. Vortex cross + RVI momentum + OBV slope.
+        Paper: 80% WR (8W/2L, +$48) in 15M strategy lab.
+        RVI filter: |RVI| >= 0.04 (both paper losses had weak RVI < 0.04).
+        Returns {"side": "UP"/"DOWN"/None, "reason": str, "detail": str}."""
+        data = await self._fetch_15m_candles()
+        if data is None:
+            return {"side": None, "reason": "no_data", "detail": ""}
+        close, high, low, open_, vol = data
+        if len(close) < 45:
+            return {"side": None, "reason": "insufficient_bars", "detail": ""}
+
+        vip, vim = calc_vortex(high, low, close, 14)
+        rv, rvs = calc_rvi(open_, high, low, close, 10)
+        a = calc_atr(high, low, close, 14)
+        ob = calc_obv(close, vol)
+        obs = calc_lin_slope(np.nan_to_num(ob, nan=0.0), 30)
+
+        i = len(close) - 1
+        c = close[i]
+        vals = [c, vip[i], vim[i], vip[i-1], vim[i-1], rv[i], rvs[i], obs[i], a[i]]
+        if any(not np.isfinite(x) for x in vals):
+            return {"side": None, "reason": "nan_values", "detail": ""}
+
+        atrp = a[i] / max(1e-9, c)
+        if atrp < 0.0009 or atrp > 0.04:
+            return {"side": None, "reason": "atr_filter", "detail": f"atrp={atrp:.4f}"}
+
+        # Vortex cross
+        cross_up = (vip[i-1] <= vim[i-1]) and (vip[i] > vim[i])
+        cross_dn = (vip[i-1] >= vim[i-1]) and (vip[i] < vim[i])
+
+        sep = abs(vip[i] - vim[i])
+        if sep < 0.03:
+            return {"side": None, "reason": "weak_vortex_sep", "detail": f"sep={sep:.3f}"}
+
+        # RVI momentum confirm
+        mom_up = rv[i] >= rvs[i]
+        mom_dn = rv[i] <= rvs[i]
+
+        # RVI strength filter: |RVI| >= 0.04 (analysis: both losses had weak RVI < 0.04)
+        rvi_abs = abs(rv[i])
+        if rvi_abs < 0.04:
+            return {"side": None, "reason": "weak_rvi", "detail": f"rvi={rv[i]:.4f} (need |rvi|>=0.04)"}
+
+        # OBV slope participation
+        obv_up = obs[i] > 0
+        obv_dn = obs[i] < 0
+
+        side = None
+        reason = "no_entry"
+        if cross_up and mom_up and obv_up:
+            side = "UP"
+            reason = "vortex_cross_up_rvi_obv"
+        elif cross_dn and mom_dn and obv_dn:
+            side = "DOWN"
+            reason = "vortex_cross_dn_rvi_obv"
+
+        detail = f"vi+={vip[i]:.3f} vi-={vim[i]:.3f} rvi={rv[i]:.3f} obvSlope={obs[i]:.0f}"
+        return {"side": side, "reason": reason, "detail": detail}
 
     # ========================================================================
     # V2.3: BLACK-SCHOLES FAIR VALUE SIGNAL
@@ -2300,6 +2453,10 @@ class Momentum15MTrader:
         # V2.1: FRAMA_CMO signal (checked once per cycle, same for all BTC markets)
         frama_sig = await self._check_frama_cmo()
         frama_side = frama_sig.get("side")
+
+        # VORTEX_RVI signal (checked once per cycle, same 15M candle cache)
+        vortex_sig = await self._check_vortex_rvi()
+        vortex_side = vortex_sig.get("side")
 
         for market in markets:
             if open_count >= MAX_CONCURRENT:
@@ -2441,12 +2598,14 @@ class Momentum15MTrader:
                     print(f"    [BS-SHADOW] {bs_side} @ ${bs_entry_p:.2f} edge={bs_edge:.1%} (paper-only, need 25T/65%WR)")
 
             # V2.1+V2.3: Multi-signal consensus logic
-            # Count how many independent signals agree: momentum, FRAMA_CMO, BS
+            # Count how many independent signals agree: momentum, FRAMA_CMO, BS, VORTEX_RVI
             signals = {}
             if side:
                 signals["momentum"] = side
             if frama_side:
                 signals["frama_cmo"] = frama_side
+            if vortex_side:
+                signals["vortex_rvi"] = vortex_side
             if bs_side and bs_live_eligible:
                 signals["bs_edge"] = bs_side  # only counts if promoted to live
 
@@ -2478,6 +2637,13 @@ class Momentum15MTrader:
                 if entry_price > MAX_ENTRY or entry_price < MIN_ENTRY:
                     continue
                 print(f"    [FRAMA_CMO] {side} @ ${entry_price:.2f} | {frama_sig.get('detail', '')}")
+            elif not side and vortex_side:
+                side = vortex_side
+                strategy = "vortex_rvi"
+                entry_price = round((up_price if side == "UP" else down_price) + (SPREAD_OFFSET if self.paper else 0), 2)
+                if entry_price > MAX_ENTRY or entry_price < MIN_ENTRY:
+                    continue
+                print(f"    [VORTEX_RVI] {side} @ ${entry_price:.2f} | {vortex_sig.get('detail', '')}")
             elif not side and bs_side and bs_live_eligible:
                 side = bs_side
                 strategy = "bs_edge"
@@ -2785,10 +2951,11 @@ class Momentum15MTrader:
             if streak_info["streak_len"] >= 2:
                 streak_str = f" | streak={streak_info['streak_len']}x{streak_info['streak_dir']} {streak_info['alignment']} b={streak_boost:.1f}"
             frama_str = f" | {frama_sig.get('detail', '')}" if strategy in ("frama_cmo", "consensus", "triple_consensus") else ""
+            vortex_str = f" | {vortex_sig.get('detail', '')}" if strategy in ("vortex_rvi", "consensus", "triple_consensus") else ""
             bs_str = f" | BS edge={bs_edge:.1%}" if bs_edge > 0.01 else ""
             print(f"[ENTRY] {asset}:{side} ${entry_price:.2f} ${trade_size:.2f} ({shares:.0f}sh) | {strategy} | "
                   f"mom_10m={momentum_10m:+.4%} mom_5m={momentum_5m:+.4%} {rsi_str} | "
-                  f"[ML:{ml_preset}] | {asset}=${asset_price:,.2f} | time={time_left:.1f}m | [{mode}]{streak_str}{frama_str}{bs_str} | "
+                  f"[ML:{ml_preset}] | {asset}=${asset_price:,.2f} | time={time_left:.1f}m | [{mode}]{streak_str}{frama_str}{vortex_str}{bs_str} | "
                   f"{question[:50]}")
 
         # ================================================================
