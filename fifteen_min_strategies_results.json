@@ -25,6 +25,36 @@
       "losses": 2,
       "pnl": 48.07000000000001
     },
+    "GENESIS_CCI_STOCH": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "SHORT_TERM_REV": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "CASCADE_HUNTER": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "CONNORS_RSI": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "SUPERTREND_MTF": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
+    "VW_MOMENTUM": {
+      "wins": 0,
+      "losses": 0,
+      "pnl": 0.0
+    },
     "FIB_EMA_CONFIRM": {
       "wins": 8,
       "losses": 7,
@@ -5371,5 +5401,5 @@
     }
   ],
   "active": {},
-  "last_updated": "2026-02-21T16:25:44.536980+00:00"
+  "last_updated": "2026-02-21T17:16:31.508977+00:00"
 }

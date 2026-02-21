@@ -1,13 +1,19 @@
 """
-Unified Multi-TF BTC Strategy Paper Trader V2.0
+Unified Multi-TF BTC Strategy Paper Trader V3.0
 
-Runs 6 independent BTC directional strategies in ONE process:
+Runs 12 independent BTC directional strategies in ONE process:
   1. EMA_STOCHRSI      - EMA(12/26/55) + VWAP + StochRSI pullback      [15M]
   2. FRAMA_CMO         - FRAMA(16) + CMO(14) + Donchian(20) pullback    [15M]
   3. ICHI_ADXR_SMI     - Ichimoku(9/26/52) + ADXR(14) + SMI pullback   [15M]
   4. VIDYA_AROON       - VIDYA(14) + Aroon(25) + Chaikin Osc cross      [15M]
   5. VORTEX_RVI        - Vortex(14) + RVI(10) + OBV slope filter        [15M]
   6. FIB_EMA_CONFIRM   - 1M Fib Confluence + 5M EMA trend confirm       [5M]
+  7. GENESIS_CCI_STOCH - CCI(20) + Stoch(14) + RSI(14) triple MR       [15M]
+  8. SHORT_TERM_REV    - 12-bar return + ATR-adaptive threshold + RSI   [15M]
+  9. CASCADE_HUNTER    - RSI extreme + volume spike capitulation         [15M]
+ 10. CONNORS_RSI       - Connors RSI(3,2,100) mean reversion            [15M]
+ 11. SUPERTREND_MTF    - SuperTrend(10,3) flip + 1H MACD alignment      [15M]
+ 12. VW_MOMENTUM       - Volume-weighted 5-bar momentum (academic)      [15M]
 
 Shared: candle fetch (multi-TF), market discovery, resolution, stats, ML optimizer.
 Each strategy generates signals independently per cycle.
@@ -358,6 +364,443 @@ def calc_lin_slope(x, n=30):
         num = np.sum((t - t_mean) * (y - y.mean()))
         out[i] = num / denom if denom != 0 else 0.0
     return out
+
+
+# --- CCI (Commodity Channel Index) ---
+def calc_cci(high, low, close, n=20):
+    tp = (high + low + close) / 3.0
+    out = np.full_like(close, np.nan, dtype=float)
+    for i in range(n - 1, len(close)):
+        w = tp[i - n + 1:i + 1]
+        m = float(np.mean(w))
+        md = float(np.mean(np.abs(w - m)))
+        if md > 0:
+            out[i] = (tp[i] - m) / (0.015 * md)
+    return out
+
+
+# --- Stochastic %K ---
+def calc_stoch_k(high, low, close, n=14, smooth=3):
+    raw = np.full_like(close, np.nan, dtype=float)
+    for i in range(n - 1, len(close)):
+        lo = float(np.min(low[i - n + 1:i + 1]))
+        hi = float(np.max(high[i - n + 1:i + 1]))
+        if hi != lo:
+            raw[i] = 100.0 * (close[i] - lo) / (hi - lo)
+    return calc_sma(np.nan_to_num(raw, nan=50.0), smooth)
+
+
+# --- Connors RSI ---
+def calc_connors_rsi(close, rsi_n=3, streak_rsi_n=2, roc_rank_n=100):
+    rsi3 = calc_rsi(close, rsi_n)
+    # Streak: consecutive up/down closes
+    streak = np.zeros_like(close)
+    for i in range(1, len(close)):
+        if close[i] > close[i - 1]:
+            streak[i] = max(streak[i - 1], 0) + 1
+        elif close[i] < close[i - 1]:
+            streak[i] = min(streak[i - 1], 0) - 1
+        else:
+            streak[i] = 0
+    streak_rsi = calc_rsi(streak + 100, streak_rsi_n)  # shift to positive domain
+    # ROC(1) percentile rank over last n bars
+    roc = np.zeros_like(close)
+    roc[1:] = (close[1:] - close[:-1]) / np.where(close[:-1] == 0, 1, close[:-1])
+    roc_rank = np.full_like(close, np.nan, dtype=float)
+    for i in range(roc_rank_n, len(close)):
+        w = roc[i - roc_rank_n + 1:i + 1]
+        roc_rank[i] = float(np.sum(w < roc[i])) / roc_rank_n * 100.0
+    crsi = (rsi3 + streak_rsi + roc_rank) / 3.0
+    return crsi
+
+
+# --- SuperTrend ---
+def calc_supertrend(high, low, close, atr_period=10, multiplier=3.0):
+    atr = calc_atr(high, low, close, atr_period)
+    hl2 = (high + low) / 2.0
+    upper = hl2 + multiplier * np.nan_to_num(atr, nan=0.0)
+    lower = hl2 - multiplier * np.nan_to_num(atr, nan=0.0)
+    trend = np.ones(len(close), dtype=int)  # 1 = bullish, -1 = bearish
+    final_upper = np.copy(upper)
+    final_lower = np.copy(lower)
+    for i in range(1, len(close)):
+        if lower[i] > final_lower[i - 1] or close[i - 1] < final_lower[i - 1]:
+            final_lower[i] = lower[i]
+        else:
+            final_lower[i] = final_lower[i - 1]
+        if upper[i] < final_upper[i - 1] or close[i - 1] > final_upper[i - 1]:
+            final_upper[i] = upper[i]
+        else:
+            final_upper[i] = final_upper[i - 1]
+        if trend[i - 1] == 1:
+            if close[i] < final_lower[i]:
+                trend[i] = -1
+            else:
+                trend[i] = 1
+        else:
+            if close[i] > final_upper[i]:
+                trend[i] = 1
+            else:
+                trend[i] = -1
+    return trend, final_upper, final_lower
+
+
+# --- MACD ---
+def calc_macd(close, fast=12, slow=26, signal=9):
+    ema_fast = calc_ema(close, fast)
+    ema_slow = calc_ema(close, slow)
+    macd_line = ema_fast - ema_slow
+    signal_line = calc_ema(macd_line, signal)
+    return macd_line, signal_line
+
+
+# ============================================================================
+# STRATEGY 7: GENESIS_CCI_STOCH_RSI — Triple confluence mean reversion
+# Genesis Engine validated on BTC/ETH/HYPE across 30d OOS. PROMOTED on Hydra.
+# ============================================================================
+
+def signal_genesis_cci_stoch_rsi(close, high, low, vol, open_=None) -> Optional[dict]:
+    if len(close) < 50:
+        return None
+
+    cci = calc_cci(high, low, close, 20)
+    stoch = calc_stoch_k(high, low, close, 14, 3)
+    rsi = calc_rsi(close, 14)
+    atr = calc_atr(high, low, close, 14)
+
+    i = len(close) - 1
+    c = close[i]
+    vals = [cci[i], stoch[i], rsi[i], atr[i]]
+    if any(not np.isfinite(x) for x in vals):
+        return None
+
+    atrp = atr[i] / max(1e-9, c)
+    if atrp < 0.0009 or atrp > 0.04:
+        return None
+
+    side = None
+    reason = "no_entry"
+
+    # LONG: triple oversold confluence
+    if cci[i] < -100 and stoch[i] < 25 and rsi[i] < 40:
+        side = "UP"
+        reason = "triple_oversold_bounce"
+    # SHORT: triple overbought confluence
+    elif cci[i] > 100 and stoch[i] > 75 and rsi[i] > 60:
+        side = "DOWN"
+        reason = "triple_overbought_fade"
+
+    # Fair value based on indicator extremes
+    vol_pen = float(np.clip((atrp - 0.02) * 1.2, 0.0, 0.08))
+    p = 0.50
+    p += float(np.clip(-cci[i] / 200.0 * 0.10, -0.10, 0.10))
+    p += float(np.clip((50 - stoch[i]) / 100.0 * 0.08, -0.08, 0.08))
+    p += float(np.clip((50 - rsi[i]) / 50.0 * 0.06, -0.06, 0.06))
+    p -= vol_pen
+    fair = float(np.clip(p, 0.05, 0.95))
+
+    strength = 0.0
+    if side == "UP":
+        strength = min(1.0, (-cci[i] - 100) / 100) * 0.4 + min(1.0, (25 - stoch[i]) / 25) * 0.35 + min(1.0, (40 - rsi[i]) / 20) * 0.25
+    elif side == "DOWN":
+        strength = min(1.0, (cci[i] - 100) / 100) * 0.4 + min(1.0, (stoch[i] - 75) / 25) * 0.35 + min(1.0, (rsi[i] - 60) / 20) * 0.25
+
+    return {"side": side, "strength": float(np.clip(strength, 0, 1)), "fair_up": fair, "reason": reason,
+            "price": c, "detail": f"cci={cci[i]:.0f} stoch={stoch[i]:.0f} rsi={rsi[i]:.1f}"}
+
+
+# ============================================================================
+# STRATEGY 8: SHORT_TERM_REVERSAL — ATR-adaptive mean reversion
+# Lo-MacKinlay (1988) documented short-term return reversal.
+# ============================================================================
+
+def signal_short_term_reversal(close, high, low, vol, open_=None) -> Optional[dict]:
+    if len(close) < 30:
+        return None
+
+    rsi = calc_rsi(close, 14)
+    atr = calc_atr(high, low, close, 14)
+
+    i = len(close) - 1
+    c = close[i]
+
+    if not np.isfinite(rsi[i]) or not np.isfinite(atr[i]) or atr[i] == 0:
+        return None
+
+    atrp = atr[i] / max(1e-9, c)
+    if atrp < 0.0009 or atrp > 0.04:
+        return None
+
+    # 12-bar return
+    ret_12 = (close[i] - close[max(0, i - 12)]) / close[max(0, i - 12)]
+    # ATR-adaptive threshold
+    sr_thresh = max(0.008, min(0.020, atrp * 12 * 1.2))
+
+    # Price recovering? Current bar is green after a decline
+    price_recovering = close[i] > close[i - 1] if i > 0 else False
+
+    side = None
+    reason = "no_entry"
+
+    # LONG: 12-bar decline exceeds threshold + RSI oversold + recovering
+    if ret_12 < -sr_thresh and rsi[i] < 38 and price_recovering:
+        side = "UP"
+        reason = "short_term_reversal_long"
+    # SHORT: 12-bar surge exceeds threshold + RSI overbought + failing
+    elif ret_12 > sr_thresh and rsi[i] > 62 and not price_recovering:
+        side = "DOWN"
+        reason = "short_term_reversal_short"
+
+    vol_pen = float(np.clip((atrp - 0.02) * 1.2, 0.0, 0.08))
+    p = 0.50
+    if ret_12 < 0:
+        p += float(np.clip(abs(ret_12) / sr_thresh * 0.12, 0.0, 0.15))
+    else:
+        p -= float(np.clip(abs(ret_12) / sr_thresh * 0.12, 0.0, 0.15))
+    p -= vol_pen
+    fair = float(np.clip(p, 0.05, 0.95))
+
+    strength = min(1.0, abs(ret_12) / sr_thresh) * 0.6 + (1.0 if price_recovering else 0.0) * 0.2 + min(1.0, abs(rsi[i] - 50) / 25) * 0.2
+    strength = float(np.clip(strength, 0, 1))
+
+    return {"side": side, "strength": strength, "fair_up": fair, "reason": reason,
+            "price": c, "detail": f"ret12={ret_12*100:.2f}% thresh={sr_thresh*100:.2f}% rsi={rsi[i]:.1f}"}
+
+
+# ============================================================================
+# STRATEGY 9: CASCADE_HUNTER — Capitulation / exhaustion detector
+# RSI extreme + volume spike = high-confidence mean reversion.
+# ============================================================================
+
+def signal_cascade_hunter(close, high, low, vol, open_=None) -> Optional[dict]:
+    if len(close) < 30:
+        return None
+
+    rsi = calc_rsi(close, 14)
+    atr = calc_atr(high, low, close, 14)
+    vol_ema = calc_ema(vol.astype(float), 20)
+
+    i = len(close) - 1
+    c = close[i]
+
+    if not np.isfinite(rsi[i]) or not np.isfinite(atr[i]) or vol_ema[i] <= 0:
+        return None
+
+    atrp = atr[i] / max(1e-9, c)
+    if atrp < 0.0009 or atrp > 0.04:
+        return None
+
+    vol_spike = vol[i] / max(1e-9, vol_ema[i])
+    price_recovering = close[i] > close[i - 1] if i > 0 else False
+
+    # Range position (where in the 100-bar range is price?)
+    n_range = min(100, i + 1)
+    hi_n = float(np.max(high[max(0, i - n_range + 1):i + 1]))
+    lo_n = float(np.min(low[max(0, i - n_range + 1):i + 1]))
+    range_pos = (c - lo_n) / max(1e-9, hi_n - lo_n)
+
+    side = None
+    reason = "no_entry"
+
+    # LONG: RSI extreme oversold + panic volume spike + at bottom of range
+    if rsi[i] < 25 and vol_spike > 1.5 and price_recovering and range_pos < 0.35:
+        side = "UP"
+        reason = "cascade_capitulation_bounce"
+    # SHORT: RSI extreme overbought + euphoria volume spike + at top of range
+    elif rsi[i] > 75 and vol_spike > 1.5 and not price_recovering and range_pos > 0.65:
+        side = "DOWN"
+        reason = "cascade_euphoria_fade"
+
+    vol_pen = float(np.clip((atrp - 0.02) * 1.2, 0.0, 0.08))
+    p = 0.50
+    if rsi[i] < 30:
+        p += float(np.clip((30 - rsi[i]) / 30 * 0.15, 0.0, 0.15))
+    elif rsi[i] > 70:
+        p -= float(np.clip((rsi[i] - 70) / 30 * 0.15, 0.0, 0.15))
+    p -= vol_pen
+    fair = float(np.clip(p, 0.05, 0.95))
+
+    strength = min(1.0, vol_spike / 3.0) * 0.4 + min(1.0, abs(rsi[i] - 50) / 30) * 0.4 + 0.2
+    strength = float(np.clip(strength, 0, 1))
+
+    return {"side": side, "strength": strength, "fair_up": fair, "reason": reason,
+            "price": c, "detail": f"rsi={rsi[i]:.1f} volSpike={vol_spike:.1f}x rangePos={range_pos:.2f}"}
+
+
+# ============================================================================
+# STRATEGY 10: CONNORS_RSI — Short-term mean reversion (Larry Connors, 2012)
+# 3-component RSI: RSI(3) + streak RSI + ROC percentile rank
+# ============================================================================
+
+def signal_connors_rsi(close, high, low, vol, open_=None) -> Optional[dict]:
+    if len(close) < 110:
+        return None
+
+    crsi = calc_connors_rsi(close, rsi_n=3, streak_rsi_n=2, roc_rank_n=100)
+    rsi14 = calc_rsi(close, 14)
+    atr = calc_atr(high, low, close, 14)
+
+    i = len(close) - 1
+    c = close[i]
+
+    if not np.isfinite(crsi[i]) or not np.isfinite(atr[i]):
+        return None
+
+    atrp = atr[i] / max(1e-9, c)
+    if atrp < 0.0009 or atrp > 0.04:
+        return None
+
+    price_recovering = close[i] > close[i - 1] if i > 0 else False
+
+    side = None
+    reason = "no_entry"
+
+    # LONG: CRSI extreme oversold (<20) + price recovering
+    if crsi[i] < 20 and price_recovering:
+        side = "UP"
+        reason = "connors_rsi_oversold"
+    # SHORT: CRSI extreme overbought (>80) + price failing
+    elif crsi[i] > 80 and not price_recovering:
+        side = "DOWN"
+        reason = "connors_rsi_overbought"
+
+    vol_pen = float(np.clip((atrp - 0.02) * 1.2, 0.0, 0.08))
+    p = 0.50
+    p += float(np.clip((50 - crsi[i]) / 100.0 * 0.18, -0.18, 0.18))
+    p -= vol_pen
+    fair = float(np.clip(p, 0.05, 0.95))
+
+    strength = min(1.0, abs(crsi[i] - 50) / 40) * 0.7 + (0.3 if (crsi[i] < 20 or crsi[i] > 80) else 0.0)
+    strength = float(np.clip(strength, 0, 1))
+
+    return {"side": side, "strength": strength, "fair_up": fair, "reason": reason,
+            "price": c, "detail": f"crsi={crsi[i]:.1f} rsi14={rsi14[i]:.1f}"}
+
+
+# ============================================================================
+# STRATEGY 11: SUPERTREND_MTF — SuperTrend + 1H MACD alignment
+# Academics: 67% WR when multi-timeframe aligned. ATR-based trend follower.
+# ============================================================================
+
+def signal_supertrend_mtf(close, high, low, vol, open_=None, close_1h=None) -> Optional[dict]:
+    """SuperTrend on 15M + optional 1H MACD alignment."""
+    if len(close) < 50:
+        return None
+
+    trend, f_upper, f_lower = calc_supertrend(high, low, close, atr_period=10, multiplier=3.0)
+    rsi = calc_rsi(close, 14)
+    atr = calc_atr(high, low, close, 14)
+
+    i = len(close) - 1
+    c = close[i]
+
+    if not np.isfinite(rsi[i]) or not np.isfinite(atr[i]):
+        return None
+
+    atrp = atr[i] / max(1e-9, c)
+    if atrp < 0.0009 or atrp > 0.04:
+        return None
+
+    # SuperTrend flip detection
+    st_flip_up = trend[i] == 1 and trend[i - 1] == -1  # bearish → bullish
+    st_flip_dn = trend[i] == -1 and trend[i - 1] == 1  # bullish → bearish
+
+    # Only fire on flips (not ongoing trend)
+    if not st_flip_up and not st_flip_dn:
+        return {"side": None, "strength": 0.0, "fair_up": 0.50, "reason": "no_flip",
+                "price": c, "detail": f"trend={'UP' if trend[i]==1 else 'DN'} rsi={rsi[i]:.1f}"}
+
+    # Optional 1H MACD alignment
+    mtf_aligned = True
+    mtf_detail = ""
+    if close_1h is not None and len(close_1h) >= 30:
+        macd_1h, sig_1h = calc_macd(close_1h, 12, 26, 9)
+        j = len(close_1h) - 1
+        if np.isfinite(macd_1h[j]) and np.isfinite(sig_1h[j]):
+            h_bull = macd_1h[j] > sig_1h[j]
+            if st_flip_up and not h_bull:
+                mtf_aligned = False
+            elif st_flip_dn and h_bull:
+                mtf_aligned = False
+            mtf_detail = f" macd1h={'bull' if h_bull else 'bear'}"
+
+    side = None
+    reason = "no_entry"
+    if st_flip_up and mtf_aligned and rsi[i] < 65:
+        side = "UP"
+        reason = "supertrend_flip_up"
+    elif st_flip_dn and mtf_aligned and rsi[i] > 35:
+        side = "DOWN"
+        reason = "supertrend_flip_dn"
+
+    vol_pen = float(np.clip((atrp - 0.02) * 1.2, 0.0, 0.08))
+    p = 0.50
+    if trend[i] == 1:
+        p += 0.10
+    else:
+        p -= 0.10
+    p -= vol_pen
+    fair = float(np.clip(p, 0.05, 0.95))
+
+    strength = 0.7 + (0.15 if mtf_aligned else 0.0) + (0.15 if abs(rsi[i] - 50) > 10 else 0.0)
+    strength = float(np.clip(strength, 0, 1))
+
+    return {"side": side, "strength": strength, "fair_up": fair, "reason": reason,
+            "price": c, "detail": f"st_flip={'UP' if st_flip_up else 'DN'} rsi={rsi[i]:.1f}{mtf_detail}"}
+
+
+# ============================================================================
+# STRATEGY 12: VOLUME_WEIGHTED_MOMENTUM — Academic (Sharpe 2.17, 2024 paper)
+# Signal = direction × relative_volume. Amplify high-volume moves.
+# ============================================================================
+
+def signal_volume_weighted_momentum(close, high, low, vol, open_=None) -> Optional[dict]:
+    if len(close) < 30:
+        return None
+
+    rsi = calc_rsi(close, 14)
+    atr = calc_atr(high, low, close, 14)
+    vol_ema = calc_ema(vol.astype(float), 20)
+
+    i = len(close) - 1
+    c = close[i]
+
+    if not np.isfinite(rsi[i]) or not np.isfinite(atr[i]) or vol_ema[i] <= 0:
+        return None
+
+    atrp = atr[i] / max(1e-9, c)
+    if atrp < 0.0009 or atrp > 0.04:
+        return None
+
+    # 5-bar momentum weighted by relative volume
+    ret_5 = (close[i] - close[max(0, i - 5)]) / close[max(0, i - 5)]
+    rel_vol = vol[i] / max(1e-9, vol_ema[i])
+    vw_signal = ret_5 * rel_vol
+
+    # Threshold: must have meaningful move on meaningful volume
+    vw_thresh = 0.003  # 0.3% return × 1.0 volume = baseline
+
+    side = None
+    reason = "no_entry"
+
+    if vw_signal > vw_thresh and rsi[i] > 45 and rsi[i] < 70 and rel_vol > 1.2:
+        side = "UP"
+        reason = "vw_momentum_up"
+    elif vw_signal < -vw_thresh and rsi[i] < 55 and rsi[i] > 30 and rel_vol > 1.2:
+        side = "DOWN"
+        reason = "vw_momentum_down"
+
+    vol_pen = float(np.clip((atrp - 0.02) * 1.2, 0.0, 0.08))
+    p = 0.50
+    p += float(np.clip(vw_signal / 0.01 * 0.10, -0.15, 0.15))
+    p -= vol_pen
+    fair = float(np.clip(p, 0.05, 0.95))
+
+    strength = min(1.0, abs(vw_signal) / 0.01) * 0.5 + min(1.0, rel_vol / 2.0) * 0.3 + 0.2
+    strength = float(np.clip(strength, 0, 1))
+
+    return {"side": side, "strength": strength, "fair_up": fair, "reason": reason,
+            "price": c, "detail": f"vw_sig={vw_signal*100:.3f}% relVol={rel_vol:.1f}x rsi={rsi[i]:.1f}"}
 
 
 # ============================================================================
@@ -822,11 +1265,17 @@ class MLOptimizer:
 # ============================================================================
 
 STRATEGIES = {
-    "EMA_STOCHRSI":  {"fn": signal_ema_stochrsi, "min_edge": 0.015, "tp": 0.020, "sl": 0.015, "base": 3.0, "max": 5.0},
-    "FRAMA_CMO":     {"fn": signal_frama_cmo,     "min_edge": 0.010, "tp": 0.020, "sl": 0.015, "base": 3.0, "max": 8.0},
-    "ICHI_ADXR_SMI": {"fn": signal_ichi_adxr_smi, "min_edge": 0.010, "tp": 0.018, "sl": 0.014, "base": 3.0, "max": 8.0},
-    "VIDYA_AROON":   {"fn": signal_vidya_aroon,    "min_edge": 0.010, "tp": 0.018, "sl": 0.014, "base": 3.0, "max": 8.0},
-    "VORTEX_RVI":    {"fn": signal_vortex_rvi_obv, "min_edge": 0.010, "tp": 0.018, "sl": 0.014, "base": 3.0, "max": 8.0},
+    "EMA_STOCHRSI":       {"fn": signal_ema_stochrsi,       "min_edge": 0.015, "tp": 0.020, "sl": 0.015, "base": 3.0, "max": 5.0},
+    "FRAMA_CMO":          {"fn": signal_frama_cmo,          "min_edge": 0.010, "tp": 0.020, "sl": 0.015, "base": 3.0, "max": 8.0},
+    "ICHI_ADXR_SMI":      {"fn": signal_ichi_adxr_smi,      "min_edge": 0.010, "tp": 0.018, "sl": 0.014, "base": 3.0, "max": 8.0},
+    "VIDYA_AROON":        {"fn": signal_vidya_aroon,         "min_edge": 0.010, "tp": 0.018, "sl": 0.014, "base": 3.0, "max": 8.0},
+    "VORTEX_RVI":         {"fn": signal_vortex_rvi_obv,      "min_edge": 0.010, "tp": 0.018, "sl": 0.014, "base": 3.0, "max": 8.0},
+    "GENESIS_CCI_STOCH":  {"fn": signal_genesis_cci_stoch_rsi, "min_edge": 0.010, "tp": 0.018, "sl": 0.014, "base": 3.0, "max": 8.0},
+    "SHORT_TERM_REV":     {"fn": signal_short_term_reversal, "min_edge": 0.010, "tp": 0.018, "sl": 0.014, "base": 3.0, "max": 8.0},
+    "CASCADE_HUNTER":     {"fn": signal_cascade_hunter,      "min_edge": 0.010, "tp": 0.018, "sl": 0.014, "base": 3.0, "max": 8.0},
+    "CONNORS_RSI":        {"fn": signal_connors_rsi,         "min_edge": 0.010, "tp": 0.018, "sl": 0.014, "base": 3.0, "max": 8.0},
+    "SUPERTREND_MTF":     {"fn": signal_supertrend_mtf,      "min_edge": 0.010, "tp": 0.018, "sl": 0.014, "base": 3.0, "max": 8.0},
+    "VW_MOMENTUM":        {"fn": signal_volume_weighted_momentum, "min_edge": 0.010, "tp": 0.018, "sl": 0.014, "base": 3.0, "max": 8.0},
 }
 
 
