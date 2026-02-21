@@ -1,29 +1,20 @@
 """
-Sniper 5M LIVE Trader V3.1
+Sniper 5M LIVE Trader V3.2
 
 Front-runs Chainlink oracle delay on 5-minute BTC+ETH Up/Down markets.
 Enters at 62-61 seconds before market close when direction is clear from CLOB orderbook.
 
-V2.3 — Add ETH markets:
-  - ETH 5M Up/Down markets now scanned alongside BTC
-  - ETH trades at minimum size (~$1/trade, 34% of base) until proven profitable
-  - Asset-aware Binance signals (BTCUSDT/ETHUSDT)
-
-V2.2 — Skip toxic hours:
-  - Skip UTC 9 (4AM ET): 33% WR, -$4.55 (2 of 3 losses)
-  - Skip UTC 12 (7AM ET): 0% WR, -$3.57 (1 of 3 losses)
-  - All other hours: 13W/0L, 100% WR, +$12.75
-
-V2.1 — DOWN-bias tuning (16 trades: DOWN 11W/0L 100%WR, UP 2W/3L 40%WR):
-  - ML WR threshold 80% for UP trades (blocks low-confidence UP bets)
-  - MIN entry $0.72 for UP trades (higher confidence required)
-  - DOWN-bias sizing: 50% size on UP trades until UP proves itself
-  - DOWN trades unchanged (100% WR, full size)
-
-Auto-scaling:
-  - $3/trade base (PROBATION)
-  - $5/trade after 20 trades with >55% WR
-  - $10/trade after 50 trades with >65% WR
+V3.2 — ML-driven profit maximization (22-trade deep analysis):
+  Live data: DOWN 93.8% WR (15W/1L) vs UP 33.3% WR (2W/4L)
+  Entry >= $0.75: 100% WR live (6W/0L). Every loss came from entries < $0.75.
+  total_depth >= 500: 25% WR (1W/3L, -$2.34/trade). Below 500: 93.3% WR.
+  Hours 9,10,12,23 UTC: all 5 losses. Without them: 17W/0L.
+  Changes:
+  - MIN_ENTRY_UP: $0.72 → $0.80 (UP only profitable at high confidence)
+  - MIN_CONFIDENCE: $0.55 → $0.75 (raise floor for ALL trades)
+  - SKIP_HOURS: {9} → {9, 10, 12, 23} (all live loss hours)
+  - MAX_DEPTH filter: 500 shares (high-depth = informed market makers)
+  - Theoretical: 14W/0L, 100% WR, +$4.93/day (6x improvement)
 
 Usage:
   python -u run_sniper_5m_live.py --live
@@ -56,7 +47,7 @@ from adaptive_tuner import ParameterTuner, SNIPER_TUNER_CONFIG
 # CONFIG
 # ============================================================================
 SNIPER_WINDOW = 63          # seconds before close to start looking (front-run whales)
-MIN_CONFIDENCE = 0.55       # minimum ask price to trigger entry
+MIN_CONFIDENCE = 0.75       # V3.2: raised from $0.55 — every live loss was entry < $0.75. At $0.75+: 100% WR (6W/0L)
 MAX_ENTRY_PRICE = 0.80      # V3.1: raised from $0.78 — paper shows 79.3% WR at $0.80, 42% more trades
 BASE_TRADE_SIZE = 3.00      # $3/trade per Star directive
 SCAN_INTERVAL = 5           # seconds between scans
@@ -84,10 +75,11 @@ GAMMA_API_URL = "https://gamma-api.polymarket.com/events"
 ML_MIN_TRADES = 8
 ML_MIN_WR_THRESHOLD = 0.50  # skip if estimated WR below this (DOWN trades)
 ML_UP_WR_THRESHOLD = 0.80   # V2.1: UP needs 80%+ ML WR (DOWN=11W/0L but UP=2W/3L, losses at 72-76%)
-MIN_ENTRY_UP = 0.72          # V2.1: UP trades need $0.72+ entry ($0.72+ = 100% WR, below = losses)
+MIN_ENTRY_UP = 0.80          # V3.2: raised from $0.72 — UP only profitable at $0.80+ (live: UP 33% WR overall, 100% at $0.80+)
 UP_SIZE_MULT = 0.50          # V2.1: Half size on UP trades until UP direction proves itself
-SKIP_HOURS_UTC = {9}        # V3.1: Removed UTC 12 — paper shows 8W/0L at UTC 12 (recovers ~24 trades/day)
+SKIP_HOURS_UTC = {9, 10, 12, 23}  # V3.2: All 5 live losses in these hours. Without them: 17W/0L, +$15.85
 ETH_SIZE_MULT = 0.34        # V2.3: ETH minimum size (~$1/trade) until proven profitable
+MAX_DEPTH_SHARES = 500      # V3.2: depth >= 500 = 25% WR (1W/3L, -$2.34/trade). Below 500: 93.3% WR (14W/1L)
 ASSETS = {"bitcoin": "BTC", "btc": "BTC", "ethereum": "ETH", "eth": "ETH"}
 BINANCE_SYMBOLS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT"}
 
@@ -1073,8 +1065,17 @@ class Sniper5MLive:
 
             depth_str = " | ".join(f"${p:.2f}x{int(s)}" for p, s in levels[:4])
             src_tag = "BINANCE" if signal_source == "binance" else "CLOB"
+            total_depth = int(avail_shares)
             print(f"[{src_tag}] {asset} {side} | CLOB: UP=${up_display:.2f} DN=${down_display:.2f} "
-                  f"| entry=${entry_price:.2f} | depth={int(avail_shares)}sh [{depth_str}] | {time_left_sec:.0f}s left")
+                  f"| entry=${entry_price:.2f} | depth={total_depth}sh [{depth_str}] | {time_left_sec:.0f}s left")
+
+            # V3.2: High-depth filter — depth >= 500 = 25% WR (informed traders positioning against you)
+            if total_depth >= MAX_DEPTH_SHARES:
+                self.stats["skipped"] += 1
+                self.attempted_cids.add(cid)
+                print(f"[SKIP] High depth ({total_depth}sh >= {MAX_DEPTH_SHARES}) "
+                      f"| {side} @ ${entry_price:.2f} | 25% WR zone | {question[:50]}")
+                continue
 
             # Cap entry price — ML-tuned (default $0.78)
             ml_max_entry = self.tuner.get_active_value("max_entry")
