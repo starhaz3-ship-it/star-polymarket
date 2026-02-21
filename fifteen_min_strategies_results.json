@@ -1,14 +1,14 @@
 {
   "stats": {
     "EMA_STOCHRSI": {
-      "wins": 3,
+      "wins": 4,
       "losses": 3,
-      "pnl": 1.7699999999999996
+      "pnl": 5.829999999999999
     },
     "FRAMA_CMO": {
-      "wins": 69,
+      "wins": 70,
       "losses": 36,
-      "pnl": 289.96000000000004
+      "pnl": 296.12000000000006
     },
     "ICHI_ADXR_SMI": {
       "wins": 2,
@@ -21,19 +21,19 @@
       "pnl": 83.57
     },
     "VORTEX_RVI": {
-      "wins": 7,
+      "wins": 8,
       "losses": 1,
-      "pnl": 47.580000000000005
+      "pnl": 56.07000000000001
     },
     "FIB_EMA_CONFIRM": {
-      "wins": 7,
+      "wins": 8,
       "losses": 7,
-      "pnl": 22.88000000000001
+      "pnl": 28.03000000000001
     },
     "_total": {
-      "wins": 99,
+      "wins": 103,
       "losses": 53,
-      "pnl": 461.4599999999999
+      "pnl": 485.31999999999994
     }
   },
   "resolved": [
@@ -4748,8 +4748,132 @@
       "pnl": 9.06,
       "exit_price": 1.0,
       "exit_time": "2026-02-20T18:09:51.187460+00:00"
+    },
+    {
+      "side": "UP",
+      "entry_price": 0.515,
+      "size_usd": 5.47,
+      "entry_time": "2026-02-20T18:40:22.655766+00:00",
+      "condition_id": "0x11648f3909690d85c55e13c84c9f3673dcfff933962d383f0633882d79570da1",
+      "market_numeric_id": "1399022",
+      "title": "Bitcoin Up or Down - February 20, 1:30PM-1:45PM ET",
+      "strategy": "FIB_EMA_CONFIRM",
+      "edge": 0.0553,
+      "fair_px": 0.5703,
+      "strength": 0.227,
+      "reason": "fib_ema_long",
+      "btc_price": 67711.09,
+      "detail": "conf=0.75 ema=bull rsi=60",
+      "tte_seconds": 277,
+      "ml_features": {
+        "conf": 0.75,
+        "ema_gap": 0.0014975752666291644,
+        "rsi": 60.14219216785125,
+        "atr_pct": 0.00165762042398501,
+        "hour_utc": 18.0,
+        "edge": 0.055282738418503063,
+        "strength": 0.2272727272727275
+      },
+      "ml_prob": 0.573,
+      "status": "closed",
+      "pnl": 5.15,
+      "exit_price": 1.0,
+      "exit_time": "2026-02-20T18:56:40.314236+00:00"
+    },
+    {
+      "side": "UP",
+      "entry_price": 0.545,
+      "size_usd": 4.86,
+      "entry_time": "2026-02-20T20:03:06.194469+00:00",
+      "condition_id": "0xaa45738edb356d90f163b746fdb097c5b605ebe25c9c080d728f6bbf08359ecd",
+      "market_numeric_id": "1399234",
+      "title": "Bitcoin Up or Down - February 20, 3:00PM-3:15PM ET",
+      "strategy": "EMA_STOCHRSI",
+      "edge": 0.1274,
+      "fair_px": 0.6724,
+      "strength": 0.118,
+      "reason": "ema_up_stochrsi_pullback",
+      "btc_price": 67697.55,
+      "detail": "ef=67611 em=67533 es=67481 rsi=54 stK=0.38 bbw=0.014",
+      "tte_seconds": 714,
+      "ml_features": {
+        "conf": 0.1183969947616048,
+        "ema_gap": 0.0,
+        "rsi": 50.0,
+        "atr_pct": 0.0,
+        "hour_utc": 20.0,
+        "edge": 0.12741080123474213,
+        "strength": 0.1183969947616048
+      },
+      "ml_prob": 0.676,
+      "status": "closed",
+      "pnl": 4.06,
+      "exit_price": 1.0,
+      "exit_time": "2026-02-20T20:20:39.820464+00:00"
+    },
+    {
+      "side": "UP",
+      "entry_price": 0.5650000000000001,
+      "size_usd": 8.0,
+      "entry_time": "2026-02-20T20:33:08.116229+00:00",
+      "condition_id": "0xeb6c94ce7b6ae811343eb7c81c432ff37c2018999ad03a3ede60280681f22546",
+      "market_numeric_id": "1399315",
+      "title": "Bitcoin Up or Down - February 20, 3:30PM-3:45PM ET",
+      "strategy": "FRAMA_CMO",
+      "edge": 0.0482,
+      "fair_px": 0.6132,
+      "strength": 0.491,
+      "reason": "frama_up_pullback",
+      "btc_price": 67583.08,
+      "detail": "frama=67552 cmo=29.3 dcmid=67476",
+      "tte_seconds": 712,
+      "ml_features": {
+        "conf": 0.49138366320185195,
+        "ema_gap": 0.0,
+        "rsi": 50.0,
+        "atr_pct": 0.0,
+        "hour_utc": 20.0,
+        "edge": 0.04823907899816082,
+        "strength": 0.49138366320185195
+      },
+      "ml_prob": 0.654,
+      "status": "closed",
+      "pnl": 6.16,
+      "exit_price": 1.0,
+      "exit_time": "2026-02-20T20:49:32.475001+00:00"
+    },
+    {
+      "side": "UP",
+      "entry_price": 0.485,
+      "size_usd": 8.0,
+      "entry_time": "2026-02-20T22:33:07.578409+00:00",
+      "condition_id": "0x97203e5f51d66df2b6d615a19e5b90c23d4732139c80013c712e757d8cb19f26",
+      "market_numeric_id": "1399626",
+      "title": "Bitcoin Up or Down - February 20, 5:30PM-5:45PM ET",
+      "strategy": "VORTEX_RVI",
+      "edge": 0.0686,
+      "fair_px": 0.5536,
+      "strength": 0.79,
+      "reason": "vortex_cross_up_rvi_obv",
+      "btc_price": 68049.44,
+      "detail": "vi+=1.080 vi-=0.979 rvi=0.106 obvSlope=240",
+      "tte_seconds": 713,
+      "ml_features": {
+        "conf": 0.7901522894466708,
+        "ema_gap": 0.0,
+        "rsi": 50.0,
+        "atr_pct": 0.0,
+        "hour_utc": 22.0,
+        "edge": 0.06859044245882528,
+        "strength": 0.7901522894466708
+      },
+      "ml_prob": 0.618,
+      "status": "closed",
+      "pnl": 8.49,
+      "exit_price": 1.0,
+      "exit_time": "2026-02-20T22:54:08.991124+00:00"
     }
   ],
   "active": {},
-  "last_updated": "2026-02-20T18:12:08.081876+00:00"
+  "last_updated": "2026-02-21T02:10:50.379948+00:00"
 }

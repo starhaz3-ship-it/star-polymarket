@@ -1,0 +1,2282 @@
+[
+  {
+    "idx": 0,
+    "question": "Bitcoin Up or Down - February 18, 11:05PM-11:10PM ET",
+    "side": "DOWN",
+    "entry_price": 0.75,
+    "confidence": 0.75,
+    "result": "WIN",
+    "pnl": 0.83,
+    "source": "paper",
+    "end_dt": "2026-02-19T04:10:00+00:00",
+    "candles_1m": [
+      {
+        "open": 67035.47,
+        "high": 67070.56,
+        "low": 67022.0,
+        "close": 67022.0,
+        "volume": 4.71298,
+        "open_time": 1771473840000
+      },
+      {
+        "open": 67022.0,
+        "high": 67035.1,
+        "low": 66980.9,
+        "close": 66985.59,
+        "volume": 7.99391,
+        "open_time": 1771473900000
+      },
+      {
+        "open": 66985.59,
+        "high": 67005.62,
+        "low": 66983.01,
+        "close": 66992.56,
+        "volume": 5.13293,
+        "open_time": 1771473960000
+      },
+      {
+        "open": 66992.56,
+        "high": 66992.56,
+        "low": 66945.8,
+        "close": 66945.8,
+        "volume": 12.70042,
+        "open_time": 1771474020000
+      },
+      {
+        "open": 66945.81,
+        "high": 66958.11,
+        "low": 66945.8,
+        "close": 66951.04,
+        "volume": 2.33193,
+        "open_time": 1771474080000
+      },
+      {
+        "open": 66951.03,
+        "high": 66962.96,
+        "low": 66951.03,
+        "close": 66954.72,
+        "volume": 4.33395,
+        "open_time": 1771474140000
+      },
+      {
+        "open": 66954.72,
+        "high": 67002.0,
+        "low": 66954.72,
+        "close": 67001.99,
+        "volume": 2.95384,
+        "open_time": 1771474200000
+      }
+    ],
+    "candle_5m": {
+      "open": 67022.0,
+      "high": 67035.1,
+      "low": 66945.8,
+      "close": 66954.72,
+      "volume": 32.49314
+    }
+  },
+  {
+    "idx": 1,
+    "question": "Bitcoin Up or Down - February 18, 11:20PM-11:25PM ET",
+    "side": "DOWN",
+    "entry_price": 0.75,
+    "confidence": 0.75,
+    "result": "WIN",
+    "pnl": 0.83,
+    "source": "paper",
+    "end_dt": "2026-02-19T04:25:00+00:00",
+    "candles_1m": [
+      {
+        "open": 66947.18,
+        "high": 66971.0,
+        "low": 66947.17,
+        "close": 66970.99,
+        "volume": 13.68983,
+        "open_time": 1771474740000
+      },
+      {
+        "open": 66971.0,
+        "high": 66971.0,
+        "low": 66924.56,
+        "close": 66924.56,
+        "volume": 10.627,
+        "open_time": 1771474800000
+      },
+      {
+        "open": 66924.57,
+        "high": 66937.08,
+        "low": 66915.03,
+        "close": 66915.04,
+        "volume": 8.04282,
+        "open_time": 1771474860000
+      },
+      {
+        "open": 66915.04,
+        "high": 66915.04,
+        "low": 66884.21,
+        "close": 66884.22,
+        "volume": 9.30543,
+        "open_time": 1771474920000
+      },
+      {
+        "open": 66884.22,
+        "high": 66884.22,
+        "low": 66877.93,
+        "close": 66877.94,
+        "volume": 1.17905,
+        "open_time": 1771474980000
+      },
+      {
+        "open": 66877.94,
+        "high": 66877.94,
+        "low": 66869.0,
+        "close": 66869.01,
+        "volume": 3.1335,
+        "open_time": 1771475040000
+      },
+      {
+        "open": 66869.01,
+        "high": 66877.92,
+        "low": 66863.93,
+        "close": 66873.17,
+        "volume": 6.59236,
+        "open_time": 1771475100000
+      }
+    ],
+    "candle_5m": {
+      "open": 66971.0,
+      "high": 66971.0,
+      "low": 66869.0,
+      "close": 66869.01,
+      "volume": 32.2878
+    }
+  },
+  {
+    "idx": 2,
+    "question": "Bitcoin Up or Down - February 18, 11:40PM-11:45PM ET",
+    "side": "DOWN",
+    "entry_price": 0.75,
+    "confidence": 0.75,
+    "result": "WIN",
+    "pnl": 0.83,
+    "source": "paper",
+    "end_dt": "2026-02-19T04:45:00+00:00",
+    "candles_1m": [
+      {
+        "open": 66927.41,
+        "high": 66927.41,
+        "low": 66921.4,
+        "close": 66926.95,
+        "volume": 5.45968,
+        "open_time": 1771475940000
+      },
+      {
+        "open": 66926.95,
+        "high": 66945.8,
+        "low": 66922.12,
+        "close": 66922.12,
+        "volume": 5.46455,
+        "open_time": 1771476000000
+      },
+      {
+        "open": 66922.13,
+        "high": 66940.0,
+        "low": 66922.12,
+        "close": 66929.97,
+        "volume": 3.60855,
+        "open_time": 1771476060000
+      },
+      {
+        "open": 66929.97,
+        "high": 66944.49,
+        "low": 66887.01,
+        "close": 66887.01,
+        "volume": 4.34302,
+        "open_time": 1771476120000
+      },
+      {
+        "open": 66887.02,
+        "high": 66891.03,
+        "low": 66851.76,
+        "close": 66851.76,
+        "volume": 2.25204,
+        "open_time": 1771476180000
+      },
+      {
+        "open": 66851.76,
+        "high": 66861.99,
+        "low": 66815.97,
+        "close": 66816.04,
+        "volume": 17.06719,
+        "open_time": 1771476240000
+      },
+      {
+        "open": 66816.05,
+        "high": 66852.53,
+        "low": 66816.04,
+        "close": 66833.0,
+        "volume": 5.83913,
+        "open_time": 1771476300000
+      }
+    ],
+    "candle_5m": {
+      "open": 66926.95,
+      "high": 66945.8,
+      "low": 66815.97,
+      "close": 66816.04,
+      "volume": 32.73535
+    }
+  },
+  {
+    "idx": 3,
+    "question": "Bitcoin Up or Down - February 18, 11:55PM-12:00AM ET",
+    "side": "DOWN",
+    "entry_price": 0.73,
+    "confidence": 0.73,
+    "result": "WIN",
+    "pnl": 0.92,
+    "source": "paper",
+    "end_dt": "2026-02-19T05:00:00+00:00",
+    "candles_1m": [
+      {
+        "open": 66806.46,
+        "high": 66822.91,
+        "low": 66806.46,
+        "close": 66822.9,
+        "volume": 2.82332,
+        "open_time": 1771476840000
+      },
+      {
+        "open": 66822.9,
+        "high": 66825.83,
+        "low": 66822.9,
+        "close": 66825.83,
+        "volume": 1.49941,
+        "open_time": 1771476900000
+      },
+      {
+        "open": 66825.83,
+        "high": 66844.52,
+        "low": 66825.82,
+        "close": 66844.52,
+        "volume": 3.12732,
+        "open_time": 1771476960000
+      },
+      {
+        "open": 66844.51,
+        "high": 66844.52,
+        "low": 66844.5,
+        "close": 66844.51,
+        "volume": 3.43294,
+        "open_time": 1771477020000
+      },
+      {
+        "open": 66844.5,
+        "high": 66844.51,
+        "low": 66807.44,
+        "close": 66807.45,
+        "volume": 4.14606,
+        "open_time": 1771477080000
+      },
+      {
+        "open": 66807.45,
+        "high": 66814.01,
+        "low": 66802.74,
+        "close": 66802.75,
+        "volume": 2.44733,
+        "open_time": 1771477140000
+      },
+      {
+        "open": 66802.74,
+        "high": 66803.0,
+        "low": 66788.14,
+        "close": 66788.14,
+        "volume": 4.04714,
+        "open_time": 1771477200000
+      }
+    ],
+    "candle_5m": {
+      "open": 66822.9,
+      "high": 66844.52,
+      "low": 66802.74,
+      "close": 66802.75,
+      "volume": 14.65306
+    }
+  },
+  {
+    "idx": 4,
+    "question": "Bitcoin Up or Down - February 19, 12:05AM-12:10AM ET",
+    "side": "DOWN",
+    "entry_price": 0.75,
+    "confidence": 0.75,
+    "result": "WIN",
+    "pnl": 0.83,
+    "source": "paper",
+    "end_dt": "2026-02-19T05:10:00+00:00",
+    "candles_1m": [
+      {
+        "open": 66839.77,
+        "high": 66839.78,
+        "low": 66794.55,
+        "close": 66794.56,
+        "volume": 4.7804,
+        "open_time": 1771477440000
+      },
+      {
+        "open": 66794.56,
+        "high": 66794.56,
+        "low": 66740.0,
+        "close": 66745.13,
+        "volume": 9.5426,
+        "open_time": 1771477500000
+      },
+      {
+        "open": 66745.12,
+        "high": 66754.78,
+        "low": 66734.13,
+        "close": 66740.24,
+        "volume": 7.60514,
+        "open_time": 1771477560000
+      },
+      {
+        "open": 66740.24,
+        "high": 66740.24,
+        "low": 66697.3,
+        "close": 66709.9,
+        "volume": 6.02015,
+        "open_time": 1771477620000
+      },
+      {
+        "open": 66709.91,
+        "high": 66709.91,
+        "low": 66679.76,
+        "close": 66689.45,
+        "volume": 5.20526,
+        "open_time": 1771477680000
+      },
+      {
+        "open": 66689.45,
+        "high": 66744.13,
+        "low": 66689.44,
+        "close": 66744.13,
+        "volume": 2.98581,
+        "open_time": 1771477740000
+      },
+      {
+        "open": 66744.13,
+        "high": 66766.87,
+        "low": 66744.12,
+        "close": 66766.86,
+        "volume": 2.8798,
+        "open_time": 1771477800000
+      }
+    ],
+    "candle_5m": {
+      "open": 66794.56,
+      "high": 66794.56,
+      "low": 66679.76,
+      "close": 66744.13,
+      "volume": 31.35896
+    }
+  },
+  {
+    "idx": 5,
+    "question": "Bitcoin Up or Down - February 19, 12:15AM-12:20AM ET",
+    "side": "UP",
+    "entry_price": 0.75,
+    "confidence": 0.75,
+    "result": "WIN",
+    "pnl": 0.83,
+    "source": "paper",
+    "end_dt": "2026-02-19T05:20:00+00:00",
+    "candles_1m": [
+      {
+        "open": 66795.64,
+        "high": 66802.67,
+        "low": 66773.57,
+        "close": 66773.58,
+        "volume": 6.41023,
+        "open_time": 1771478040000
+      },
+      {
+        "open": 66773.58,
+        "high": 66773.58,
+        "low": 66763.0,
+        "close": 66766.59,
+        "volume": 6.33613,
+        "open_time": 1771478100000
+      },
+      {
+        "open": 66766.58,
+        "high": 66854.4,
+        "low": 66766.58,
+        "close": 66854.39,
+        "volume": 3.48233,
+        "open_time": 1771478160000
+      },
+      {
+        "open": 66854.39,
+        "high": 66855.72,
+        "low": 66838.89,
+        "close": 66855.72,
+        "volume": 4.96765,
+        "open_time": 1771478220000
+      },
+      {
+        "open": 66855.71,
+        "high": 66860.32,
+        "low": 66840.74,
+        "close": 66860.31,
+        "volume": 3.39808,
+        "open_time": 1771478280000
+      },
+      {
+        "open": 66860.31,
+        "high": 66893.06,
+        "low": 66860.31,
+        "close": 66878.78,
+        "volume": 5.1962,
+        "open_time": 1771478340000
+      },
+      {
+        "open": 66878.78,
+        "high": 66878.78,
+        "low": 66845.14,
+        "close": 66865.62,
+        "volume": 2.45922,
+        "open_time": 1771478400000
+      }
+    ],
+    "candle_5m": {
+      "open": 66773.58,
+      "high": 66893.06,
+      "low": 66763.0,
+      "close": 66878.78,
+      "volume": 23.38039
+    }
+  },
+  {
+    "idx": 6,
+    "question": "Bitcoin Up or Down - February 19, 12:25AM-12:30AM ET",
+    "side": "DOWN",
+    "entry_price": 0.7,
+    "confidence": 0.7,
+    "result": "LOSS",
+    "pnl": -2.5,
+    "source": "paper",
+    "end_dt": "2026-02-19T05:30:00+00:00",
+    "candles_1m": [
+      {
+        "open": 66721.46,
+        "high": 66735.37,
+        "low": 66717.27,
+        "close": 66735.37,
+        "volume": 5.06995,
+        "open_time": 1771478640000
+      },
+      {
+        "open": 66735.36,
+        "high": 66754.76,
+        "low": 66717.27,
+        "close": 66721.19,
+        "volume": 3.53892,
+        "open_time": 1771478700000
+      },
+      {
+        "open": 66721.2,
+        "high": 66723.84,
+        "low": 66687.68,
+        "close": 66699.11,
+        "volume": 2.70051,
+        "open_time": 1771478760000
+      },
+      {
+        "open": 66699.11,
+        "high": 66717.27,
+        "low": 66692.38,
+        "close": 66717.27,
+        "volume": 2.80051,
+        "open_time": 1771478820000
+      },
+      {
+        "open": 66717.27,
+        "high": 66730.56,
+        "low": 66717.26,
+        "close": 66725.82,
+        "volume": 1.71704,
+        "open_time": 1771478880000
+      },
+      {
+        "open": 66725.82,
+        "high": 66746.19,
+        "low": 66725.82,
+        "close": 66741.53,
+        "volume": 2.16234,
+        "open_time": 1771478940000
+      },
+      {
+        "open": 66741.53,
+        "high": 66763.02,
+        "low": 66730.15,
+        "close": 66763.01,
+        "volume": 4.84159,
+        "open_time": 1771479000000
+      }
+    ],
+    "candle_5m": {
+      "open": 66735.36,
+      "high": 66754.76,
+      "low": 66687.68,
+      "close": 66741.53,
+      "volume": 12.91932
+    }
+  },
+  {
+    "idx": 7,
+    "question": "Bitcoin Up or Down - February 19, 1:05AM-1:10AM ET",
+    "side": "UP",
+    "entry_price": 0.76,
+    "confidence": 0.76,
+    "result": "WIN",
+    "pnl": 0.79,
+    "source": "paper",
+    "end_dt": "2026-02-19T06:10:00+00:00",
+    "candles_1m": [
+      {
+        "open": 66905.61,
+        "high": 66945.8,
+        "low": 66904.47,
+        "close": 66941.94,
+        "volume": 28.19772,
+        "open_time": 1771481040000
+      },
+      {
+        "open": 66941.95,
+        "high": 66996.33,
+        "low": 66941.94,
+        "close": 66978.19,
+        "volume": 25.73977,
+        "open_time": 1771481100000
+      },
+      {
+        "open": 66978.2,
+        "high": 67000.0,
+        "low": 66967.6,
+        "close": 66967.6,
+        "volume": 6.43183,
+        "open_time": 1771481160000
+      },
+      {
+        "open": 66967.61,
+        "high": 66979.2,
+        "low": 66954.71,
+        "close": 66961.41,
+        "volume": 2.92092,
+        "open_time": 1771481220000
+      },
+      {
+        "open": 66961.4,
+        "high": 66977.75,
+        "low": 66952.96,
+        "close": 66952.97,
+        "volume": 3.4078,
+        "open_time": 1771481280000
+      },
+      {
+        "open": 66952.96,
+        "high": 66962.68,
+        "low": 66935.78,
+        "close": 66952.65,
+        "volume": 15.08082,
+        "open_time": 1771481340000
+      },
+      {
+        "open": 66952.64,
+        "high": 66977.75,
+        "low": 66952.64,
+        "close": 66966.42,
+        "volume": 3.09455,
+        "open_time": 1771481400000
+      }
+    ],
+    "candle_5m": {
+      "open": 66941.95,
+      "high": 67000.0,
+      "low": 66935.78,
+      "close": 66952.65,
+      "volume": 53.58114
+    }
+  },
+  {
+    "idx": 8,
+    "question": "Bitcoin Up or Down - February 19, 1:35AM-1:40AM ET",
+    "side": "DOWN",
+    "entry_price": 0.71,
+    "confidence": 0.71,
+    "result": "WIN",
+    "pnl": 1.02,
+    "source": "paper",
+    "end_dt": "2026-02-19T06:40:00+00:00",
+    "candles_1m": [
+      {
+        "open": 67140.37,
+        "high": 67144.0,
+        "low": 67122.12,
+        "close": 67138.07,
+        "volume": 3.99699,
+        "open_time": 1771482840000
+      },
+      {
+        "open": 67138.08,
+        "high": 67141.0,
+        "low": 67124.28,
+        "close": 67131.18,
+        "volume": 2.08711,
+        "open_time": 1771482900000
+      },
+      {
+        "open": 67131.18,
+        "high": 67179.73,
+        "low": 67131.17,
+        "close": 67136.51,
+        "volume": 4.54452,
+        "open_time": 1771482960000
+      },
+      {
+        "open": 67136.51,
+        "high": 67149.65,
+        "low": 67120.87,
+        "close": 67120.87,
+        "volume": 3.56582,
+        "open_time": 1771483020000
+      },
+      {
+        "open": 67120.88,
+        "high": 67120.88,
+        "low": 67085.76,
+        "close": 67106.84,
+        "volume": 11.30601,
+        "open_time": 1771483080000
+      },
+      {
+        "open": 67106.84,
+        "high": 67137.91,
+        "low": 67106.84,
+        "close": 67137.91,
+        "volume": 8.95531,
+        "open_time": 1771483140000
+      },
+      {
+        "open": 67137.91,
+        "high": 67148.74,
+        "low": 67133.24,
+        "close": 67141.85,
+        "volume": 4.24645,
+        "open_time": 1771483200000
+      }
+    ],
+    "candle_5m": {
+      "open": 67138.08,
+      "high": 67179.73,
+      "low": 67085.76,
+      "close": 67137.91,
+      "volume": 30.45877
+    }
+  },
+  {
+    "idx": 9,
+    "question": "Bitcoin Up or Down - February 19, 2:10AM-2:15AM ET",
+    "side": "UP",
+    "entry_price": 0.75,
+    "confidence": 0.75,
+    "result": "WIN",
+    "pnl": 0.83,
+    "source": "paper",
+    "end_dt": "2026-02-19T07:15:00+00:00",
+    "candles_1m": [
+      {
+        "open": 67044.64,
+        "high": 67071.93,
+        "low": 67044.64,
+        "close": 67071.92,
+        "volume": 2.68394,
+        "open_time": 1771484940000
+      },
+      {
+        "open": 67071.92,
+        "high": 67093.0,
+        "low": 67071.92,
+        "close": 67087.9,
+        "volume": 4.56011,
+        "open_time": 1771485000000
+      },
+      {
+        "open": 67087.9,
+        "high": 67087.9,
+        "low": 67076.58,
+        "close": 67080.54,
+        "volume": 2.54052,
+        "open_time": 1771485060000
+      },
+      {
+        "open": 67080.54,
+        "high": 67086.28,
+        "low": 67072.87,
+        "close": 67086.28,
+        "volume": 1.65038,
+        "open_time": 1771485120000
+      },
+      {
+        "open": 67086.28,
+        "high": 67207.65,
+        "low": 67086.27,
+        "close": 67177.27,
+        "volume": 26.90412,
+        "open_time": 1771485180000
+      },
+      {
+        "open": 67177.26,
+        "high": 67177.27,
+        "low": 67132.17,
+        "close": 67141.75,
+        "volume": 11.5095,
+        "open_time": 1771485240000
+      },
+      {
+        "open": 67141.75,
+        "high": 67177.24,
+        "low": 67141.74,
+        "close": 67177.24,
+        "volume": 1.34415,
+        "open_time": 1771485300000
+      }
+    ],
+    "candle_5m": {
+      "open": 67071.92,
+      "high": 67207.65,
+      "low": 67071.92,
+      "close": 67141.75,
+      "volume": 47.16463
+    }
+  },
+  {
+    "idx": 10,
+    "question": "Bitcoin Up or Down - February 19, 2:45AM-2:50AM ET",
+    "side": "UP",
+    "entry_price": 0.72,
+    "confidence": 0.72,
+    "result": "WIN",
+    "pnl": 0.97,
+    "source": "paper",
+    "end_dt": "2026-02-19T07:50:00+00:00",
+    "candles_1m": [
+      {
+        "open": 67163.12,
+        "high": 67206.82,
+        "low": 67161.62,
+        "close": 67193.46,
+        "volume": 7.68371,
+        "open_time": 1771487040000
+      },
+      {
+        "open": 67193.46,
+        "high": 67193.46,
+        "low": 67167.87,
+        "close": 67179.1,
+        "volume": 5.77088,
+        "open_time": 1771487100000
+      },
+      {
+        "open": 67179.11,
+        "high": 67189.11,
+        "low": 67172.95,
+        "close": 67175.9,
+        "volume": 3.33735,
+        "open_time": 1771487160000
+      },
+      {
+        "open": 67175.9,
+        "high": 67175.9,
+        "low": 67144.04,
+        "close": 67151.84,
+        "volume": 5.24512,
+        "open_time": 1771487220000
+      },
+      {
+        "open": 67151.84,
+        "high": 67181.41,
+        "low": 67151.83,
+        "close": 67181.4,
+        "volume": 4.59484,
+        "open_time": 1771487280000
+      },
+      {
+        "open": 67181.41,
+        "high": 67205.62,
+        "low": 67181.4,
+        "close": 67205.62,
+        "volume": 10.47229,
+        "open_time": 1771487340000
+      },
+      {
+        "open": 67205.63,
+        "high": 67216.0,
+        "low": 67181.4,
+        "close": 67215.99,
+        "volume": 7.98711,
+        "open_time": 1771487400000
+      }
+    ],
+    "candle_5m": {
+      "open": 67193.46,
+      "high": 67205.62,
+      "low": 67144.04,
+      "close": 67205.62,
+      "volume": 29.42048
+    }
+  },
+  {
+    "idx": 11,
+    "question": "Bitcoin Up or Down - February 19, 2:50AM-2:55AM ET",
+    "side": "DOWN",
+    "entry_price": 0.76,
+    "confidence": 0.76,
+    "result": "LOSS",
+    "pnl": -2.5,
+    "source": "paper",
+    "end_dt": "2026-02-19T07:55:00+00:00",
+    "candles_1m": [
+      {
+        "open": 67181.41,
+        "high": 67205.62,
+        "low": 67181.4,
+        "close": 67205.62,
+        "volume": 10.47229,
+        "open_time": 1771487340000
+      },
+      {
+        "open": 67205.63,
+        "high": 67216.0,
+        "low": 67181.4,
+        "close": 67215.99,
+        "volume": 7.98711,
+        "open_time": 1771487400000
+      },
+      {
+        "open": 67216.0,
+        "high": 67216.81,
+        "low": 67198.06,
+        "close": 67206.15,
+        "volume": 12.05004,
+        "open_time": 1771487460000
+      },
+      {
+        "open": 67206.15,
+        "high": 67206.15,
+        "low": 67173.19,
+        "close": 67173.2,
+        "volume": 6.12879,
+        "open_time": 1771487520000
+      },
+      {
+        "open": 67173.2,
+        "high": 67180.15,
+        "low": 67173.19,
+        "close": 67173.29,
+        "volume": 3.32955,
+        "open_time": 1771487580000
+      },
+      {
+        "open": 67173.29,
+        "high": 67219.9,
+        "low": 67159.79,
+        "close": 67217.5,
+        "volume": 9.46017,
+        "open_time": 1771487640000
+      },
+      {
+        "open": 67217.49,
+        "high": 67217.49,
+        "low": 67184.11,
+        "close": 67201.78,
+        "volume": 4.89278,
+        "open_time": 1771487700000
+      }
+    ],
+    "candle_5m": {
+      "open": 67205.63,
+      "high": 67219.9,
+      "low": 67159.79,
+      "close": 67217.5,
+      "volume": 38.95566
+    }
+  },
+  {
+    "idx": 12,
+    "question": "Bitcoin Up or Down - February 19, 3:00AM-3:05AM ET",
+    "side": "DOWN",
+    "entry_price": 0.75,
+    "confidence": 0.75,
+    "result": "WIN",
+    "pnl": 0.83,
+    "source": "paper",
+    "end_dt": "2026-02-19T08:05:00+00:00",
+    "candles_1m": [
+      {
+        "open": 67190.34,
+        "high": 67219.9,
+        "low": 67190.33,
+        "close": 67206.45,
+        "volume": 19.2058,
+        "open_time": 1771487940000
+      },
+      {
+        "open": 67206.45,
+        "high": 67206.45,
+        "low": 67158.01,
+        "close": 67158.01,
+        "volume": 18.60559,
+        "open_time": 1771488000000
+      },
+      {
+        "open": 67158.02,
+        "high": 67164.25,
+        "low": 67123.9,
+        "close": 67148.0,
+        "volume": 13.72939,
+        "open_time": 1771488060000
+      },
+      {
+        "open": 67148.0,
+        "high": 67165.09,
+        "low": 67113.21,
+        "close": 67113.22,
+        "volume": 13.93334,
+        "open_time": 1771488120000
+      },
+      {
+        "open": 67113.22,
+        "high": 67121.06,
+        "low": 67082.94,
+        "close": 67092.4,
+        "volume": 19.18892,
+        "open_time": 1771488180000
+      },
+      {
+        "open": 67092.41,
+        "high": 67151.3,
+        "low": 67060.04,
+        "close": 67151.29,
+        "volume": 36.53433,
+        "open_time": 1771488240000
+      },
+      {
+        "open": 67151.29,
+        "high": 67151.3,
+        "low": 67071.67,
+        "close": 67074.41,
+        "volume": 16.32811,
+        "open_time": 1771488300000
+      }
+    ],
+    "candle_5m": {
+      "open": 67206.45,
+      "high": 67206.45,
+      "low": 67060.04,
+      "close": 67151.29,
+      "volume": 101.99157
+    }
+  },
+  {
+    "idx": 13,
+    "question": "Bitcoin Up or Down - February 19, 3:20AM-3:25AM ET",
+    "side": "DOWN",
+    "entry_price": 0.75,
+    "confidence": 0.75,
+    "result": "WIN",
+    "pnl": 0.83,
+    "source": "paper",
+    "end_dt": "2026-02-19T08:25:00+00:00",
+    "candles_1m": [
+      {
+        "open": 67100.0,
+        "high": 67100.0,
+        "low": 67099.99,
+        "close": 67099.99,
+        "volume": 1.90548,
+        "open_time": 1771489140000
+      },
+      {
+        "open": 67099.99,
+        "high": 67100.0,
+        "low": 67080.0,
+        "close": 67080.0,
+        "volume": 4.58826,
+        "open_time": 1771489200000
+      },
+      {
+        "open": 67080.0,
+        "high": 67091.99,
+        "low": 67071.75,
+        "close": 67082.01,
+        "volume": 2.20532,
+        "open_time": 1771489260000
+      },
+      {
+        "open": 67082.01,
+        "high": 67082.01,
+        "low": 67068.85,
+        "close": 67068.85,
+        "volume": 2.04175,
+        "open_time": 1771489320000
+      },
+      {
+        "open": 67068.86,
+        "high": 67068.86,
+        "low": 66958.3,
+        "close": 66958.31,
+        "volume": 14.70066,
+        "open_time": 1771489380000
+      },
+      {
+        "open": 66958.31,
+        "high": 66964.83,
+        "low": 66956.0,
+        "close": 66962.69,
+        "volume": 3.10304,
+        "open_time": 1771489440000
+      },
+      {
+        "open": 66962.69,
+        "high": 66962.7,
+        "low": 66951.76,
+        "close": 66951.76,
+        "volume": 6.94134,
+        "open_time": 1771489500000
+      }
+    ],
+    "candle_5m": {
+      "open": 67099.99,
+      "high": 67100.0,
+      "low": 66956.0,
+      "close": 66962.69,
+      "volume": 26.63903
+    }
+  },
+  {
+    "idx": 14,
+    "question": "Bitcoin Up or Down - February 19, 3:35AM-3:40AM ET",
+    "side": "UP",
+    "entry_price": 0.75,
+    "confidence": 0.75,
+    "result": "WIN",
+    "pnl": 0.83,
+    "source": "paper",
+    "end_dt": "2026-02-19T08:40:00+00:00",
+    "candles_1m": [
+      {
+        "open": 66829.32,
+        "high": 66858.68,
+        "low": 66829.31,
+        "close": 66844.49,
+        "volume": 12.81335,
+        "open_time": 1771490040000
+      },
+      {
+        "open": 66844.5,
+        "high": 66872.27,
+        "low": 66844.49,
+        "close": 66871.8,
+        "volume": 9.89814,
+        "open_time": 1771490100000
+      },
+      {
+        "open": 66871.8,
+        "high": 66910.75,
+        "low": 66871.79,
+        "close": 66887.1,
+        "volume": 4.50116,
+        "open_time": 1771490160000
+      },
+      {
+        "open": 66887.1,
+        "high": 66920.52,
+        "low": 66879.35,
+        "close": 66899.4,
+        "volume": 7.5055,
+        "open_time": 1771490220000
+      },
+      {
+        "open": 66899.41,
+        "high": 66947.95,
+        "low": 66899.4,
+        "close": 66947.95,
+        "volume": 3.19844,
+        "open_time": 1771490280000
+      },
+      {
+        "open": 66947.95,
+        "high": 66947.95,
+        "low": 66930.36,
+        "close": 66937.89,
+        "volume": 5.31683,
+        "open_time": 1771490340000
+      },
+      {
+        "open": 66937.89,
+        "high": 66943.14,
+        "low": 66929.29,
+        "close": 66941.0,
+        "volume": 8.74809,
+        "open_time": 1771490400000
+      }
+    ],
+    "candle_5m": {
+      "open": 66844.5,
+      "high": 66947.95,
+      "low": 66844.49,
+      "close": 66937.89,
+      "volume": 30.42007
+    }
+  },
+  {
+    "idx": 15,
+    "question": "Bitcoin Up or Down - February 19, 4:10AM-4:15AM ET",
+    "side": "UP",
+    "entry_price": 0.7,
+    "confidence": 0.7,
+    "result": "WIN",
+    "pnl": 1.07,
+    "source": "paper",
+    "end_dt": "2026-02-19T09:15:00+00:00",
+    "candles_1m": [
+      {
+        "open": 66973.66,
+        "high": 67010.0,
+        "low": 66969.0,
+        "close": 67006.7,
+        "volume": 5.90378,
+        "open_time": 1771492140000
+      },
+      {
+        "open": 67006.69,
+        "high": 67045.4,
+        "low": 67006.69,
+        "close": 67030.0,
+        "volume": 4.54519,
+        "open_time": 1771492200000
+      },
+      {
+        "open": 67030.01,
+        "high": 67035.92,
+        "low": 67012.99,
+        "close": 67029.91,
+        "volume": 3.03606,
+        "open_time": 1771492260000
+      },
+      {
+        "open": 67029.9,
+        "high": 67035.92,
+        "low": 67014.49,
+        "close": 67027.19,
+        "volume": 3.99129,
+        "open_time": 1771492320000
+      },
+      {
+        "open": 67027.19,
+        "high": 67031.93,
+        "low": 67019.53,
+        "close": 67022.69,
+        "volume": 1.67305,
+        "open_time": 1771492380000
+      },
+      {
+        "open": 67022.68,
+        "high": 67027.45,
+        "low": 67019.53,
+        "close": 67019.53,
+        "volume": 5.57089,
+        "open_time": 1771492440000
+      },
+      {
+        "open": 67019.54,
+        "high": 67022.01,
+        "low": 67019.53,
+        "close": 67022.01,
+        "volume": 1.28142,
+        "open_time": 1771492500000
+      }
+    ],
+    "candle_5m": {
+      "open": 67006.69,
+      "high": 67045.4,
+      "low": 67006.69,
+      "close": 67019.53,
+      "volume": 18.81648
+    }
+  },
+  {
+    "idx": 16,
+    "question": "Bitcoin Up or Down - February 19, 4:20AM-4:25AM ET",
+    "side": "UP",
+    "entry_price": 0.75,
+    "confidence": 0.75,
+    "result": "WIN",
+    "pnl": 0.83,
+    "source": "paper",
+    "end_dt": "2026-02-19T09:25:00+00:00",
+    "candles_1m": [
+      {
+        "open": 67027.07,
+        "high": 67027.08,
+        "low": 67012.7,
+        "close": 67012.71,
+        "volume": 12.07656,
+        "open_time": 1771492740000
+      },
+      {
+        "open": 67012.71,
+        "high": 67025.5,
+        "low": 66999.0,
+        "close": 66999.0,
+        "volume": 4.02239,
+        "open_time": 1771492800000
+      },
+      {
+        "open": 66999.0,
+        "high": 67034.12,
+        "low": 66999.0,
+        "close": 67028.98,
+        "volume": 4.59717,
+        "open_time": 1771492860000
+      },
+      {
+        "open": 67028.99,
+        "high": 67098.22,
+        "low": 67028.98,
+        "close": 67091.34,
+        "volume": 13.10029,
+        "open_time": 1771492920000
+      },
+      {
+        "open": 67091.35,
+        "high": 67191.83,
+        "low": 67091.34,
+        "close": 67191.82,
+        "volume": 18.88441,
+        "open_time": 1771492980000
+      },
+      {
+        "open": 67191.82,
+        "high": 67191.82,
+        "low": 67157.34,
+        "close": 67157.34,
+        "volume": 3.12804,
+        "open_time": 1771493040000
+      },
+      {
+        "open": 67157.34,
+        "high": 67157.34,
+        "low": 67121.36,
+        "close": 67121.36,
+        "volume": 2.26631,
+        "open_time": 1771493100000
+      }
+    ],
+    "candle_5m": {
+      "open": 67012.71,
+      "high": 67191.83,
+      "low": 66999.0,
+      "close": 67157.34,
+      "volume": 43.7323
+    }
+  },
+  {
+    "idx": 17,
+    "question": "Bitcoin Up or Down - February 19, 4:30AM-4:35AM ET",
+    "side": "DOWN",
+    "entry_price": 0.7,
+    "confidence": 0.7,
+    "result": "LOSS",
+    "pnl": -2.5,
+    "source": "paper",
+    "end_dt": "2026-02-19T09:35:00+00:00",
+    "candles_1m": [
+      {
+        "open": 67127.11,
+        "high": 67133.87,
+        "low": 67127.1,
+        "close": 67133.86,
+        "volume": 2.97702,
+        "open_time": 1771493340000
+      },
+      {
+        "open": 67133.87,
+        "high": 67133.87,
+        "low": 67118.89,
+        "close": 67118.89,
+        "volume": 4.29098,
+        "open_time": 1771493400000
+      },
+      {
+        "open": 67118.89,
+        "high": 67128.29,
+        "low": 67108.65,
+        "close": 67128.28,
+        "volume": 5.43447,
+        "open_time": 1771493460000
+      },
+      {
+        "open": 67128.28,
+        "high": 67128.29,
+        "low": 67096.0,
+        "close": 67096.01,
+        "volume": 12.01219,
+        "open_time": 1771493520000
+      },
+      {
+        "open": 67096.0,
+        "high": 67129.0,
+        "low": 67092.9,
+        "close": 67124.11,
+        "volume": 8.11737,
+        "open_time": 1771493580000
+      },
+      {
+        "open": 67124.11,
+        "high": 67147.21,
+        "low": 67117.59,
+        "close": 67144.56,
+        "volume": 6.6908,
+        "open_time": 1771493640000
+      },
+      {
+        "open": 67144.56,
+        "high": 67144.56,
+        "low": 67126.96,
+        "close": 67133.64,
+        "volume": 4.96254,
+        "open_time": 1771493700000
+      }
+    ],
+    "candle_5m": {
+      "open": 67133.87,
+      "high": 67147.21,
+      "low": 67092.9,
+      "close": 67144.56,
+      "volume": 36.54581
+    }
+  },
+  {
+    "idx": 18,
+    "question": "Bitcoin Up or Down - February 19, 4:35AM-4:40AM ET",
+    "side": "DOWN",
+    "entry_price": 0.75,
+    "confidence": 0.75,
+    "result": "WIN",
+    "pnl": 0.83,
+    "source": "paper",
+    "end_dt": "2026-02-19T09:40:00+00:00",
+    "candles_1m": [
+      {
+        "open": 67124.11,
+        "high": 67147.21,
+        "low": 67117.59,
+        "close": 67144.56,
+        "volume": 6.6908,
+        "open_time": 1771493640000
+      },
+      {
+        "open": 67144.56,
+        "high": 67144.56,
+        "low": 67126.96,
+        "close": 67133.64,
+        "volume": 4.96254,
+        "open_time": 1771493700000
+      },
+      {
+        "open": 67133.64,
+        "high": 67133.65,
+        "low": 67068.51,
+        "close": 67068.52,
+        "volume": 7.66431,
+        "open_time": 1771493760000
+      },
+      {
+        "open": 67068.52,
+        "high": 67086.87,
+        "low": 67055.27,
+        "close": 67059.88,
+        "volume": 11.75739,
+        "open_time": 1771493820000
+      },
+      {
+        "open": 67059.88,
+        "high": 67065.84,
+        "low": 67053.93,
+        "close": 67053.94,
+        "volume": 3.31631,
+        "open_time": 1771493880000
+      },
+      {
+        "open": 67053.93,
+        "high": 67055.37,
+        "low": 67039.84,
+        "close": 67046.57,
+        "volume": 5.95007,
+        "open_time": 1771493940000
+      },
+      {
+        "open": 67046.57,
+        "high": 67049.12,
+        "low": 67042.8,
+        "close": 67042.8,
+        "volume": 4.41127,
+        "open_time": 1771494000000
+      }
+    ],
+    "candle_5m": {
+      "open": 67144.56,
+      "high": 67144.56,
+      "low": 67039.84,
+      "close": 67046.57,
+      "volume": 33.65062
+    }
+  },
+  {
+    "idx": 19,
+    "question": "Bitcoin Up or Down - February 19, 4:45AM-4:50AM ET",
+    "side": "DOWN",
+    "entry_price": 0.75,
+    "confidence": 0.75,
+    "result": "WIN",
+    "pnl": 0.83,
+    "source": "paper",
+    "end_dt": "2026-02-19T09:50:00+00:00",
+    "candles_1m": [
+      {
+        "open": 67075.64,
+        "high": 67087.7,
+        "low": 67075.63,
+        "close": 67075.63,
+        "volume": 4.57293,
+        "open_time": 1771494240000
+      },
+      {
+        "open": 67075.64,
+        "high": 67075.64,
+        "low": 67061.41,
+        "close": 67061.41,
+        "volume": 3.76732,
+        "open_time": 1771494300000
+      },
+      {
+        "open": 67061.41,
+        "high": 67061.42,
+        "low": 66968.0,
+        "close": 66968.01,
+        "volume": 13.8729,
+        "open_time": 1771494360000
+      },
+      {
+        "open": 66968.01,
+        "high": 66976.41,
+        "low": 66859.78,
+        "close": 66860.83,
+        "volume": 43.3708,
+        "open_time": 1771494420000
+      },
+      {
+        "open": 66860.82,
+        "high": 66860.82,
+        "low": 66774.26,
+        "close": 66774.99,
+        "volume": 26.55419,
+        "open_time": 1771494480000
+      },
+      {
+        "open": 66774.98,
+        "high": 66803.99,
+        "low": 66754.23,
+        "close": 66794.11,
+        "volume": 13.93004,
+        "open_time": 1771494540000
+      },
+      {
+        "open": 66794.11,
+        "high": 66869.45,
+        "low": 66794.1,
+        "close": 66867.99,
+        "volume": 8.18114,
+        "open_time": 1771494600000
+      }
+    ],
+    "candle_5m": {
+      "open": 67075.64,
+      "high": 67075.64,
+      "low": 66754.23,
+      "close": 66794.11,
+      "volume": 101.49525
+    }
+  },
+  {
+    "idx": 20,
+    "question": "Bitcoin Up or Down - February 19, 5:20AM-5:25AM ET",
+    "side": "DOWN",
+    "entry_price": 0.74,
+    "confidence": 0.74,
+    "result": "WIN",
+    "pnl": 0.88,
+    "source": "paper",
+    "end_dt": "2026-02-19T10:25:00+00:00",
+    "candles_1m": [
+      {
+        "open": 66913.77,
+        "high": 66920.75,
+        "low": 66912.93,
+        "close": 66920.74,
+        "volume": 2.74796,
+        "open_time": 1771496340000
+      },
+      {
+        "open": 66920.74,
+        "high": 66920.75,
+        "low": 66900.0,
+        "close": 66911.43,
+        "volume": 2.43055,
+        "open_time": 1771496400000
+      },
+      {
+        "open": 66911.42,
+        "high": 66911.42,
+        "low": 66878.02,
+        "close": 66885.83,
+        "volume": 13.87529,
+        "open_time": 1771496460000
+      },
+      {
+        "open": 66885.83,
+        "high": 66901.3,
+        "low": 66878.8,
+        "close": 66901.29,
+        "volume": 6.33958,
+        "open_time": 1771496520000
+      },
+      {
+        "open": 66901.3,
+        "high": 66931.97,
+        "low": 66901.29,
+        "close": 66910.76,
+        "volume": 6.27109,
+        "open_time": 1771496580000
+      },
+      {
+        "open": 66910.77,
+        "high": 66910.77,
+        "low": 66864.11,
+        "close": 66864.45,
+        "volume": 17.6921,
+        "open_time": 1771496640000
+      },
+      {
+        "open": 66864.46,
+        "high": 66890.61,
+        "low": 66864.45,
+        "close": 66882.62,
+        "volume": 9.49131,
+        "open_time": 1771496700000
+      }
+    ],
+    "candle_5m": {
+      "open": 66920.74,
+      "high": 66931.97,
+      "low": 66864.11,
+      "close": 66864.45,
+      "volume": 46.60861
+    }
+  },
+  {
+    "idx": 21,
+    "question": "Bitcoin Up or Down - February 19, 5:50AM-5:55AM ET",
+    "side": "DOWN",
+    "entry_price": 0.75,
+    "confidence": 0.75,
+    "result": "WIN",
+    "pnl": 0.83,
+    "source": "paper",
+    "end_dt": "2026-02-19T10:55:00+00:00",
+    "candles_1m": [
+      {
+        "open": 66926.15,
+        "high": 66926.16,
+        "low": 66906.54,
+        "close": 66906.54,
+        "volume": 2.30866,
+        "open_time": 1771498140000
+      },
+      {
+        "open": 66906.54,
+        "high": 66906.54,
+        "low": 66857.91,
+        "close": 66857.91,
+        "volume": 4.81206,
+        "open_time": 1771498200000
+      },
+      {
+        "open": 66857.9,
+        "high": 66857.9,
+        "low": 66771.05,
+        "close": 66784.11,
+        "volume": 8.04454,
+        "open_time": 1771498260000
+      },
+      {
+        "open": 66784.1,
+        "high": 66829.74,
+        "low": 66784.1,
+        "close": 66819.55,
+        "volume": 3.76599,
+        "open_time": 1771498320000
+      },
+      {
+        "open": 66819.55,
+        "high": 66827.68,
+        "low": 66784.62,
+        "close": 66784.63,
+        "volume": 4.01994,
+        "open_time": 1771498380000
+      },
+      {
+        "open": 66784.63,
+        "high": 66799.87,
+        "low": 66784.62,
+        "close": 66792.95,
+        "volume": 6.19495,
+        "open_time": 1771498440000
+      },
+      {
+        "open": 66792.95,
+        "high": 66802.0,
+        "low": 66792.94,
+        "close": 66802.0,
+        "volume": 5.30014,
+        "open_time": 1771498500000
+      }
+    ],
+    "candle_5m": {
+      "open": 66906.54,
+      "high": 66906.54,
+      "low": 66771.05,
+      "close": 66792.95,
+      "volume": 26.83748
+    }
+  },
+  {
+    "idx": 22,
+    "question": "Bitcoin Up or Down - February 19, 6:05AM-6:10AM ET",
+    "side": "UP",
+    "entry_price": 0.73,
+    "confidence": 0.73,
+    "result": "WIN",
+    "pnl": 0.92,
+    "source": "paper",
+    "end_dt": "2026-02-19T11:10:00+00:00",
+    "candles_1m": [
+      {
+        "open": 66861.92,
+        "high": 66876.1,
+        "low": 66850.88,
+        "close": 66873.27,
+        "volume": 2.40022,
+        "open_time": 1771499040000
+      },
+      {
+        "open": 66873.26,
+        "high": 66873.26,
+        "low": 66841.74,
+        "close": 66842.17,
+        "volume": 2.73785,
+        "open_time": 1771499100000
+      },
+      {
+        "open": 66842.16,
+        "high": 66859.22,
+        "low": 66838.08,
+        "close": 66859.22,
+        "volume": 1.81983,
+        "open_time": 1771499160000
+      },
+      {
+        "open": 66859.22,
+        "high": 66869.85,
+        "low": 66859.21,
+        "close": 66869.21,
+        "volume": 7.5608,
+        "open_time": 1771499220000
+      },
+      {
+        "open": 66869.22,
+        "high": 66875.61,
+        "low": 66869.21,
+        "close": 66875.61,
+        "volume": 1.18438,
+        "open_time": 1771499280000
+      },
+      {
+        "open": 66875.61,
+        "high": 66907.72,
+        "low": 66875.6,
+        "close": 66907.72,
+        "volume": 3.49617,
+        "open_time": 1771499340000
+      },
+      {
+        "open": 66907.72,
+        "high": 66918.62,
+        "low": 66907.71,
+        "close": 66918.62,
+        "volume": 2.3687,
+        "open_time": 1771499400000
+      }
+    ],
+    "candle_5m": {
+      "open": 66873.26,
+      "high": 66907.72,
+      "low": 66838.08,
+      "close": 66907.72,
+      "volume": 16.79903
+    }
+  },
+  {
+    "idx": 23,
+    "question": "Bitcoin Up or Down - February 19, 6:35AM-6:40AM ET",
+    "side": "DOWN",
+    "entry_price": 0.75,
+    "confidence": 0.75,
+    "result": "WIN",
+    "pnl": 0.83,
+    "source": "paper",
+    "end_dt": "2026-02-19T11:40:00+00:00",
+    "candles_1m": [
+      {
+        "open": 66841.67,
+        "high": 66850.18,
+        "low": 66841.66,
+        "close": 66850.18,
+        "volume": 2.40978,
+        "open_time": 1771500840000
+      },
+      {
+        "open": 66850.17,
+        "high": 66850.18,
+        "low": 66727.41,
+        "close": 66733.69,
+        "volume": 64.16884,
+        "open_time": 1771500900000
+      },
+      {
+        "open": 66733.69,
+        "high": 66742.81,
+        "low": 66668.93,
+        "close": 66668.93,
+        "volume": 18.05008,
+        "open_time": 1771500960000
+      },
+      {
+        "open": 66668.94,
+        "high": 66702.2,
+        "low": 66652.16,
+        "close": 66681.92,
+        "volume": 13.7216,
+        "open_time": 1771501020000
+      },
+      {
+        "open": 66681.92,
+        "high": 66694.0,
+        "low": 66671.13,
+        "close": 66682.05,
+        "volume": 13.87502,
+        "open_time": 1771501080000
+      },
+      {
+        "open": 66682.05,
+        "high": 66698.25,
+        "low": 66671.79,
+        "close": 66698.25,
+        "volume": 12.88738,
+        "open_time": 1771501140000
+      },
+      {
+        "open": 66698.24,
+        "high": 66730.9,
+        "low": 66698.24,
+        "close": 66723.31,
+        "volume": 9.24408,
+        "open_time": 1771501200000
+      }
+    ],
+    "candle_5m": {
+      "open": 66850.17,
+      "high": 66850.18,
+      "low": 66652.16,
+      "close": 66698.25,
+      "volume": 122.70292
+    }
+  },
+  {
+    "idx": 24,
+    "question": "Bitcoin Up or Down - February 19, 7:20AM-7:25AM ET",
+    "side": "UP",
+    "entry_price": 0.75,
+    "confidence": 0.75,
+    "result": "WIN",
+    "pnl": 0.83,
+    "source": "paper",
+    "end_dt": "2026-02-19T12:25:00+00:00",
+    "candles_1m": [
+      {
+        "open": 66583.98,
+        "high": 66583.98,
+        "low": 66504.67,
+        "close": 66504.67,
+        "volume": 5.54886,
+        "open_time": 1771503540000
+      },
+      {
+        "open": 66504.68,
+        "high": 66552.45,
+        "low": 66504.67,
+        "close": 66552.45,
+        "volume": 12.23368,
+        "open_time": 1771503600000
+      },
+      {
+        "open": 66552.45,
+        "high": 66566.4,
+        "low": 66535.14,
+        "close": 66563.54,
+        "volume": 10.0315,
+        "open_time": 1771503660000
+      },
+      {
+        "open": 66563.54,
+        "high": 66602.0,
+        "low": 66563.54,
+        "close": 66601.15,
+        "volume": 3.2388,
+        "open_time": 1771503720000
+      },
+      {
+        "open": 66601.15,
+        "high": 66607.77,
+        "low": 66601.14,
+        "close": 66601.99,
+        "volume": 2.86418,
+        "open_time": 1771503780000
+      },
+      {
+        "open": 66602.0,
+        "high": 66651.95,
+        "low": 66601.99,
+        "close": 66637.31,
+        "volume": 10.65607,
+        "open_time": 1771503840000
+      },
+      {
+        "open": 66637.31,
+        "high": 66647.33,
+        "low": 66629.96,
+        "close": 66645.99,
+        "volume": 4.7939,
+        "open_time": 1771503900000
+      }
+    ],
+    "candle_5m": {
+      "open": 66504.68,
+      "high": 66651.95,
+      "low": 66504.67,
+      "close": 66637.31,
+      "volume": 39.02423
+    }
+  },
+  {
+    "idx": 25,
+    "question": "Bitcoin Up or Down - February 19, 7:25AM-7:30AM ET",
+    "side": "UP",
+    "entry_price": 0.72,
+    "confidence": 0.72,
+    "result": "WIN",
+    "pnl": 0.97,
+    "source": "paper",
+    "end_dt": "2026-02-19T12:30:00+00:00",
+    "candles_1m": [
+      {
+        "open": 66602.0,
+        "high": 66651.95,
+        "low": 66601.99,
+        "close": 66637.31,
+        "volume": 10.65607,
+        "open_time": 1771503840000
+      },
+      {
+        "open": 66637.31,
+        "high": 66647.33,
+        "low": 66629.96,
+        "close": 66645.99,
+        "volume": 4.7939,
+        "open_time": 1771503900000
+      },
+      {
+        "open": 66646.0,
+        "high": 66652.0,
+        "low": 66624.36,
+        "close": 66631.75,
+        "volume": 7.46217,
+        "open_time": 1771503960000
+      },
+      {
+        "open": 66631.74,
+        "high": 66648.41,
+        "low": 66631.74,
+        "close": 66643.8,
+        "volume": 2.76671,
+        "open_time": 1771504020000
+      },
+      {
+        "open": 66643.8,
+        "high": 66680.7,
+        "low": 66637.74,
+        "close": 66653.58,
+        "volume": 4.98017,
+        "open_time": 1771504080000
+      },
+      {
+        "open": 66653.59,
+        "high": 66677.15,
+        "low": 66649.77,
+        "close": 66669.51,
+        "volume": 2.67115,
+        "open_time": 1771504140000
+      },
+      {
+        "open": 66669.5,
+        "high": 66669.5,
+        "low": 66620.0,
+        "close": 66652.63,
+        "volume": 5.01019,
+        "open_time": 1771504200000
+      }
+    ],
+    "candle_5m": {
+      "open": 66637.31,
+      "high": 66680.7,
+      "low": 66624.36,
+      "close": 66669.51,
+      "volume": 22.6741
+    }
+  },
+  {
+    "idx": 26,
+    "question": "Bitcoin Up or Down - February 19, 7:35AM-7:40AM ET",
+    "side": "DOWN",
+    "entry_price": 0.75,
+    "confidence": 0.75,
+    "result": "WIN",
+    "pnl": 0.83,
+    "source": "paper",
+    "end_dt": "2026-02-19T12:40:00+00:00",
+    "candles_1m": [
+      {
+        "open": 66632.04,
+        "high": 66656.24,
+        "low": 66632.03,
+        "close": 66644.58,
+        "volume": 5.54269,
+        "open_time": 1771504440000
+      },
+      {
+        "open": 66644.59,
+        "high": 66654.0,
+        "low": 66637.41,
+        "close": 66637.41,
+        "volume": 4.9405,
+        "open_time": 1771504500000
+      },
+      {
+        "open": 66637.42,
+        "high": 66637.42,
+        "low": 66631.3,
+        "close": 66631.31,
+        "volume": 1.68273,
+        "open_time": 1771504560000
+      },
+      {
+        "open": 66631.31,
+        "high": 66661.25,
+        "low": 66631.31,
+        "close": 66661.24,
+        "volume": 6.79935,
+        "open_time": 1771504620000
+      },
+      {
+        "open": 66661.25,
+        "high": 66661.25,
+        "low": 66460.42,
+        "close": 66542.6,
+        "volume": 54.09718,
+        "open_time": 1771504680000
+      },
+      {
+        "open": 66542.61,
+        "high": 66642.17,
+        "low": 66508.1,
+        "close": 66642.17,
+        "volume": 9.69381,
+        "open_time": 1771504740000
+      },
+      {
+        "open": 66642.18,
+        "high": 66669.42,
+        "low": 66623.87,
+        "close": 66669.42,
+        "volume": 3.23332,
+        "open_time": 1771504800000
+      }
+    ],
+    "candle_5m": {
+      "open": 66644.59,
+      "high": 66661.25,
+      "low": 66460.42,
+      "close": 66642.17,
+      "volume": 77.21357
+    }
+  },
+  {
+    "idx": 27,
+    "question": "Bitcoin Up or Down - February 19, 4:00AM-4:05AM ET",
+    "side": "UP",
+    "entry_price": 0.7,
+    "confidence": 0.7,
+    "result": "LOSS",
+    "pnl": -2.96,
+    "source": "live",
+    "end_dt": "2026-02-19T09:05:00+00:00",
+    "candles_1m": [
+      {
+        "open": 66950.31,
+        "high": 66979.22,
+        "low": 66937.89,
+        "close": 66966.12,
+        "volume": 14.59932,
+        "open_time": 1771491540000
+      },
+      {
+        "open": 66966.12,
+        "high": 67008.0,
+        "low": 66958.3,
+        "close": 66971.03,
+        "volume": 18.98983,
+        "open_time": 1771491600000
+      },
+      {
+        "open": 66971.04,
+        "high": 67007.59,
+        "low": 66950.24,
+        "close": 66956.04,
+        "volume": 6.04597,
+        "open_time": 1771491660000
+      },
+      {
+        "open": 66956.04,
+        "high": 66960.91,
+        "low": 66941.97,
+        "close": 66944.45,
+        "volume": 4.48134,
+        "open_time": 1771491720000
+      },
+      {
+        "open": 66944.45,
+        "high": 66982.78,
+        "low": 66944.44,
+        "close": 66982.77,
+        "volume": 6.78646,
+        "open_time": 1771491780000
+      },
+      {
+        "open": 66982.77,
+        "high": 66982.78,
+        "low": 66886.63,
+        "close": 66886.63,
+        "volume": 25.15461,
+        "open_time": 1771491840000
+      },
+      {
+        "open": 66886.63,
+        "high": 66941.28,
+        "low": 66877.68,
+        "close": 66924.14,
+        "volume": 6.91252,
+        "open_time": 1771491900000
+      }
+    ],
+    "candle_5m": {
+      "open": 66966.12,
+      "high": 67008.0,
+      "low": 66886.63,
+      "close": 66886.63,
+      "volume": 61.45821
+    }
+  },
+  {
+    "idx": 28,
+    "question": "Bitcoin Up or Down - February 19, 4:10AM-4:15AM ET",
+    "side": "UP",
+    "entry_price": 0.7,
+    "confidence": 0.7,
+    "result": "WIN",
+    "pnl": 1.25,
+    "source": "live",
+    "end_dt": "2026-02-19T09:15:00+00:00",
+    "candles_1m": [
+      {
+        "open": 66973.66,
+        "high": 67010.0,
+        "low": 66969.0,
+        "close": 67006.7,
+        "volume": 5.90378,
+        "open_time": 1771492140000
+      },
+      {
+        "open": 67006.69,
+        "high": 67045.4,
+        "low": 67006.69,
+        "close": 67030.0,
+        "volume": 4.54519,
+        "open_time": 1771492200000
+      },
+      {
+        "open": 67030.01,
+        "high": 67035.92,
+        "low": 67012.99,
+        "close": 67029.91,
+        "volume": 3.03606,
+        "open_time": 1771492260000
+      },
+      {
+        "open": 67029.9,
+        "high": 67035.92,
+        "low": 67014.49,
+        "close": 67027.19,
+        "volume": 3.99129,
+        "open_time": 1771492320000
+      },
+      {
+        "open": 67027.19,
+        "high": 67031.93,
+        "low": 67019.53,
+        "close": 67022.69,
+        "volume": 1.67305,
+        "open_time": 1771492380000
+      },
+      {
+        "open": 67022.68,
+        "high": 67027.45,
+        "low": 67019.53,
+        "close": 67019.53,
+        "volume": 5.57089,
+        "open_time": 1771492440000
+      },
+      {
+        "open": 67019.54,
+        "high": 67022.01,
+        "low": 67019.53,
+        "close": 67022.01,
+        "volume": 1.28142,
+        "open_time": 1771492500000
+      }
+    ],
+    "candle_5m": {
+      "open": 67006.69,
+      "high": 67045.4,
+      "low": 67006.69,
+      "close": 67019.53,
+      "volume": 18.81648
+    }
+  },
+  {
+    "idx": 29,
+    "question": "Bitcoin Up or Down - February 19, 5:20AM-5:25AM ET",
+    "side": "DOWN",
+    "entry_price": 0.75,
+    "confidence": 0.75,
+    "result": "WIN",
+    "pnl": 1.06,
+    "source": "live",
+    "end_dt": "2026-02-19T10:25:00+00:00",
+    "candles_1m": [
+      {
+        "open": 66913.77,
+        "high": 66920.75,
+        "low": 66912.93,
+        "close": 66920.74,
+        "volume": 2.74796,
+        "open_time": 1771496340000
+      },
+      {
+        "open": 66920.74,
+        "high": 66920.75,
+        "low": 66900.0,
+        "close": 66911.43,
+        "volume": 2.43055,
+        "open_time": 1771496400000
+      },
+      {
+        "open": 66911.42,
+        "high": 66911.42,
+        "low": 66878.02,
+        "close": 66885.83,
+        "volume": 13.87529,
+        "open_time": 1771496460000
+      },
+      {
+        "open": 66885.83,
+        "high": 66901.3,
+        "low": 66878.8,
+        "close": 66901.29,
+        "volume": 6.33958,
+        "open_time": 1771496520000
+      },
+      {
+        "open": 66901.3,
+        "high": 66931.97,
+        "low": 66901.29,
+        "close": 66910.76,
+        "volume": 6.27109,
+        "open_time": 1771496580000
+      },
+      {
+        "open": 66910.77,
+        "high": 66910.77,
+        "low": 66864.11,
+        "close": 66864.45,
+        "volume": 17.6921,
+        "open_time": 1771496640000
+      },
+      {
+        "open": 66864.46,
+        "high": 66890.61,
+        "low": 66864.45,
+        "close": 66882.62,
+        "volume": 9.49131,
+        "open_time": 1771496700000
+      }
+    ],
+    "candle_5m": {
+      "open": 66920.74,
+      "high": 66931.97,
+      "low": 66864.11,
+      "close": 66864.45,
+      "volume": 46.60861
+    }
+  }
+]

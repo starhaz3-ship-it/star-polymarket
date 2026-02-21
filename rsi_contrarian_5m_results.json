@@ -684,12 +684,50 @@
       "result": "WIN",
       "market_outcome": "DOWN",
       "resolve_time": "2026-02-20T15:10:19.004367+00:00"
+    },
+    {
+      "condition_id": "0x28fe88f670feaeead69c53e016ffa265e11508254e8f951b7f6d3f75ca20ab68",
+      "question": "Bitcoin Up or Down - February 20, 5:30PM-5:35PM ET",
+      "side": "DOWN",
+      "entry_price": 0.34,
+      "rsi": 70.2,
+      "rsi_bucket": "70-75",
+      "volume_ok": true,
+      "shares": 7.3529,
+      "cost": 2.5,
+      "time_remaining_sec": 61.4,
+      "entry_time": "2026-02-20T22:33:59.514380+00:00",
+      "end_dt": "2026-02-20T22:35:00+00:00",
+      "status": "closed",
+      "pnl": -2.5,
+      "result": "LOSS",
+      "market_outcome": "UP",
+      "resolve_time": "2026-02-20T22:35:19.905803+00:00"
+    },
+    {
+      "condition_id": "0x36d98a15c647e0cb0dac67c0b7f2bbb424720f12bb2587719579686bd2608f8b",
+      "question": "Bitcoin Up or Down - February 20, 6:05PM-6:10PM ET",
+      "side": "DOWN",
+      "entry_price": 0.54,
+      "rsi": 70.1,
+      "rsi_bucket": "70-75",
+      "volume_ok": true,
+      "shares": 4.6296,
+      "cost": 2.5,
+      "time_remaining_sec": 227.0,
+      "entry_time": "2026-02-20T23:06:13.755642+00:00",
+      "end_dt": "2026-02-20T23:10:00+00:00",
+      "status": "closed",
+      "pnl": 2.13,
+      "result": "WIN",
+      "market_outcome": "DOWN",
+      "resolve_time": "2026-02-20T23:10:19.116422+00:00"
     }
   ],
   "stats": {
-    "wins": 18,
-    "losses": 18,
-    "pnl": -1.2400000000000007,
+    "wins": 19,
+    "losses": 19,
+    "pnl": -1.6100000000000008,
     "skipped": 0,
     "by_rsi_bucket": {
       "75-80": {
@@ -718,9 +756,9 @@
         "pnl": -5.05
       },
       "70-75": {
-        "wins": 6,
-        "losses": 2,
-        "pnl": 9.06
+        "wins": 7,
+        "losses": 3,
+        "pnl": 8.69
       },
       "80-85": {
         "wins": 2,
@@ -730,5 +768,5 @@
     },
     "start_time": "2026-02-19T04:42:37.813380+00:00"
   },
-  "last_updated": "2026-02-20T18:12:33.895242+00:00"
+  "last_updated": "2026-02-21T02:09:41.910417+00:00"
 }
