@@ -10,6 +10,7 @@ Architecture:
   News Sources (30-60s poll) -> Dedup -> Market Match -> LLM Edge -> Paper Trade -> Exit Monitor
 
 V1.0: NewsData.io + Google News RSS + Polymarket spike detection + Claude Haiku matching
+V1.1: Fix deaf pipeline — lower min_overlap to 1, extend freshness to 30min, more RSS feeds, raise entry cap
 """
 
 import asyncio
@@ -38,11 +39,11 @@ from pid_lock import acquire_pid_lock
 
 # News polling
 POLL_INTERVAL = 30              # seconds between news checks
-NEWS_MAX_AGE = 600              # 10 min max headline age
+NEWS_MAX_AGE = 1800             # 30 min max headline age (was 600 — too tight for RSS delay)
 MARKET_CACHE_TTL = 300          # 5 min market cache refresh
 
 # Entry criteria
-MAX_ENTRY_PRICE = 0.30          # only buy markets priced < 30c
+MAX_ENTRY_PRICE = 0.50          # only buy markets priced < 50c (was 30c — missed 34c Iran deal)
 MIN_EDGE = 0.20                 # 20pp minimum edge (LLM_prob - market_price)
 MIN_LLM_CONFIDENCE = 0.70      # LLM must be > 70% confident
 
@@ -160,10 +161,13 @@ class NewsFeedManager:
     async def poll_google_rss(self) -> list[dict]:
         """Google News RSS — free, unlimited, ~5 min delay."""
         articles = []
-        # Poll both general news and politics/world topics
+        # Poll general + topic-specific feeds for broader coverage (V1.1: added world, business, science)
         feeds = [
-            f"{GOOGLE_NEWS_RSS}?hl=en-US&gl=US&ceid=US:en",
+            f"{GOOGLE_NEWS_RSS}?hl=en-US&gl=US&ceid=US:en",  # top stories
             f"{GOOGLE_NEWS_RSS}/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRFZxYUdjU0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US:en",  # politics
+            f"{GOOGLE_NEWS_RSS}/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx1YlY4U0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US:en",  # world
+            f"{GOOGLE_NEWS_RSS}/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US:en",  # business
+            f"{GOOGLE_NEWS_RSS}/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRFp0Y1RjU0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US:en",  # science
         ]
         try:
             async with httpx.AsyncClient(timeout=15) as client:
@@ -173,7 +177,7 @@ class NewsFeedManager:
                         if r.status_code != 200:
                             continue
                         feed = feedparser.parse(r.text)
-                        for entry in feed.entries[:20]:
+                        for entry in feed.entries[:40]:  # V1.1: was 20, grab more to avoid missing scroll-off
                             pub_dt = None
                             if hasattr(entry, "published_parsed") and entry.published_parsed:
                                 import calendar
@@ -279,9 +283,12 @@ class PolymarketCache:
                             if m.get("closed", True):
                                 continue
                             q = m.get("question", "") or event.get("title", "")
+                            event_title = event.get("title", "")
                             m["_question"] = q
-                            m["_event_title"] = event.get("title", "")
-                            m["_keywords"] = self._extract_keywords(q)
+                            m["_event_title"] = event_title
+                            # V1.1: Index BOTH question AND event title for broader keyword coverage
+                            combined_text = f"{q} {event_title}"
+                            m["_keywords"] = self._extract_keywords(combined_text)
                             all_markets.append(m)
 
             # Build inverted keyword index
@@ -300,11 +307,28 @@ class PolymarketCache:
         except Exception as e:
             print(f"[CACHE] Refresh error: {e}")
 
-    def find_matches(self, headline: str, min_overlap: int = 2) -> list[dict]:
-        """Find markets matching headline keywords. Returns sorted by overlap score."""
+    # High-value entity keywords — single match is enough for these
+    ENTITY_KEYWORDS = frozenset({
+        "iran", "china", "russia", "ukraine", "taiwan", "korea", "israel",
+        "gaza", "trump", "biden", "putin", "zelensky", "xi", "modi",
+        "nato", "fed", "opec", "bitcoin", "btc", "ethereum", "eth",
+        "tariff", "tariffs", "nuclear", "missile", "invasion", "strike",
+        "impeach", "resign", "assassination", "coup", "earthquake",
+        "hurricane", "pandemic", "default", "recession", "shutdown",
+    })
+
+    def find_matches(self, headline: str, min_overlap: int = 1) -> list[dict]:
+        """Find markets matching headline keywords. Returns sorted by overlap score.
+
+        V1.1: Lowered min_overlap from 2 to 1. The LLM filter downstream handles
+        false positives — better to over-match than miss real events like Iran deal.
+        """
         h_keywords = self._extract_keywords(headline)
         if not h_keywords:
             return []
+
+        # Check if headline contains high-value entity keywords
+        has_entity = any(kw in self.ENTITY_KEYWORDS for kw in h_keywords)
 
         # Count keyword overlaps per market
         market_scores: dict[int, int] = {}
@@ -312,10 +336,13 @@ class PolymarketCache:
             for idx in self.keyword_index.get(kw, []):
                 market_scores[idx] = market_scores.get(idx, 0) + 1
 
+        # Use min_overlap=1 for entity keywords, 2 for generic headlines
+        effective_min = 1 if has_entity else min_overlap
+
         # Filter by minimum overlap and sort by score desc
         matches = []
         for idx, score in sorted(market_scores.items(), key=lambda x: -x[1]):
-            if score >= min_overlap:
+            if score >= effective_min:
                 m = self.markets[idx].copy()
                 m["_match_score"] = score
                 m["_match_keywords"] = [kw for kw in h_keywords if kw in [k.lower() for k in self.markets[idx].get("_keywords", [])]]
