@@ -21,9 +21,9 @@
       "pnl": 90.80999999999999
     },
     "VORTEX_RVI": {
-      "wins": 8,
+      "wins": 9,
       "losses": 2,
-      "pnl": 48.07000000000001
+      "pnl": 56.56000000000001
     },
     "GENESIS_CCI_STOCH": {
       "wins": 0,
@@ -61,9 +61,9 @@
       "pnl": 28.03000000000001
     },
     "_total": {
-      "wins": 114,
+      "wins": 115,
       "losses": 58,
-      "pnl": 527.0899999999999
+      "pnl": 535.5799999999999
     }
   },
   "resolved": [
@@ -5398,8 +5398,39 @@
       "pnl": -8.0,
       "exit_price": 0.0,
       "exit_time": "2026-02-21T16:09:12.732562+00:00"
+    },
+    {
+      "side": "UP",
+      "entry_price": 0.485,
+      "size_usd": 8.0,
+      "entry_time": "2026-02-21T18:33:32.183355+00:00",
+      "condition_id": "0x3d258b05317b3c81ab26fe2b17dc848f3fba76ea55b655bc27315a657e5a8517",
+      "market_numeric_id": "1403313",
+      "title": "Bitcoin Up or Down - February 21, 1:30PM-1:45PM ET",
+      "strategy": "VORTEX_RVI",
+      "edge": 0.0628,
+      "fair_px": 0.5478,
+      "strength": 0.471,
+      "reason": "vortex_cross_up_rvi_obv",
+      "btc_price": 68526.4,
+      "detail": "vi+=1.032 vi-=0.990 rvi=0.040 obvSlope=28",
+      "tte_seconds": 688,
+      "ml_features": {
+        "conf": 0.4709164324895102,
+        "ema_gap": 0.0,
+        "rsi": 50.0,
+        "atr_pct": 0.0,
+        "hour_utc": 18.0,
+        "edge": 0.06283405475806803,
+        "strength": 0.4709164324895102
+      },
+      "ml_prob": 0.676,
+      "status": "closed",
+      "pnl": 8.49,
+      "exit_price": 1.0,
+      "exit_time": "2026-02-21T18:50:28.349129+00:00"
     }
   ],
   "active": {},
-  "last_updated": "2026-02-21T17:42:52.376171+00:00"
+  "last_updated": "2026-02-21T19:04:29.159174+00:00"
 }

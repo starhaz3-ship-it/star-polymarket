@@ -1007,18 +1007,75 @@
       "result": "WIN",
       "market_outcome": "UP",
       "resolve_time": "2026-02-21T16:30:19.342122+00:00"
+    },
+    {
+      "condition_id": "0xf7cebea2255e9e190d6059202f52fce5654c55c1fecf4694caa189469570c99e",
+      "question": "Bitcoin Up or Down - February 21, 1:20PM-1:25PM ET",
+      "side": "DOWN",
+      "entry_price": 0.505,
+      "rsi": 75.5,
+      "rsi_bucket": "75-80",
+      "volume_ok": true,
+      "shares": 4.9505,
+      "cost": 2.5,
+      "time_remaining_sec": 238.1,
+      "entry_time": "2026-02-21T18:21:02.622996+00:00",
+      "end_dt": "2026-02-21T18:25:00+00:00",
+      "status": "closed",
+      "pnl": -2.5,
+      "result": "LOSS",
+      "market_outcome": "UP",
+      "resolve_time": "2026-02-21T18:25:20.716534+00:00"
+    },
+    {
+      "condition_id": "0x1d8b209b3e16454405f2c19fedb51769d6b9dbab4ada8996d6645d4deb851de8",
+      "question": "Bitcoin Up or Down - February 21, 1:25PM-1:30PM ET",
+      "side": "DOWN",
+      "entry_price": 0.535,
+      "rsi": 82.4,
+      "rsi_bucket": "80-85",
+      "volume_ok": true,
+      "shares": 4.6729,
+      "cost": 2.5,
+      "time_remaining_sec": 239.5,
+      "entry_time": "2026-02-21T18:26:01.208583+00:00",
+      "end_dt": "2026-02-21T18:30:00+00:00",
+      "status": "closed",
+      "pnl": 2.17,
+      "result": "WIN",
+      "market_outcome": "DOWN",
+      "resolve_time": "2026-02-21T18:30:17.639884+00:00"
+    },
+    {
+      "condition_id": "0xd01f7aced6eb15dffd5e17e1c1774e35528d52fd7404cd72f948da0d6e4ac3dc",
+      "question": "Bitcoin Up or Down - February 21, 1:50PM-1:55PM ET",
+      "side": "DOWN",
+      "entry_price": 0.515,
+      "rsi": 74.2,
+      "rsi_bucket": "70-75",
+      "volume_ok": true,
+      "shares": 4.8544,
+      "cost": 2.5,
+      "time_remaining_sec": 237.1,
+      "entry_time": "2026-02-21T18:51:03.775529+00:00",
+      "end_dt": "2026-02-21T18:55:00+00:00",
+      "status": "closed",
+      "pnl": -2.5,
+      "result": "LOSS",
+      "market_outcome": "UP",
+      "resolve_time": "2026-02-21T18:55:17.645892+00:00"
     }
   ],
   "stats": {
-    "wins": 25,
-    "losses": 28,
-    "pnl": -9.71,
+    "wins": 26,
+    "losses": 30,
+    "pnl": -12.540000000000001,
     "skipped": 0,
     "by_rsi_bucket": {
       "75-80": {
         "wins": 3,
-        "losses": 3,
-        "pnl": -0.05
+        "losses": 4,
+        "pnl": -2.55
       },
       "85-90": {
         "wins": 1,
@@ -1042,13 +1099,13 @@
       },
       "70-75": {
         "wins": 9,
-        "losses": 7,
-        "pnl": 3.69
+        "losses": 8,
+        "pnl": 1.19
       },
       "80-85": {
-        "wins": 3,
+        "wins": 4,
         "losses": 5,
-        "pnl": -4.95
+        "pnl": -2.78
       },
       "15-20": {
         "wins": 1,
@@ -1058,5 +1115,5 @@
     },
     "start_time": "2026-02-19T04:42:37.813380+00:00"
   },
-  "last_updated": "2026-02-21T17:43:01.269873+00:00"
+  "last_updated": "2026-02-21T18:59:25.359471+00:00"
 }
