@@ -161,13 +161,32 @@ class NewsFeedManager:
     async def poll_google_rss(self) -> list[dict]:
         """Google News RSS — free, unlimited, ~5 min delay."""
         articles = []
-        # Poll general + topic-specific feeds for broader coverage (V1.1: added world, business, science)
+        # V1.2: 17 RSS feeds across 9 outlets — all free, unlimited
         feeds = [
+            # Google News (5 feeds)
             f"{GOOGLE_NEWS_RSS}?hl=en-US&gl=US&ceid=US:en",  # top stories
             f"{GOOGLE_NEWS_RSS}/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRFZxYUdjU0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US:en",  # politics
             f"{GOOGLE_NEWS_RSS}/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx1YlY4U0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US:en",  # world
             f"{GOOGLE_NEWS_RSS}/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US:en",  # business
-            f"{GOOGLE_NEWS_RSS}/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRFp0Y1RjU0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US:en",  # science
+            f"{GOOGLE_NEWS_RSS}/search?q=breaking+news&hl=en-US&gl=US&ceid=US:en",  # breaking news search
+            # BBC (3 feeds — fastest for international)
+            "https://feeds.bbci.co.uk/news/world/rss.xml",
+            "https://feeds.bbci.co.uk/news/rss.xml",
+            "https://feeds.bbci.co.uk/news/politics/rss.xml",
+            # Al Jazeera (best for Middle East — Iran, Gaza, Yemen)
+            "https://www.aljazeera.com/xml/rss/all.xml",
+            # CNN (2 feeds)
+            "http://rss.cnn.com/rss/cnn_world.rss",
+            "http://rss.cnn.com/rss/cnn_allpolitics.rss",
+            # NPR (2 feeds)
+            "https://feeds.npr.org/1004/rss.xml",  # world
+            "https://feeds.npr.org/1014/rss.xml",  # politics
+            # Sky News (2 feeds)
+            "https://feeds.skynews.com/feeds/rss/world.xml",
+            "https://feeds.skynews.com/feeds/rss/home.xml",
+            # NYT (2 feeds — high quality analysis)
+            "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
+            "https://rss.nytimes.com/services/xml/rss/nyt/Politics.xml",
         ]
         try:
             async with httpx.AsyncClient(timeout=15) as client:
