@@ -24,6 +24,9 @@ import feedparser
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # PID lock
 sys.path.insert(0, str(Path(__file__).parent))
@@ -99,6 +102,9 @@ class NewsFeedManager:
     def _is_fresh(self, pub_time: Optional[datetime]) -> bool:
         if not pub_time:
             return True  # if no timestamp, assume fresh
+        # Ensure timezone-aware comparison
+        if pub_time.tzinfo is None:
+            pub_time = pub_time.replace(tzinfo=timezone.utc)
         age = (datetime.now(timezone.utc) - pub_time).total_seconds()
         return age < NEWS_MAX_AGE
 
@@ -744,6 +750,10 @@ async def main():
 
             # 2. Poll news sources
             headlines = await feeds.poll_all()
+
+            if cycle <= 3 or cycle % 10 == 0:
+                print(f"[POLL] Cycle {cycle} | {len(headlines)} headlines | "
+                      f"NewsData: {feeds._newsdata_calls_today}/190 today")
 
             # 3. Process headlines
             for h in headlines:
