@@ -77,6 +77,8 @@ RSI_MODERATE_DOWN_LO = 30   # V1.9b: Widened from 35 to 30
 RSI_MODERATE_DOWN_HI = 50
 MIN_ENTRY = 0.35            # V1.1: Raised from $0.10 — entries <$0.35 were 0W/3L (0% WR, -$7.50)
 MAX_ENTRY = 0.80            # V2.5: Raised from 0.70 — CSV shows $0.60-$0.80 entries = 100% WR (59 trades)
+DEAD_ZONE_LO = 0.55         # V4.1: Entry dead zone — CSV Feb 21: 33% WR at 0.55-0.65, -$22.55
+DEAD_ZONE_HI = 0.65         # V4.1: Skip entries in this range (below=OK 57%WR, above=OK 75%WR)
 TIME_WINDOW = (2.0, 6.0)    # V2.3: Widened from (2,4) — more entry opportunities while preserving edge
 SPREAD_OFFSET = 0.02        # paper fill spread simulation (ignored in live)
 RESOLVE_AGE_MIN = 18.0      # minutes before forcing resolution via API
@@ -2209,9 +2211,9 @@ class Momentum15MTrader:
         """Find momentum-based entries on 15M markets across all assets."""
         now = datetime.now(timezone.utc)
 
-        # V2.1: Re-opened hour 13 UTC — lab showed it's profitable (+$172 left on table)
-        # Only skip hour 7 (2AM ET) — confirmed dead
-        SKIP_HOURS = {7}
+        # V4.1: Skip dead hours — UTC 7 (2AM ET) + UTC 19-21 (2-4PM ET afternoon disaster)
+        # Feb 21 CSV: 2PM-5PM ET = 2W/6L, net -$9.62. Afternoon BTC too noisy.
+        SKIP_HOURS = {7, 19, 20, 21}
         if now.hour in SKIP_HOURS:
             return
 
@@ -2348,7 +2350,7 @@ class Momentum15MTrader:
                 # NORMAL UP: Bullish momentum + RSI confirms → bet UP (on-chain: 88% WR)
                 if not rsi_override and rsi_val is not None and rsi_val < RSI_CONFIRM_UP:
                     continue  # RSI too weak for UP
-                if MIN_ENTRY <= up_price <= MAX_ENTRY:
+                if MIN_ENTRY <= up_price <= MAX_ENTRY and not (DEAD_ZONE_LO <= up_price <= DEAD_ZONE_HI):
                     side = "UP"
                     entry_price = round(up_price + (SPREAD_OFFSET if self.paper else 0), 2)
             elif momentum_10m < -ml_m10 and momentum_5m < -ml_m5:
@@ -2359,7 +2361,7 @@ class Momentum15MTrader:
                     continue
                 # MODERATE DOWN (or mega spike override): bearish momentum → bet DOWN
                 # Backtest: 91.40% WR, +$385 over 93 trades
-                if MIN_ENTRY <= down_price <= MAX_ENTRY:
+                if MIN_ENTRY <= down_price <= MAX_ENTRY and not (DEAD_ZONE_LO <= down_price <= DEAD_ZONE_HI):
                     side = "DOWN"
                     entry_price = round(down_price + (SPREAD_OFFSET if self.paper else 0), 2)
 
@@ -2541,6 +2543,12 @@ class Momentum15MTrader:
                     self._recovery_trades < CIRCUIT_BREAKER_RECOVERY):
                 trade_size = round(trade_size * 0.5, 2)
                 print(f"    [HALFSIZE] ${trade_size:.2f}")
+
+            # V4.1: Hard cap — CSV Feb 21: $5+ bets were ALL losses (-$20.12)
+            MAX_TRADE_SIZE = 3.50
+            if trade_size > MAX_TRADE_SIZE:
+                print(f"    [CAP] ${trade_size:.2f} -> ${MAX_TRADE_SIZE:.2f}")
+                trade_size = MAX_TRADE_SIZE
 
             shares = int(trade_size / entry_price)  # V1.9b: integer shares — CLOB rejects excess decimals
 
