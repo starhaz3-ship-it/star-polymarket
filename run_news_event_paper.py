@@ -364,11 +364,11 @@ class PolymarketCache:
         "explosion", "derailment", "shooting", "massacre",
     })
 
-    def find_matches(self, headline: str, min_overlap: int = 1) -> list[dict]:
+    def find_matches(self, headline: str, min_overlap: int = 2) -> list[dict]:
         """Find markets matching headline keywords. Returns sorted by overlap score.
 
-        V1.1: Lowered min_overlap from 2 to 1. The LLM filter downstream handles
-        false positives — better to over-match than miss real events like Iran deal.
+        V1.2: min_overlap=2 for generic headlines, 1 for entity keywords only.
+        This prevents junk (credit cards, home equity) from burning LLM calls.
         """
         h_keywords = self._extract_keywords(headline)
         if not h_keywords:
@@ -383,7 +383,7 @@ class PolymarketCache:
             for idx in self.keyword_index.get(kw, []):
                 market_scores[idx] = market_scores.get(idx, 0) + 1
 
-        # Use min_overlap=1 for entity keywords, 2 for generic headlines
+        # Use min_overlap=1 ONLY for entity keywords, 2 for generic headlines
         effective_min = 1 if has_entity else min_overlap
 
         # Filter by minimum overlap and sort by score desc
@@ -405,8 +405,11 @@ class PolymarketCache:
 class NewsSignalGenerator:
     """Evaluate headline + candidate markets for tradeable edge."""
 
+    MAX_LLM_PER_HOUR = 30  # V1.2: Cap LLM calls to avoid API lockout
+
     def __init__(self):
         self._llm_calls = 0
+        self._llm_timestamps: list[float] = []  # track call times for rate limiting
 
     async def _get_yes_price(self, market: dict) -> Optional[float]:
         """Get current YES price from CLOB orderbook."""
@@ -462,6 +465,12 @@ Rules:
 - Say "skip" if the connection is weak, indirect, or uncertain
 - Be conservative — false positives cost real money"""
 
+        # V1.2: Rate limit LLM calls
+        now = time.time()
+        self._llm_timestamps = [t for t in self._llm_timestamps if now - t < 3600]
+        if len(self._llm_timestamps) >= self.MAX_LLM_PER_HOUR:
+            return None
+
         try:
             async with httpx.AsyncClient(timeout=30) as client:
                 r = await client.post(
@@ -478,6 +487,7 @@ Rules:
                     },
                 )
                 self._llm_calls += 1
+                self._llm_timestamps.append(now)
                 if r.status_code == 200:
                     data = r.json()
                     text = data.get("content", [{}])[0].get("text", "{}")
@@ -493,7 +503,7 @@ Rules:
         """Evaluate candidates and return tradeable signals."""
         signals = []
 
-        for market in candidates[:5]:  # max 5 LLM calls per headline
+        for market in candidates[:3]:  # V1.2: max 3 LLM calls per headline (was 5)
             question = market.get("_question", "")
             cid = market.get("conditionId", "")
 
