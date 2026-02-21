@@ -59,6 +59,7 @@ load_dotenv()
 from pid_lock import acquire_pid_lock, release_pid_lock
 from hmm_regime_filter import HMMRegimeFilter
 from adaptive_tuner import ParameterTuner, MOMENTUM_TUNER_CONFIG
+from liquidation_feed import BinanceLiqFeed
 
 # ============================================================================
 # CONFIG
@@ -1379,6 +1380,7 @@ class Momentum15MTrader:
         self._candles_15m_cache = None  # V2.1: FRAMA_CMO 15M candle cache
         self._candles_15m_ts = 0        # V2.1: cache timestamp
         self.bs_ml = BSEdgeML()          # V2.3: Black-Scholes edge ML
+        self.liq_feed = BinanceLiqFeed(window_sec=600)  # V4.4: Binance liquidation feed
         self.cond_tracker = BayesianConditionTracker()  # V2.3: condition bucketing
         self._load()
         # V3.0: Circuit breaker
@@ -2317,6 +2319,70 @@ class Momentum15MTrader:
         return {"side": side, "reason": reason, "detail": detail}
 
     # ========================================================================
+    # V4.4: DOWN BIAS COMPOSITE SIGNAL (hour + streak + liquidation)
+    # ========================================================================
+
+    # BTC 15-min directional bias by UTC hour (from 10-day backtest)
+    # Positive = DOWN bias, Negative = UP bias
+    HOUR_BIAS = {
+        4: -0.3, 5: -0.3, 6: -0.3, 7: -0.2,    # Asian late night: UP bias
+        12: 0.3, 13: 0.3, 14: 0.2, 15: 0.2,     # US open 7-10AM ET: DOWN bias
+        16: 0.15, 17: 0.15,                       # US midday: mild DOWN
+        20: -0.2, 21: -0.2, 22: -0.2, 23: -0.15, # US afternoon: UP bias
+    }
+    MIN_BIAS_SCORE = 0.4  # need 0.4+ composite to fire signal
+
+    async def _check_down_bias(self):
+        """DOWN bias signal: hour-of-day + streak reversal + liquidation imbalance.
+        Inspired by litquidity whale (96.6% WR on DOWN, 480 BTC 15-min markets).
+        Returns {"side": "UP"/"DOWN"/None, "reason": str, "detail": str}."""
+        score = 0.0
+        components = []
+
+        # 1. Hour-of-day bias (backtest: 12-15 UTC = 57% DOWN, 04-07 UTC = 55% UP)
+        hour = datetime.now(timezone.utc).hour
+        hour_bias = self.HOUR_BIAS.get(hour, 0)
+        score += hour_bias
+        if hour_bias != 0:
+            components.append(f"h{hour}({hour_bias:+.1f})")
+
+        # 2. Streak reversal (backtest: 4+ UP streak → 61.8% DOWN next)
+        streak_len, streak_dir = self.get_streak("BTC")
+        if streak_len >= 4:
+            streak_score = 0.2 if streak_dir == "UP" else -0.2
+            score += streak_score
+            components.append(f"{streak_len}x{streak_dir}({streak_score:+.1f})")
+        elif streak_len >= 2:
+            streak_score = 0.1 if streak_dir == "UP" else -0.1
+            score += streak_score
+            components.append(f"{streak_len}x{streak_dir}({streak_score:+.1f})")
+
+        # 3. Liquidation imbalance (longs liquidated = forced selling = DOWN)
+        if self.liq_feed and self.liq_feed.connected:
+            imb = self.liq_feed.get_imbalance()
+            if imb["count"] >= 3:
+                if imb["long_pct"] > 0.60:
+                    liq_score = 0.25
+                    score += liq_score
+                    components.append(f"liq{imb['long_pct']:.0%}L({liq_score:+.1f})")
+                elif imb["short_pct"] > 0.60:
+                    liq_score = -0.25
+                    score += liq_score
+                    components.append(f"liq{imb['short_pct']:.0%}S({liq_score:+.1f})")
+
+        side = None
+        reason = "no_bias"
+        if score >= self.MIN_BIAS_SCORE:
+            side = "DOWN"
+            reason = "down_bias"
+        elif score <= -self.MIN_BIAS_SCORE:
+            side = "UP"
+            reason = "up_bias"
+
+        detail = " ".join(components) + f" ={score:+.2f}"
+        return {"side": side, "reason": reason, "detail": detail}
+
+    # ========================================================================
     # V2.3: BLACK-SCHOLES FAIR VALUE SIGNAL
     # ========================================================================
 
@@ -2458,6 +2524,10 @@ class Momentum15MTrader:
         vortex_sig = await self._check_vortex_rvi()
         vortex_side = vortex_sig.get("side")
 
+        # V4.4: DOWN bias signal (hour-of-day + streak + liquidation imbalance)
+        down_bias_sig = await self._check_down_bias()
+        down_bias_side = down_bias_sig.get("side")
+
         for market in markets:
             if open_count >= MAX_CONCURRENT:
                 break
@@ -2597,8 +2667,8 @@ class Momentum15MTrader:
                     self.bs_ml.record_shadow_entry(cid, bs_side, bs_entry_p, bs_edge)
                     print(f"    [BS-SHADOW] {bs_side} @ ${bs_entry_p:.2f} edge={bs_edge:.1%} (paper-only, need 25T/65%WR)")
 
-            # V2.1+V2.3: Multi-signal consensus logic
-            # Count how many independent signals agree: momentum, FRAMA_CMO, BS, VORTEX_RVI
+            # V2.1+V4.4: Multi-signal consensus logic
+            # Count how many independent signals agree: momentum, FRAMA_CMO, BS, VORTEX_RVI, DOWN_BIAS
             signals = {}
             if side:
                 signals["momentum"] = side
@@ -2606,6 +2676,8 @@ class Momentum15MTrader:
                 signals["frama_cmo"] = frama_side
             if vortex_side:
                 signals["vortex_rvi"] = vortex_side
+            if down_bias_side:
+                signals["down_bias"] = down_bias_side
             if bs_side and bs_live_eligible:
                 signals["bs_edge"] = bs_side  # only counts if promoted to live
 
@@ -2644,6 +2716,13 @@ class Momentum15MTrader:
                 if entry_price > MAX_ENTRY or entry_price < MIN_ENTRY:
                     continue
                 print(f"    [VORTEX_RVI] {side} @ ${entry_price:.2f} | {vortex_sig.get('detail', '')}")
+            elif not side and down_bias_side:
+                side = down_bias_side
+                strategy = "down_bias"
+                entry_price = round((up_price if side == "UP" else down_price) + (SPREAD_OFFSET if self.paper else 0), 2)
+                if entry_price > MAX_ENTRY or entry_price < MIN_ENTRY:
+                    continue
+                print(f"    [DOWN_BIAS] {side} @ ${entry_price:.2f} | {down_bias_sig.get('detail', '')}")
             elif not side and bs_side and bs_live_eligible:
                 side = bs_side
                 strategy = "bs_edge"
@@ -3075,8 +3154,8 @@ class Momentum15MTrader:
         mode = "PAPER" if self.paper else "LIVE"
         print("=" * 70)
         tier_size = TIERS[self.tier]["size"]
-        print(f"MOMENTUM 15M DIRECTIONAL TRADER V4.0 - {mode} MODE")
-        print(f"Strategy: momentum_strong + FRAMA_CMO + Black-Scholes edge | BTC only")
+        print(f"MOMENTUM 15M DIRECTIONAL TRADER V4.4 - {mode} MODE")
+        print(f"Strategy: momentum_strong + FRAMA_CMO + BS + VORTEX_RVI + DOWN_BIAS | BTC only")
         print(f"Assets: {', '.join(ASSETS.keys())}")
         print(f"Tier: {self.tier} (${tier_size:.2f}/trade) | Max concurrent: {MAX_CONCURRENT}")
         print(f"Entry price: ${MIN_ENTRY:.2f}-${MAX_ENTRY:.2f}")
@@ -3109,6 +3188,10 @@ class Momentum15MTrader:
 
         # V2.2: Start Polymarket WebSocket feed (real-time prices + resolution)
         await self.poly_ws.start()
+
+        # V4.4: Start Binance liquidation feed (BTC direction signal)
+        await self.liq_feed.start()
+        print(f"[LIQ] Binance liquidation feed started (10-min window)")
 
         if self.resolved:
             w, l = self.stats["wins"], self.stats["losses"]

@@ -1,5 +1,11 @@
 """
-Adaptive Parameter Tuner V2.0 — ML profit maximizer for Polymarket bots.
+Adaptive Parameter Tuner V2.1 — ML profit maximizer for Polymarket bots.
+
+V2.1 UPGRADES (2026-02-21):
+  - Brier Score calibration: measures prediction accuracy by confidence bucket
+  - Detects overconfidence (paying too much) and underconfidence (leaving edge on table)
+  - Rolling drift detection: last 20 trades vs overall, flags degradation
+  - Direction-split Brier: separate scores for UP vs DOWN signals
 
 V2.0 UPGRADES (2026-02-21):
   - Exponential recency weighting (decay_factor=0.95 per hour)
@@ -585,6 +591,98 @@ class ParameterTuner:
         stats = self.get_hourly_stats()
         return [h for h, s in stats.items() if s["skip"]]
 
+    def get_brier_score(self, last_n: int = 0) -> dict:
+        """
+        V2.1: Brier Score calibration — measures how well our confidence
+        (entry price) predicts outcomes.
+
+        Brier Score = mean((predicted_prob - outcome)^2)
+          0.00 = perfect | 0.10 = excellent | 0.20 = good | 0.25 = coin flip
+
+        Also returns calibration buckets: predicted confidence vs actual WR.
+        Detects overconfidence (we pay $0.90 but only win 70%) and
+        underconfidence (we pay $0.75 but win 95%).
+        """
+        resolved = self.state.get("resolved_log", [])
+        if last_n > 0:
+            resolved = resolved[-last_n:]
+        if len(resolved) < 10:
+            return {"score": None, "rating": "insufficient_data", "trades": len(resolved)}
+
+        bucket_ranges = [
+            (0.50, 0.65, "0.50-0.65"), (0.65, 0.75, "0.65-0.75"),
+            (0.75, 0.85, "0.75-0.85"), (0.85, 0.95, "0.85-0.95"),
+            (0.95, 1.01, "0.95-1.00"),
+        ]
+        buckets = {label: {"pred_sum": 0.0, "wins": 0, "count": 0}
+                   for _, _, label in bucket_ranges}
+
+        brier_sum = 0.0
+        up_sq, down_sq = [], []
+
+        for r in resolved:
+            pred = r.get("entry_price", 0.5)
+            outcome = 1 if r.get("won", False) else 0
+            sq_err = (pred - outcome) ** 2
+            brier_sum += sq_err
+
+            side = r.get("side", "")
+            if side == "UP":
+                up_sq.append(sq_err)
+            elif side == "DOWN":
+                down_sq.append(sq_err)
+
+            for b_lo, b_hi, b_label in bucket_ranges:
+                if b_lo <= pred < b_hi:
+                    buckets[b_label]["pred_sum"] += pred
+                    buckets[b_label]["wins"] += outcome
+                    buckets[b_label]["count"] += 1
+                    break
+
+        brier = brier_sum / len(resolved)
+        rating = ("excellent" if brier < 0.10 else "good" if brier < 0.20
+                  else "fair" if brier < 0.25 else "poor")
+
+        # Calibration per bucket
+        calibration = {}
+        for b_label, bd in buckets.items():
+            if bd["count"] >= 3:
+                avg_pred = bd["pred_sum"] / bd["count"]
+                actual_wr = bd["wins"] / bd["count"]
+                gap = actual_wr - avg_pred
+                calibration[b_label] = {
+                    "avg_predicted": round(avg_pred, 3),
+                    "actual_wr": round(actual_wr, 3),
+                    "gap": round(gap, 3),
+                    "trades": bd["count"],
+                    "status": ("OVERCONFIDENT" if gap < -0.10
+                               else "UNDERCONFIDENT" if gap > 0.10
+                               else "calibrated"),
+                }
+
+        result = {
+            "score": round(brier, 4),
+            "rating": rating,
+            "trades": len(resolved),
+            "calibration": calibration,
+        }
+        if up_sq:
+            result["up_brier"] = round(sum(up_sq) / len(up_sq), 4)
+        if down_sq:
+            result["down_brier"] = round(sum(down_sq) / len(down_sq), 4)
+
+        # Rolling drift: last 20 vs overall
+        if len(resolved) >= 40:
+            recent = resolved[-20:]
+            recent_brier = sum(
+                (r.get("entry_price", 0.5) - (1 if r.get("won", False) else 0)) ** 2
+                for r in recent
+            ) / 20
+            result["recent_brier"] = round(recent_brier, 4)
+            result["drift"] = round(recent_brier - brier, 4)
+
+        return result
+
     def get_optimal_size_mult(self, hour: int = None, direction: str = None,
                               entry_price: float = None, momentum: float = None,
                               rsi: float = None) -> float:
@@ -759,6 +857,26 @@ class ParameterTuner:
         neg_hours = self.get_negative_ev_hours()
         if neg_hours:
             lines.append(f"  SKIP HOURS (UTC): {sorted(neg_hours)} (neg EV, 5+ trades)")
+
+        # V2.1: Brier Score calibration
+        brier = self.get_brier_score()
+        if brier.get("score") is not None:
+            drift_str = ""
+            if "drift" in brier:
+                arrow = "^" if brier["drift"] > 0.02 else "v" if brier["drift"] < -0.02 else "="
+                drift_str = f" | recent={brier['recent_brier']:.3f} {arrow}"
+            lines.append(f"  BRIER: {brier['score']:.3f} ({brier['rating']}){drift_str}")
+            if brier.get("up_brier") is not None and brier.get("down_brier") is not None:
+                lines.append(f"    UP={brier['up_brier']:.3f} | DOWN={brier['down_brier']:.3f}")
+            for bucket, cal in brier.get("calibration", {}).items():
+                flag = ""
+                if cal["status"] == "OVERCONFIDENT":
+                    flag = " *** OVERCONFIDENT"
+                elif cal["status"] == "UNDERCONFIDENT":
+                    flag = " ** underconfident"
+                lines.append(f"    {bucket}: pred={cal['avg_predicted']:.0%} "
+                             f"actual={cal['actual_wr']:.0%} gap={cal['gap']:+.0%} "
+                             f"({cal['trades']}t){flag}")
 
         return "\n".join(lines)
 

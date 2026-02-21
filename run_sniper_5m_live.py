@@ -42,6 +42,7 @@ load_dotenv()
 
 from pid_lock import acquire_pid_lock, release_pid_lock
 from adaptive_tuner import ParameterTuner, SNIPER_TUNER_CONFIG
+from liquidation_feed import BinanceLiqFeed
 
 # ============================================================================
 # CONFIG
@@ -98,6 +99,7 @@ SYNTH_API_KEY = os.environ.get("SYNTHDATA_API_KEY", "")
 SYNTH_EDGE_THRESHOLD = 0.05    # 5pp minimum edge for SynthData boost
 SYNTH_SIZE_BOOST = 1.5         # 1.5x when Synth agrees with signal
 SYNTH_SIZE_REDUCE = 0.5        # 0.5x when Synth strongly disagrees
+LIQ_SIZE_BOOST = 1.3           # V4.4: 1.3x when liquidation imbalance confirms direction
 
 
 # ============================================================================
@@ -378,6 +380,9 @@ class Sniper5MLive:
 
         # V3.1: API error backoff tracking
         self._api_consecutive_errors = 0
+
+        # V4.4: Binance liquidation feed (directional confidence boost)
+        self.liq_feed = BinanceLiqFeed(window_sec=600)
 
         if not self.paper:
             self._init_clob()
@@ -1169,6 +1174,21 @@ class Sniper5MLive:
                 trade_size = round(trade_size * UP_SIZE_MULT, 2)
                 print(f"  [UP-BIAS] Reduced size: ${trade_size:.2f} (50% for UP trades)")
 
+            # V4.4: Liquidation confirmation — boost size when liq imbalance confirms direction
+            if self.liq_feed and self.liq_feed.connected:
+                imb = self.liq_feed.get_imbalance()
+                if imb["count"] >= 3:
+                    liq_confirms = False
+                    if side == "DOWN" and imb["long_pct"] > 0.60:
+                        liq_confirms = True
+                    elif side == "UP" and imb["short_pct"] > 0.60:
+                        liq_confirms = True
+                    if liq_confirms:
+                        trade_size = round(trade_size * LIQ_SIZE_BOOST, 2)
+                        print(f"  [LIQ] Liquidation confirms {side} "
+                              f"(L:{imb['long_pct']:.0%}/S:{imb['short_pct']:.0%}, "
+                              f"{imb['count']}ev) → {LIQ_SIZE_BOOST}x size: ${trade_size:.2f}")
+
             desired_shares = math.floor(trade_size / entry_price)
             if desired_shares < 1:
                 desired_shares = 1
@@ -1685,9 +1705,14 @@ class Sniper5MLive:
         print(f"    - Entry: ${MIN_CONFIDENCE:.2f}-${MAX_ENTRY_PRICE:.2f} | FOK orders")
         print(f"  Strategy 1b — DIRECTIONAL/CLOB")
         print(f"    - Binance flat fallback | CLOB dominant side $0.70-$0.78")
+        print(f"  V4.4: Liquidation boost {LIQ_SIZE_BOOST}x when Binance liqs confirm direction")
         print(f"  Scan: every {SCAN_INTERVAL}s | Daily loss limit: ${DAILY_LOSS_LIMIT:.2f}")
         print(f"  Results: {RESULTS_FILE.name}")
         print("=" * 70)
+
+        # V4.4: Start Binance liquidation feed
+        await self.liq_feed.start()
+        print(f"[LIQ] Binance liquidation feed started (10-min window)")
 
         if self.resolved:
             w, l = self.stats["wins"], self.stats["losses"]

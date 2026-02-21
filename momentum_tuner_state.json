@@ -5,37 +5,43 @@
         "alpha": 2,
         "beta": 1,
         "trades": 1,
-        "pnl": 0.56
+        "pnl": 0.56,
+        "timestamps": []
       },
       "4.0": {
         "alpha": 4,
         "beta": 3,
         "trades": 5,
-        "pnl": 0.52
+        "pnl": 0.52,
+        "timestamps": []
       },
       "5.0": {
         "alpha": 4,
         "beta": 4,
         "trades": 6,
-        "pnl": 0.16
+        "pnl": 0.16,
+        "timestamps": []
       },
       "6.0": {
         "alpha": 4,
         "beta": 5,
         "trades": 7,
-        "pnl": -0.37
+        "pnl": -0.37,
+        "timestamps": []
       },
       "7.0": {
         "alpha": 4,
         "beta": 5,
         "trades": 7,
-        "pnl": -0.37
+        "pnl": -0.37,
+        "timestamps": []
       },
       "8.0": {
         "alpha": 4,
         "beta": 5,
         "trades": 7,
-        "pnl": -0.37
+        "pnl": -0.37,
+        "timestamps": []
       }
     },
     "max_entry": {
@@ -43,37 +49,43 @@
         "alpha": 1,
         "beta": 1,
         "trades": 0,
-        "pnl": 0.0
+        "pnl": 0.0,
+        "timestamps": []
       },
       "0.55": {
         "alpha": 1,
         "beta": 1,
         "trades": 0,
-        "pnl": 0.0
+        "pnl": 0.0,
+        "timestamps": []
       },
       "0.60": {
         "alpha": 3,
         "beta": 5,
         "trades": 6,
-        "pnl": -0.76
+        "pnl": -0.76,
+        "timestamps": []
       },
       "0.65": {
         "alpha": 4,
         "beta": 5,
         "trades": 7,
-        "pnl": -0.37
+        "pnl": -0.37,
+        "timestamps": []
       },
       "0.70": {
         "alpha": 1,
         "beta": 1,
         "trades": 0,
-        "pnl": 0.0
+        "pnl": 0.0,
+        "timestamps": []
       },
       "0.75": {
         "alpha": 4,
         "beta": 5,
         "trades": 7,
-        "pnl": -0.37
+        "pnl": -0.37,
+        "timestamps": []
       }
     },
     "contrarian_ceil": {
@@ -81,37 +93,43 @@
         "alpha": 4,
         "beta": 4,
         "trades": 6,
-        "pnl": -0.01
+        "pnl": -0.01,
+        "timestamps": []
       },
       "0.40": {
         "alpha": 4,
         "beta": 3,
         "trades": 5,
-        "pnl": 0.38
+        "pnl": 0.38,
+        "timestamps": []
       },
       "0.43": {
         "alpha": 4,
         "beta": 3,
         "trades": 5,
-        "pnl": 0.38
+        "pnl": 0.38,
+        "timestamps": []
       },
       "0.45": {
         "alpha": 3,
         "beta": 3,
         "trades": 4,
-        "pnl": -0.18
+        "pnl": -0.18,
+        "timestamps": []
       },
       "0.48": {
         "alpha": 3,
         "beta": 3,
         "trades": 4,
-        "pnl": -0.18
+        "pnl": -0.18,
+        "timestamps": []
       },
       "0.50": {
         "alpha": 3,
         "beta": 3,
         "trades": 4,
-        "pnl": -0.18
+        "pnl": -0.18,
+        "timestamps": []
       }
     },
     "momentum_floor": {
@@ -119,37 +137,43 @@
         "alpha": 4,
         "beta": 5,
         "trades": 7,
-        "pnl": -0.37
+        "pnl": -0.37,
+        "timestamps": []
       },
       "0.0006": {
         "alpha": 3,
         "beta": 5,
         "trades": 6,
-        "pnl": -0.76
+        "pnl": -0.76,
+        "timestamps": []
       },
       "0.0008": {
         "alpha": 2,
         "beta": 3,
         "trades": 3,
-        "pnl": -0.19
+        "pnl": -0.19,
+        "timestamps": []
       },
       "0.0010": {
         "alpha": 2,
         "beta": 3,
         "trades": 3,
-        "pnl": -0.19
+        "pnl": -0.19,
+        "timestamps": []
       },
       "0.0012": {
         "alpha": 1,
         "beta": 3,
         "trades": 2,
-        "pnl": -0.75
+        "pnl": -0.75,
+        "timestamps": []
       },
       "0.0015": {
         "alpha": 1,
         "beta": 1,
         "trades": 0,
-        "pnl": 0.0
+        "pnl": 0.0,
+        "timestamps": []
       }
     },
     "rsi_up": {
@@ -157,37 +181,43 @@
         "alpha": 4,
         "beta": 5,
         "trades": 7,
-        "pnl": -0.37
+        "pnl": -0.37,
+        "timestamps": []
       },
       "53": {
         "alpha": 4,
         "beta": 5,
         "trades": 7,
-        "pnl": -0.37
+        "pnl": -0.37,
+        "timestamps": []
       },
       "55": {
         "alpha": 4,
         "beta": 5,
         "trades": 7,
-        "pnl": -0.37
+        "pnl": -0.37,
+        "timestamps": []
       },
       "58": {
         "alpha": 4,
         "beta": 4,
         "trades": 6,
-        "pnl": 0.14
+        "pnl": 0.14,
+        "timestamps": []
       },
       "60": {
         "alpha": 4,
         "beta": 4,
         "trades": 6,
-        "pnl": 0.14
+        "pnl": 0.14,
+        "timestamps": []
       },
       "63": {
         "alpha": 4,
         "beta": 3,
         "trades": 5,
-        "pnl": 0.5
+        "pnl": 0.5,
+        "timestamps": []
       }
     },
     "momentum_ceiling": {
@@ -195,37 +225,43 @@
         "alpha": 1,
         "beta": 1,
         "trades": 0,
-        "pnl": 0.0
+        "pnl": 0.0,
+        "timestamps": []
       },
       "0.0010": {
         "alpha": 1,
         "beta": 1,
         "trades": 0,
-        "pnl": 0.0
+        "pnl": 0.0,
+        "timestamps": []
       },
       "0.0012": {
         "alpha": 1,
         "beta": 1,
         "trades": 0,
-        "pnl": 0.0
+        "pnl": 0.0,
+        "timestamps": []
       },
       "0.0015": {
         "alpha": 1,
         "beta": 1,
         "trades": 0,
-        "pnl": 0.0
+        "pnl": 0.0,
+        "timestamps": []
       },
       "0.0020": {
         "alpha": 1,
         "beta": 1,
         "trades": 0,
-        "pnl": 0.0
+        "pnl": 0.0,
+        "timestamps": []
       },
       "0.0030": {
         "alpha": 1,
         "beta": 1,
         "trades": 0,
-        "pnl": 0.0
+        "pnl": 0.0,
+        "timestamps": []
       }
     }
   },
@@ -291,6 +327,22 @@
         "momentum_10m": 0.0,
         "rsi": 46.407954240407165,
         "strategy": "frama_cmo",
+        "traded": true
+      }
+    },
+    {
+      "market_id": "0x510214f0c60fcd29c9719b5380a9f1cdcc9d2b81315d0bc7c52f1c236e108b71",
+      "end_time": "2026-02-21T19:39:47.359793+00:00",
+      "side": "UP",
+      "entry_price": 0.66,
+      "clob_dominant": 0.66,
+      "ts": "2026-02-21T19:39:54.001926+00:00",
+      "extra": {
+        "time_left_min": 5.8,
+        "consensus": false,
+        "momentum_10m": -0.0003022391784455767,
+        "rsi": 48.24577391330223,
+        "strategy": "vortex_rvi",
         "traded": true
       }
     }

@@ -127,6 +127,9 @@ class CopyTrader:
         "Giddy-Independent": "0x861f4149171db053c73382c40d2c7e5408fd177d",  # $63K PnL, $490K vol, 16 mkts, 100% BTC dip bets (bearish), long-term
         "7thStaircase": "0x0ac97e4f5c542cd98c226ae8e1736ae78b489641",  # BTC 5m/15m both sides, net negative, high-freq micro-speculation
         "0x732F1": "0x732f189193d7a8c8bc8d8eb91f501a22736af081",  # $25-28K portfolio, multi-asset crypto 5m/15m/1hr, both sides, good gains
+        # --- BTC/ETH 15m whales (added 2026-02-21) ---
+        "litquidity": "0xa857cb9fe2d9de6239da0d3431aa05a88755fc8c",  # 95% WR on 480 BTC/ETH 15m mkts, $272K vol, DOWN-bias (86% DOWN bets), maker/limit orders
+        "JDDance": "0x2ca792f6c6d58796c5a04b9adc7fb23a18484dcb",  # Claims 86% WR on BTC directional, under investigation — may be shill-promoted
     }
 
     DEFAULT_TARGET = WHALES["kingofcoinflips"]
