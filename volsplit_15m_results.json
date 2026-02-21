@@ -1,26 +1,26 @@
 {
   "active": {
-    "0x4b6d83f3285b52ac933176a4c30f5e9f9b28c42baebc91c5f2cdb26e54284133": {
-      "cid": "0x4b6d83f3285b52ac933176a4c30f5e9f9b28c42baebc91c5f2cdb26e54284133",
-      "title": "Bitcoin Up or Down - February 21, 2:15PM-2:30PM ET",
-      "start_dt": "2026-02-21T19:15:00+00:00",
-      "end_dt": "2026-02-21T19:30:00+00:00",
-      "up_token": "90780550289701423328481965733652007454246051080174343209417804235424481235063",
-      "down_token": "54856800382096931932085507762876758190852650540712741745482382830856014007707",
-      "up_entry_price": 0.39,
+    "0x510214f0c60fcd29c9719b5380a9f1cdcc9d2b81315d0bc7c52f1c236e108b71": {
+      "cid": "0x510214f0c60fcd29c9719b5380a9f1cdcc9d2b81315d0bc7c52f1c236e108b71",
+      "title": "Bitcoin Up or Down - February 21, 2:30PM-2:45PM ET",
+      "start_dt": "2026-02-21T19:30:00+00:00",
+      "end_dt": "2026-02-21T19:45:00+00:00",
+      "up_token": "6143981196583061449577966806586528628666427892667010561417180065114848134510",
+      "down_token": "55720672228526290984848207126095551794747575484251354057434156847901146309673",
+      "up_entry_price": 0.45,
       "down_entry_price": 0.45,
       "shares": 5,
-      "up_cost": 1.95,
+      "up_cost": 2.25,
       "down_cost": 2.25,
-      "total_cost": 4.2,
-      "up_sold": false,
-      "up_sell_price": null,
-      "up_sell_revenue": 0.0,
-      "down_sold": true,
-      "down_sell_price": 0.66,
-      "down_sell_revenue": 3.3,
+      "total_cost": 4.5,
+      "up_sold": true,
+      "up_sell_price": 0.73,
+      "up_sell_revenue": 3.65,
+      "down_sold": false,
+      "down_sell_price": null,
+      "down_sell_revenue": 0.0,
       "status": "monitoring",
-      "entry_time": "2026-02-21T19:15:25.900827+00:00"
+      "entry_time": "2026-02-21T19:30:26.589274+00:00"
     }
   },
   "resolved": [
@@ -4663,15 +4663,44 @@
       "market_outcome": "UP",
       "resolve_time": "2026-02-21T19:15:45.373659+00:00",
       "result": "WIN"
+    },
+    {
+      "cid": "0x4b6d83f3285b52ac933176a4c30f5e9f9b28c42baebc91c5f2cdb26e54284133",
+      "title": "Bitcoin Up or Down - February 21, 2:15PM-2:30PM ET",
+      "start_dt": "2026-02-21T19:15:00+00:00",
+      "end_dt": "2026-02-21T19:30:00+00:00",
+      "up_token": "90780550289701423328481965733652007454246051080174343209417804235424481235063",
+      "down_token": "54856800382096931932085507762876758190852650540712741745482382830856014007707",
+      "up_entry_price": 0.39,
+      "down_entry_price": 0.45,
+      "shares": 5,
+      "up_cost": 1.95,
+      "down_cost": 2.25,
+      "total_cost": 4.2,
+      "up_sold": true,
+      "up_sell_price": 0.68,
+      "up_sell_revenue": 3.4,
+      "down_sold": true,
+      "down_sell_price": 0.66,
+      "down_sell_revenue": 3.3,
+      "status": "closed",
+      "entry_time": "2026-02-21T19:15:25.900827+00:00",
+      "pnl": 2.5,
+      "total_revenue": 6.7,
+      "sell_revenue": 6.699999999999999,
+      "resolution_revenue": 0.0,
+      "market_outcome": "DOWN",
+      "resolve_time": "2026-02-21T19:30:46.049135+00:00",
+      "result": "WIN"
     }
   ],
   "stats": {
-    "entered": 161,
-    "sells": 227,
-    "wins": 67,
+    "entered": 162,
+    "sells": 229,
+    "wins": 68,
     "losses": 93,
     "breakeven": 0,
-    "pnl": 77.5
+    "pnl": 80.0
   },
-  "last_updated": "2026-02-21T19:25:55.757824+00:00"
+  "last_updated": "2026-02-21T19:37:36.559006+00:00"
 }

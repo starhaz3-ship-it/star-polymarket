@@ -1,30 +1,12 @@
 {
   "label_map": {
-    "2": "TRENDING",
+    "1": "TRENDING",
     "0": "CHOPPY",
-    "1": "MEAN_REVERT"
+    "2": "MEAN_REVERT"
   },
-  "retrain_count": 719,
-  "regime": "MEAN_REVERT",
+  "retrain_count": 721,
+  "regime": "TRENDING",
   "history": [
-    {
-      "time": "2026-02-21T10:58:04.024108+00:00",
-      "regime": "MEAN_REVERT",
-      "proba": {
-        "CHOPPY": 0.266,
-        "MEAN_REVERT": 0.566,
-        "TRENDING": 0.168
-      }
-    },
-    {
-      "time": "2026-02-21T11:03:25.900362+00:00",
-      "regime": "MEAN_REVERT",
-      "proba": {
-        "CHOPPY": 0.258,
-        "MEAN_REVERT": 0.578,
-        "TRENDING": 0.165
-      }
-    },
     {
       "time": "2026-02-21T11:09:04.714100+00:00",
       "regime": "CHOPPY",
@@ -906,7 +888,25 @@
         "MEAN_REVERT": 0.586,
         "TRENDING": 0.175
       }
+    },
+    {
+      "time": "2026-02-21T19:29:47.225176+00:00",
+      "regime": "TRENDING",
+      "proba": {
+        "CHOPPY": 0.231,
+        "TRENDING": 0.585,
+        "MEAN_REVERT": 0.184
+      }
+    },
+    {
+      "time": "2026-02-21T19:34:57.781697+00:00",
+      "regime": "TRENDING",
+      "proba": {
+        "CHOPPY": 0.23,
+        "TRENDING": 0.587,
+        "MEAN_REVERT": 0.183
+      }
     }
   ],
-  "last_retrain": 1771701875.524609
+  "last_retrain": 1771702497.7816975
 }

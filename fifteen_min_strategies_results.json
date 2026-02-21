@@ -5431,6 +5431,65 @@
       "exit_time": "2026-02-21T18:50:28.349129+00:00"
     }
   ],
-  "active": {},
-  "last_updated": "2026-02-21T19:25:43.824859+00:00"
+  "active": {
+    "VORTEX_RVI_0x510214f0c60fcd29c9719b5380a9f1cdcc9d2b81315d0bc7c52f1c236e108b71_UP": {
+      "side": "UP",
+      "entry_price": 0.5,
+      "size_usd": 8.0,
+      "entry_time": "2026-02-21T19:33:32.981592+00:00",
+      "condition_id": "0x510214f0c60fcd29c9719b5380a9f1cdcc9d2b81315d0bc7c52f1c236e108b71",
+      "market_numeric_id": "1403489",
+      "title": "Bitcoin Up or Down - February 21, 2:30PM-2:45PM ET",
+      "strategy": "VORTEX_RVI",
+      "edge": 0.0602,
+      "fair_px": 0.5602,
+      "strength": 0.82,
+      "reason": "vortex_cross_up_rvi_obv",
+      "btc_price": 68579.7,
+      "detail": "vi+=1.145 vi-=1.022 rvi=0.233 obvSlope=30",
+      "tte_seconds": 687,
+      "ml_features": {
+        "conf": 0.8199626128262667,
+        "ema_gap": 0.0,
+        "rsi": 50.0,
+        "atr_pct": 0.0,
+        "hour_utc": 19.0,
+        "edge": 0.06023444553066193,
+        "strength": 0.8199626128262667
+      },
+      "ml_prob": 0.651,
+      "status": "open",
+      "pnl": 0.0
+    },
+    "GENESIS_CCI_STOCH_0x510214f0c60fcd29c9719b5380a9f1cdcc9d2b81315d0bc7c52f1c236e108b71_DOWN": {
+      "side": "DOWN",
+      "entry_price": 0.545,
+      "size_usd": 6.98,
+      "entry_time": "2026-02-21T19:37:27.045761+00:00",
+      "condition_id": "0x510214f0c60fcd29c9719b5380a9f1cdcc9d2b81315d0bc7c52f1c236e108b71",
+      "market_numeric_id": "1403489",
+      "title": "Bitcoin Up or Down - February 21, 2:30PM-2:45PM ET",
+      "strategy": "GENESIS_CCI_STOCH",
+      "edge": 0.062,
+      "fair_px": 0.607,
+      "strength": 0.331,
+      "reason": "triple_overbought_fade",
+      "btc_price": 68649.07,
+      "detail": "cci=105 stoch=88 rsi=69.9",
+      "tte_seconds": 453,
+      "ml_features": {
+        "conf": 0.3310323497895492,
+        "ema_gap": 0.0,
+        "rsi": 50.0,
+        "atr_pct": 0.0,
+        "hour_utc": 19.0,
+        "edge": 0.062014562727282896,
+        "strength": 0.3310323497895492
+      },
+      "ml_prob": 0.683,
+      "status": "open",
+      "pnl": 0.0
+    }
+  },
+  "last_updated": "2026-02-21T19:37:27.067171+00:00"
 }
