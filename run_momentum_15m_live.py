@@ -104,9 +104,14 @@ CIRCUIT_BREAKER_RECOVERY = 2    # trades at half-size before resuming full
 WARMUP_SECONDS = 30             # seconds of stable data before trading
 API_BACKOFF_BASE = 2.0          # exponential backoff base
 API_BACKOFF_MAX = 30.0          # max backoff delay
-KELLY_CAP = 0.05                # 5% max Kelly fraction
-KELLY_MIN_TRADES = 10           # min trades before Kelly activates
-BANKROLL_ESTIMATE = 100.0       # conservative bankroll estimate
+KELLY_FRACTION = 0.25           # V4.0: Quarter-Kelly (literature standard)
+KELLY_CONSENSUS_FRACTION = 0.50 # V4.0: Half-Kelly when 2+ signals agree
+KELLY_CAP = 0.10                # V4.0: 10% max fraction (quarter-Kelly self-limits, this is safety net)
+KELLY_MIN_TRADES = 8            # V4.0: Per-strategy minimum before Kelly activates
+KELLY_DECAY = 0.95              # V4.0: Recency weight per trade (N-20=36%, N-50=8%)
+KELLY_CONFIDENCE_LO = 0.5      # V4.0: Signal strength floor
+KELLY_CONFIDENCE_HI = 1.5      # V4.0: Signal strength ceiling
+KELLY_BASE_BANKROLL = 119.0    # V4.0: Actual account balance as of 2026-02-20
 SYNTH_API_KEY = os.environ.get("SYNTHDATA_API_KEY", "")
 SYNTH_EDGE_THRESHOLD = 0.05    # 5pp minimum edge
 SYNTH_SIZE_BOOST = 1.5         # 1.5x when Synth agrees
@@ -485,26 +490,74 @@ RESULTS_FILE = Path(__file__).parent / "momentum_15m_results.json"
 
 
 # ============================================================================
-# V3.0: KELLY SIZING + SYNTHDATA QUERY
+# V4.0: PER-STRATEGY KELLY + SIGNAL CONFIDENCE + QUARTER-KELLY
 # ============================================================================
 
-def kelly_size(wins: int, losses: int, entry_price: float, cumulative_pnl: float) -> float:
-    """V3.0: Kelly criterion sizing. Returns 0 if no edge."""
-    total = wins + losses
-    if total < KELLY_MIN_TRADES:
-        return 0  # not enough data, let tier system handle
-    bankroll = BANKROLL_ESTIMATE + cumulative_pnl
-    if bankroll <= 10:
-        return 1.0
-    p_win = wins / total
+def compute_signal_strength(momentum_10m: float, rsi_val: float) -> float:
+    """V4.0: Map signal strength to confidence multiplier [0.5, 1.5].
+    Higher momentum + RSI further from 50 = higher confidence."""
+    # Momentum: 0.05% = weak, 0.30%+ = max
+    mom_strength = min(abs(momentum_10m) / 0.003, 1.0) if momentum_10m else 0.0
+    # RSI: distance from neutral 50, 20 points away = max
+    if rsi_val is not None:
+        rsi_strength = min(abs(rsi_val - 50) / 20, 1.0)
+    else:
+        rsi_strength = 0.5
+    # Blend: 60% momentum, 40% RSI
+    raw = 0.6 * mom_strength + 0.4 * rsi_strength
+    return KELLY_CONFIDENCE_LO + raw * (KELLY_CONFIDENCE_HI - KELLY_CONFIDENCE_LO)
+
+
+def kelly_size(strategy_trades: list, entry_price: float, cumulative_pnl: float,
+               is_consensus: bool = False, signal_strength: float = 1.0) -> float:
+    """V4.0: Per-strategy Kelly with quarter-Kelly, recency weighting, confidence scaling.
+
+    Args:
+        strategy_trades: [{"won": bool, "pnl": float, "ts": float}, ...] for THIS strategy
+        entry_price: CLOB price (used as market probability)
+        cumulative_pnl: total PnL to date (for dynamic bankroll)
+        is_consensus: True → half-Kelly, False → quarter-Kelly
+        signal_strength: [0.5, 1.5] confidence multiplier from compute_signal_strength()
+
+    Returns dollar size, or 0 if not enough data (caller falls back to tier size).
+    NEVER returns a skip signal — caller uses tier sizing when Kelly returns 0.
+    """
+    n = len(strategy_trades)
+    if n < KELLY_MIN_TRADES:
+        return 0  # not enough data for this strategy, use tier sizing
+
+    # Exponential recency weighting: most recent trade = weight 1.0
+    weights = [KELLY_DECAY ** (n - 1 - i) for i in range(n)]
+    w_sum = sum(weights)
+    p_win = sum(w * (1 if t["won"] else 0) for w, t in zip(weights, strategy_trades)) / w_sum
+
+    # Binary market: payout odds from entry price
     p_mkt = max(min(entry_price, 0.95), 0.05)
-    b = (1 - p_mkt) / p_mkt
+    b = (1 - p_mkt) / p_mkt  # odds ratio: win/loss
+
+    # Kelly fraction: f* = (p(b+1) - 1) / b  ≡  (p - m) / (1 - m)
     f_star = (p_win * (b + 1) - 1) / b
-    f_eff = min(max(f_star, 0), KELLY_CAP)
+
+    # Apply quarter-Kelly or half-Kelly (consensus)
+    fraction = KELLY_CONSENSUS_FRACTION if is_consensus else KELLY_FRACTION
+    f_eff = f_star * fraction
+
+    # Confidence scaling from signal strength
+    confidence = max(KELLY_CONFIDENCE_LO, min(signal_strength, KELLY_CONFIDENCE_HI))
+    f_eff *= confidence
+
+    # Cap and floor
+    f_eff = max(f_eff, 0)
+    f_eff = min(f_eff, KELLY_CAP)
+
     if f_eff <= 0:
-        return 0
+        return 0  # no edge — fall back to tier sizing (DO NOT SKIP TRADE)
+
+    # Dynamic bankroll from persisted PnL
+    bankroll = max(KELLY_BASE_BANKROLL + cumulative_pnl, 20.0)
+
     size = round(bankroll * f_eff, 2)
-    return max(min(size, 10.0), 1.0)
+    return max(min(size, 10.0), 1.0)  # clamp [$1, $10]
 
 
 _synth_cache: dict = {"data": None, "ts": 0}
@@ -1219,7 +1272,8 @@ class Momentum15MTrader:
         self.client = None  # ClobClient for live mode
         self.trades: Dict[str, dict] = {}  # {trade_key: trade_dict}
         self.resolved: list = []
-        self.stats = {"wins": 0, "losses": 0, "pnl": 0.0, "start_time": datetime.now(timezone.utc).isoformat()}
+        self.stats = {"wins": 0, "losses": 0, "pnl": 0.0, "start_time": datetime.now(timezone.utc).isoformat(),
+                      "strategy_trades": {}}  # V4.0: per-strategy trade history for Kelly
         self.session_pnl = 0.0  # session loss tracking for daily limit
         self.running = True     # V1.2: auto-kill sets this to False
         self.tier = "PROBATION"  # current promotion tier
@@ -1391,9 +1445,29 @@ class Momentum15MTrader:
                 self.resolved = data.get("resolved", [])
                 self.stats = data.get("stats", self.stats)
                 self.tier = data.get("tier", "PROBATION")
+                # V4.0: Migration — backfill strategy_trades from resolved if missing
+                if "strategy_trades" not in self.stats:
+                    self.stats["strategy_trades"] = {}
+                    for trade in self.resolved:
+                        strat = trade.get("strategy", "momentum_strong")
+                        if strat not in self.stats["strategy_trades"]:
+                            self.stats["strategy_trades"][strat] = []
+                        won = trade.get("pnl", 0) > 0
+                        ts = 0
+                        try:
+                            ts = datetime.fromisoformat(trade.get("exit_time", "")).timestamp()
+                        except Exception:
+                            pass
+                        self.stats["strategy_trades"][strat].append(
+                            {"won": won, "pnl": trade.get("pnl", 0), "ts": ts})
+                    n_migrated = sum(len(v) for v in self.stats["strategy_trades"].values())
+                    print(f"[KELLY-V4] Migrated {n_migrated} trades -> strategy_trades from {len(self.resolved)} resolved")
+                # Log per-strategy counts
+                st = self.stats.get("strategy_trades", {})
+                strat_summary = ", ".join(f"{k}:{len(v)}T" for k, v in st.items()) if st else "none"
                 print(f"[LOAD] {len(self.resolved)} resolved, {len(self.trades)} active | "
                       f"PnL: ${self.stats['pnl']:+.2f} | {self.stats['wins']}W/{self.stats['losses']}L | "
-                      f"Tier: {self.tier} (${TIERS[self.tier]['size']}/trade)")
+                      f"Tier: {self.tier} (${TIERS[self.tier]['size']}/trade) | Kelly: {strat_summary}")
             except Exception as e:
                 print(f"[LOAD] Error: {e}")
 
@@ -1410,6 +1484,22 @@ class Momentum15MTrader:
             RESULTS_FILE.write_text(json.dumps(data, indent=2))
         except Exception as e:
             print(f"[SAVE] Error: {e}")
+
+    def _record_strategy_trade(self, trade: dict, won: bool):
+        """V4.0: Record trade outcome for per-strategy Kelly tracking."""
+        strat = trade.get("strategy", "momentum_strong")
+        if "strategy_trades" not in self.stats:
+            self.stats["strategy_trades"] = {}
+        if strat not in self.stats["strategy_trades"]:
+            self.stats["strategy_trades"][strat] = []
+        self.stats["strategy_trades"][strat].append({
+            "won": won,
+            "pnl": trade.get("pnl", 0),
+            "ts": time.time(),
+        })
+        # Keep last 200 per strategy to bound memory
+        if len(self.stats["strategy_trades"][strat]) > 200:
+            self.stats["strategy_trades"][strat] = self.stats["strategy_trades"][strat][-200:]
 
     # ========================================================================
     # DATA FETCHING
@@ -1698,6 +1788,7 @@ class Momentum15MTrader:
                                 trade["_resolved_via"] = "ws"
 
                                 self.stats["wins" if won else "losses"] += 1
+                                self._record_strategy_trade(trade, won)  # V4.0: per-strategy Kelly
                                 # V3.1: Graduated circuit breaker
                                 if won:
                                     if self._consecutive_losses >= CIRCUIT_BREAKER_HALFSIZE:
@@ -1789,6 +1880,7 @@ class Momentum15MTrader:
 
                                 won = trade["pnl"] > 0
                                 self.stats["wins" if won else "losses"] += 1
+                                self._record_strategy_trade(trade, won)  # V4.0: per-strategy Kelly
                                 # V3.1: Graduated circuit breaker
                                 if won:
                                     if self._consecutive_losses >= CIRCUIT_BREAKER_HALFSIZE:
@@ -1881,6 +1973,7 @@ class Momentum15MTrader:
                 trade["status"] = "closed"
                 trade["pnl"] = -trade["size_usd"]
                 self.stats["losses"] += 1
+                self._record_strategy_trade(trade, False)  # V4.0: per-strategy Kelly
                 self.stats["pnl"] += trade["pnl"]
                 self.session_pnl += trade["pnl"]
                 self.resolved.append(trade)
@@ -2400,23 +2493,37 @@ class Momentum15MTrader:
             # Size based on current promotion tier
             trade_size = TIERS[self.tier]["size"]
 
-            # V2.3: Consensus size multiplier — boost when multiple signals agree
-            if consensus:
-                mult = CONSENSUS_SIZE_MULT
-                if strategy == "triple_consensus":
-                    mult = 2.0  # 2x for all 3 signals agreeing
-                trade_size = round(trade_size * mult, 2)
-                print(f"    [SIZE BOOST] {strategy}: ${trade_size:.2f} ({mult}x)")
-
-            # V3.0: Kelly override — if enough data, Kelly replaces tier sizing
-            k_size = kelly_size(self.stats["wins"], self.stats["losses"],
-                                entry_price, self.stats["pnl"])
+            # V4.0: Per-strategy Kelly sizing with signal confidence
+            strat_trades = self.stats.get("strategy_trades", {}).get(strategy, [])
+            sig_strength = compute_signal_strength(momentum_10m, rsi_val)
+            k_size = kelly_size(
+                strategy_trades=strat_trades,
+                entry_price=entry_price,
+                cumulative_pnl=self.stats["pnl"],
+                is_consensus=consensus,
+                signal_strength=sig_strength,
+            )
             if k_size > 0:
                 trade_size = k_size
-                print(f"    [KELLY] ${trade_size:.2f} (replaces tier ${TIERS[self.tier]['size']:.2f})")
-            elif self.stats["wins"] + self.stats["losses"] >= KELLY_MIN_TRADES:
-                print(f"    [KELLY-SKIP] No edge — Kelly says don't trade")
-                continue
+                strat_n = len(strat_trades)
+                if strat_n > 0:
+                    _wts = [KELLY_DECAY ** (strat_n - 1 - i) for i in range(strat_n)]
+                    _wwr = sum(w * (1 if t["won"] else 0) for w, t in zip(_wts, strat_trades)) / sum(_wts)
+                else:
+                    _wwr = 0
+                print(f"    [KELLY-V4] ${trade_size:.2f} | {strategy} {strat_n}T wWR={_wwr:.0%} | "
+                      f"sig={sig_strength:.2f}{' consensus' if consensus else ''}")
+            else:
+                # Kelly has no opinion or no edge: FALL BACK to tier size (DO NOT SKIP)
+                if len(strat_trades) >= KELLY_MIN_TRADES:
+                    print(f"    [KELLY-V4] No edge for {strategy} ({len(strat_trades)}T) — using tier ${trade_size:.2f}")
+                # Consensus size multiplier only applies when Kelly inactive
+                if consensus:
+                    mult = CONSENSUS_SIZE_MULT
+                    if strategy == "triple_consensus":
+                        mult = 2.0
+                    trade_size = round(trade_size * mult, 2)
+                    print(f"    [SIZE BOOST] {strategy}: ${trade_size:.2f} ({mult}x)")
 
             # V3.0: SynthData consensus
             synth = await query_synthdata(asset)
@@ -2724,7 +2831,7 @@ class Momentum15MTrader:
         mode = "PAPER" if self.paper else "LIVE"
         print("=" * 70)
         tier_size = TIERS[self.tier]["size"]
-        print(f"MOMENTUM 15M DIRECTIONAL TRADER V2.5 - {mode} MODE")
+        print(f"MOMENTUM 15M DIRECTIONAL TRADER V4.0 - {mode} MODE")
         print(f"Strategy: momentum_strong + FRAMA_CMO + Black-Scholes edge | BTC only")
         print(f"Assets: {', '.join(ASSETS.keys())}")
         print(f"Tier: {self.tier} (${tier_size:.2f}/trade) | Max concurrent: {MAX_CONCURRENT}")
@@ -2742,7 +2849,7 @@ class Momentum15MTrader:
         print(f"  MOM FLOOR:     abs(mom10m)>{tuner_vals.get('momentum_floor', 0.0008):.4f}")
         print(f"  RSI UP:        RSI>{tuner_vals.get('rsi_up', 55):.0f} for momentum_strong UP only (not FRAMA/consensus)")
         print(f"  MAX ENTRY:     ${tuner_vals.get('max_entry', 0.72):.2f}")
-        print(f"V2.5 fixes: RSI exempts FRAMA/consensus, raised MAX_ENTRY to $0.80, shadow resolution wired")
+        print(f"V4.0: Per-strategy Kelly + quarter-Kelly + signal confidence + no skip-trade")
         print(f"FOK orders + fill verify (V1.8) | ML filter reset (clean priors)")
         print(f"Skip hours (UTC): {{7}} (2AM ET only)")
         print(f"Daily loss limit: ${DAILY_LOSS_LIMIT}")
