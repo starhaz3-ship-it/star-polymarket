@@ -1,18 +1,18 @@
 {
   "active": {
-    "0x9da0f5f62739cc4d709b95800b71408ec7dec1b881f2f02eb73d511d532571df": {
-      "cid": "0x9da0f5f62739cc4d709b95800b71408ec7dec1b881f2f02eb73d511d532571df",
-      "title": "Bitcoin Up or Down - February 21, 2:00PM-2:15PM ET",
-      "start_dt": "2026-02-21T19:00:00+00:00",
-      "end_dt": "2026-02-21T19:15:00+00:00",
-      "up_token": "9567993293255612712500487940422218000297090491911993842508800362607701334053",
-      "down_token": "67215190112371951939574521577706520797576958499733337419800706278241571015694",
-      "up_entry_price": 0.45,
+    "0x4b6d83f3285b52ac933176a4c30f5e9f9b28c42baebc91c5f2cdb26e54284133": {
+      "cid": "0x4b6d83f3285b52ac933176a4c30f5e9f9b28c42baebc91c5f2cdb26e54284133",
+      "title": "Bitcoin Up or Down - February 21, 2:15PM-2:30PM ET",
+      "start_dt": "2026-02-21T19:15:00+00:00",
+      "end_dt": "2026-02-21T19:30:00+00:00",
+      "up_token": "90780550289701423328481965733652007454246051080174343209417804235424481235063",
+      "down_token": "54856800382096931932085507762876758190852650540712741745482382830856014007707",
+      "up_entry_price": 0.39,
       "down_entry_price": 0.45,
       "shares": 5,
-      "up_cost": 2.25,
+      "up_cost": 1.95,
       "down_cost": 2.25,
-      "total_cost": 4.5,
+      "total_cost": 4.2,
       "up_sold": false,
       "up_sell_price": null,
       "up_sell_revenue": 0.0,
@@ -20,7 +20,7 @@
       "down_sell_price": 0.66,
       "down_sell_revenue": 3.3,
       "status": "monitoring",
-      "entry_time": "2026-02-21T19:00:15.519602+00:00"
+      "entry_time": "2026-02-21T19:15:25.900827+00:00"
     }
   },
   "resolved": [
@@ -4634,15 +4634,44 @@
       "market_outcome": "UP",
       "resolve_time": "2026-02-21T19:00:34.801518+00:00",
       "result": "WIN"
+    },
+    {
+      "cid": "0x9da0f5f62739cc4d709b95800b71408ec7dec1b881f2f02eb73d511d532571df",
+      "title": "Bitcoin Up or Down - February 21, 2:00PM-2:15PM ET",
+      "start_dt": "2026-02-21T19:00:00+00:00",
+      "end_dt": "2026-02-21T19:15:00+00:00",
+      "up_token": "9567993293255612712500487940422218000297090491911993842508800362607701334053",
+      "down_token": "67215190112371951939574521577706520797576958499733337419800706278241571015694",
+      "up_entry_price": 0.45,
+      "down_entry_price": 0.45,
+      "shares": 5,
+      "up_cost": 2.25,
+      "down_cost": 2.25,
+      "total_cost": 4.5,
+      "up_sold": true,
+      "up_sell_price": 0.66,
+      "up_sell_revenue": 3.3,
+      "down_sold": true,
+      "down_sell_price": 0.66,
+      "down_sell_revenue": 3.3,
+      "status": "closed",
+      "entry_time": "2026-02-21T19:00:15.519602+00:00",
+      "pnl": 2.1,
+      "total_revenue": 6.6,
+      "sell_revenue": 6.6,
+      "resolution_revenue": 0.0,
+      "market_outcome": "UP",
+      "resolve_time": "2026-02-21T19:15:45.373659+00:00",
+      "result": "WIN"
     }
   ],
   "stats": {
-    "entered": 160,
-    "sells": 225,
-    "wins": 66,
+    "entered": 161,
+    "sells": 227,
+    "wins": 67,
     "losses": 93,
     "breakeven": 0,
-    "pnl": 75.4
+    "pnl": 77.5
   },
-  "last_updated": "2026-02-21T19:04:44.347118+00:00"
+  "last_updated": "2026-02-21T19:25:55.757824+00:00"
 }

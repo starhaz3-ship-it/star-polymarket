@@ -766,19 +766,19 @@ class ParameterTuner:
 # Pre-built configs for each bot
 SNIPER_TUNER_CONFIG = {
     "max_entry": {
-        "bins":   [0.74, 0.76, 0.78, 0.80, 0.82, 0.84],
-        "labels": ["0.74", "0.76", "0.78", "0.80", "0.82", "0.84"],
-        "default_idx": 3,   # V3.1: 0.80 (raised -- paper 79.3% WR at $0.80)
-        "floor_idx": 0,     # never below 0.74
-        "ceil_idx": 5,      # can go up to 0.84
+        "bins":   [0.76, 0.78, 0.80, 0.82, 0.84],
+        "labels": ["0.76", "0.78", "0.80", "0.82", "0.84"],
+        "default_idx": 2,   # V3.2: 0.80 — 0.74 removed (below MIN_CONFIDENCE=0.75, caused 3hr halt)
+        "floor_idx": 0,     # never below 0.76 (must be >= MIN_CONFIDENCE $0.75)
+        "ceil_idx": 4,      # can go up to 0.84
     },
     # V3.1: clob_upper no longer used (CLOB fallback now uses MAX_ENTRY_PRICE directly)
     "clob_upper": {
-        "bins":   [0.74, 0.76, 0.78, 0.80, 0.82, 0.84],
-        "labels": ["0.74", "0.76", "0.78", "0.80", "0.82", "0.84"],
-        "default_idx": 3,   # 0.80
-        "floor_idx": 0,     # never below 0.74
-        "ceil_idx": 5,      # can go up to 0.84
+        "bins":   [0.76, 0.78, 0.80, 0.82, 0.84],
+        "labels": ["0.76", "0.78", "0.80", "0.82", "0.84"],
+        "default_idx": 2,   # V3.2: 0.80 — 0.74 removed
+        "floor_idx": 0,     # never below 0.76
+        "ceil_idx": 4,      # can go up to 0.84
     },
     # V2.0: Binance price move threshold for sniper entries
     "binance_threshold": {

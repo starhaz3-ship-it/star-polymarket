@@ -1,48 +1,12 @@
 {
   "label_map": {
-    "1": "TRENDING",
+    "2": "TRENDING",
     "0": "CHOPPY",
-    "2": "MEAN_REVERT"
+    "1": "MEAN_REVERT"
   },
-  "retrain_count": 715,
-  "regime": "TRENDING",
+  "retrain_count": 719,
+  "regime": "MEAN_REVERT",
   "history": [
-    {
-      "time": "2026-02-21T10:37:18.781271+00:00",
-      "regime": "TRENDING",
-      "proba": {
-        "CHOPPY": 0.266,
-        "TRENDING": 0.567,
-        "MEAN_REVERT": 0.167
-      }
-    },
-    {
-      "time": "2026-02-21T10:42:30.169260+00:00",
-      "regime": "TRENDING",
-      "proba": {
-        "CHOPPY": 0.265,
-        "TRENDING": 0.57,
-        "MEAN_REVERT": 0.165
-      }
-    },
-    {
-      "time": "2026-02-21T10:47:36.144210+00:00",
-      "regime": "MEAN_REVERT",
-      "proba": {
-        "CHOPPY": 0.263,
-        "MEAN_REVERT": 0.571,
-        "TRENDING": 0.166
-      }
-    },
-    {
-      "time": "2026-02-21T10:52:56.238444+00:00",
-      "regime": "TRENDING",
-      "proba": {
-        "MEAN_REVERT": 0.265,
-        "TRENDING": 0.569,
-        "CHOPPY": 0.166
-      }
-    },
     {
       "time": "2026-02-21T10:58:04.024108+00:00",
       "regime": "MEAN_REVERT",
@@ -906,7 +870,43 @@
         "TRENDING": 0.616,
         "MEAN_REVERT": 0.177
       }
+    },
+    {
+      "time": "2026-02-21T19:08:52.737718+00:00",
+      "regime": "TRENDING",
+      "proba": {
+        "CHOPPY": 0.209,
+        "TRENDING": 0.605,
+        "MEAN_REVERT": 0.186
+      }
+    },
+    {
+      "time": "2026-02-21T19:13:58.533325+00:00",
+      "regime": "TRENDING",
+      "proba": {
+        "CHOPPY": 0.207,
+        "TRENDING": 0.612,
+        "MEAN_REVERT": 0.181
+      }
+    },
+    {
+      "time": "2026-02-21T19:19:19.705408+00:00",
+      "regime": "TRENDING",
+      "proba": {
+        "MEAN_REVERT": 0.196,
+        "TRENDING": 0.623,
+        "CHOPPY": 0.181
+      }
+    },
+    {
+      "time": "2026-02-21T19:24:35.524608+00:00",
+      "regime": "MEAN_REVERT",
+      "proba": {
+        "CHOPPY": 0.239,
+        "MEAN_REVERT": 0.586,
+        "TRENDING": 0.175
+      }
     }
   ],
-  "last_retrain": 1771700617.1504292
+  "last_retrain": 1771701875.524609
 }
