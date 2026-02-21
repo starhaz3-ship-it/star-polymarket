@@ -1,174 +1,12 @@
 {
   "label_map": {
-    "0": "TRENDING",
-    "1": "CHOPPY",
-    "2": "MEAN_REVERT"
+    "1": "TRENDING",
+    "2": "CHOPPY",
+    "0": "MEAN_REVERT"
   },
-  "retrain_count": 682,
-  "regime": "CHOPPY",
+  "retrain_count": 700,
+  "regime": "TRENDING",
   "history": [
-    {
-      "time": "2026-02-21T07:35:41.066729+00:00",
-      "regime": "CHOPPY",
-      "proba": {
-        "MEAN_REVERT": 0.306,
-        "CHOPPY": 0.395,
-        "TRENDING": 0.299
-      }
-    },
-    {
-      "time": "2026-02-21T07:41:29.168519+00:00",
-      "regime": "CHOPPY",
-      "proba": {
-        "MEAN_REVERT": 0.305,
-        "CHOPPY": 0.402,
-        "TRENDING": 0.293
-      }
-    },
-    {
-      "time": "2026-02-21T07:47:16.826078+00:00",
-      "regime": "MEAN_REVERT",
-      "proba": {
-        "TRENDING": 0.306,
-        "MEAN_REVERT": 0.395,
-        "CHOPPY": 0.299
-      }
-    },
-    {
-      "time": "2026-02-21T07:53:03.906895+00:00",
-      "regime": "MEAN_REVERT",
-      "proba": {
-        "CHOPPY": 0.309,
-        "MEAN_REVERT": 0.393,
-        "TRENDING": 0.298
-      }
-    },
-    {
-      "time": "2026-02-21T07:58:51.565612+00:00",
-      "regime": "MEAN_REVERT",
-      "proba": {
-        "CHOPPY": 0.312,
-        "MEAN_REVERT": 0.388,
-        "TRENDING": 0.3
-      }
-    },
-    {
-      "time": "2026-02-21T08:04:52.812125+00:00",
-      "regime": "TRENDING",
-      "proba": {
-        "MEAN_REVERT": 0.311,
-        "TRENDING": 0.39,
-        "CHOPPY": 0.299
-      }
-    },
-    {
-      "time": "2026-02-21T08:10:37.867262+00:00",
-      "regime": "TRENDING",
-      "proba": {
-        "CHOPPY": 0.31,
-        "TRENDING": 0.39,
-        "MEAN_REVERT": 0.3
-      }
-    },
-    {
-      "time": "2026-02-21T08:16:28.191828+00:00",
-      "regime": "MEAN_REVERT",
-      "proba": {
-        "CHOPPY": 0.311,
-        "MEAN_REVERT": 0.39,
-        "TRENDING": 0.3
-      }
-    },
-    {
-      "time": "2026-02-21T08:22:15.067385+00:00",
-      "regime": "TRENDING",
-      "proba": {
-        "CHOPPY": 0.305,
-        "TRENDING": 0.394,
-        "MEAN_REVERT": 0.301
-      }
-    },
-    {
-      "time": "2026-02-21T08:28:08.876641+00:00",
-      "regime": "TRENDING",
-      "proba": {
-        "CHOPPY": 0.303,
-        "TRENDING": 0.394,
-        "MEAN_REVERT": 0.304
-      }
-    },
-    {
-      "time": "2026-02-21T08:33:54.994198+00:00",
-      "regime": "CHOPPY",
-      "proba": {
-        "MEAN_REVERT": 0.299,
-        "CHOPPY": 0.394,
-        "TRENDING": 0.307
-      }
-    },
-    {
-      "time": "2026-02-21T08:39:48.880434+00:00",
-      "regime": "TRENDING",
-      "proba": {
-        "MEAN_REVERT": 0.307,
-        "TRENDING": 0.391,
-        "CHOPPY": 0.302
-      }
-    },
-    {
-      "time": "2026-02-21T08:45:35.853869+00:00",
-      "regime": "TRENDING",
-      "proba": {
-        "CHOPPY": 0.305,
-        "TRENDING": 0.395,
-        "MEAN_REVERT": 0.301
-      }
-    },
-    {
-      "time": "2026-02-21T08:51:29.419470+00:00",
-      "regime": "TRENDING",
-      "proba": {
-        "MEAN_REVERT": 0.305,
-        "TRENDING": 0.395,
-        "CHOPPY": 0.3
-      }
-    },
-    {
-      "time": "2026-02-21T08:57:18.980137+00:00",
-      "regime": "TRENDING",
-      "proba": {
-        "CHOPPY": 0.303,
-        "TRENDING": 0.407,
-        "MEAN_REVERT": 0.29
-      }
-    },
-    {
-      "time": "2026-02-21T09:03:12.885983+00:00",
-      "regime": "TRENDING",
-      "proba": {
-        "CHOPPY": 0.298,
-        "TRENDING": 0.412,
-        "MEAN_REVERT": 0.29
-      }
-    },
-    {
-      "time": "2026-02-21T09:09:06.722746+00:00",
-      "regime": "MEAN_REVERT",
-      "proba": {
-        "CHOPPY": 0.299,
-        "MEAN_REVERT": 0.415,
-        "TRENDING": 0.285
-      }
-    },
-    {
-      "time": "2026-02-21T09:14:08.494041+00:00",
-      "regime": "MEAN_REVERT",
-      "proba": {
-        "CHOPPY": 0.298,
-        "MEAN_REVERT": 0.411,
-        "TRENDING": 0.291
-      }
-    },
     {
       "time": "2026-02-21T09:19:09.402003+00:00",
       "regime": "TRENDING",
@@ -906,7 +744,169 @@
         "CHOPPY": 0.681,
         "MEAN_REVERT": 0.185
       }
+    },
+    {
+      "time": "2026-02-21T16:27:03.589662+00:00",
+      "regime": "CHOPPY",
+      "proba": {
+        "TRENDING": 0.134,
+        "CHOPPY": 0.683,
+        "MEAN_REVERT": 0.183
+      }
+    },
+    {
+      "time": "2026-02-21T16:32:24.705658+00:00",
+      "regime": "CHOPPY",
+      "proba": {
+        "TRENDING": 0.124,
+        "CHOPPY": 0.711,
+        "MEAN_REVERT": 0.165
+      }
+    },
+    {
+      "time": "2026-02-21T16:37:41.988865+00:00",
+      "regime": "TRENDING",
+      "proba": {
+        "MEAN_REVERT": 0.123,
+        "TRENDING": 0.71,
+        "CHOPPY": 0.167
+      }
+    },
+    {
+      "time": "2026-02-21T16:42:56.045414+00:00",
+      "regime": "MEAN_REVERT",
+      "proba": {
+        "TRENDING": 0.117,
+        "MEAN_REVERT": 0.693,
+        "CHOPPY": 0.19
+      }
+    },
+    {
+      "time": "2026-02-21T16:45:21.266727+00:00",
+      "regime": "CHOPPY",
+      "proba": {
+        "TRENDING": 0.121,
+        "CHOPPY": 0.691,
+        "MEAN_REVERT": 0.188
+      }
+    },
+    {
+      "time": "2026-02-21T16:46:41.341471+00:00",
+      "regime": "CHOPPY",
+      "proba": {
+        "TRENDING": 0.116,
+        "CHOPPY": 0.689,
+        "MEAN_REVERT": 0.195
+      }
+    },
+    {
+      "time": "2026-02-21T16:50:39.472308+00:00",
+      "regime": "MEAN_REVERT",
+      "proba": {
+        "TRENDING": 0.122,
+        "MEAN_REVERT": 0.674,
+        "CHOPPY": 0.205
+      }
+    },
+    {
+      "time": "2026-02-21T16:51:00.799689+00:00",
+      "regime": "MEAN_REVERT",
+      "proba": {
+        "TRENDING": 0.077,
+        "MEAN_REVERT": 0.717,
+        "CHOPPY": 0.206
+      }
+    },
+    {
+      "time": "2026-02-21T16:56:19.848373+00:00",
+      "regime": "MEAN_REVERT",
+      "proba": {
+        "TRENDING": 0.094,
+        "MEAN_REVERT": 0.697,
+        "CHOPPY": 0.208
+      }
+    },
+    {
+      "time": "2026-02-21T17:01:45.667482+00:00",
+      "regime": "MEAN_REVERT",
+      "proba": {
+        "TRENDING": 0.133,
+        "MEAN_REVERT": 0.663,
+        "CHOPPY": 0.204
+      }
+    },
+    {
+      "time": "2026-02-21T17:07:02.300364+00:00",
+      "regime": "MEAN_REVERT",
+      "proba": {
+        "TRENDING": 0.131,
+        "MEAN_REVERT": 0.675,
+        "CHOPPY": 0.194
+      }
+    },
+    {
+      "time": "2026-02-21T17:12:21.897711+00:00",
+      "regime": "MEAN_REVERT",
+      "proba": {
+        "TRENDING": 0.141,
+        "MEAN_REVERT": 0.674,
+        "CHOPPY": 0.185
+      }
+    },
+    {
+      "time": "2026-02-21T17:15:31.280891+00:00",
+      "regime": "MEAN_REVERT",
+      "proba": {
+        "TRENDING": 0.126,
+        "MEAN_REVERT": 0.694,
+        "CHOPPY": 0.18
+      }
+    },
+    {
+      "time": "2026-02-21T17:20:52.530255+00:00",
+      "regime": "MEAN_REVERT",
+      "proba": {
+        "TRENDING": 0.129,
+        "MEAN_REVERT": 0.69,
+        "CHOPPY": 0.182
+      }
+    },
+    {
+      "time": "2026-02-21T17:26:19.164576+00:00",
+      "regime": "TRENDING",
+      "proba": {
+        "MEAN_REVERT": 0.132,
+        "TRENDING": 0.692,
+        "CHOPPY": 0.176
+      }
+    },
+    {
+      "time": "2026-02-21T17:31:39.523361+00:00",
+      "regime": "MEAN_REVERT",
+      "proba": {
+        "TRENDING": 0.129,
+        "MEAN_REVERT": 0.696,
+        "CHOPPY": 0.175
+      }
+    },
+    {
+      "time": "2026-02-21T17:37:10.447777+00:00",
+      "regime": "TRENDING",
+      "proba": {
+        "MEAN_REVERT": 0.134,
+        "TRENDING": 0.675,
+        "CHOPPY": 0.191
+      }
+    },
+    {
+      "time": "2026-02-21T17:42:19.807288+00:00",
+      "regime": "TRENDING",
+      "proba": {
+        "MEAN_REVERT": 0.132,
+        "TRENDING": 0.687,
+        "CHOPPY": 0.181
+      }
     }
   ],
-  "last_retrain": 1771690886.0801504
+  "last_retrain": 1771695739.8072882
 }

@@ -2960,17 +2960,97 @@
       "total_pnl": -2.63,
       "correlation": "correlated",
       "resolve_time": "2026-02-21T16:00:23.898500+00:00"
+    },
+    {
+      "pair_key": "20260221_1715",
+      "entry_time": "2026-02-21T17:09:12.355244+00:00",
+      "end_dt": "2026-02-21T17:15:00+00:00",
+      "leg_15m": {
+        "cid": "0xb91477f801d4b027cd6911c4a5843778a77d2afad6f68bb6e82ea9adf5c10fe7",
+        "market_id": "1403078",
+        "question": "Bitcoin Up or Down - February 21, 12:00PM-12:15PM ET",
+        "side": "DOWN",
+        "token_id": "28805617832795784889305291403018184349447990927285845737142846638374352882509",
+        "entry_price": 0.8,
+        "shares": 6,
+        "cost": 4.8
+      },
+      "leg_5m": {
+        "cid": "0xd5c6fd5e5e33c4da3bce48834ed9a3abd94c0ce949a8b41683065d2dedb2b7d8",
+        "market_id": "1403096",
+        "question": "Bitcoin Up or Down - February 21, 12:10PM-12:15PM ET",
+        "side": "UP",
+        "token_id": "27462290594810759998621070241988474048979836263903934679459589058283052836942",
+        "entry_price": 0.54,
+        "shares": 9,
+        "cost": 4.86
+      },
+      "combined_cost": 1.34,
+      "gap_at_entry": -45.21,
+      "open_15m": 68322.61,
+      "current_at_entry": 68277.4,
+      "status": "resolved",
+      "paper": true,
+      "result_15m": "DOWN",
+      "result_5m": "DOWN",
+      "won_15m": true,
+      "won_5m": false,
+      "pnl_15m": 1.2,
+      "pnl_5m": -4.86,
+      "total_pnl": -3.66,
+      "correlation": "correlated",
+      "resolve_time": "2026-02-21T17:15:25.947294+00:00"
+    },
+    {
+      "pair_key": "20260221_1730",
+      "entry_time": "2026-02-21T17:24:03.935914+00:00",
+      "end_dt": "2026-02-21T17:30:00+00:00",
+      "leg_15m": {
+        "cid": "0x99a463d4d6516c15fda07cc05d5d8f6795fddb2f9a92424b6d58b90c314bd4b4",
+        "market_id": "1403101",
+        "question": "Bitcoin Up or Down - February 21, 12:15PM-12:30PM ET",
+        "side": "DOWN",
+        "token_id": "60811148473549680030908628834737524287525095488510945358428708503152392197488",
+        "entry_price": 0.56,
+        "shares": 8,
+        "cost": 4.48
+      },
+      "leg_5m": {
+        "cid": "0xd9a366096c74e5dee49c3bc67ffd66448a28bc739854186bafcfb185573e6403",
+        "market_id": "1403118",
+        "question": "Bitcoin Up or Down - February 21, 12:25PM-12:30PM ET",
+        "side": "UP",
+        "token_id": "89001166524108165765428429109192693544204383137631600489826938512220975546580",
+        "entry_price": 0.51,
+        "shares": 9,
+        "cost": 4.59
+      },
+      "combined_cost": 1.07,
+      "gap_at_entry": -8.15,
+      "open_15m": 68264.46,
+      "current_at_entry": 68256.31,
+      "status": "resolved",
+      "paper": true,
+      "result_15m": "UP",
+      "result_5m": "UP",
+      "won_15m": false,
+      "won_5m": true,
+      "pnl_15m": -4.48,
+      "pnl_5m": 4.41,
+      "total_pnl": -0.07,
+      "correlation": "correlated",
+      "resolve_time": "2026-02-21T17:30:28.785313+00:00"
     }
   ],
   "stats": {
     "wins": 11,
-    "losses": 49,
+    "losses": 51,
     "double_wins": 14,
     "double_losses": 0,
-    "correlated": 60,
-    "pnl": -12.29,
-    "pairs_entered": 74,
-    "pairs_skipped": 96
+    "correlated": 62,
+    "pnl": -16.02,
+    "pairs_entered": 76,
+    "pairs_skipped": 100
   },
-  "last_updated": "2026-02-21T16:00:23.898500+00:00"
+  "last_updated": "2026-02-21T17:30:28.785313+00:00"
 }

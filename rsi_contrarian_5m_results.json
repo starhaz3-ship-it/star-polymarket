@@ -988,12 +988,31 @@
       "result": "LOSS",
       "market_outcome": "UP",
       "resolve_time": "2026-02-21T14:35:16.219116+00:00"
+    },
+    {
+      "condition_id": "0xb5ca80aa19638ac87f886dcfe27089d555980ce3ec6938054e98d0c41abd0000",
+      "question": "Bitcoin Up or Down - February 21, 11:25AM-11:30AM ET",
+      "side": "UP",
+      "entry_price": 0.55,
+      "rsi": 26.1,
+      "rsi_bucket": "25-30",
+      "volume_ok": true,
+      "shares": 4.5455,
+      "cost": 2.5,
+      "time_remaining_sec": 234.0,
+      "entry_time": "2026-02-21T16:26:06.678106+00:00",
+      "end_dt": "2026-02-21T16:30:00+00:00",
+      "status": "closed",
+      "pnl": 2.05,
+      "result": "WIN",
+      "market_outcome": "UP",
+      "resolve_time": "2026-02-21T16:30:19.342122+00:00"
     }
   ],
   "stats": {
-    "wins": 24,
+    "wins": 25,
     "losses": 28,
-    "pnl": -11.760000000000002,
+    "pnl": -9.71,
     "skipped": 0,
     "by_rsi_bucket": {
       "75-80": {
@@ -1007,9 +1026,9 @@
         "pnl": 2.45
       },
       "25-30": {
-        "wins": 5,
+        "wins": 6,
         "losses": 6,
-        "pnl": -2.65
+        "pnl": -0.6
       },
       "20-25": {
         "wins": 1,
@@ -1039,5 +1058,5 @@
     },
     "start_time": "2026-02-19T04:42:37.813380+00:00"
   },
-  "last_updated": "2026-02-21T16:24:25.862739+00:00"
+  "last_updated": "2026-02-21T17:43:01.269873+00:00"
 }

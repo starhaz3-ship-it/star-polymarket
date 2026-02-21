@@ -3078,13 +3078,51 @@
       "result": "WIN",
       "market_outcome": "UP",
       "resolve_time": "2026-02-21T16:40:20.476780+00:00"
+    },
+    {
+      "condition_id": "0x230dea6b55063fa3621640b4cedd15ac8f42b8e93d803fd39c2d77ca13a58ab2",
+      "question": "Bitcoin Up or Down - February 21, 12:20PM-12:25PM ET",
+      "side": "UP",
+      "entry_price": 0.75,
+      "confidence": 0.75,
+      "up_ask": 0.75,
+      "down_ask": 0.26,
+      "shares": 3.3333,
+      "cost": 2.5,
+      "time_remaining_sec": 59.2,
+      "entry_time": "2026-02-21T17:24:02.193259+00:00",
+      "end_dt": "2026-02-21T17:25:00+00:00",
+      "status": "closed",
+      "pnl": 0.83,
+      "result": "WIN",
+      "market_outcome": "UP",
+      "resolve_time": "2026-02-21T17:25:17.288384+00:00"
+    },
+    {
+      "condition_id": "0x43df3260f8763703126df935524f765d1e620d6723208fd12af42fc59c7b20f4",
+      "question": "Bitcoin Up or Down - February 21, 12:30PM-12:35PM ET",
+      "side": "UP",
+      "entry_price": 0.7,
+      "confidence": 0.7,
+      "up_ask": 0.7,
+      "down_ask": 0.31,
+      "shares": 3.5714,
+      "cost": 2.5,
+      "time_remaining_sec": 59.7,
+      "entry_time": "2026-02-21T17:34:01.765984+00:00",
+      "end_dt": "2026-02-21T17:35:00+00:00",
+      "status": "closed",
+      "pnl": 1.07,
+      "result": "WIN",
+      "market_outcome": "UP",
+      "resolve_time": "2026-02-21T17:35:16.517040+00:00"
     }
   ],
   "stats": {
-    "wins": 151,
+    "wins": 153,
     "losses": 11,
-    "pnl": 101.25999999999982,
-    "skipped": 568
+    "pnl": 103.15999999999981,
+    "skipped": 576
   },
-  "last_updated": "2026-02-21T16:51:48.979365+00:00"
+  "last_updated": "2026-02-21T17:42:25.817185+00:00"
 }
