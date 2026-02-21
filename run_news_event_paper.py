@@ -308,13 +308,41 @@ class PolymarketCache:
             print(f"[CACHE] Refresh error: {e}")
 
     # High-value entity keywords — single match is enough for these
+    # Conflict zones, geopolitical hotspots, key leaders, market-moving events
     ENTITY_KEYWORDS = frozenset({
+        # Conflict zones & hotspots
         "iran", "china", "russia", "ukraine", "taiwan", "korea", "israel",
-        "gaza", "trump", "biden", "putin", "zelensky", "xi", "modi",
-        "nato", "fed", "opec", "bitcoin", "btc", "ethereum", "eth",
-        "tariff", "tariffs", "nuclear", "missile", "invasion", "strike",
-        "impeach", "resign", "assassination", "coup", "earthquake",
-        "hurricane", "pandemic", "default", "recession", "shutdown",
+        "gaza", "palestine", "hamas", "hezbollah", "houthi", "yemen",
+        "syria", "iraq", "afghanistan", "libya", "sudan", "somalia",
+        "belarus", "japan", "philippines", "myanmar", "venezuela",
+        "cuba", "mexico", "pakistan", "india", "kashmir", "tibet",
+        "crimea", "donbas", "kherson", "zaporizhzhia",
+        # Key leaders & political figures
+        "trump", "biden", "putin", "zelensky", "xi", "modi", "kim",
+        "khamenei", "netanyahu", "erdogan", "macron", "scholz",
+        "starmer", "trudeau", "milei", "maduro", "lula", "bolsonaro",
+        "desantis", "vance", "musk", "zuckerberg",
+        # Orgs & alliances
+        "nato", "fed", "opec", "brics", "pentagon", "cia", "fbi",
+        "sec", "congress", "senate", "supreme", "iaea", "who",
+        # Markets & crypto
+        "bitcoin", "btc", "ethereum", "eth", "solana", "sol",
+        "crypto", "nasdaq", "dow", "treasury", "bond",
+        # Event triggers — fast-moving news
+        "tariff", "tariffs", "sanction", "sanctions", "embargo",
+        "nuclear", "missile", "icbm", "warhead", "enrichment", "uranium",
+        "invasion", "strike", "airstrike", "bombing", "drone", "attack",
+        "war", "ceasefire", "truce", "peace", "deal", "treaty", "accord",
+        "impeach", "impeachment", "resign", "resignation", "indictment",
+        "assassination", "assassinated", "coup", "overthrow", "martial",
+        "earthquake", "hurricane", "typhoon", "tsunami", "wildfire",
+        "pandemic", "outbreak", "epidemic", "quarantine",
+        "default", "recession", "depression", "inflation", "crash",
+        "shutdown", "blackout", "collapse", "bankrupt", "bailout",
+        "election", "referendum", "vote", "inauguration",
+        "hostage", "kidnap", "prisoner", "detained", "arrested",
+        "hack", "cyberattack", "breach", "ransomware",
+        "explosion", "derailment", "shooting", "massacre",
     })
 
     def find_matches(self, headline: str, min_overlap: int = 1) -> list[dict]:
