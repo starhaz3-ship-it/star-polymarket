@@ -174,6 +174,11 @@ class WhaleTracker:
             "name": "Harmless-Critic",
             "reputation": 0.85,  # $737K portfolio, $4.5M volume, 192 markets
         },
+        {
+            "address": "0xd84c2b6d65dc596f49c7b6aadd6d74ca91e407b9",
+            "name": "BoneReader",
+            "reputation": 0.80,  # $163K/mo, high-freq BTC/ETH/SOL/XRP 5m/15m, $15K+ positions, multi-asset
+        },
     ]
 
     def __init__(self, state_file: str = "whale_tracker_state.json"):

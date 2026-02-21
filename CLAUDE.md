@@ -14,6 +14,7 @@
 - **DEMOTED (2026-02-18)**: `run_pairs_arb.py --live --mode 15M` — demoted to paper. Live PnL: -$0.45. One exposed loss wiped all hedged gains.
 - **KILLED (2026-02-18)**: `run_pairs_arb.py --live --mode 5M` — 5M bail liquidity crisis. 4/4 bails = full loss ($4.50-$4.95 each). Live PnL: -$13.30. DO NOT RESTART.
 - **LIVE (2026-02-19)**: `run_sniper_5m_live.py --live` — UN-DEMOTED. Live PnL: +$6.81. Record: 9W/1L (90% WR). Consistent $1+ wins. W:L ratio 0.37x but 90% WR makes it profitable.
+- **KILLED (2026-02-20)**: `run_whale_consensus_15m.py --live` — Failed experiment. BoneReader whale dragged WR from 79% to 57%. DO NOT RESTART.
 - **NEVER** run `run_maker.py` — KILLED permanently. Lost ~$300 on 1c spreads with no edge. Do NOT restart, do NOT suggest restarting.
 - **ON SESSION START**: Verify NO unauthorized live traders are running. Check with `_find_procs.py`.
 - Allowed live: `run_momentum_15m_live.py --live` AND `run_sniper_5m_live.py --live`
