@@ -762,9 +762,11 @@ class Sniper5MLive:
                 open_price = float(klines[0][1])
                 close_price = float(klines[-1][4])
                 pct = (close_price - open_price) / open_price * 100
-                if pct > 0.04:
+                # V2.0 tuner: ML-tuned Binance threshold (was hardcoded 0.04)
+                binance_thresh = self.tuner.get_active_value("binance_threshold")
+                if pct > binance_thresh:
                     return "UP", open_price, close_price
-                elif pct < -0.04:
+                elif pct < -binance_thresh:
                     return "DOWN", open_price, close_price
                 return None, open_price, close_price  # FLAT but still return prices
         except Exception:
@@ -976,11 +978,16 @@ class Sniper5MLive:
             end_dt = market.get("_end_dt_parsed")
 
             # V2.2: Skip toxic hours (ALL 3 losses came from UTC 9+12)
-            if end_dt and end_dt.hour in SKIP_HOURS_UTC:
-                self.stats["skipped"] += 1
-                self.attempted_cids.add(cid)
-                print(f"[SKIP] Toxic hour {end_dt.hour} UTC | {question[:50]}")
-                continue
+            # V2.0 tuner: also skip hours with negative EV (ML-dynamic)
+            if end_dt:
+                dynamic_skip_hours = set(self.tuner.get_negative_ev_hours())
+                all_skip_hours = SKIP_HOURS_UTC | dynamic_skip_hours
+                if end_dt.hour in all_skip_hours:
+                    source = "hardcoded" if end_dt.hour in SKIP_HOURS_UTC else "ML-tuned"
+                    self.stats["skipped"] += 1
+                    self.attempted_cids.add(cid)
+                    print(f"[SKIP] Toxic hour {end_dt.hour} UTC ({source}) | {question[:50]}")
+                    continue
 
             # STEP 1: Get CLOB prices for both sides
             up_tid, down_tid = self.get_token_ids(market)
@@ -1018,10 +1025,14 @@ class Sniper5MLive:
                 dominant = max(up_ask or 0, down_ask or 0)
                 shadow_side = "UP" if (up_ask or 0) > (down_ask or 0) else "DOWN"
                 if dominant >= 0.65 and end_dt:
+                    _bmove = ((binance_current - binance_open) / binance_open * 100
+                              if binance_open and binance_current else 0)
                     self.tuner.record_shadow(
                         market_id=cid, end_time_iso=end_dt.isoformat(),
                         side=shadow_side, entry_price=dominant,
-                        clob_dominant=dominant)
+                        clob_dominant=dominant,
+                        extra={"binance_move": round(_bmove, 4),
+                               "time_left_sec": round(time_left_sec, 1)})
                 self.stats["skipped"] += 1
                 self.attempted_cids.add(cid)
                 print(f"[SKIP] No signal | Binance flat + CLOB unclear "
@@ -1070,21 +1081,28 @@ class Sniper5MLive:
             if entry_price > ml_max_entry:
                 # Shadow-track expensive skips for ML learning
                 if end_dt:
+                    _bmove2 = ((binance_current - binance_open) / binance_open * 100
+                               if binance_open and binance_current else 0)
                     self.tuner.record_shadow(
                         market_id=cid, end_time_iso=end_dt.isoformat(),
                         side=side, entry_price=entry_price,
-                        clob_dominant=max(up_display, down_display))
+                        clob_dominant=max(up_display, down_display),
+                        extra={"binance_move": round(_bmove2, 4),
+                               "time_left_sec": round(time_left_sec, 1)})
                 self.stats["skipped"] += 1
                 self.attempted_cids.add(cid)
                 print(f"[SKIP] Too expensive | {side} @ ${entry_price:.2f} > ${ml_max_entry:.2f} "
                       f"| {time_left_sec:.0f}s left | {question[:50]}")
                 continue
 
-            if entry_price < MIN_CONFIDENCE:
+            # V2.0 tuner: ML-tuned min_confidence (fallback to hardcoded MIN_CONFIDENCE)
+            ml_min_conf = self.tuner.get_active_value("min_confidence")
+            effective_min_conf = max(MIN_CONFIDENCE, ml_min_conf)
+            if entry_price < effective_min_conf:
                 self.stats["skipped"] += 1
                 self.attempted_cids.add(cid)
                 print(f"[SKIP] Too cheap (low liquidity) | {side} @ ${entry_price:.2f} "
-                      f"| {time_left_sec:.0f}s left | {question[:50]}")
+                      f"< ${effective_min_conf:.2f} | {time_left_sec:.0f}s left | {question[:50]}")
                 continue
 
             # V2.1: UP trades need higher minimum entry ($0.72+)
@@ -1118,6 +1136,16 @@ class Sniper5MLive:
                     trade_size = round(trade_size * SYNTH_SIZE_REDUCE, 2)
                     synth_tag = f" SYNTH-{s_edge:.0%}"
                     print(f"  [SYNTH] Disagrees: edge={s_edge:+.1%} → 0.5x size: ${trade_size:.2f}")
+
+            # V2.0 tuner: dynamic size multiplier based on conditional features
+            size_mult = self.tuner.get_optimal_size_mult(
+                hour=end_dt.hour if end_dt else None,
+                direction=side,
+                entry_price=entry_price,
+            )
+            if size_mult != 1.0:
+                trade_size = round(trade_size * size_mult, 2)
+                print(f"  [ML-SIZE] {size_mult:.2f}x -> ${trade_size:.2f}")
 
             # V3.1: Graduated circuit breaker — half-size when approaching halt
             if (self._consecutive_losses >= CIRCUIT_BREAKER_HALFSIZE or
@@ -1218,10 +1246,14 @@ class Sniper5MLive:
             self.active[cid] = trade
             # Shadow-track actual trade for ML tuner
             if end_dt:
+                _bmove3 = ((binance_current - binance_open) / binance_open * 100
+                           if binance_open and binance_current else 0)
                 self.tuner.record_shadow(
                     market_id=cid, end_time_iso=end_dt.isoformat(),
                     side=side, entry_price=entry_price,
-                    clob_dominant=max(up_display, down_display))
+                    clob_dominant=max(up_display, down_display),
+                    extra={"binance_move": round(_bmove3, 4),
+                           "time_left_sec": round(time_left_sec, 1)})
             self._save()
 
             mode = "LIVE" if not self.paper else "PAPER"
@@ -1468,6 +1500,35 @@ class Sniper5MLive:
             ml_feats = trade.get("_ml_features")
             if ml_feats:
                 self.ml_depth.record_outcome(ml_feats, won)
+
+            # V2.0 tuner: feed resolved trade features for conditional sizing model
+            resolve_hour = now.hour
+            self.tuner.state.setdefault("resolved_log", []).append({
+                "ts": now.isoformat(),
+                "pnl": round(pnl, 4),
+                "hour": resolve_hour,
+                "won": won,
+                "entry_price": trade.get("entry_price", 0),
+                "side": trade.get("side", ""),
+                "momentum": 0,  # sniper doesn't use momentum
+                "rsi": 0,       # sniper doesn't use RSI
+            })
+            # Bound resolved_log
+            if len(self.tuner.state["resolved_log"]) > 500:
+                self.tuner.state["resolved_log"] = self.tuner.state["resolved_log"][-400:]
+            # Update hour_stats
+            h_str = str(resolve_hour)
+            hs = self.tuner.state.setdefault("hour_stats", {}).setdefault(
+                h_str, {"wins": 0, "losses": 0, "pnl": 0.0, "trades": 0})
+            hs["trades"] += 1
+            hs["pnl"] = round(hs["pnl"] + pnl, 4)
+            if won:
+                hs["wins"] += 1
+            else:
+                hs["losses"] += 1
+            if self.tuner.state.get("first_resolve_ts") is None:
+                self.tuner.state["first_resolve_ts"] = now.isoformat()
+            self.tuner._save()
 
             self.resolved.append(trade)
             to_remove.append(cid)

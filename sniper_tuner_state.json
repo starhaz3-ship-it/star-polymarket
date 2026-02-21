@@ -32,10 +32,10 @@
         "pnl": 2.61
       },
       "0.84": {
-        "alpha": 1,
+        "alpha": 2,
         "beta": 1,
-        "trades": 0,
-        "pnl": 0.0
+        "trades": 1,
+        "pnl": 0.17
       }
     },
     "clob_upper": {
@@ -70,17 +70,17 @@
         "pnl": 2.61
       },
       "0.84": {
-        "alpha": 1,
+        "alpha": 2,
         "beta": 1,
-        "trades": 0,
-        "pnl": 0.0
+        "trades": 1,
+        "pnl": 0.17
       }
     }
   },
   "shadow": [],
   "active": {
-    "max_entry": "0.80",
-    "clob_upper": "0.80"
+    "max_entry": "0.76",
+    "clob_upper": "0.76"
   },
   "adjustments": [
     {
@@ -880,7 +880,33 @@
       "new_trades": 91,
       "total_resolved": 500,
       "ts": "2026-02-21T10:50:23.132367+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.80",
+      "new": "0.76",
+      "old_wr": 79.3,
+      "new_wr": 80.8,
+      "old_pnl": 8.18,
+      "new_pnl": 9.59,
+      "old_trades": 138,
+      "new_trades": 97,
+      "total_resolved": 575,
+      "ts": "2026-02-21T16:30:23.847603+00:00"
+    },
+    {
+      "param": "clob_upper",
+      "old": "0.80",
+      "new": "0.76",
+      "old_wr": 79.3,
+      "new_wr": 80.8,
+      "old_pnl": 8.18,
+      "new_pnl": 9.59,
+      "old_trades": 138,
+      "new_trades": 97,
+      "total_resolved": 575,
+      "ts": "2026-02-21T16:30:23.848705+00:00"
     }
   ],
-  "total_resolved": 573
+  "total_resolved": 577
 }

@@ -39,6 +39,18 @@
       }
     },
     "max_entry": {
+      "0.50": {
+        "alpha": 1,
+        "beta": 1,
+        "trades": 0,
+        "pnl": 0.0
+      },
+      "0.55": {
+        "alpha": 1,
+        "beta": 1,
+        "trades": 0,
+        "pnl": 0.0
+      },
       "0.60": {
         "alpha": 3,
         "beta": 5,
@@ -51,25 +63,13 @@
         "trades": 7,
         "pnl": -0.37
       },
-      "0.68": {
-        "alpha": 4,
-        "beta": 5,
-        "trades": 7,
-        "pnl": -0.37
-      },
-      "0.72": {
-        "alpha": 4,
-        "beta": 5,
-        "trades": 7,
-        "pnl": -0.37
+      "0.70": {
+        "alpha": 1,
+        "beta": 1,
+        "trades": 0,
+        "pnl": 0.0
       },
       "0.75": {
-        "alpha": 4,
-        "beta": 5,
-        "trades": 7,
-        "pnl": -0.37
-      },
-      "0.78": {
         "alpha": 4,
         "beta": 5,
         "trades": 7,
@@ -189,6 +189,44 @@
         "trades": 5,
         "pnl": 0.5
       }
+    },
+    "momentum_ceiling": {
+      "0.0008": {
+        "alpha": 1,
+        "beta": 1,
+        "trades": 0,
+        "pnl": 0.0
+      },
+      "0.0010": {
+        "alpha": 1,
+        "beta": 1,
+        "trades": 0,
+        "pnl": 0.0
+      },
+      "0.0012": {
+        "alpha": 1,
+        "beta": 1,
+        "trades": 0,
+        "pnl": 0.0
+      },
+      "0.0015": {
+        "alpha": 1,
+        "beta": 1,
+        "trades": 0,
+        "pnl": 0.0
+      },
+      "0.0020": {
+        "alpha": 1,
+        "beta": 1,
+        "trades": 0,
+        "pnl": 0.0
+      },
+      "0.0030": {
+        "alpha": 1,
+        "beta": 1,
+        "trades": 0,
+        "pnl": 0.0
+      }
     }
   },
   "shadow": [
@@ -259,11 +297,15 @@
   ],
   "active": {
     "time_window_upper": "6.0",
-    "max_entry": "0.72",
+    "max_entry": "0.65",
     "contrarian_ceil": "0.45",
     "momentum_floor": "0.0008",
-    "rsi_up": "55"
+    "rsi_up": "55",
+    "momentum_ceiling": "0.0012"
   },
   "adjustments": [],
-  "total_resolved": 7
+  "total_resolved": 7,
+  "hour_stats": {},
+  "resolved_log": [],
+  "first_resolve_ts": null
 }

@@ -1842,6 +1842,29 @@ class Momentum15MTrader:
                                 self.tuner.resolve_shadows({
                                     trade.get("condition_id", tid): winning
                                 })
+                                # V4.3: Feed resolved trade features for ML sizing model
+                                self.tuner.state.setdefault("resolved_log", []).append({
+                                    "ts": now.isoformat(),
+                                    "pnl": round(trade["pnl"], 4),
+                                    "hour": now.hour,
+                                    "won": won,
+                                    "entry_price": trade.get("entry_price", 0),
+                                    "side": trade.get("side", ""),
+                                    "momentum": abs(trade.get("momentum_10m", 0)),
+                                    "rsi": trade.get("rsi", 0),
+                                })
+                                if len(self.tuner.state.get("resolved_log", [])) > 500:
+                                    self.tuner.state["resolved_log"] = self.tuner.state["resolved_log"][-400:]
+                                h_str = str(now.hour)
+                                hs = self.tuner.state.setdefault("hour_stats", {}).setdefault(
+                                    h_str, {"wins": 0, "losses": 0, "pnl": 0.0, "trades": 0})
+                                hs["trades"] += 1
+                                hs["pnl"] = round(hs["pnl"] + trade["pnl"], 4)
+                                if won: hs["wins"] += 1
+                                else: hs["losses"] += 1
+                                if not self.tuner.state.get("first_resolve_ts"):
+                                    self.tuner.state["first_resolve_ts"] = now.isoformat()
+                                self.tuner._save()
                                 self.check_promotion()
                                 self._save()
                                 if self.check_auto_kill():
@@ -1966,6 +1989,29 @@ class Momentum15MTrader:
                                 self.tuner.resolve_shadows({
                                     trade.get("condition_id", tid): market_outcome
                                 })
+                                # V4.3: Feed resolved trade features for ML sizing model
+                                self.tuner.state.setdefault("resolved_log", []).append({
+                                    "ts": now.isoformat(),
+                                    "pnl": round(trade["pnl"], 4),
+                                    "hour": now.hour,
+                                    "won": won,
+                                    "entry_price": trade.get("entry_price", 0),
+                                    "side": trade.get("side", ""),
+                                    "momentum": abs(trade.get("momentum_10m", 0)),
+                                    "rsi": trade.get("rsi", 0),
+                                })
+                                if len(self.tuner.state.get("resolved_log", [])) > 500:
+                                    self.tuner.state["resolved_log"] = self.tuner.state["resolved_log"][-400:]
+                                h_str = str(now.hour)
+                                hs = self.tuner.state.setdefault("hour_stats", {}).setdefault(
+                                    h_str, {"wins": 0, "losses": 0, "pnl": 0.0, "trades": 0})
+                                hs["trades"] += 1
+                                hs["pnl"] = round(hs["pnl"] + trade["pnl"], 4)
+                                if won: hs["wins"] += 1
+                                else: hs["losses"] += 1
+                                if not self.tuner.state.get("first_resolve_ts"):
+                                    self.tuner.state["first_resolve_ts"] = now.isoformat()
+                                self.tuner._save()
 
                                 # Check promotion or auto-kill after each resolved trade
                                 self.check_promotion()
@@ -2214,12 +2260,12 @@ class Momentum15MTrader:
         """Find momentum-based entries on 15M markets across all assets."""
         now = datetime.now(timezone.utc)
 
-        # V4.2: Fixed skip hours based on actual momentum bot data (not mixed CSV)
-        # Removed UTC 19,21 — momentum data shows 3W/0L at those hours
-        # Added UTC 0,1 — momentum data shows 1W/4L, -$8.09 at midnight-1AM ET
-        # Kept UTC 7 (2AM ET 0% WR) and UTC 20 (3PM ET worst single hour)
+        # V4.2: Hardcoded floor skip hours (always skip)
         SKIP_HOURS = {0, 1, 7, 20}
-        if now.hour in SKIP_HOURS:
+        # V4.3: ML-dynamic hour skipping from tuner V2.0
+        dynamic_skip = set(self.tuner.get_negative_ev_hours())
+        all_skip = SKIP_HOURS | dynamic_skip
+        if now.hour in all_skip:
             return
 
         # V2.1: HMM regime filter — skip entries in CHOPPY regime
@@ -2351,9 +2397,10 @@ class Momentum15MTrader:
                 ml_m5 *= 0.5
                 spike_boosted = True
 
-            # V4.2: Momentum ceiling — >0.12% = too volatile, market already priced in (1W/4L)
+            # V4.3: ML-tuned momentum ceiling (was hardcoded 0.12%)
+            ml_mom_ceil = self.tuner.get_active_value("momentum_ceiling")
             abs_m10 = abs(momentum_10m)
-            if abs_m10 > MOMENTUM_CEILING and not spike_boosted:
+            if abs_m10 > ml_mom_ceil and not spike_boosted:
                 continue
 
             if momentum_10m > ml_m10 and momentum_5m > ml_m5:
@@ -2547,6 +2594,14 @@ class Momentum15MTrader:
                 elif s_edge <= -SYNTH_EDGE_THRESHOLD:
                     trade_size = round(trade_size * SYNTH_SIZE_REDUCE, 2)
                     print(f"    [SYNTH] Disagrees: edge={s_edge:+.1%} → ${trade_size:.2f}")
+
+            # V4.3: ML dynamic size multiplier based on conditions
+            ml_size_mult = self.tuner.get_optimal_size_mult(
+                hour=now.hour, direction=side, entry_price=entry_price,
+                momentum=abs_m10, rsi=rsi_val or 50)
+            if ml_size_mult != 1.0:
+                trade_size = round(trade_size * ml_size_mult, 2)
+                print(f"    [ML-SIZE] {ml_size_mult:.2f}x -> ${trade_size:.2f}")
 
             # V3.1: Graduated circuit breaker — half-size when approaching halt
             if (self._consecutive_losses >= CIRCUIT_BREAKER_HALFSIZE or
