@@ -575,7 +575,7 @@ class ParameterTuner:
                     "pnl": round(hs["pnl"], 4),
                     "trades": hs["trades"],
                     "ev": round(ev, 4),
-                    "skip": (ev < 0 and hs["trades"] >= 5),  # need 5+ trades to conclude
+                    "skip": (ev < -0.10 and hs["trades"] >= 10),  # V4.5: need 10+ trades AND meaningfully neg EV (was 5 trades, any neg)
                 }
             else:
                 result[hour] = {

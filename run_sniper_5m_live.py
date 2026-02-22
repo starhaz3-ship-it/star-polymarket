@@ -10,9 +10,9 @@ V3.2 — ML-driven profit maximization (22-trade deep analysis):
   total_depth >= 500: 25% WR (1W/3L, -$2.34/trade). Below 500: 93.3% WR.
   Hours 9,10,12,23 UTC: all 5 losses. Without them: 17W/0L.
   Changes:
-  - MIN_ENTRY_UP: $0.72 → $0.80 (UP only profitable at high confidence)
-  - MIN_CONFIDENCE: $0.55 → $0.75 (raise floor for ALL trades)
-  - SKIP_HOURS: {9} → {9, 10, 12, 23} (all live loss hours)
+  - MIN_ENTRY_UP: $0.72 -> $0.80 (UP only profitable at high confidence)
+  - MIN_CONFIDENCE: $0.55 -> $0.75 (raise floor for ALL trades)
+  - SKIP_HOURS: {9} -> {9, 10, 12, 23} (all live loss hours)
   - MAX_DEPTH filter: 500 shares (high-depth = informed market makers)
   - Theoretical: 14W/0L, 100% WR, +$4.93/day (6x improvement)
 
@@ -48,7 +48,7 @@ from liquidation_feed import BinanceLiqFeed
 # CONFIG
 # ============================================================================
 SNIPER_WINDOW = 63          # seconds before close to start looking (front-run whales)
-MIN_CONFIDENCE = 0.75       # V3.2: raised from $0.55 — every live loss was entry < $0.75. At $0.75+: 100% WR (6W/0L)
+MIN_CONFIDENCE = 0.65       # V4.5: lowered from $0.75 — was overriding ML tuner (active=0.70). 0.65 lets ML tuner control
 MAX_ENTRY_PRICE = 0.80      # V3.1: raised from $0.78 — paper shows 79.3% WR at $0.80, 42% more trades
 BASE_TRADE_SIZE = 3.00      # $3/trade per Star directive
 SCAN_INTERVAL = 5           # seconds between scans
@@ -76,7 +76,7 @@ GAMMA_API_URL = "https://gamma-api.polymarket.com/events"
 ML_MIN_TRADES = 8
 ML_MIN_WR_THRESHOLD = 0.50  # skip if estimated WR below this (DOWN trades)
 ML_UP_WR_THRESHOLD = 0.80   # V2.1: UP needs 80%+ ML WR (DOWN=11W/0L but UP=2W/3L, losses at 72-76%)
-MIN_ENTRY_UP = 0.80          # V3.2: raised from $0.72 — UP only profitable at $0.80+ (live: UP 33% WR overall, 100% at $0.80+)
+MIN_ENTRY_UP = 0.72          # V4.5: restored from $0.80 — was impossible with max_entry=0.76 (UP deadlocked). Original V2.1 value.
 UP_SIZE_MULT = 0.50          # V2.1: Half size on UP trades until UP direction proves itself
 SKIP_HOURS_UTC = {9, 10, 12, 23}  # V3.2: All 5 live losses in these hours. Without them: 17W/0L, +$15.85
 ETH_SIZE_MULT = 0.34        # V2.3: ETH minimum size (~$1/trade) until proven profitable
@@ -85,8 +85,8 @@ ASSETS = {"bitcoin": "BTC", "btc": "BTC", "ethereum": "ETH", "eth": "ETH"}
 BINANCE_SYMBOLS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT"}
 
 # V3.0: Circuit Breaker + Kelly Sizing + SynthData
-CIRCUIT_BREAKER_LOSSES = 3      # consecutive losses → full halt
-CIRCUIT_BREAKER_HALFSIZE = 2    # consecutive losses → half-size mode
+CIRCUIT_BREAKER_LOSSES = 3      # consecutive losses -> full halt
+CIRCUIT_BREAKER_HALFSIZE = 2    # consecutive losses -> half-size mode
 CIRCUIT_BREAKER_COOLDOWN = 1800  # 30 min cooldown after halt
 CIRCUIT_BREAKER_RECOVERY = 2    # trades at half-size before resuming full
 WARMUP_SECONDS = 30             # seconds of stable data required before trading
@@ -1006,7 +1006,7 @@ class Sniper5MLive:
                 side, binance_open, binance_current = await self._check_binance_direction(end_dt, symbol=binance_sym)
 
             if not side:
-                # V3.1: CLOB CONFIDENCE: $0.65+ with dominance → signal
+                # V3.1: CLOB CONFIDENCE: $0.65+ with dominance -> signal
                 # Previous bug: clob_cap (~0.78) threw away 226 high-confidence signals at $0.79-$0.85
                 # Now: use MAX_ENTRY_PRICE as cap (checked again at entry), let more signals through
                 clob_cap = MAX_ENTRY_PRICE
@@ -1137,11 +1137,11 @@ class Sniper5MLive:
                 if s_edge >= SYNTH_EDGE_THRESHOLD:
                     trade_size = round(trade_size * SYNTH_SIZE_BOOST, 2)
                     synth_tag = f" SYNTH+{s_edge:.0%}"
-                    print(f"  [SYNTH] Agrees: edge={s_edge:+.1%} → 1.5x size: ${trade_size:.2f}")
+                    print(f"  [SYNTH] Agrees: edge={s_edge:+.1%} -> 1.5x size: ${trade_size:.2f}")
                 elif s_edge <= -SYNTH_EDGE_THRESHOLD:
                     trade_size = round(trade_size * SYNTH_SIZE_REDUCE, 2)
                     synth_tag = f" SYNTH-{s_edge:.0%}"
-                    print(f"  [SYNTH] Disagrees: edge={s_edge:+.1%} → 0.5x size: ${trade_size:.2f}")
+                    print(f"  [SYNTH] Disagrees: edge={s_edge:+.1%} -> 0.5x size: ${trade_size:.2f}")
 
             # V2.0 tuner: dynamic size multiplier based on conditional features
             size_mult = self.tuner.get_optimal_size_mult(
@@ -1187,7 +1187,7 @@ class Sniper5MLive:
                         trade_size = round(trade_size * LIQ_SIZE_BOOST, 2)
                         print(f"  [LIQ] Liquidation confirms {side} "
                               f"(L:{imb['long_pct']:.0%}/S:{imb['short_pct']:.0%}, "
-                              f"{imb['count']}ev) → {LIQ_SIZE_BOOST}x size: ${trade_size:.2f}")
+                              f"{imb['count']}ev) -> {LIQ_SIZE_BOOST}x size: ${trade_size:.2f}")
 
             desired_shares = math.floor(trade_size / entry_price)
             if desired_shares < 1:
@@ -1502,7 +1502,7 @@ class Sniper5MLive:
             if won:
                 if self._consecutive_losses >= CIRCUIT_BREAKER_HALFSIZE:
                     self._recovery_trades = 1  # start recovery at half-size
-                    print(f"[RECOVERY] Win after {self._consecutive_losses} losses → "
+                    print(f"[RECOVERY] Win after {self._consecutive_losses} losses -> "
                           f"half-size for {CIRCUIT_BREAKER_RECOVERY} trades")
                 else:
                     self._recovery_trades = CIRCUIT_BREAKER_RECOVERY  # already recovered
@@ -1512,10 +1512,10 @@ class Sniper5MLive:
                 self._recovery_trades = 0
                 if self._consecutive_losses >= CIRCUIT_BREAKER_LOSSES:
                     self._circuit_halt_until = time.time() + CIRCUIT_BREAKER_COOLDOWN
-                    print(f"[CIRCUIT BREAKER] {self._consecutive_losses} consecutive losses → "
+                    print(f"[CIRCUIT BREAKER] {self._consecutive_losses} consecutive losses -> "
                           f"HALTED for {CIRCUIT_BREAKER_COOLDOWN // 60} min")
                 elif self._consecutive_losses >= CIRCUIT_BREAKER_HALFSIZE:
-                    print(f"[HALFSIZE] {self._consecutive_losses} consecutive losses → half-size mode")
+                    print(f"[HALFSIZE] {self._consecutive_losses} consecutive losses -> half-size mode")
 
             # ML depth learning — record outcome for auto-tuning
             ml_feats = trade.get("_ml_features")
@@ -1742,7 +1742,7 @@ class Sniper5MLive:
                     self._save()
 
                 # Fast-poll during sniper window + oracle window
-                # Book reprices $0.60→$0.90 in seconds — need 2s polls to catch $0.75
+                # Book reprices $0.60->$0.90 in seconds — need 2s polls to catch $0.75
                 fast = any(
                     -ORACLE_WINDOW <= m.get("_time_left_sec", 9999) <= SNIPER_WINDOW
                     for m in markets
