@@ -1,5 +1,5 @@
 """
-Volatility Edge 1H Paper Trader V1.0
+Volatility Edge 1H Trader V2.0
 
 Uses Black-Scholes-style binary option pricing to find mispriced
 Polymarket hourly crypto Up/Down contracts.
@@ -26,6 +26,7 @@ Key differences from momentum bot:
 
 Usage:
   python -u run_vol_edge_1h.py          # Paper mode (default)
+  python -u run_vol_edge_1h.py --live   # Live mode (real CLOB orders)
 """
 
 import sys
@@ -39,6 +40,8 @@ import traceback
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Dict, Optional
+
+import argparse
 
 import numpy as np
 import httpx
@@ -83,6 +86,9 @@ DAILY_LOSS_LIMIT = 15.0
 
 # Skip hours (UTC) — copy from momentum bot proven dead hours
 SKIP_HOURS = {7, 8, 11, 12, 13, 14, 15}
+
+FOK_SLIPPAGE = 0.02         # slippage above ask for GTC fill
+MIN_SHARES = 5              # CLOB minimum order size
 
 RESULTS_FILE = Path(__file__).parent / "vol_edge_1h_results.json"
 BINANCE_REST_URL = "https://api.binance.com/api/v3/klines"
@@ -240,7 +246,9 @@ def infer_strike_from_prices(up_price: float, down_price: float,
 # ============================================================================
 
 class VolEdge1HTrader:
-    def __init__(self):
+    def __init__(self, paper: bool = True):
+        self.paper = paper
+        self.client = None
         self.active: Dict[str, dict] = {}
         self.resolved: list = []
         self.stats = {"wins": 0, "losses": 0, "pnl": 0.0}
@@ -249,6 +257,8 @@ class VolEdge1HTrader:
         self.running = True
         self._last_log_time = 0.0
         self._load()
+        if not self.paper:
+            self._init_clob()
 
     def _load(self):
         if RESULTS_FILE.exists():
@@ -286,6 +296,73 @@ class VolEdge1HTrader:
             tmp.replace(RESULTS_FILE)
         except Exception as e:
             print(f"[SAVE] Error: {e}")
+
+    def _init_clob(self):
+        """Initialize CLOB client for live trading."""
+        try:
+            from py_clob_client.client import ClobClient
+            from crypto_utils import decrypt_key
+
+            password = os.getenv("POLYMARKET_PASSWORD", "")
+            pk = os.getenv("POLYMARKET_PRIVATE_KEY", "")
+            if pk.startswith("ENC:"):
+                pk = decrypt_key(pk[4:], os.getenv("POLYMARKET_KEY_SALT", ""), password)
+            proxy = os.getenv("POLYMARKET_PROXY_ADDRESS", "")
+
+            self.client = ClobClient(
+                host="https://clob.polymarket.com", key=pk, chain_id=137,
+                signature_type=1, funder=proxy if proxy else None,
+            )
+            creds = self.client.derive_api_key()
+            self.client.set_api_creds(creds)
+            print(f"[CLOB] Client initialized - LIVE MODE")
+        except Exception as e:
+            print(f"[CLOB] Init failed: {e}")
+            print(f"[CLOB] Falling back to PAPER mode")
+            self.paper = True
+
+    def get_token_ids(self, market: dict) -> tuple:
+        """Extract UP/DOWN token IDs from market data."""
+        outcomes = market.get("outcomes", [])
+        token_ids = market.get("clobTokenIds", [])
+        if isinstance(outcomes, str):
+            outcomes = json.loads(outcomes)
+        if isinstance(token_ids, str):
+            token_ids = json.loads(token_ids)
+        up_tid, down_tid = None, None
+        for i, o in enumerate(outcomes):
+            if i < len(token_ids):
+                if str(o).lower() == "up":
+                    up_tid = token_ids[i]
+                elif str(o).lower() == "down":
+                    down_tid = token_ids[i]
+        return up_tid, down_tid
+
+    def _verify_fill(self, order_id: str, entry_price: float, shares: float,
+                     trade_size: float) -> tuple:
+        """Check if a GTC order has been filled."""
+        try:
+            order_info = self.client.get_order(order_id)
+            if isinstance(order_info, str):
+                try:
+                    order_info = json.loads(order_info)
+                except json.JSONDecodeError:
+                    return (False, entry_price, shares, trade_size)
+            if not isinstance(order_info, dict):
+                return (False, entry_price, shares, trade_size)
+            size_matched = float(order_info.get("size_matched", 0) or 0)
+            if size_matched >= MIN_SHARES:
+                assoc = order_info.get("associate_trades", [])
+                if assoc and assoc[0].get("price"):
+                    entry_price = float(assoc[0]["price"])
+                    trade_size = round(entry_price * size_matched, 2)
+                    shares = size_matched
+                print(f"[LIVE] FILLED: {size_matched:.0f}sh @ ${entry_price:.2f} = ${trade_size:.2f}")
+                return (True, entry_price, shares, trade_size)
+            return (False, entry_price, shares, trade_size)
+        except Exception as e:
+            print(f"[LIVE] Fill check: {e}")
+            return (False, entry_price, shares, trade_size)
 
     # ========================================================================
     # MARKET DISCOVERY
@@ -610,21 +687,92 @@ class VolEdge1HTrader:
             if bet_size < MIN_BET:
                 continue
 
-            # Paper spread simulation
+            # Compute shares (integer for CLOB)
             entry_price_adj = round(entry_price + 0.01, 2)
-            shares = bet_size / entry_price_adj
+            shares = int(bet_size / entry_price_adj)
+            if shares < MIN_SHARES:
+                shares = MIN_SHARES
             cost = round(shares * entry_price_adj, 2)
 
             self.attempted_cids.add(cid)
 
+            # === PLACE TRADE ===
             trade_key = f"vol1h_{cid}_{best_side}"
+            order_id = None
+            fill_confirmed = False
+
+            if not self.paper and self.client:
+                try:
+                    from py_clob_client.clob_types import OrderArgs, OrderType
+                    from py_clob_client.order_builder.constants import BUY
+                    import time as _t
+
+                    up_tid, down_tid = self.get_token_ids(market)
+                    token_id = up_tid if best_side == "UP" else down_tid
+                    if not token_id:
+                        print(f"[SKIP] No token ID for {asset}:{best_side}")
+                        continue
+
+                    gtc_price = min(round(entry_price + FOK_SLIPPAGE, 2), 0.99)
+
+                    order_args = OrderArgs(
+                        price=gtc_price,
+                        size=shares,
+                        side=BUY,
+                        token_id=token_id,
+                    )
+                    print(f"[LIVE] GTC {asset} {best_side} {shares}sh @ ${gtc_price:.2f} "
+                          f"(ask=${entry_price:.2f})")
+                    signed = self.client.create_order(order_args)
+                    resp = self.client.post_order(signed, OrderType.GTC)
+
+                    if not resp.get("success"):
+                        print(f"[LIVE] GTC order failed: {resp.get('errorMsg', '?')}")
+                        continue
+
+                    order_id = resp.get("orderID", "?")
+                    status = resp.get("status", "")
+                    print(f"[LIVE] GTC posted: {order_id[:20]}... status={status}")
+
+                    if status == "matched":
+                        _t.sleep(2)
+                        fill_confirmed, entry_price_adj, shares, cost = self._verify_fill(
+                            order_id, entry_price_adj, shares, cost)
+                        if not fill_confirmed:
+                            _t.sleep(3)
+                            fill_confirmed, entry_price_adj, shares, cost = self._verify_fill(
+                                order_id, entry_price_adj, shares, cost)
+                        if not fill_confirmed:
+                            fill_confirmed = True
+                            entry_price_adj = gtc_price
+                            cost = round(shares * entry_price_adj, 2)
+                            print(f"[LIVE] Matched -- trusting fill {shares}sh @ ${entry_price_adj:.2f}")
+                    else:
+                        print(f"[LIVE] Polling for fill (30s max)...")
+                        for wait_round in range(6):
+                            _t.sleep(5)
+                            fill_confirmed, entry_price_adj, shares, cost = self._verify_fill(
+                                order_id, entry_price_adj, shares, cost)
+                            if fill_confirmed:
+                                break
+                        if not fill_confirmed:
+                            try:
+                                self.client.cancel(order_id)
+                                print(f"[LIVE] Unfilled after 30s -- cancelled")
+                            except Exception:
+                                pass
+                            continue
+                except Exception as e:
+                    print(f"[LIVE] Order error: {e}")
+                    continue
+
             trade = {
                 "condition_id": cid,
                 "market_numeric_id": market.get("id"),
                 "question": market.get("question", "?"),
                 "side": best_side,
                 "entry_price": round(entry_price_adj, 4),
-                "shares": round(shares, 4),
+                "shares": shares,
                 "size_usd": cost,
                 "prob_model": round(prob_win, 4),
                 "prob_market": round(entry_price, 4),
@@ -637,6 +785,9 @@ class VolEdge1HTrader:
                 "time_left_min": round(time_left, 1),
                 "entry_time": now.isoformat(),
                 "end_dt": end_dt_str,
+                "order_id": order_id,
+                "_token_ids": list(self.get_token_ids(market)),
+                "_fill_confirmed": fill_confirmed or self.paper,
                 "status": "open",
                 "pnl": 0.0,
                 "result": None,
@@ -645,7 +796,8 @@ class VolEdge1HTrader:
             self.active[trade_key] = trade
             open_count += 1
 
-            print(f"\n[ENTRY] {asset}:{best_side} @ ${entry_price_adj:.2f} ${cost:.2f} ({shares:.1f}sh) | "
+            mode = "LIVE" if not self.paper else "PAPER"
+            print(f"\n[{mode}] {asset}:{best_side} @ ${entry_price_adj:.2f} ${cost:.2f} ({shares}sh) | "
                   f"edge={best_edge:+.1%} P(win)={prob_win:.1%} mkt={entry_price:.2f} | "
                   f"Kelly={bet_size / BANKROLL:.1%} bet=${bet_size:.2f} | "
                   f"sig1m={sigma_1min:.6f} S/K={current_price / strike_price:.5f} | "
@@ -768,8 +920,9 @@ class VolEdge1HTrader:
     # ========================================================================
 
     async def run(self):
+        mode = "LIVE" if not self.paper else "PAPER"
         print("=" * 65)
-        print("VOLATILITY EDGE 1H PAPER TRADER V1.0")
+        print(f"VOLATILITY EDGE 1H {mode} TRADER V2.0")
         print("Binary option pricing model (Black-Scholes style)")
         print(f"Entry window: {TIME_WINDOW_MIN}-{TIME_WINDOW_MAX} min before close")
         print(f"Price range: ${MIN_ENTRY_PRICE}-${MAX_ENTRY_PRICE}")
@@ -796,12 +949,16 @@ class VolEdge1HTrader:
 # ============================================================================
 
 async def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--live", action="store_true", help="Live mode (real CLOB orders)")
+    args = parser.parse_args()
+
     lock = acquire_pid_lock("vol_edge_1h")
     if not lock:
         print("[FATAL] Another vol_edge_1h instance is running. Exiting.")
         sys.exit(1)
 
-    trader = VolEdge1HTrader()
+    trader = VolEdge1HTrader(paper=not args.live)
 
     try:
         await trader.run()
