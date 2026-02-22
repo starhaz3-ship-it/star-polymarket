@@ -2391,7 +2391,6 @@ class Momentum15MTrader:
                     age_min = (now - entry_ts).total_seconds() / 60
                     if age_min > 20:  # market should have resolved by now
                         # Fetch outcome from Gamma API
-                        import httpx
                         async with httpx.AsyncClient() as client:
                             resp = await client.get(
                                 f"https://gamma-api.polymarket.com/markets?condition_id={s_cid}",
