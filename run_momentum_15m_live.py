@@ -105,36 +105,75 @@ try:
 except ImportError:
     _LGB_OK = False
 
+try:
+    from catboost import CatBoostClassifier
+    _CAT_OK = True
+except ImportError:
+    _CAT_OK = False
+
+try:
+    import shap
+    _SHAP_OK = True
+except ImportError:
+    _SHAP_OK = False
+
+try:
+    from sklearn.feature_selection import mutual_info_classif
+    _MI_OK = True
+except ImportError:
+    _MI_OK = False
+
 class PMSignalRanker:
-    """LightGBM shadow-mode P(win) predictor for Polymarket momentum trades."""
+    """LightGBM + CatBoost ensemble shadow-mode P(win) predictor for Polymarket momentum trades."""
     MODEL_PATH = Path(__file__).parent / "pm_ranker_model.txt"
+    CAT_MODEL_PATH = Path(__file__).parent / "pm_ranker_catboost.cbm"
     TRAIN_PATH = Path(__file__).parent / "pm_ranker_training.json"
 
     def __init__(self, min_samples=30, retrain_interval=50):
         self.min_samples = min_samples
         self.retrain_interval = retrain_interval
         self.model = None
+        self.cat_model = None
         self._since_train = 0
         if _LGB_OK and self.MODEL_PATH.exists():
             try:
                 self.model = lgb.Booster(model_file=str(self.MODEL_PATH))
-                print(f"[PM-RANKER] Loaded model from {self.MODEL_PATH.name}")
+                print(f"[PM-RANKER] Loaded LGB model from {self.MODEL_PATH.name}")
             except Exception:
                 self.model = None
-        if _LGB_OK:
-            print(f"[PM-RANKER] Shadow-mode signal ranker initialized")
+        if _CAT_OK and self.CAT_MODEL_PATH.exists():
+            try:
+                self.cat_model = CatBoostClassifier()
+                self.cat_model.load_model(str(self.CAT_MODEL_PATH))
+                print(f"[PM-RANKER] Loaded CatBoost model from {self.CAT_MODEL_PATH.name}")
+            except Exception:
+                self.cat_model = None
+        if _LGB_OK or _CAT_OK:
+            print(f"[PM-RANKER] Shadow-mode signal ranker initialized (LGB={_LGB_OK}, CAT={_CAT_OK})")
 
     def predict(self, features: dict) -> float:
-        if not _LGB_OK or self.model is None:
-            return 0.5
         try:
             arr = np.array([[float(features.get(k, 0.0)) for k in PM_RANKER_FEATURES]])
-            return float(np.clip(self.model.predict(arr)[0], 0.0, 1.0))
         except Exception:
             return 0.5
+        preds = []
+        if _LGB_OK and self.model is not None:
+            try:
+                preds.append(float(np.clip(self.model.predict(arr)[0], 0.0, 1.0)))
+            except Exception:
+                pass
+        if _CAT_OK and self.cat_model is not None:
+            try:
+                prob = self.cat_model.predict_proba(arr)[0][1]
+                preds.append(float(np.clip(prob, 0.0, 1.0)))
+            except Exception:
+                pass
+        if not preds:
+            return 0.5
+        return float(np.mean(preds))
 
     def record_trade(self, features: dict, won: bool):
-        if not _LGB_OK:
+        if not _LGB_OK and not _CAT_OK:
             return
         record = {
             'features': {k: float(features.get(k, 0.0)) for k in PM_RANKER_FEATURES},
@@ -158,7 +197,7 @@ class PMSignalRanker:
             self._retrain()
 
     def _retrain(self):
-        if not _LGB_OK or not self.TRAIN_PATH.exists():
+        if (not _LGB_OK and not _CAT_OK) or not self.TRAIN_PATH.exists():
             return
         try:
             data = json.loads(self.TRAIN_PATH.read_text())
@@ -169,25 +208,68 @@ class PMSignalRanker:
         try:
             X = np.array([[r['features'].get(k, 0.0) for k in PM_RANKER_FEATURES] for r in data])
             y = np.array([r['won'] for r in data])
-            train_data = lgb.Dataset(X, label=y, feature_name=PM_RANKER_FEATURES)
-            params = {
-                'objective': 'binary', 'metric': 'auc',
-                'num_leaves': 12, 'learning_rate': 0.05,
-                'feature_fraction': 0.8, 'verbose': -1, 'num_threads': 1,
-            }
-            self.model = lgb.train(params, train_data, num_boost_round=40)
-            self.model.save_model(str(self.MODEL_PATH))
+
+            # --- LightGBM ---
+            if _LGB_OK:
+                train_data = lgb.Dataset(X, label=y, feature_name=PM_RANKER_FEATURES)
+                params = {
+                    'objective': 'binary', 'metric': 'auc',
+                    'num_leaves': 12, 'learning_rate': 0.05,
+                    'feature_fraction': 0.8, 'verbose': -1, 'num_threads': 1,
+                }
+                self.model = lgb.train(params, train_data, num_boost_round=40)
+                self.model.save_model(str(self.MODEL_PATH))
+                lgb_preds = self.model.predict(X)
+                try:
+                    from sklearn.metrics import roc_auc_score
+                    auc = roc_auc_score(y, lgb_preds)
+                    print(f"[PM-RANKER] LGB retrained on {len(data)} samples, AUC={auc:.3f}")
+                except Exception:
+                    print(f"[PM-RANKER] LGB retrained on {len(data)} samples")
+
+            # --- CatBoost ---
+            if _CAT_OK:
+                self.cat_model = CatBoostClassifier(
+                    iterations=40, depth=4, learning_rate=0.05,
+                    loss_function='Logloss', verbose=0, thread_count=1,
+                )
+                self.cat_model.fit(X, y)
+                self.cat_model.save_model(str(self.CAT_MODEL_PATH))
+                cat_preds = self.cat_model.predict_proba(X)[:, 1]
+                try:
+                    from sklearn.metrics import roc_auc_score
+                    auc = roc_auc_score(y, cat_preds)
+                    print(f"[PM-RANKER] CatBoost retrained on {len(data)} samples, AUC={auc:.3f}")
+                except Exception:
+                    print(f"[PM-RANKER] CatBoost retrained on {len(data)} samples")
+
             self._since_train = 0
-            preds = self.model.predict(X)
-            try:
-                from sklearn.metrics import roc_auc_score
-                auc = roc_auc_score(y, preds)
-                print(f"[PM-RANKER] Retrained on {len(data)} samples, AUC={auc:.3f}")
-            except Exception:
-                print(f"[PM-RANKER] Retrained on {len(data)} samples")
+
+            # --- SHAP feature importance (LightGBM) ---
+            if _SHAP_OK and _LGB_OK and self.model is not None:
+                try:
+                    explainer = shap.TreeExplainer(self.model)
+                    shap_values = explainer.shap_values(X)
+                    mean_abs_shap = np.mean(np.abs(shap_values), axis=0)
+                    top_idx = np.argsort(mean_abs_shap)[::-1][:3]
+                    top_feats = [(PM_RANKER_FEATURES[i], mean_abs_shap[i]) for i in top_idx]
+                    print(f"[PM-RANKER] SHAP top-3: {', '.join(f'{n}={v:.4f}' for n, v in top_feats)}")
+                except Exception as e:
+                    print(f"[PM-RANKER] SHAP analysis failed: {e}")
+
+            # --- Mutual Information ---
+            if _MI_OK:
+                try:
+                    mi_scores = mutual_info_classif(X, y, random_state=42)
+                    mi_ranked = sorted(zip(PM_RANKER_FEATURES, mi_scores), key=lambda x: x[1], reverse=True)
+                    print(f"[PM-RANKER] MI scores: {', '.join(f'{n}={v:.4f}' for n, v in mi_ranked)}")
+                except Exception as e:
+                    print(f"[PM-RANKER] MI analysis failed: {e}")
+
         except Exception as e:
             print(f"[PM-RANKER] Retrain failed: {e}")
             self._since_train = 0
+
 
 
 # ============================================================================
