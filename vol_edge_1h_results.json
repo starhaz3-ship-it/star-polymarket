@@ -1,6 +1,7 @@
 {
-  "active": {
-    "vol1h_0xf4bc96bdefa9d436dcf4318017b03e90f546dfa03a285979649835b6e546602c_DOWN": {
+  "active": {},
+  "resolved": [
+    {
       "condition_id": "0xf4bc96bdefa9d436dcf4318017b03e90f546dfa03a285979649835b6e546602c",
       "market_numeric_id": "1400506",
       "question": "Bitcoin Up or Down - February 21, 9PM ET",
@@ -19,11 +20,13 @@
       "time_left_min": 20.1,
       "entry_time": "2026-02-22T02:39:54.450360+00:00",
       "end_dt": "2026-02-22T03:00:00+00:00",
-      "status": "open",
-      "pnl": 0.0,
-      "result": null
+      "status": "closed",
+      "pnl": 0.95,
+      "result": "WIN",
+      "market_outcome": "DOWN",
+      "resolve_time": "2026-02-22T03:00:42.284143+00:00"
     },
-    "vol1h_0x0e3056317428f70c858b4b181ab6ae1eeb5da2ba946862582023e437a59fa945_DOWN": {
+    {
       "condition_id": "0x0e3056317428f70c858b4b181ab6ae1eeb5da2ba946862582023e437a59fa945",
       "market_numeric_id": "1400507",
       "question": "Ethereum Up or Down - February 21, 9PM ET",
@@ -42,16 +45,17 @@
       "time_left_min": 20.1,
       "entry_time": "2026-02-22T02:39:54.450360+00:00",
       "end_dt": "2026-02-22T03:00:00+00:00",
-      "status": "open",
-      "pnl": 0.0,
-      "result": null
+      "status": "closed",
+      "pnl": 1.55,
+      "result": "WIN",
+      "market_outcome": "DOWN",
+      "resolve_time": "2026-02-22T03:00:42.284143+00:00"
     }
-  },
-  "resolved": [],
+  ],
   "stats": {
-    "wins": 0,
+    "wins": 2,
     "losses": 0,
-    "pnl": 0.0
+    "pnl": 2.5
   },
-  "last_updated": "2026-02-22T02:39:56.638967+00:00"
+  "last_updated": "2026-02-22T03:00:43.680238+00:00"
 }

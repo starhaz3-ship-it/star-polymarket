@@ -16,92 +16,214 @@
         "timestamps": []
       },
       "5.0": {
-        "alpha": 4,
-        "beta": 4,
-        "trades": 6,
-        "pnl": 0.16,
-        "timestamps": []
+        "alpha": 5,
+        "beta": 5,
+        "trades": 8,
+        "pnl": 0.39,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "6.0": {
-        "alpha": 4,
-        "beta": 5,
-        "trades": 7,
-        "pnl": -0.37,
-        "timestamps": []
+        "alpha": 5,
+        "beta": 6,
+        "trades": 9,
+        "pnl": -0.14,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "7.0": {
-        "alpha": 4,
-        "beta": 5,
-        "trades": 7,
-        "pnl": -0.37,
-        "timestamps": []
+        "alpha": 5,
+        "beta": 6,
+        "trades": 9,
+        "pnl": -0.14,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "8.0": {
-        "alpha": 4,
-        "beta": 5,
-        "trades": 7,
-        "pnl": -0.37,
-        "timestamps": []
+        "alpha": 5,
+        "beta": 6,
+        "trades": 9,
+        "pnl": -0.14,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       }
     },
     "max_entry": {
       "0.50": {
-        "alpha": 1,
-        "beta": 1,
-        "trades": 0,
-        "pnl": 0.0,
-        "timestamps": []
+        "alpha": 2,
+        "beta": 2,
+        "trades": 2,
+        "pnl": 0.23,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "0.55": {
-        "alpha": 1,
-        "beta": 1,
-        "trades": 0,
-        "pnl": 0.0,
-        "timestamps": []
+        "alpha": 2,
+        "beta": 2,
+        "trades": 2,
+        "pnl": 0.23,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "0.60": {
-        "alpha": 3,
-        "beta": 5,
-        "trades": 6,
-        "pnl": -0.76,
-        "timestamps": []
+        "alpha": 4,
+        "beta": 6,
+        "trades": 8,
+        "pnl": -0.53,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "0.65": {
-        "alpha": 4,
-        "beta": 5,
-        "trades": 7,
-        "pnl": -0.37,
-        "timestamps": []
+        "alpha": 5,
+        "beta": 6,
+        "trades": 9,
+        "pnl": -0.14,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "0.70": {
-        "alpha": 1,
-        "beta": 1,
-        "trades": 0,
-        "pnl": 0.0,
-        "timestamps": []
+        "alpha": 2,
+        "beta": 2,
+        "trades": 2,
+        "pnl": 0.23,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "0.75": {
-        "alpha": 4,
-        "beta": 5,
-        "trades": 7,
-        "pnl": -0.37,
-        "timestamps": []
+        "alpha": 5,
+        "beta": 6,
+        "trades": 9,
+        "pnl": -0.14,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       }
     },
     "contrarian_ceil": {
       "0.38": {
-        "alpha": 4,
+        "alpha": 5,
         "beta": 4,
-        "trades": 6,
-        "pnl": -0.01,
-        "timestamps": []
+        "trades": 7,
+        "pnl": 0.59,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "0.40": {
-        "alpha": 4,
+        "alpha": 5,
         "beta": 3,
-        "trades": 5,
-        "pnl": 0.38,
-        "timestamps": []
+        "trades": 6,
+        "pnl": 0.98,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "0.43": {
         "alpha": 4,
@@ -134,11 +256,22 @@
     },
     "momentum_floor": {
       "0.0004": {
-        "alpha": 4,
-        "beta": 5,
-        "trades": 7,
-        "pnl": -0.37,
-        "timestamps": []
+        "alpha": 5,
+        "beta": 6,
+        "trades": 9,
+        "pnl": -0.14,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "0.0006": {
         "alpha": 3,
@@ -178,90 +311,222 @@
     },
     "rsi_up": {
       "50": {
-        "alpha": 4,
-        "beta": 5,
-        "trades": 7,
-        "pnl": -0.37,
-        "timestamps": []
+        "alpha": 5,
+        "beta": 6,
+        "trades": 9,
+        "pnl": -0.14,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "53": {
-        "alpha": 4,
-        "beta": 5,
-        "trades": 7,
-        "pnl": -0.37,
-        "timestamps": []
+        "alpha": 5,
+        "beta": 6,
+        "trades": 9,
+        "pnl": -0.14,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "55": {
-        "alpha": 4,
-        "beta": 5,
-        "trades": 7,
-        "pnl": -0.37,
-        "timestamps": []
+        "alpha": 5,
+        "beta": 6,
+        "trades": 9,
+        "pnl": -0.14,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "58": {
-        "alpha": 4,
-        "beta": 4,
-        "trades": 6,
-        "pnl": 0.14,
-        "timestamps": []
+        "alpha": 5,
+        "beta": 5,
+        "trades": 8,
+        "pnl": 0.37,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "60": {
-        "alpha": 4,
-        "beta": 4,
-        "trades": 6,
-        "pnl": 0.14,
-        "timestamps": []
+        "alpha": 5,
+        "beta": 5,
+        "trades": 8,
+        "pnl": 0.37,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "63": {
-        "alpha": 4,
-        "beta": 3,
-        "trades": 5,
-        "pnl": 0.5,
-        "timestamps": []
+        "alpha": 5,
+        "beta": 4,
+        "trades": 7,
+        "pnl": 0.73,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       }
     },
     "momentum_ceiling": {
       "0.0008": {
-        "alpha": 1,
-        "beta": 1,
-        "trades": 0,
-        "pnl": 0.0,
-        "timestamps": []
+        "alpha": 2,
+        "beta": 2,
+        "trades": 2,
+        "pnl": 0.23,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "0.0010": {
-        "alpha": 1,
-        "beta": 1,
-        "trades": 0,
-        "pnl": 0.0,
-        "timestamps": []
+        "alpha": 2,
+        "beta": 2,
+        "trades": 2,
+        "pnl": 0.23,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "0.0012": {
-        "alpha": 1,
-        "beta": 1,
-        "trades": 0,
-        "pnl": 0.0,
-        "timestamps": []
+        "alpha": 2,
+        "beta": 2,
+        "trades": 2,
+        "pnl": 0.23,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "0.0015": {
-        "alpha": 1,
-        "beta": 1,
-        "trades": 0,
-        "pnl": 0.0,
-        "timestamps": []
+        "alpha": 2,
+        "beta": 2,
+        "trades": 2,
+        "pnl": 0.23,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "0.0020": {
-        "alpha": 1,
-        "beta": 1,
-        "trades": 0,
-        "pnl": 0.0,
-        "timestamps": []
+        "alpha": 2,
+        "beta": 2,
+        "trades": 2,
+        "pnl": 0.23,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       },
       "0.0030": {
-        "alpha": 1,
-        "beta": 1,
-        "trades": 0,
-        "pnl": 0.0,
-        "timestamps": []
+        "alpha": 2,
+        "beta": 2,
+        "trades": 2,
+        "pnl": 0.23,
+        "timestamps": [
+          {
+            "ts": "2026-02-21T22:32:46.545065+00:00",
+            "won": false,
+            "pnl_contrib": -0.37
+          },
+          {
+            "ts": "2026-02-21T23:17:30.995142+00:00",
+            "won": true,
+            "pnl_contrib": 0.6
+          }
+        ]
       }
     }
   },
@@ -345,19 +610,150 @@
         "strategy": "vortex_rvi",
         "traded": true
       }
+    },
+    {
+      "market_id": "0x0fe45004fceb3c1975e9095f084bbe4c22a079a7c43be18ee1cdd2112d250e9c",
+      "end_time": "2026-02-22T02:57:17.348877+00:00",
+      "side": "DOWN",
+      "entry_price": 0.7,
+      "clob_dominant": 0.7,
+      "ts": "2026-02-22T02:57:23.881161+00:00",
+      "extra": {
+        "time_left_min": 3.2,
+        "consensus": true,
+        "momentum_10m": -0.00047935606837196923,
+        "rsi": 39.86547920302561,
+        "strategy": "consensus",
+        "traded": true
+      }
     }
   ],
   "active": {
-    "time_window_upper": "6.0",
-    "max_entry": "0.65",
-    "contrarian_ceil": "0.45",
-    "momentum_floor": "0.0008",
-    "rsi_up": "55",
+    "time_window_upper": "4.0",
+    "max_entry": "0.75",
+    "contrarian_ceil": "0.38",
+    "momentum_floor": "0.0004",
+    "rsi_up": "53",
     "momentum_ceiling": "0.0012"
   },
-  "adjustments": [],
-  "total_resolved": 7,
-  "hour_stats": {},
-  "resolved_log": [],
-  "first_resolve_ts": null
+  "adjustments": [
+    {
+      "param": "time_window_upper",
+      "old": "6.0",
+      "new": "4.0",
+      "old_wr": 45.5,
+      "new_wr": 57.1,
+      "old_pnl": -0.14,
+      "new_pnl": 0.52,
+      "old_trades": 9,
+      "new_trades": 5,
+      "old_weighted_pnl": 0.2439,
+      "new_weighted_pnl": 0.52,
+      "hours_of_data": 1.0,
+      "total_resolved": 9,
+      "ts": "2026-02-21T23:17:30.995142+00:00"
+    },
+    {
+      "param": "max_entry",
+      "old": "0.65",
+      "new": "0.75",
+      "old_wr": 45.5,
+      "new_wr": 45.5,
+      "old_pnl": -0.14,
+      "new_pnl": -0.14,
+      "old_trades": 9,
+      "new_trades": 9,
+      "old_weighted_pnl": 0.2439,
+      "new_weighted_pnl": 0.2439,
+      "hours_of_data": 1.0,
+      "total_resolved": 9,
+      "ts": "2026-02-21T23:17:30.995142+00:00"
+    },
+    {
+      "param": "contrarian_ceil",
+      "old": "0.45",
+      "new": "0.38",
+      "old_wr": 50.0,
+      "new_wr": 55.6,
+      "old_pnl": -0.18,
+      "new_pnl": 0.59,
+      "old_trades": 4,
+      "new_trades": 7,
+      "old_weighted_pnl": -0.18,
+      "new_weighted_pnl": 0.6,
+      "hours_of_data": 1.0,
+      "total_resolved": 9,
+      "ts": "2026-02-21T23:17:30.995142+00:00"
+    },
+    {
+      "param": "momentum_floor",
+      "old": "0.0008",
+      "new": "0.0004",
+      "old_wr": 40.0,
+      "new_wr": 45.5,
+      "old_pnl": -0.19,
+      "new_pnl": -0.14,
+      "old_trades": 3,
+      "new_trades": 9,
+      "old_weighted_pnl": -0.19,
+      "new_weighted_pnl": 0.2439,
+      "hours_of_data": 1.0,
+      "total_resolved": 9,
+      "ts": "2026-02-21T23:17:30.995643+00:00"
+    },
+    {
+      "param": "rsi_up",
+      "old": "55",
+      "new": "53",
+      "old_wr": 45.5,
+      "new_wr": 45.5,
+      "old_pnl": -0.14,
+      "new_pnl": -0.14,
+      "old_trades": 9,
+      "new_trades": 9,
+      "old_weighted_pnl": 0.2439,
+      "new_weighted_pnl": 0.2439,
+      "hours_of_data": 1.0,
+      "total_resolved": 9,
+      "ts": "2026-02-21T23:17:30.995643+00:00"
+    }
+  ],
+  "total_resolved": 9,
+  "hour_stats": {
+    "22": {
+      "wins": 0,
+      "losses": 1,
+      "pnl": -0.37,
+      "trades": 1
+    },
+    "23": {
+      "wins": 1,
+      "losses": 0,
+      "pnl": 0.6,
+      "trades": 1
+    }
+  },
+  "resolved_log": [
+    {
+      "ts": "2026-02-21T22:32:46.545065+00:00",
+      "pnl": -0.37,
+      "hour": 22,
+      "won": false,
+      "entry_price": 0.37,
+      "side": "DOWN",
+      "momentum": -0.0005497035187613285,
+      "rsi": 38.12074205332559
+    },
+    {
+      "ts": "2026-02-21T23:17:30.995142+00:00",
+      "pnl": 0.6,
+      "hour": 23,
+      "won": true,
+      "entry_price": 0.4,
+      "side": "DOWN",
+      "momentum": -0.0005383349319670308,
+      "rsi": 39.39003852102144
+    }
+  ],
+  "first_resolve_ts": "2026-02-21T22:32:46.545065+00:00"
 }
