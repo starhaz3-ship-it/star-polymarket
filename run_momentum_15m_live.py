@@ -60,6 +60,135 @@ from pid_lock import acquire_pid_lock, release_pid_lock
 from hmm_regime_filter import HMMRegimeFilter
 from adaptive_tuner import ParameterTuner, MOMENTUM_TUNER_CONFIG
 from liquidation_feed import BinanceLiqFeed
+from scipy.stats import beta as beta_dist
+
+# ============================================================================
+# V5.0: KALMAN PRICE SMOOTHER — reduces noise in Binance 1-min close prices
+# ============================================================================
+class KalmanPriceSmoother:
+    """1D Kalman filter for Binance close price smoothing.
+    Reduces momentum noise without adding lag bias."""
+    def __init__(self, process_var=1e-5, obs_var=1e-4):
+        self.x = 0.0       # state estimate
+        self.P = 1.0       # estimate uncertainty
+        self.Q = process_var  # process noise
+        self.R = obs_var      # observation noise
+        self._initialized = False
+
+    def update(self, price: float) -> float:
+        if not self._initialized:
+            self.x = price
+            self._initialized = True
+            return price
+        # Predict
+        x_pred = self.x
+        P_pred = self.P + self.Q
+        # Update
+        K = P_pred / (P_pred + self.R)
+        self.x = x_pred + K * (price - x_pred)
+        self.P = (1 - K) * P_pred
+        return self.x
+
+
+# ============================================================================
+# V5.0: LIGHTGBM SIGNAL RANKER — shadow-mode P(win) predictor
+# ============================================================================
+PM_RANKER_FEATURES = [
+    'momentum_10m', 'momentum_5m', 'rsi', 'entry_price', 'hour_utc',
+    'time_left', 'streak_len', 'bs_edge', 'consensus', 'ema_gap_bp',
+    'spike_15s', 'direction',  # 1=UP, -1=DOWN
+]
+
+try:
+    import lightgbm as lgb
+    _LGB_OK = True
+except ImportError:
+    _LGB_OK = False
+
+class PMSignalRanker:
+    """LightGBM shadow-mode P(win) predictor for Polymarket momentum trades."""
+    MODEL_PATH = Path(__file__).parent / "pm_ranker_model.txt"
+    TRAIN_PATH = Path(__file__).parent / "pm_ranker_training.json"
+
+    def __init__(self, min_samples=30, retrain_interval=50):
+        self.min_samples = min_samples
+        self.retrain_interval = retrain_interval
+        self.model = None
+        self._since_train = 0
+        if _LGB_OK and self.MODEL_PATH.exists():
+            try:
+                self.model = lgb.Booster(model_file=str(self.MODEL_PATH))
+                print(f"[PM-RANKER] Loaded model from {self.MODEL_PATH.name}")
+            except Exception:
+                self.model = None
+        if _LGB_OK:
+            print(f"[PM-RANKER] Shadow-mode signal ranker initialized")
+
+    def predict(self, features: dict) -> float:
+        if not _LGB_OK or self.model is None:
+            return 0.5
+        try:
+            arr = np.array([[float(features.get(k, 0.0)) for k in PM_RANKER_FEATURES]])
+            return float(np.clip(self.model.predict(arr)[0], 0.0, 1.0))
+        except Exception:
+            return 0.5
+
+    def record_trade(self, features: dict, won: bool):
+        if not _LGB_OK:
+            return
+        record = {
+            'features': {k: float(features.get(k, 0.0)) for k in PM_RANKER_FEATURES},
+            'won': int(won), 'ts': datetime.now(timezone.utc).isoformat(),
+        }
+        data = []
+        if self.TRAIN_PATH.exists():
+            try:
+                data = json.loads(self.TRAIN_PATH.read_text())
+            except Exception:
+                data = []
+        data.append(record)
+        if len(data) > 1000:
+            data = data[-1000:]
+        try:
+            self.TRAIN_PATH.write_text(json.dumps(data))
+        except Exception:
+            pass
+        self._since_train += 1
+        if self._since_train >= self.retrain_interval:
+            self._retrain()
+
+    def _retrain(self):
+        if not _LGB_OK or not self.TRAIN_PATH.exists():
+            return
+        try:
+            data = json.loads(self.TRAIN_PATH.read_text())
+        except Exception:
+            return
+        if len(data) < self.min_samples:
+            return
+        try:
+            X = np.array([[r['features'].get(k, 0.0) for k in PM_RANKER_FEATURES] for r in data])
+            y = np.array([r['won'] for r in data])
+            train_data = lgb.Dataset(X, label=y, feature_name=PM_RANKER_FEATURES)
+            params = {
+                'objective': 'binary', 'metric': 'auc',
+                'num_leaves': 12, 'learning_rate': 0.05,
+                'feature_fraction': 0.8, 'verbose': -1, 'num_threads': 1,
+            }
+            self.model = lgb.train(params, train_data, num_boost_round=40)
+            self.model.save_model(str(self.MODEL_PATH))
+            self._since_train = 0
+            preds = self.model.predict(X)
+            try:
+                from sklearn.metrics import roc_auc_score
+                auc = roc_auc_score(y, preds)
+                print(f"[PM-RANKER] Retrained on {len(data)} samples, AUC={auc:.3f}")
+            except Exception:
+                print(f"[PM-RANKER] Retrained on {len(data)} samples")
+        except Exception as e:
+            print(f"[PM-RANKER] Retrain failed: {e}")
+            self._since_train = 0
+
 
 # ============================================================================
 # CONFIG
@@ -503,7 +632,8 @@ class BayesianConditionTracker:
                 return f"{lo:.2f}-{hi:.2f}"
         return "other"
 
-    def should_trade(self, entry_price: float, hour_utc: int, regime: str) -> tuple:
+    def should_trade(self, entry_price: float, hour_utc: int, regime: str,
+                     direction: str = None) -> tuple:
         """Check if current conditions are historically profitable.
         Returns (should_trade: bool, skip_reason: str or None, details: dict)"""
         checks = [
@@ -523,9 +653,28 @@ class BayesianConditionTracker:
                     return (False, f"{kind}={val} ({wr:.0%} WR over {total:.0f} trades)", details)
             else:
                 details[kind] = {"bucket": val, "wr": 0.5, "trades": 0}
+
+        # V5.0: Joint Bayesian posterior — (hour + direction + price_bucket)
+        # More powerful than independent checks: captures interaction effects
+        if direction:
+            pb = self._price_bucket(entry_price)
+            joint_key = f"joint:{hour_utc}_{direction}_{pb}"
+            if joint_key in self.buckets:
+                a, b = self.buckets[joint_key]
+                total = a + b - 2
+                if total >= self.MIN_TRADES_TO_SKIP:
+                    # Bayesian credible check: P(WR > 0.40) using Beta posterior
+                    prob_above = 1.0 - beta_dist.cdf(self.MIN_WR_TO_TRADE, a, b)
+                    wr = a / (a + b)
+                    details["joint"] = {"bucket": joint_key, "wr": round(wr, 3),
+                                        "trades": max(0, total), "p_above_40": round(prob_above, 3)}
+                    if prob_above < 0.30:  # <30% chance WR exceeds 40%
+                        return (False, f"joint ({wr:.0%} WR, P(>40%)={prob_above:.0%} over {total:.0f}t)", details)
+
         return (True, None, details)
 
-    def record_outcome(self, entry_price: float, hour_utc: int, regime: str, won: bool):
+    def record_outcome(self, entry_price: float, hour_utc: int, regime: str,
+                       won: bool, direction: str = None):
         """Update all relevant condition buckets with trade outcome."""
         updates = [
             ("price", self._price_bucket(entry_price)),
@@ -540,6 +689,18 @@ class BayesianConditionTracker:
                 self.buckets[key][0] += 1
             else:
                 self.buckets[key][1] += 1
+
+        # V5.0: Joint bucket (hour + direction + price_bucket)
+        if direction:
+            pb = self._price_bucket(entry_price)
+            joint_key = f"joint:{hour_utc}_{direction}_{pb}"
+            if joint_key not in self.buckets:
+                self.buckets[joint_key] = [1, 1]
+            if won:
+                self.buckets[joint_key][0] += 1
+            else:
+                self.buckets[joint_key][1] += 1
+
         self._save()
 
     def get_report(self) -> str:
@@ -1382,6 +1543,8 @@ class Momentum15MTrader:
         self.bs_ml = BSEdgeML()          # V2.3: Black-Scholes edge ML
         self.liq_feed = BinanceLiqFeed(window_sec=600)  # V4.4: Binance liquidation feed
         self.cond_tracker = BayesianConditionTracker()  # V2.3: condition bucketing
+        self.kalman = KalmanPriceSmoother(process_var=1e-5, obs_var=1e-4)  # V5.0
+        self.pm_ranker = PMSignalRanker(min_samples=30, retrain_interval=50)  # V5.0
         self._load()
         # V3.0: Circuit breaker
         self._circuit_halt_until = 0
@@ -1925,7 +2088,10 @@ class Momentum15MTrader:
                                     trade.get("entry_price", 0.5),
                                     datetime.fromisoformat(trade.get("entry_time", now.isoformat())).hour,
                                     trade.get("_hmm_regime", "CHOPPY"),
-                                    won)
+                                    won, direction=trade.get("side"))
+                                # V5.0: LightGBM ranker feedback
+                                if trade.get("_ranker_features"):
+                                    self.pm_ranker.record_trade(trade["_ranker_features"], won)
                                 # ML TUNER: feed resolution
                                 tl_min = trade.get("_time_left", 3.0)
                                 self.tuner.resolve_shadows({
@@ -2072,7 +2238,10 @@ class Momentum15MTrader:
                                     trade.get("entry_price", 0.5),
                                     datetime.fromisoformat(trade.get("entry_time", now.isoformat())).hour,
                                     trade.get("_hmm_regime", "CHOPPY"),
-                                    won)
+                                    won, direction=trade.get("side"))
+                                # V5.0: LightGBM ranker feedback
+                                if trade.get("_ranker_features"):
+                                    self.pm_ranker.record_trade(trade["_ranker_features"], won)
 
                                 # ML TUNER: feed resolution
                                 self.tuner.resolve_shadows({
@@ -2543,13 +2712,15 @@ class Momentum15MTrader:
                 continue
 
             # Calculate momentum from 1-min candles
-            recent_closes = [c["close"] for c in candles[-3:]]
-            if recent_closes[-1] == 0 or recent_closes[0] == 0:
+            # V5.0: Kalman-smooth closes to reduce noise in momentum calculation
+            raw_closes = [c["close"] for c in candles[-3:]]
+            if raw_closes[-1] == 0 or raw_closes[0] == 0:
                 continue
+            recent_closes = [self.kalman.update(p) for p in raw_closes]
+            asset_price = raw_closes[-1]  # use raw price for display, smoothed for momentum
 
             momentum_10m = (recent_closes[-1] - recent_closes[0]) / recent_closes[0]
             momentum_5m = (recent_closes[-1] - recent_closes[-2]) / recent_closes[-2]
-            asset_price = recent_closes[-1]
 
             # EMA chop filter
             all_closes = [c["close"] for c in candles]
@@ -2793,7 +2964,7 @@ class Momentum15MTrader:
             # V2.3: Bayesian condition check — skip if bucket WR is bad
             regime = self.hmm.current_regime() or "CHOPPY"
             cond_ok, cond_skip, cond_details = self.cond_tracker.should_trade(
-                entry_price, now.hour, regime)
+                entry_price, now.hour, regime, direction=side)
             if not cond_ok:
                 print(f"[COND-SKIP] {asset}:{side} | {cond_skip}")
                 continue
@@ -3006,6 +3177,24 @@ class Momentum15MTrader:
                 "status": "open",
                 "pnl": 0.0,
             }
+
+            # V5.0: LightGBM shadow prediction — log P(win) but don't gate
+            _ranker_feats = {
+                'momentum_10m': momentum_10m, 'momentum_5m': momentum_5m,
+                'rsi': rsi_val or 50, 'entry_price': entry_price,
+                'hour_utc': now.hour, 'time_left': time_left,
+                'streak_len': streak_info["streak_len"],
+                'bs_edge': bs_edge, 'consensus': 1.0 if consensus else 0.0,
+                'ema_gap_bp': ema_gap_bp or 0.0,
+                'spike_15s': s15 if spike_boosted else 0.0,
+                'direction': 1.0 if side == "UP" else -1.0,
+            }
+            _p_win = self.pm_ranker.predict(_ranker_feats)
+            self.trades[trade_key]["_ranker_features"] = _ranker_feats
+            self.trades[trade_key]["_ranker_p_win"] = round(_p_win, 3)
+            if abs(_p_win - 0.5) > 0.01:  # only log if model has an opinion
+                print(f"    [PM-RANKER] P(win)={_p_win:.2f} (shadow)")
+
             open_count += 1
 
             # ML TUNER: shadow-track this trade — feeds Thompson sampling for ALL parameters
